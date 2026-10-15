@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+
+# Python
+.venv/
+__pycache__/
+
+# never commit secrets
+.env
+.env.*
+
+.DS_Store
+Thumbs.db

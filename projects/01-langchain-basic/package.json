@@ -1,0 +1,12 @@
+{
+  "name": "01-langchain-basic",
+  "private": true,
+  "type": "module",
+  "description": "Project 1: the smallest LangChain chain, a PromptTemplate piped into a RunnableLambda, invoked once.",
+  "scripts": {
+    "start": "node hello.js"
+  },
+  "dependencies": {
+    "@langchain/core": "1.2.17"
+  }
+}
