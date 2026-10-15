@@ -6,24 +6,39 @@ and more along the way. Every step is its own project folder, with just the code
 | Step | Project | What it adds |
 |---|---|---|
 | 1 | [`projects/01-langchain-basic`](projects/01-langchain-basic) | The smallest LangChain chain (`PromptTemplate` → `RunnableLambda`), invoked once |
+| 2 | [`projects/02-langchain-python`](projects/02-langchain-python) | The same chain in Python (`prompt \| to_text`), served by a FastAPI route |
 
 ## How the repo works
 
 ```text
 AgenticProgramming/
 └─ projects/                  one folder per step
-   └─ 01-langchain-basic/
-      ├─ hello.js             the code
-      ├─ package.json         its dependencies and `npm start`
-      └─ README.md            what it shows and how to run it
+   ├─ 01-langchain-basic/     JavaScript (Node)
+   │  ├─ hello.js             the code
+   │  ├─ package.json         its dependencies and `npm start`
+   │  └─ README.md            what it shows and how to run it
+   └─ 02-langchain-python/    Python
+      ├─ hello.py             the chain
+      ├─ main.py              the FastAPI server
+      ├─ tests/               pytest tests
+      ├─ requirements.txt     its dependencies
+      └─ README.md
 ```
 
 Each project installs and runs on its own:
 
 ```bash
+# JavaScript (from the repo root)
 cd projects/01-langchain-basic
 npm install
 npm start
+```
+
+```bash
+# Python (from the repo root)
+cd projects/02-langchain-python
+pip install -r requirements-dev.txt
+python hello.py
 ```
 
 ## Adding the next step

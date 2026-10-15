@@ -4,6 +4,7 @@ node_modules/
 # Python
 .venv/
 __pycache__/
+.pytest_cache/
 
 # never commit secrets
 .env
