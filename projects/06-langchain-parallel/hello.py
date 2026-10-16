@@ -2,7 +2,7 @@
 Project 6: one input, several results at once. The greeting goes into a RunnableParallel, which runs three steps
 side by side on it and returns a dict; then RunnablePassthrough.assign() adds one more key.
 
-    prompt | to_text | RunnableParallel(original, upper, length) | RunnablePassthrough.assign(shout)
+    prompt | to_text | RunnableParallel(original, upper, length) | RunnablePassthrough.assign(shout=make_shout)
 
 Run it on its own:   python hello.py         ->   the four results for "Raghu", then the chain's graph
                      python hello.py Asha    ->   the same for "Asha"
@@ -30,11 +30,12 @@ side_by_side = RunnableParallel(
 
 
 # ④ .assign() takes the dict, keeps every key, and adds one computed from it.
-def shout(result: dict) -> str:
+#    In .assign(shout=make_shout), shout is the name of the new key and make_shout is the function that computes it.
+def make_shout(result: dict) -> str:
     return result["upper"].replace("!", "!!!")
 
 
-add_shout = RunnablePassthrough.assign(shout=shout)
+add_shout = RunnablePassthrough.assign(shout=make_shout)
 
 # ⑤ Join them. The input is {"name": ...}; the output is {"original", "upper", "length", "shout"}.
 chain = prompt | to_text | side_by_side | add_shout

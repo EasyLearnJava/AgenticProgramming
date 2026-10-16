@@ -44,7 +44,7 @@ def test_chain_returns_all_four_results():
 def test_chain_graph_shows_the_parallel_steps():
     mermaid = chain.get_graph().draw_mermaid()
     assert "graph TD" in mermaid
-    for step in ["PromptTemplate", "to_text", "Passthrough", "upper", "len", "shout"]:
+    for step in ["PromptTemplate", "to_text", "Passthrough", "upper", "len", "make_shout"]:
         assert step in mermaid
 
 

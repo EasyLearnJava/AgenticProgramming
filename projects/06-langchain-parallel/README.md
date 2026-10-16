@@ -21,7 +21,7 @@ same time, is passed through unchanged, so the next step gets both:
 
 - `RunnableParallel(a=…, b=…)`: gives the same input to every step and returns `{"a": …, "b": …}`
 - `RunnablePassthrough()`: passes its input through unchanged, so the original stays in the result
-- `RunnablePassthrough.assign(key=…)`: takes a dict, keeps every key, and adds one computed from it
+- `RunnablePassthrough.assign(key=function)`: takes a dict, keeps every key, and adds `key`, computed by `function(dict)`
 - `chain.get_graph().draw_mermaid()`: LangChain draws the chain's shape for you
 
 ## Files
@@ -46,7 +46,7 @@ side_by_side = RunnableParallel(
     upper=RunnableLambda(str.upper),      # the input in capitals
     length=RunnableLambda(len),           # how many characters
 )
-add_shout = RunnablePassthrough.assign(shout=shout)   # shout() reads result["upper"]
+add_shout = RunnablePassthrough.assign(shout=make_shout)   # key "shout" = make_shout(result), which reads result["upper"]
 
 chain = prompt | to_text | side_by_side | add_shout
 ```
@@ -84,9 +84,9 @@ graph TD
   upper --> dict
   length --> dict
   dict --> keep[Passthrough: keep every key]
-  dict --> shout[shout]
+  dict --> make_shout[make_shout]
   keep --> output([original, upper, length, shout])
-  shout --> output
+  make_shout --> output
 ```
 
 To see the real one drawn, paste the printed text into https://mermaid.live.
