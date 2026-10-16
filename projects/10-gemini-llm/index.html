@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 10: First real LLM call</title>
+</head>
+<body>
+  <h1>Project 10: First real LLM call</h1>
+  <form id="form">
+    <label>Your name <input id="name" autocomplete="off"></label>
+    <button id="run">Ask Gemini</button>
+  </form>
+  <p id="answer">Type a name and click the button. Click again: Gemini writes a different welcome each time.</p>
+
+  <script>
+    // Each submit sends the name to the server (main.py's POST /api/hello). The server calls Gemini with its key
+    // and sends back only the answer: this page never sees the key.
+    const form = document.getElementById("form");
+    const nameBox = document.getElementById("name");
+    const button = document.getElementById("run");
+    const answer = document.getElementById("answer");
+
+    const FRIENDLY = {
+      string_too_short: "Please type a name first.",
+      string_too_long: "That name is too long: 40 characters at most.",
+    };
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();               // stay on this page: the form would otherwise reload it
+      button.disabled = true;               // one call at a time: each click is a real, paid call
+      answer.textContent = "Asking Gemini…";
+      try {
+        const res = await fetch("/api/hello", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: nameBox.value }),
+        });
+        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (res.status === 422) {
+          answer.textContent = FRIENDLY[data.detail[0].type] ?? `Not a valid name: ${data.detail[0].msg}`;
+        } else if (res.status === 502) {
+          answer.textContent = `${data.detail} The server's terminal says why.`;
+        } else {
+          answer.textContent = data.answer;
+        }
+      } catch (err) {
+        answer.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
