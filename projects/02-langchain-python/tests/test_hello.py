@@ -33,10 +33,7 @@ def test_running_hello_py_prints_the_message():
 def test_api_returns_the_answer():
     response = TestClient(app).get("/api/hello")
     assert response.status_code == 200
-    body = response.json()
-    assert body["answer"] == MESSAGE
-    assert body["server_ms"] >= 0
-    assert body["python"].startswith("3.")
+    assert response.json() == {"answer": MESSAGE}
 
 
 @pytest.mark.parametrize("path", ["/", "/index.html"])
