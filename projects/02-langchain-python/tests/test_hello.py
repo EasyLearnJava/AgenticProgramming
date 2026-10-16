@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from hello import chain, prompt, to_text
@@ -38,8 +39,9 @@ def test_api_returns_the_answer():
     assert body["python"].startswith("3.")
 
 
-def test_page_is_served_and_calls_the_api():
-    response = TestClient(app).get("/")
+@pytest.mark.parametrize("path", ["/", "/index.html"])
+def test_page_is_served_and_calls_the_api(path):
+    response = TestClient(app).get(path)
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert 'fetch("/api/hello")' in response.text

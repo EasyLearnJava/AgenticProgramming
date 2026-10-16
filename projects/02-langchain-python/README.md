@@ -16,7 +16,7 @@ which is how production apps run LangChain: on a server. No model, no API key.
 | File | What it is |
 |---|---|
 | `hello.py` | The chain: `prompt \| to_text`. Run it on its own with `python hello.py` |
-| `main.py` | FastAPI: `GET /` serves the page, `GET /api/hello` runs the chain with `await chain.ainvoke({})` and returns JSON |
+| `main.py` | FastAPI: `GET /` (or `/index.html`) serves the page, `GET /api/hello` runs the chain with `await chain.ainvoke({})` and returns JSON |
 | `index.html` | The page: on load, `fetch("/api/hello")` and show the answer |
 | `tests/test_hello.py` | Tests the chain, the prompt's object vs `to_text`'s string, `hello.py` as a script, the endpoint and the page |
 | `requirements.txt` | `fastapi`, `uvicorn`, `langchain-core` |
@@ -40,7 +40,7 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 
 python hello.py                    # just the chain: Hello World, welcome to LangChain!
-python -m pytest                   # 5 tests
+python -m pytest                   # 6 tests
 
 uvicorn main:app --reload          # the server (Ctrl+C to stop)
 ```
@@ -49,7 +49,7 @@ With the server running, open:
 
 | What | On your laptop | In GitHub Codespaces |
 |---|---|---|
-| The page (calls the server on load) | http://127.0.0.1:8000 | `https://<codespace-name>-8000.app.github.dev` |
+| The page (calls the server on load) | http://127.0.0.1:8000 or `/index.html` | `https://<codespace-name>-8000.app.github.dev` or `/index.html` |
 | The raw JSON | http://127.0.0.1:8000/api/hello | `https://<codespace-name>-8000.app.github.dev/api/hello` |
 | FastAPI's API docs | http://127.0.0.1:8000/docs | `https://<codespace-name>-8000.app.github.dev/docs` |
 
