@@ -9,6 +9,7 @@ and more along the way. Every step is its own project folder, with just the code
 | 2 | [`projects/02-langchain-python`](projects/02-langchain-python) | The same chain in Python (`prompt \| to_text`), served by a FastAPI route |
 | 3 | [`projects/03-langchain-button`](projects/03-langchain-button) | Nothing runs on load: each button click calls the server once |
 | 4 | [`projects/04-langchain-input`](projects/04-langchain-input) | One input: a `{name}` in the template, sent as a JSON `POST`, checked by Pydantic (422 on a bad name) |
+| 5 | [`projects/05-langchain-inputs`](projects/05-langchain-inputs) | Three inputs (greeting, name, city), a default with `prompt.partial()`, `Literal` choices and per-field errors |
 
 ## How the repo works
 
@@ -27,7 +28,8 @@ AgenticProgramming/
    │  ├─ requirements.txt     its dependencies
    │  └─ README.md
    ├─ 03-langchain-button/    Python, same files as 02; index.html calls the server on a button click
-   └─ 04-langchain-input/     Python, same files as 02; the page sends a name, main.py checks it
+   ├─ 04-langchain-input/     Python, same files as 02; the page sends a name, main.py checks it
+   └─ 05-langchain-inputs/    Python, same files as 02; greeting, name and city, each checked on its own
 ```
 
 Each project installs and runs on its own:
@@ -40,7 +42,7 @@ npm start
 ```
 
 ```bash
-# Python (from the repo root): the same for 02-langchain-python, 03-langchain-button and 04-langchain-input
+# Python (from the repo root): the same for every Python project, 02 to 05
 cd projects/02-langchain-python
 pip install -r requirements-dev.txt
 python hello.py               # just the chain, in the terminal

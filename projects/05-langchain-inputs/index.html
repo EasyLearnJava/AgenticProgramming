@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 5: Pass several inputs</title>
+  <style>.error { color: #c00; }</style>
+</head>
+<body>
+  <h1>Project 5: Pass several inputs</h1>
+  <!-- No maxlength or required on the boxes on purpose: the server does the checking, so you can see its 422. -->
+  <form id="form">
+    <p>
+      <label>Greeting
+        <select id="greeting">
+          <option value="">(default: Hello)</option>
+          <option>Hello</option>
+          <option>Good morning</option>
+          <option>Namaste</option>
+          <option value="Hi">Hi (not allowed: see the 422)</option>
+        </select>
+      </label>
+      <span class="error" id="greeting-error"></span>
+    </p>
+    <p><label>Name <input id="name" autocomplete="off"></label> <span class="error" id="name-error"></span></p>
+    <p><label>City <input id="city" autocomplete="off"></label> <span class="error" id="city-error"></span></p>
+    <button id="run">Say hello</button>
+  </form>
+  <p id="answer">Fill in the boxes and click the button.</p>
+
+  <script>
+    // Nothing runs on load. Each submit (click or Enter) sends the fields to the backend (main.py's POST /api/hello),
+    // which runs hello.py's chain with them.
+    const FIELDS = ["greeting", "name", "city"];
+    const form = document.getElementById("form");
+    const button = document.getElementById("run");
+    const answer = document.getElementById("answer");
+    const value = (field) => document.getElementById(field).value;
+    const errorBox = (field) => document.getElementById(`${field}-error`);
+
+    // Each 422 error says what was wrong in its type; turn the ones we expect into plain words.
+    const FRIENDLY = {
+      missing: "Required.",
+      string_too_short: "Please fill this in.",
+      string_too_long: "Too long: 40 characters at most.",
+      literal_error: "Pick Hello, Good morning or Namaste.",
+    };
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();               // stay on this page: the form would otherwise reload it
+      button.disabled = true;               // one request at a time
+      FIELDS.forEach((field) => { errorBox(field).textContent = ""; });
+      answer.textContent = "Asking the server…";
+
+      // Send name and city always; send greeting only when one is picked, so the server's default can apply.
+      const body = { name: value("name"), city: value("city") };
+      if (value("greeting")) body.greeting = value("greeting");
+
+      try {
+        const res = await fetch("/api/hello", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res.status === 422) {
+          // One entry per bad field. loc says which field: ["body", "name"] -> "name".
+          const error = await res.json();
+          error.detail.forEach((problem) => {
+            errorBox(problem.loc.at(-1)).textContent = FRIENDLY[problem.type] ?? problem.msg;
+          });
+          answer.textContent = "Please fix the fields marked in red.";
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        answer.textContent = data.answer;
+      } catch (err) {
+        answer.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
