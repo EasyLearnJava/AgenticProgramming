@@ -1,0 +1,6 @@
+# Streamlit reads this file when you run `streamlit run app.py` from this folder.
+[server]
+headless = true            # don't ask for an email on the first run, and don't try to open a browser
+
+[browser]
+gatherUsageStats = false   # don't send usage statistics to Streamlit

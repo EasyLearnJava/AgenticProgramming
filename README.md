@@ -12,6 +12,7 @@ and more along the way. Every step is its own project folder, with just the code
 | 5 | [`projects/05-langchain-inputs`](projects/05-langchain-inputs) | Three inputs (greeting, name, city), a default with `prompt.partial()`, `Literal` choices and per-field errors |
 | 6 | [`projects/06-langchain-parallel`](projects/06-langchain-parallel) | One input, several results: `RunnableParallel`, `RunnablePassthrough`, `.assign()` and the chain's graph |
 | 7 | [`projects/07-langchain-branch`](projects/07-langchain-branch) | `RunnableBranch` picks a formal or casual path; `batch()` greets a list in one call, with `max_concurrency` |
+| 8 | [`projects/08-vibecode-data-app`](projects/08-vibecode-data-app) | A Streamlit app over a fruit-sales CSV (filters, totals, two charts), built with an AI coding assistant, one mini-spec at a time |
 
 ## How the repo works
 
@@ -33,7 +34,8 @@ AgenticProgramming/
    ├─ 04-langchain-input/     Python, same files as 02; the page sends a name, main.py checks it
    ├─ 05-langchain-inputs/    Python, same files as 02; greeting, name and city, each checked on its own
    ├─ 06-langchain-parallel/  Python, same files as 02; one name in, four results out, plus the chain's graph
-   └─ 07-langchain-branch/    Python, same files as 02; two paths picked by the input, and a batch endpoint
+   ├─ 07-langchain-branch/    Python, same files as 02; two paths picked by the input, and a batch endpoint
+   └─ 08-vibecode-data-app/   Python with Streamlit: app.py (the page), data.py (pandas), fruit_sales.csv, tests/
 ```
 
 Each project installs and runs on its own:
@@ -53,8 +55,15 @@ python hello.py               # just the chain, in the terminal
 uvicorn main:app --reload     # the server: open http://127.0.0.1:8000 for the page
 ```
 
-In GitHub Codespaces, open the server from the **Ports** tab (port 8000) instead of `127.0.0.1`:
-`https://<codespace-name>-8000.app.github.dev`. See [project 2's README](projects/02-langchain-python/README.md).
+```bash
+# Streamlit (project 08)
+cd projects/08-vibecode-data-app
+pip install -r requirements-dev.txt
+streamlit run app.py          # open http://localhost:8501
+```
+
+In GitHub Codespaces, open the server from the **Ports** tab (port 8000, or 8501 for Streamlit) instead of
+`127.0.0.1`: `https://<codespace-name>-8000.app.github.dev`. See [project 2's README](projects/02-langchain-python/README.md).
 Only one server can use port 8000 at a time: stop one project's server (Ctrl+C) before starting another.
 
 ## Adding the next step
