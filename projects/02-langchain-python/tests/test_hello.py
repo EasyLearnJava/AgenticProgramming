@@ -1,4 +1,4 @@
-"""Tests for project 2: the chain itself, running hello.py as a script, and the /api/hello endpoint."""
+"""Tests for project 2: the chain itself, running hello.py as a script, the /api/hello endpoint and the page."""
 import subprocess
 import sys
 from pathlib import Path
@@ -36,3 +36,10 @@ def test_api_returns_the_answer():
     assert body["answer"] == MESSAGE
     assert body["server_ms"] >= 0
     assert body["python"].startswith("3.")
+
+
+def test_page_is_served_and_calls_the_api():
+    response = TestClient(app).get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert 'fetch("/api/hello")' in response.text

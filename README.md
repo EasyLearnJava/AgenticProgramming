@@ -20,6 +20,7 @@ AgenticProgramming/
    └─ 02-langchain-python/    Python
       ├─ hello.py             the chain
       ├─ main.py              the FastAPI server
+      ├─ index.html           the page that calls the server on load
       ├─ tests/               pytest tests
       ├─ requirements.txt     its dependencies
       └─ README.md
@@ -38,8 +39,12 @@ npm start
 # Python (from the repo root)
 cd projects/02-langchain-python
 pip install -r requirements-dev.txt
-python hello.py
+python hello.py               # just the chain, in the terminal
+uvicorn main:app --reload     # the server: open http://127.0.0.1:8000 and the page calls it
 ```
+
+In GitHub Codespaces, open the server from the **Ports** tab (port 8000) instead of `127.0.0.1`:
+`https://<codespace-name>-8000.app.github.dev`. See [project 2's README](projects/02-langchain-python/README.md).
 
 ## Adding the next step
 
