@@ -18,8 +18,6 @@
       })
       .then((data) => {
         document.getElementById("answer").textContent = data.answer;
-        document.getElementById("details").textContent =
-          `Python ${data.python} · langchain-core ${data.langchain_core} · ${data.server_ms} ms on the server`;
       })
       .catch((err) => {
         document.getElementById("answer").textContent = `Could not reach the server: ${err.message}`;

@@ -37,5 +37,4 @@ async def hello():
     # ainvoke() is invoke()'s async twin: the server can serve other requests while this one waits.
     answer = await chain.ainvoke({})
     server_ms = round((time.perf_counter() - start) * 1000, 2)
-    return {"answer": answer, "python": platform.python_version(), "langchain_core": version("langchain-core"),
-            "server_ms": server_ms}
+    return {"answer": answer}
