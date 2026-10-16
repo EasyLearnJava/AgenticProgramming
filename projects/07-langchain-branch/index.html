@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 7: Branch and batch a chain</title>
+</head>
+<body>
+  <h1>Project 7: Branch and batch a chain</h1>
+
+  <h2>One greeting: the style picks the branch</h2>
+  <form id="one-form">
+    <label>Your name <input id="name" autocomplete="off"></label>
+    <label><input type="radio" name="style" value="formal"> formal</label>
+    <label><input type="radio" name="style" value="casual" checked> casual</label>
+    <button id="one-run">Say hello</button>
+  </form>
+  <p id="one-answer">Type a name, pick a style and click the button.</p>
+
+  <h2>A batch: many people, one call</h2>
+  <p>One person per line, as <code>name,style</code> (style is <code>formal</code> or <code>casual</code>).</p>
+  <form id="batch-form">
+    <textarea id="people" rows="6" cols="30">Raghu,formal
+Asha,casual
+Ken,formal
+Mia,casual
+Li,casual</textarea>
+    <br>
+    <button id="batch-run">Greet them all</button>
+  </form>
+  <p id="batch-status"></p>
+  <ol id="batch-answers"></ol>
+
+  <script>
+    // Each 422 error says what was wrong in its type; turn the ones we expect into plain words.
+    const FRIENDLY = {
+      missing: "missing",
+      string_too_short: "please fill this in",
+      string_too_long: "too long: 40 characters at most",
+      literal_error: "must be formal or casual",
+      too_short: "add at least one person",
+      too_long: "10 people at most",
+    };
+    const explain = (problem) => FRIENDLY[problem.type] ?? problem.msg;
+
+    // POST some JSON and give back [status, body].
+    async function post(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status !== 200 && res.status !== 422) throw new Error(`HTTP ${res.status}`);
+      return [res.status, await res.json()];
+    }
+
+    // One greeting: POST /api/hello with {"name", "style"}.
+    const oneButton = document.getElementById("one-run");
+    const oneAnswer = document.getElementById("one-answer");
+    document.getElementById("one-form").addEventListener("submit", async (event) => {
+      event.preventDefault();               // stay on this page: the form would otherwise reload it
+      oneButton.disabled = true;
+      oneAnswer.textContent = "Asking the server…";
+      const style = document.querySelector('input[name="style"]:checked').value;
+      try {
+        const [status, data] = await post("/api/hello", { name: document.getElementById("name").value, style });
+        oneAnswer.textContent = status === 422
+          ? data.detail.map((p) => `${p.loc.at(-1)}: ${explain(p)}`).join("; ")
+          : data.answer;
+      } catch (err) {
+        oneAnswer.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        oneButton.disabled = false;
+      }
+    });
+
+    // A batch: POST /api/batch with {"people": [{"name", "style"}, ...]}, one entry per line.
+    const batchButton = document.getElementById("batch-run");
+    const batchStatus = document.getElementById("batch-status");
+    const batchAnswers = document.getElementById("batch-answers");
+    document.getElementById("batch-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      batchButton.disabled = true;
+      batchStatus.textContent = "Asking the server…";
+      batchAnswers.replaceChildren();
+      const people = document.getElementById("people").value
+        .split("\n")
+        .filter((line) => line.trim())
+        .map((line) => {
+          const [name, style = ""] = line.split(",");
+          return { name, style: style.trim() };
+        });
+      try {
+        const [status, data] = await post("/api/batch", { people });
+        if (status === 422) {
+          // loc is ["body", "people", 1, "style"] for line 2's style, or ["body", "people"] for the list itself.
+          batchStatus.textContent = data.detail
+            .map((p) => (p.loc.length > 3 ? `Line ${p.loc[2] + 1}, ${p.loc[3]}: ` : "") + explain(p))
+            .join("; ");
+          return;
+        }
+        batchStatus.textContent = `${people.length} people in, ${data.answers.length} greetings out, one call:`;
+        data.answers.forEach((answer) => {
+          const item = document.createElement("li");
+          item.textContent = answer;
+          batchAnswers.append(item);
+        });
+      } catch (err) {
+        batchStatus.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        batchButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
