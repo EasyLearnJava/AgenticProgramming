@@ -9,6 +9,7 @@ __pycache__/
 # never commit secrets
 .env
 .env.*
+!.env.example
 
 .DS_Store
 Thumbs.db

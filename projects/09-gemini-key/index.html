@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 9: Keep the Gemini key secret</title>
+</head>
+<body>
+  <h1>Project 9: Keep the Gemini key secret</h1>
+  <p id="status">Asking the server…</p>
+  <p>This page never gets the key. Check it yourself: view the page source, and look at the
+    <code>/api/status</code> request in the browser's Network tab.</p>
+
+  <script>
+    // Ask the server about the key when the page opens. The answer is only true or false.
+    fetch("/api/status")
+      .then((res) => res.json())
+      .then((data) => {
+        document.getElementById("status").textContent = data.key_set
+          ? "The server has a Gemini key (GOOGLE_API_KEY is set)."
+          : "The server has no Gemini key.";
+      })
+      .catch((err) => {
+        document.getElementById("status").textContent = `Could not reach the server: ${err.message}`;
+      });
+  </script>
+</body>
+</html>

@@ -13,6 +13,7 @@ and more along the way. Every step is its own project folder, with just the code
 | 6 | [`projects/06-langchain-parallel`](projects/06-langchain-parallel) | One input, several results: `RunnableParallel`, `RunnablePassthrough`, `.assign()` and the chain's graph |
 | 7 | [`projects/07-langchain-branch`](projects/07-langchain-branch) | `RunnableBranch` picks a formal or casual path; `batch()` greets a list in one call, with `max_concurrency` |
 | 8 | [`projects/08-vibecode-data-app`](projects/08-vibecode-data-app) | A Streamlit app over a fruit-sales CSV (filters, totals, two charts), built with an AI coding assistant, one mini-spec at a time |
+| 9 | [`projects/09-gemini-key`](projects/09-gemini-key) | A Gemini API key, kept secret: loaded from `.env` with `python-dotenv`, checked at start-up, never sent to the page or committed |
 
 ## How the repo works
 
@@ -35,8 +36,12 @@ AgenticProgramming/
    ├─ 05-langchain-inputs/    Python, same files as 02; greeting, name and city, each checked on its own
    ├─ 06-langchain-parallel/  Python, same files as 02; one name in, four results out, plus the chain's graph
    ├─ 07-langchain-branch/    Python, same files as 02; two paths picked by the input, and a batch endpoint
-   └─ 08-vibecode-data-app/   Python with Streamlit: app.py (the page), data.py (pandas), fruit_sales.csv, tests/
+   ├─ 08-vibecode-data-app/   Python with Streamlit: app.py (the page), data.py (pandas), fruit_sales.csv, tests/
+   └─ 09-gemini-key/          Python: config.py (loads and checks the key), main.py, index.html, .env.example, tests/
 ```
+
+From project 9 on, a project may need your Gemini API key. It goes in that project's `.env` file (copied from
+`.env.example`) or in a Codespaces secret, never in git. See [project 9's README](projects/09-gemini-key/README.md).
 
 Each project installs and runs on its own:
 
