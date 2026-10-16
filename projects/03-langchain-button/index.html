@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 3: Run on a button click</title>
+</head>
+<body>
+  <h1>Project 3: Run on a button click</h1>
+  <button id="run">Run the chain</button>
+  <p id="answer">Nothing has run yet. Click the button.</p>
+  <p id="clicks">Clicks: 0</p>
+
+  <script>
+    // Nothing runs on load. Each click calls the backend (main.py's GET /api/hello) once, which runs hello.py's chain.
+    const button = document.getElementById("run");
+    const answer = document.getElementById("answer");
+    const clicks = document.getElementById("clicks");
+    let count = 0;
+
+    button.addEventListener("click", async () => {
+      count += 1;
+      clicks.textContent = `Clicks: ${count}`;
+      button.disabled = true;               // one request at a time: no new click while this one is waiting
+      answer.textContent = "Asking the server…";
+      try {
+        // cache: "no-store" makes every click a real request to the server, never a cached answer.
+        const res = await fetch("/api/hello", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        answer.textContent = data.answer;
+      } catch (err) {
+        answer.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

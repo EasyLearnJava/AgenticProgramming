@@ -7,6 +7,7 @@ and more along the way. Every step is its own project folder, with just the code
 |---|---|---|
 | 1 | [`projects/01-langchain-basic`](projects/01-langchain-basic) | The smallest LangChain chain (`PromptTemplate` → `RunnableLambda`), invoked once |
 | 2 | [`projects/02-langchain-python`](projects/02-langchain-python) | The same chain in Python (`prompt \| to_text`), served by a FastAPI route |
+| 3 | [`projects/03-langchain-button`](projects/03-langchain-button) | Nothing runs on load: each button click calls the server once |
 
 ## How the repo works
 
@@ -17,13 +18,14 @@ AgenticProgramming/
    │  ├─ hello.js             the code
    │  ├─ package.json         its dependencies and `npm start`
    │  └─ README.md            what it shows and how to run it
-   └─ 02-langchain-python/    Python
-      ├─ hello.py             the chain
-      ├─ main.py              the FastAPI server
-      ├─ index.html           the page that calls the server on load
-      ├─ tests/               pytest tests
-      ├─ requirements.txt     its dependencies
-      └─ README.md
+   ├─ 02-langchain-python/    Python
+   │  ├─ hello.py             the chain
+   │  ├─ main.py              the FastAPI server
+   │  ├─ index.html           the page that calls the server on load
+   │  ├─ tests/               pytest tests
+   │  ├─ requirements.txt     its dependencies
+   │  └─ README.md
+   └─ 03-langchain-button/    Python, same files as 02; index.html calls the server on a button click
 ```
 
 Each project installs and runs on its own:
@@ -36,15 +38,16 @@ npm start
 ```
 
 ```bash
-# Python (from the repo root)
+# Python (from the repo root): use 02-langchain-python or 03-langchain-button
 cd projects/02-langchain-python
 pip install -r requirements-dev.txt
 python hello.py               # just the chain, in the terminal
-uvicorn main:app --reload     # the server: open http://127.0.0.1:8000 and the page calls it
+uvicorn main:app --reload     # the server: open http://127.0.0.1:8000 for the page
 ```
 
 In GitHub Codespaces, open the server from the **Ports** tab (port 8000) instead of `127.0.0.1`:
 `https://<codespace-name>-8000.app.github.dev`. See [project 2's README](projects/02-langchain-python/README.md).
+Only one server can use port 8000 at a time: stop one project's server (Ctrl+C) before starting another.
 
 ## Adding the next step
 
