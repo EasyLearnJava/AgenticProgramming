@@ -103,6 +103,8 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 
+cp .env.example .env               # once: then open .env and replace your-key-here with your key
+                                   # (skip this if you use a Codespaces secret instead; see step 3)
 python config.py                   # GOOGLE_API_KEY is set.  (or a message saying what to do)
 python -m pytest                   # 13 tests; they use fake keys, so they pass with or without your real one
 
