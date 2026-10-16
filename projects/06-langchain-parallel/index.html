@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 6: Run steps side by side</title>
+</head>
+<body>
+  <h1>Project 6: Run steps side by side</h1>
+  <form id="form">
+    <label>Your name <input id="name" autocomplete="off"></label>
+    <button id="run">Run the chain</button>
+  </form>
+  <p id="status">Type a name and click the button: one call, four results.</p>
+  <table border="1" cellpadding="6">
+    <tr><th>Key</th><th>Made by</th><th>Value</th></tr>
+    <tr><td>original</td><td>RunnablePassthrough() (the input, unchanged)</td><td id="original"></td></tr>
+    <tr><td>upper</td><td>RunnableLambda(str.upper)</td><td id="upper"></td></tr>
+    <tr><td>length</td><td>RunnableLambda(len)</td><td id="length"></td></tr>
+    <tr><td>shout</td><td>RunnablePassthrough.assign(shout=…) (added afterwards)</td><td id="shout"></td></tr>
+  </table>
+
+  <h2>The chain's graph</h2>
+  <p>Drawn by <code>chain.get_graph().draw_mermaid()</code>. Paste it into https://mermaid.live to see the picture.</p>
+  <pre id="graph">Loading…</pre>
+
+  <script>
+    const KEYS = ["original", "upper", "length", "shout"];
+    const form = document.getElementById("form");
+    const nameBox = document.getElementById("name");
+    const button = document.getElementById("run");
+    const status = document.getElementById("status");
+
+    const FRIENDLY = {
+      string_too_short: "Please type a name first.",
+      string_too_long: "That name is too long: 40 characters at most.",
+    };
+
+    // The graph doesn't depend on the name, so the page asks for it once, on load (GET /api/graph).
+    fetch("/api/graph")
+      .then((res) => res.json())
+      .then((data) => { document.getElementById("graph").textContent = data.mermaid; })
+      .catch((err) => { document.getElementById("graph").textContent = `Could not load the graph: ${err.message}`; });
+
+    // Each submit sends the name to POST /api/hello; the one answer holds all four results.
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();               // stay on this page: the form would otherwise reload it
+      button.disabled = true;               // one request at a time
+      KEYS.forEach((key) => { document.getElementById(key).textContent = ""; });
+      status.textContent = "Asking the server…";
+      try {
+        const res = await fetch("/api/hello", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: nameBox.value }),
+        });
+        if (res.status === 422) {
+          const error = await res.json();
+          status.textContent = FRIENDLY[error.detail[0].type] ?? `Not a valid name: ${error.detail[0].msg}`;
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();      // {"original": ..., "upper": ..., "length": ..., "shout": ...}
+        KEYS.forEach((key) => { document.getElementById(key).textContent = data[key]; });
+        status.textContent = "One call, four results:";
+      } catch (err) {
+        status.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
