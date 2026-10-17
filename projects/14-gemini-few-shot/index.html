@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 14: Few-shot examples</title>
+</head>
+<body>
+  <h1>Project 14: Few-shot examples</h1>
+  <p>System prompt (the same for both): <b id="system"></b></p>
+
+  <h2>The examples (only the "with examples" answers see these)</h2>
+  <div id="examples"></div>
+
+  <h2>Compare</h2>
+  <p>One question per line, 10 at most. Each question is asked twice: 2 calls per question.</p>
+  <form id="form">
+    <textarea id="questions" rows="10" cols="40"></textarea>
+    <br>
+    <button id="run">Compare</button>
+  </form>
+  <p id="status"></p>
+
+  <table border="1" cellpadding="6">
+    <thead><tr><th>Question</th><th>Without examples</th><th>Format?</th><th>With examples</th><th>Format?</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <script>
+    const status = document.getElementById("status");
+    const rows = document.getElementById("rows");
+    const button = document.getElementById("run");
+
+    // A cell whose text keeps its line breaks.
+    function cell(text) {
+      const td = document.createElement("td");
+      td.style.whiteSpace = "pre-wrap";
+      td.textContent = text;
+      return td;
+    }
+
+    // Show the system prompt, the examples and the default questions when the page opens.
+    fetch("/api/setup")
+      .then((res) => res.json())
+      .then((setup) => {
+        document.getElementById("system").textContent = setup.system_prompt;
+        for (const example of setup.examples) {
+          const pre = document.createElement("pre");
+          pre.textContent = `Q: ${example.question}\nA: ${example.answer}`;
+          document.getElementById("examples").append(pre);
+        }
+        document.getElementById("questions").value = setup.questions.join("\n");
+      });
+
+    document.getElementById("form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const questions = document.getElementById("questions").value.split("\n").filter((q) => q.trim());
+      button.disabled = true;
+      rows.replaceChildren();
+      status.textContent = `Asking Gemini ${questions.length * 2} times…`;
+      try {
+        const res = await fetch("/api/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ questions }),
+        });
+        if (res.status === 422) {
+          status.textContent = "Type 1 to 10 questions, one per line, each 200 characters at most.";
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { results } = await res.json();
+
+        let withOk = 0, withoutOk = 0, answered = 0;
+        for (const r of results) {
+          const tr = document.createElement("tr");
+          tr.append(cell(r.question));
+          if (r.error) {
+            const td = cell(r.error);
+            td.colSpan = 4;
+            tr.append(td);
+          } else {
+            answered += 1;
+            withoutOk += r.without_ok;
+            withOk += r.with_ok;
+            tr.append(cell(r.without), cell(r.without_ok ? "✔" : "✘"), cell(r.with), cell(r.with_ok ? "✔" : "✘"));
+          }
+          rows.append(tr);
+        }
+        status.textContent = `Followed the format: without examples ${withoutOk} of ${answered}, `
+          + `with examples ${withOk} of ${answered}.`
+          + (answered < results.length ? ` ${results.length - answered} question(s) got no answer.` : "");
+      } catch (err) {
+        status.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
