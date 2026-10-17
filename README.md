@@ -17,6 +17,7 @@ and more along the way. Every step is its own project folder, with just the code
 | 10 | [`projects/10-gemini-llm`](projects/10-gemini-llm) | The first real LLM call: `prompt \| ChatGoogleGenerativeAI \| StrOutputParser`, Gemini writes the greeting; plain tests plus one live test |
 | 11 | [`projects/11-gemini-tokens`](projects/11-gemini-tokens) | What each call costs: tokens counted before and after (`count_tokens`, `usage_metadata`), latency, price per call, and `max_output_tokens` cutting the answer off |
 | 12 | [`projects/12-gemini-stream`](projects/12-gemini-stream) | Streaming: `chain.astream()` → FastAPI `StreamingResponse` → the page's `getReader()` loop, with the time to the first words |
+| 13 | [`projects/13-gemini-system-prompt`](projects/13-gemini-system-prompt) | The system prompt: `ChatPromptTemplate` with system and human messages; one question answered for a beginner and an expert |
 
 ## How the repo works
 
@@ -43,7 +44,8 @@ AgenticProgramming/
    ├─ 09-gemini-key/          Python: config.py (loads and checks the key), main.py, index.html, .env.example, tests/
    ├─ 10-gemini-llm/          Python, same files as 02 plus config.py and .env.example; Gemini writes the answer
    ├─ 11-gemini-tokens/       Python, same files as 10; each answer comes with its tokens, time and cost
-   └─ 12-gemini-stream/       Python, same files as 10; the answer streams to the page as Gemini writes it
+   ├─ 12-gemini-stream/       Python, same files as 10; the answer streams to the page as Gemini writes it
+   └─ 13-gemini-system-prompt/ Python, same files as 10; two system prompts, two audiences, one question
 ```
 
 From project 9 on, a project may need your Gemini API key. It goes in that project's `.env` file (copied from

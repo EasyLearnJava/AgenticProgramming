@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 13: The system prompt</title>
+</head>
+<body>
+  <h1>Project 13: The system prompt</h1>
+  <form id="form">
+    <label>Your question <input id="question" size="50" value="What is an API?" autocomplete="off"></label>
+    <button id="run">Ask both</button>
+  </form>
+  <p id="status">One question, two system prompts. Only the system prompt is different.</p>
+
+  <table border="1" cellpadding="6">
+    <thead><tr><th></th><th>For a beginner</th><th>For an expert</th></tr></thead>
+    <tbody>
+      <tr><th>System prompt</th><td id="beginner-prompt"></td><td id="expert-prompt"></td></tr>
+      <tr><th>Answer</th><td id="beginner-answer"></td><td id="expert-answer"></td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    const show = (id, text) => { document.getElementById(id).textContent = text; };
+    const status = document.getElementById("status");
+    const button = document.getElementById("run");
+
+    // Show the two system prompts when the page opens.
+    fetch("/api/prompts")
+      .then((res) => res.json())
+      .then((prompts) => {
+        show("beginner-prompt", prompts.beginner);
+        show("expert-prompt", prompts.expert);
+      });
+
+    document.getElementById("form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      status.textContent = "Asking Gemini twice, at the same time…";
+      show("beginner-answer", "");
+      show("expert-answer", "");
+      try {
+        const res = await fetch("/api/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: document.getElementById("question").value }),
+        });
+        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (res.status === 422) {
+          status.textContent = "Please type a question (200 characters at most).";
+        } else if (res.status === 502) {
+          status.textContent = `${data.detail} The server's terminal says why.`;
+        } else {
+          show("beginner-answer", data.beginner);
+          show("expert-answer", data.expert);
+          status.textContent = "Done. Same question, different system prompts.";
+        }
+      } catch (err) {
+        status.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
