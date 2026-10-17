@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 12: Streaming answers</title>
+</head>
+<body>
+  <h1>Project 12: Streaming answers</h1>
+  <form id="form">
+    <label>Your name <input id="name" autocomplete="off"></label>
+    <button id="run">Ask Gemini</button>
+  </form>
+  <p id="timing">Type a name and click the button: the answer appears as Gemini writes it.</p>
+  <!-- pre-wrap keeps the answer's line breaks between paragraphs. -->
+  <p id="answer" style="white-space: pre-wrap"></p>
+
+  <script>
+    const form = document.getElementById("form");
+    const button = document.getElementById("run");
+    const timing = document.getElementById("timing");
+    const answer = document.getElementById("answer");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      answer.textContent = "";
+      timing.textContent = "Asking Gemini…";
+      const start = performance.now();
+      const ms = () => Math.round(performance.now() - start);
+      try {
+        const res = await fetch("/api/hello", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: document.getElementById("name").value }),
+        });
+        if (res.status === 422) {
+          timing.textContent = "Please type a name (40 characters at most).";
+          return;
+        }
+        if (res.status === 502) {
+          timing.textContent = `${(await res.json()).detail} The server's terminal says why.`;
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        // Read the body piece by piece, instead of await res.text(), which would wait for all of it.
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();         // the pieces arrive as bytes; this turns them into text
+        let firstMs = null;
+        let pieces = 0;
+        while (true) {
+          const { done, value } = await reader.read();   // waits for the next piece
+          if (done) break;                               // the server has sent everything
+          if (firstMs === null) firstMs = ms();
+          pieces += 1;
+          answer.textContent += decoder.decode(value, { stream: true });
+          timing.textContent = `First words after ${firstMs} ms… still writing`;
+        }
+        const totalMs = ms();
+        timing.textContent = `First words after ${firstMs} ms, all of it after ${totalMs} ms, in ${pieces} pieces. `
+          + `Without streaming, you would have seen nothing for ${totalMs} ms.`;
+      } catch (err) {
+        timing.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
