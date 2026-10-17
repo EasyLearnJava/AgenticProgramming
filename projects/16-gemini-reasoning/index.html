@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 16: Reasoning</title>
+</head>
+<body>
+  <h1>Project 16: Reasoning</h1>
+
+  <h2>1. Three ways to answer</h2>
+  <p>The same questions, asked three ways. Only the system prompt and the thinking level change.</p>
+  <table border="1" cellpadding="4" id="ways"></table>
+  <p><button id="compare-run">Run all</button> <span id="compare-status">6 questions × 3 ways = 18 calls.</span></p>
+  <table border="1" cellpadding="4">
+    <thead><tr><th>Way</th><th>Right</th><th>Avg output tokens</th><th>Avg thinking tokens</th><th>Avg time (ms)</th></tr></thead>
+    <tbody id="summary"></tbody>
+  </table>
+  <br>
+  <table border="1" cellpadding="4">
+    <thead><tr><th>Question</th><th>Right answer</th><th>direct</th><th>step_by_step</th><th>thinking</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <h2>2. A prompt, before and after</h2>
+  <table border="1" cellpadding="4">
+    <thead><tr><th>Mistake</th><th>Before</th><th>After</th></tr></thead>
+    <tbody id="anti"></tbody>
+  </table>
+  <p>Customer message:</p>
+  <textarea id="message" rows="3" cols="80"></textarea>
+  <p><button id="fix-run">Try both prompts</button> <span id="fix-status"></span></p>
+  <table border="1" cellpadding="4">
+    <thead><tr><th>Before</th><th>After</th></tr></thead>
+    <tbody>
+      <tr><td><pre id="before-prompt" style="white-space: pre-wrap"></pre></td>
+          <td><pre id="after-prompt" style="white-space: pre-wrap"></pre></td></tr>
+      <tr><td id="before-answer" style="white-space: pre-wrap"></td>
+          <td id="after-answer" style="white-space: pre-wrap"></td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function row(...cells) {
+      const tr = document.createElement("tr");
+      for (const text of cells) {
+        const td = document.createElement("td");
+        td.style.whiteSpace = "pre-wrap";
+        td.textContent = text;
+        tr.append(td);
+      }
+      return tr;
+    }
+
+    // Show the three ways, the anti-patterns, both prompts and the sample message when the page opens.
+    fetch("/api/setup")
+      .then((res) => res.json())
+      .then((setup) => {
+        $("ways").append(row("Way", "System prompt", "Thinking level"));
+        for (const [name, way] of Object.entries(setup.ways)) {
+          $("ways").append(row(name, way.system, way.thinking_level ?? "the default (minimal)"));
+        }
+        for (const a of setup.anti_patterns) $("anti").append(row(a.mistake, a.before, a.after));
+        $("before-prompt").textContent = setup.before_prompt;
+        $("after-prompt").textContent = `system: ${setup.after_system}\n\nhuman: ${setup.after_prompt}`;
+        $("message").value = setup.sample_message;
+      });
+
+    // One way's cell: ✔ or ✘, the number it read, its tokens and time, and the full text folded away; or the error.
+    function wayCell(cell) {
+      const td = document.createElement("td");
+      td.style.whiteSpace = "pre-wrap";
+      if (cell.error) {
+        td.textContent = cell.error;
+        return td;
+      }
+      td.textContent = `${cell.correct ? "✔" : "✘"} ${cell.value ?? "no answer line"}\n`
+        + `${cell.output_tokens} tokens (${cell.thinking_tokens} thinking), ${cell.latency_ms} ms\n`;
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = "the answer";
+      details.append(summary, cell.text);
+      td.append(details);
+      return td;
+    }
+
+    $("compare-run").addEventListener("click", async () => {
+      $("compare-run").disabled = true;
+      $("compare-status").textContent = "Asking Gemini 18 times, 4 at a time…";
+      $("rows").replaceChildren();
+      $("summary").replaceChildren();
+      try {
+        const res = await fetch("/api/compare", { method: "POST" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        for (const r of data.rows) {
+          const tr = row(r.question, r.expected);
+          for (const cell of Object.values(r.ways)) tr.append(wayCell(cell));
+          $("rows").append(tr);
+        }
+        for (const [way, s] of Object.entries(data.summary)) {
+          $("summary").append(row(way, `${s.correct} of ${s.answered}`, s.avg_output_tokens, s.avg_thinking_tokens,
+                                  s.avg_latency_ms));
+        }
+        $("compare-status").textContent = "Done. Open \"the answer\" in a cell to read what Gemini wrote.";
+      } catch (err) {
+        $("compare-status").textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        $("compare-run").disabled = false;
+      }
+    });
+
+    $("fix-run").addEventListener("click", async () => {
+      $("fix-run").disabled = true;
+      $("fix-status").textContent = "Asking Gemini twice…";
+      $("before-answer").textContent = "";
+      $("after-answer").textContent = "";
+      try {
+        const res = await fetch("/api/fix", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: $("message").value }),
+        });
+        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (res.status === 422) {
+          $("fix-status").textContent = "Please type a message (1,000 characters at most).";
+        } else if (res.status === 502) {
+          $("fix-status").textContent = `${data.detail} The server's terminal says why.`;
+        } else {
+          $("before-answer").textContent = data.before;
+          $("after-answer").textContent = data.after;
+          $("fix-status").textContent = "Done.";
+        }
+      } catch (err) {
+        $("fix-status").textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        $("fix-run").disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
