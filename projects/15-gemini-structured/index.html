@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 15: Structured output</title>
+  <style>
+    /* Each field in its own box: the answer is data, not one block of text. */
+    .fields { display: flex; flex-wrap: wrap; gap: 8px; }
+    .field { border: 1px solid #888; padding: 6px 10px; min-width: 120px; }
+    .field b { display: block; font-size: 12px; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Project 15: Structured output</h1>
+
+  <h2>A greeting, as data</h2>
+  <form id="greet-form">
+    <label>Your name <input id="name" autocomplete="off"></label>
+    <label>Language <select id="language"></select></label>
+    <button id="greet-run">Greet me</button>
+  </form>
+  <p id="greet-status"></p>
+  <div class="fields" id="greet-fields"></div>
+
+  <h2>A messy support message, as a ticket</h2>
+  <form id="triage-form">
+    <textarea id="message" rows="4" cols="70"></textarea>
+    <br>
+    <button id="triage-run">Sort it</button>
+  </form>
+  <p id="triage-status"></p>
+  <div class="fields" id="triage-fields"></div>
+
+  <script>
+    // Fill the language dropdown and the sample message when the page opens.
+    fetch("/api/setup")
+      .then((res) => res.json())
+      .then((setup) => {
+        for (const language of setup.languages) document.getElementById("language").add(new Option(language));
+        document.getElementById("message").value = setup.sample_message;
+      });
+
+    // One box per field: its name on top, its value below.
+    function showFields(id, data) {
+      const boxes = Object.entries(data).map(([name, value]) => {
+        const box = document.createElement("div");
+        box.className = "field";
+        const label = document.createElement("b");
+        label.textContent = name;
+        box.append(label, String(value));
+        return box;
+      });
+      document.getElementById(id).replaceChildren(...boxes);
+    }
+
+    // POST a form's JSON and show the fields, or say what went wrong.
+    function wire(formId, url, readBody, statusId, fieldsId) {
+      const form = document.getElementById(formId);
+      const button = form.querySelector("button");
+      const status = document.getElementById(statusId);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        button.disabled = true;
+        status.textContent = "Asking Gemini…";
+        document.getElementById(fieldsId).replaceChildren();
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(readBody()),
+          });
+          if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (res.status === 422) {
+            status.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
+          } else if (res.status === 502) {
+            status.textContent = `${data.detail} The server's terminal says why.`;
+          } else {
+            showFields(fieldsId, data);
+            status.textContent = "Every field is filled in and checked.";
+          }
+        } catch (err) {
+          status.textContent = `Could not reach the server: ${err.message}`;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
+
+    wire("greet-form", "/api/greet",
+         () => ({ name: document.getElementById("name").value, language: document.getElementById("language").value }),
+         "greet-status", "greet-fields");
+    wire("triage-form", "/api/triage",
+         () => ({ message: document.getElementById("message").value }),
+         "triage-status", "triage-fields");
+  </script>
+</body>
+</html>

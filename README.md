@@ -19,6 +19,7 @@ and more along the way. Every step is its own project folder, with just the code
 | 12 | [`projects/12-gemini-stream`](projects/12-gemini-stream) | Streaming: `chain.astream()` → FastAPI `StreamingResponse` → the page's `getReader()` loop, with the time to the first words |
 | 13 | [`projects/13-gemini-system-prompt`](projects/13-gemini-system-prompt) | The system prompt: `ChatPromptTemplate` with system and human messages; one question answered for a beginner and an expert |
 | 14 | [`projects/14-gemini-few-shot`](projects/14-gemini-few-shot) | Few-shot examples: `FewShotChatMessagePromptTemplate`; 10 questions with and without examples, each answer's format checked in code |
+| 15 | [`projects/15-gemini-structured`](projects/15-gemini-structured) | Structured output: `with_structured_output()` returns Pydantic objects; a greeting with four fields, and a messy support message turned into a ticket |
 
 ## How the repo works
 
@@ -47,7 +48,8 @@ AgenticProgramming/
    ├─ 11-gemini-tokens/       Python, same files as 10; each answer comes with its tokens, time and cost
    ├─ 12-gemini-stream/       Python, same files as 10; the answer streams to the page as Gemini writes it
    ├─ 13-gemini-system-prompt/ Python, same files as 10; two system prompts, two audiences, one question
-   └─ 14-gemini-few-shot/     Python, same files as 10; example answers in the prompt, and a format check
+   ├─ 14-gemini-few-shot/     Python, same files as 10; example answers in the prompt, and a format check
+   └─ 15-gemini-structured/   Python, same files as 10; answers come back as typed Pydantic objects
 ```
 
 From project 9 on, a project may need your Gemini API key. It goes in that project's `.env` file (copied from
