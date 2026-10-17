@@ -21,6 +21,7 @@ and more along the way. Every step is its own project folder, with just the code
 | 14 | [`projects/14-gemini-few-shot`](projects/14-gemini-few-shot) | Few-shot examples: `FewShotChatMessagePromptTemplate`; 10 questions with and without examples, each answer's format checked in code |
 | 15 | [`projects/15-gemini-structured`](projects/15-gemini-structured) | Structured output: `with_structured_output()` returns Pydantic objects; a greeting with four fields, and a messy support message turned into a ticket |
 | 16 | [`projects/16-gemini-reasoning`](projects/16-gemini-reasoning) | Reasoning: six multi-step questions answered directly, step by step, and with `thinking_level="high"`, compared on accuracy, tokens and time; a prompt's anti-patterns fixed |
+| 17 | [`projects/17-gemini-prompt-files`](projects/17-gemini-prompt-files) | Prompts as versioned files: `prompts/greeting.v1.md` to `v3.md`, the active one picked in `prompt_versions.toml`, and every answer labelled with its version and fingerprint |
 
 ## How the repo works
 
@@ -51,7 +52,8 @@ AgenticProgramming/
    ├─ 13-gemini-system-prompt/ Python, same files as 10; two system prompts, two audiences, one question
    ├─ 14-gemini-few-shot/     Python, same files as 10; example answers in the prompt, and a format check
    ├─ 15-gemini-structured/   Python, same files as 10; answers come back as typed Pydantic objects
-   └─ 16-gemini-reasoning/    Python, same files as 10; three ways to answer, measured, and a prompt fixed
+   ├─ 16-gemini-reasoning/    Python, same files as 10; three ways to answer, measured, and a prompt fixed
+   └─ 17-gemini-prompt-files/ Python, same files as 10 plus prompts/ and prompt_versions.toml
 ```
 
 From project 9 on, a project may need your Gemini API key. It goes in that project's `.env` file (copied from

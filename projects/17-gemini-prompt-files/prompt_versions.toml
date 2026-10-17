@@ -1,0 +1,3 @@
+# Which version of each prompt the server uses. The files are in prompts/, named <prompt>.<version>.md.
+# To roll back, change the version here and restart the server. Nothing else changes.
+greeting = "v3"

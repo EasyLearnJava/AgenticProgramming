@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 17: Prompts as versioned files</title>
+</head>
+<body>
+  <h1>Project 17: Prompts as versioned files</h1>
+
+  <h2>The versions</h2>
+  <p>Each version is its own file in <code>prompts/</code>. The active one is set in <code>prompt_versions.toml</code>.</p>
+  <table border="1" cellpadding="4">
+    <thead><tr><th>Version</th><th>Fingerprint</th><th>System</th><th>Human</th></tr></thead>
+    <tbody id="versions"></tbody>
+  </table>
+
+  <h2>Ask</h2>
+  <form id="form">
+    <label>Your name <input id="name" autocomplete="off"></label>
+    <label>Version <select id="version"></select></label>
+    <button id="run">Ask Gemini</button>
+  </form>
+  <p id="status"></p>
+  <table border="1" cellpadding="4">
+    <thead><tr><th>#</th><th>Answer</th><th>Produced by</th></tr></thead>
+    <tbody id="answers"></tbody>
+  </table>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function row(...cells) {
+      const tr = document.createElement("tr");
+      for (const text of cells) {
+        const td = document.createElement("td");
+        td.style.whiteSpace = "pre-wrap";
+        td.textContent = text;
+        tr.append(td);
+      }
+      return tr;
+    }
+
+    // Show every version, and fill the dropdown with the active one picked.
+    fetch("/api/prompts")
+      .then((res) => res.json())
+      .then(({ active, versions }) => {
+        for (const [version, p] of Object.entries(versions)) {
+          $("versions").append(row(version === active ? `${version} (active)` : version, p.fingerprint, p.system, p.human));
+          $("version").add(new Option(version === active ? `${version} (active)` : version, version, false, version === active));
+        }
+      });
+
+    let count = 0;
+    $("form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      $("run").disabled = true;
+      $("status").textContent = "Asking Gemini…";
+      try {
+        const res = await fetch("/api/hello", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: $("name").value, version: $("version").value }),
+        });
+        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (res.status === 422) {
+          $("status").textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
+        } else if (res.status === 502) {
+          $("status").textContent = `${data.detail} The server's terminal says why.`;
+        } else {
+          count += 1;
+          // Every answer keeps the version and fingerprint that produced it.
+          $("answers").prepend(row(count, data.answer, `${data.prompt} ${data.version} (${data.fingerprint})`));
+          $("status").textContent = "Done.";
+        }
+      } catch (err) {
+        $("status").textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        $("run").disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
