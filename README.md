@@ -15,6 +15,7 @@ and more along the way. Every step is its own project folder, with just the code
 | 8 | [`projects/08-vibecode-data-app`](projects/08-vibecode-data-app) | A Streamlit app over a fruit-sales CSV (filters, totals, two charts), built with an AI coding assistant, one mini-spec at a time |
 | 9 | [`projects/09-gemini-key`](projects/09-gemini-key) | A Gemini API key, kept secret: loaded from `.env` with `python-dotenv`, checked at start-up, never sent to the page or committed |
 | 10 | [`projects/10-gemini-llm`](projects/10-gemini-llm) | The first real LLM call: `prompt \| ChatGoogleGenerativeAI \| StrOutputParser`, Gemini writes the greeting; plain tests plus one live test |
+| 11 | [`projects/11-gemini-tokens`](projects/11-gemini-tokens) | What each call costs: tokens counted before and after (`count_tokens`, `usage_metadata`), latency, price per call, and `max_output_tokens` cutting the answer off |
 
 ## How the repo works
 
@@ -39,7 +40,8 @@ AgenticProgramming/
    ├─ 07-langchain-branch/    Python, same files as 02; two paths picked by the input, and a batch endpoint
    ├─ 08-vibecode-data-app/   Python with Streamlit: app.py (the page), data.py (pandas), fruit_sales.csv, tests/
    ├─ 09-gemini-key/          Python: config.py (loads and checks the key), main.py, index.html, .env.example, tests/
-   └─ 10-gemini-llm/          Python, same files as 02 plus config.py and .env.example; Gemini writes the answer
+   ├─ 10-gemini-llm/          Python, same files as 02 plus config.py and .env.example; Gemini writes the answer
+   └─ 11-gemini-tokens/       Python, same files as 10; each answer comes with its tokens, time and cost
 ```
 
 From project 9 on, a project may need your Gemini API key. It goes in that project's `.env` file (copied from
@@ -55,8 +57,8 @@ npm start
 ```
 
 ```bash
-# Python (from the repo root): the same for every FastAPI project, 02 to 07, 09 and 10
-# (09 and 10 also need your key in their .env first: see project 9)
+# Python (from the repo root): the same for every FastAPI project, 02 to 07 and 09 on
+# (09 on also need your key in their .env first: see project 9)
 cd projects/02-langchain-python
 pip install -r requirements-dev.txt
 python hello.py               # just the chain, in the terminal

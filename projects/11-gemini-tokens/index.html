@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project 11: Tokens and cost</title>
+</head>
+<body>
+  <h1>Project 11: Tokens and cost</h1>
+  <form id="form">
+    <label>Your name <input id="name" autocomplete="off"></label>
+    <label>Max output tokens <input id="max" type="number" value="200"></label>
+    <button id="run">Ask Gemini</button>
+  </form>
+  <p id="status">Each click is one real call. Try 200, then 10: the answer gets cut off and costs less.</p>
+
+  <table border="1" cellpadding="4">
+    <thead>
+      <tr>
+        <th>#</th><th>Max</th><th>Answer</th><th>Finish</th>
+        <th>Counted before</th><th>Input</th><th>Output</th><th>Thinking</th><th>Time (ms)</th><th>Cost (USD)</th>
+      </tr>
+    </thead>
+    <tbody id="calls"></tbody>
+  </table>
+  <p id="total"></p>
+
+  <script>
+    const form = document.getElementById("form");
+    const button = document.getElementById("run");
+    const status = document.getElementById("status");
+    const calls = document.getElementById("calls");
+    const total = document.getElementById("total");
+    let count = 0;
+    let totalCost = 0;
+
+    // One call costs a tiny fraction of a cent, so show 7 decimal places: 0.0000738 -> "$0.0000738".
+    const dollars = (usd) => `$${usd.toFixed(7)}`;
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      status.textContent = "Asking Gemini…";
+      const maxTokens = Number(document.getElementById("max").value);
+      try {
+        const res = await fetch("/api/hello", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: document.getElementById("name").value, max_output_tokens: maxTokens }),
+        });
+        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (res.status === 422) {
+          status.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
+          return;
+        }
+        if (res.status === 502) {
+          status.textContent = `${data.detail} The server's terminal says why.`;
+          return;
+        }
+
+        // One new row per call, newest at the top.
+        count += 1;
+        totalCost += data.cost_usd;
+        const row = document.createElement("tr");
+        for (const value of [count, maxTokens, data.answer, data.finish_reason, data.counted_tokens,
+                             data.input_tokens, data.output_tokens, data.thinking_tokens, data.latency_ms,
+                             dollars(data.cost_usd)]) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          row.append(cell);
+        }
+        calls.prepend(row);
+        status.textContent = data.finish_reason === "MAX_TOKENS"
+          ? "Cut off: the answer hit the max output tokens."
+          : "Done.";
+        total.textContent = `${count} calls, ${dollars(totalCost)} in total (on the paid tier; the free tier costs nothing).`;
+      } catch (err) {
+        status.textContent = `Could not reach the server: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
