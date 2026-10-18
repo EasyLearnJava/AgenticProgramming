@@ -1,10 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="496" viewBox="0 0 960 496" role="img" aria-labelledby="title desc">
 <!-- The diagram for README.md's section "② The converter". Plain SVG: edit the text in place. -->
 <title id="title">② The converter</title>
-<desc id="desc">RunnableLambda.from() wraps the plain function (value) =&gt; value.toString() as toText, a RunnableLambda with invoke() and pipe(). prompt, a PromptTemplate, has invoke() and pipe() too: both are Runnables, so step 3 can join them. When the chain runs, toText gets the StringPromptValue holding 'Hello World, welcome to LangChain!' and gives back the string "Hello World, welcome to LangChain!".</desc>
+<desc id="desc">RunnableLambda.from() wraps the plain function (value) =&gt; value.toString() as toText, a RunnableLambda with invoke() and pipe(). prompt, a PromptTemplate, has invoke() and pipe() too: both are Runnables, so pipe() can join them. When the chain runs, toText gets the StringPromptValue holding 'Hello World, welcome to LangChain!' and gives back the string "Hello World, welcome to LangChain!".</desc>
 <style><![CDATA[
 text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; fill: #1f2328; }
-.code, .code-muted, .kind, .val, .etext, .term, .alabel, .chip, .fname { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.code, .code-muted, .kind, .val, .etext, .term, .alabel, .chip, .fname, .mono-in { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.mix { font-size: 13.5px; }
 .title { font-size: 26px; font-weight: 700; }
 .sub { font-size: 16px; fill: #59636e; }
 .lane { font-size: 12.5px; font-weight: 700; fill: #59636e; letter-spacing: 1px; }
@@ -82,7 +83,7 @@ text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 
 <text x="783" y="218.5" class="chip" text-anchor="middle">invoke()</text>
 <rect x="830" y="202" width="62.5" height="24" rx="12" class="box-chip"/>
 <text x="861.25" y="218.5" class="chip" text-anchor="middle">pipe()</text>
-<text x="719" y="266" class="note" text-anchor="middle">Both are Runnables, so step 3 can join them.</text>
+<text x="719" y="266" class="note" text-anchor="middle">Both are Runnables, so pipe() can join them.</text>
 <text x="32" y="312" class="lane">WHAT IT DOES WHEN THE CHAIN RUNS</text>
 <rect x="32" y="328" width="330" height="68" rx="10" class="box-val"/>
 <text x="48" y="354" class="vhead">StringPromptValue</text>

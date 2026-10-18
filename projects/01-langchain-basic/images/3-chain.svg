@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="552" viewBox="0 0 960 552" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="412" viewBox="0 0 960 412" role="img" aria-labelledby="title desc">
 <!-- The diagram for README.md's section "③ The chain". Plain SVG: edit the text in place. -->
 <title id="title">③ The chain</title>
-<desc id="desc">prompt.pipe(toText) joins prompt (a PromptTemplate) and toText (a RunnableLambda) into chain, a RunnableSequence: what prompt gives back goes into toText. Built, not run: no step has been called yet. The chain is built once with pipe() and can then be run with invoke({}) as often as you like, as project 02's server does on every call to /api/hello.</desc>
+<desc id="desc">prompt.pipe(toText) joins prompt (a PromptTemplate) and toText (a RunnableLambda) into chain, a RunnableSequence: what prompt gives back goes into toText. Built, not run: no step has been called yet; nothing runs until invoke() is called.</desc>
 <style><![CDATA[
 text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; fill: #1f2328; }
-.code, .code-muted, .kind, .val, .etext, .term, .alabel, .chip, .fname { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.code, .code-muted, .kind, .val, .etext, .term, .alabel, .chip, .fname, .mono-in { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.mix { font-size: 13.5px; }
 .title { font-size: 26px; font-weight: 700; }
 .sub { font-size: 16px; fill: #59636e; }
 .lane { font-size: 12.5px; font-weight: 700; fill: #59636e; letter-spacing: 1px; }
@@ -57,7 +58,7 @@ text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 
     <path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/>
   </marker>
 </defs>
-<rect x="0.75" y="0.75" width="958.5" height="550.5" rx="14" class="card"/>
+<rect x="0.75" y="0.75" width="958.5" height="410.5" rx="14" class="card"/>
 <circle cx="49" cy="50" r="17" class="num-bg"/>
 <text x="49" y="56.5" class="num" text-anchor="middle">3</text>
 <text x="78" y="59" class="title">The chain</text>
@@ -81,20 +82,6 @@ text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 
 <path d="M632,200 L712,200" class="flow" marker-end="url(#arrow)"/>
 <text x="672" y="258" class="note" text-anchor="middle">what prompt gives back goes into toText</text>
 <text x="672" y="312" class="note" text-anchor="middle">Built, not run: no step has been called yet.</text>
-<text x="32" y="362" class="lane">THEN: BUILD ONCE, RUN AS OFTEN AS YOU LIKE</text>
-<rect x="32" y="378" width="176" height="44" rx="22" class="box-step"/>
-<text x="120" y="405" class="pill" text-anchor="middle">built once: pipe()</text>
-<path d="M212,400 L248,400" class="flow" marker-end="url(#arrow)"/>
-<rect x="252" y="378" width="112" height="44" rx="22" class="box-code"/>
-<text x="308" y="405" class="code" text-anchor="middle">invoke({})</text>
-<path d="M368,400 L400,400" class="flow" marker-end="url(#arrow)"/>
-<rect x="404" y="378" width="112" height="44" rx="22" class="box-code"/>
-<text x="460" y="405" class="code" text-anchor="middle">invoke({})</text>
-<path d="M520,400 L552,400" class="flow" marker-end="url(#arrow)"/>
-<rect x="556" y="378" width="112" height="44" rx="22" class="box-code"/>
-<text x="612" y="405" class="code" text-anchor="middle">invoke({})</text>
-<text x="690" y="405" class="note">…</text>
-<text x="32" y="456" class="note">Project 02's server works this way: one chain, built at start-up, run on every call to /api/hello.</text>
-<rect x="32" y="476" width="896" height="52" rx="10" class="box-take"/>
-<text x="50" y="508" class="take"><tspan class="take-head">Takeaway</tspan><tspan dx="12">pipe() builds the chain and invoke() runs it: build once, run as often as you need.</tspan></text>
+<rect x="32" y="336" width="896" height="52" rx="10" class="box-take"/>
+<text x="50" y="368" class="take"><tspan class="take-head">Takeaway</tspan><tspan dx="12">pipe() only builds the chain: nothing runs until invoke() is called.</tspan></text>
 </svg>

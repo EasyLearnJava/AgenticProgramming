@@ -8,8 +8,7 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableLambda } from "@langchain/core/runnables";
 
-// ① The template: the text we want to show. A word in curly braces, like {name}, would be a variable
-//    for invoke() to fill in; this text has none.
+// ① The template: the text we want to show.
 const prompt = PromptTemplate.fromTemplate("Hello World, welcome to LangChain!");
 
 // ② The converter: the prompt gives back an object (a StringPromptValue), this turns it into text.
@@ -19,7 +18,7 @@ const toText = RunnableLambda.from((value) => value.toString());
 // ③ Join them: prompt first, then toText. pipe() only builds the chain (a RunnableSequence); nothing runs yet.
 const chain = prompt.pipe(toText);
 
-// ④ Run it with {}: an empty input, since the template has no variables. invoke() returns a Promise, so we
+// ④ Run it with {}: an empty input, since the template has nothing to fill in. invoke() returns a Promise, so we
 //    await it. await can sit outside a function because package.json makes this an ES module ("type": "module").
 const answer = await chain.invoke({});
 

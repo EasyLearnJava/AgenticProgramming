@@ -1,9 +1,8 @@
 # 01 · LangChain basic
 
-LangChain is a library for building apps around language models: you join small steps (a prompt, a model, a
-converter) into a chain, and each step's output goes into the next. This project builds a two-step chain in
-JavaScript, with no model yet, so you can see how steps are joined and run before a real model (Google's Gemini)
-arrives in project 10.
+LangChain is a library for building apps around language models: you join small steps into a chain, and each step's
+output goes into the next. This project joins two steps, a prompt and a converter, into a chain in JavaScript, with
+no model yet, so you can see how steps are joined and run.
 
 ```text
 {}  ->  prompt  ->  a StringPromptValue  ->  toText  ->  "Hello World, welcome to LangChain!"
@@ -20,7 +19,6 @@ arrives in project 10.
 ## What you'll learn
 
 - **`PromptTemplate.fromTemplate()`**: holds the text; its `invoke()` gives back a `StringPromptValue`, not a string
-- **Template variables**: a word in curly braces, like `{name}`, is filled in by `invoke()`; this text has none
 - **`RunnableLambda.from()`**: wraps a plain function as a Runnable, with `invoke()` and `pipe()` like the prompt
 - **Runnables and `.pipe()`**: `a.pipe(b)` joins two Runnables into a `RunnableSequence`; building it runs nothing
 - **`await chain.invoke({})`**: runs the chain; in LangChain.js `invoke()` returns a Promise, so you `await` it
@@ -30,8 +28,7 @@ arrives in project 10.
 
 - **Node.js 20 or newer** (22 is used here). Check with `node --version`; if that fails, install Node from
   nodejs.org, which includes npm (`npm --version`). `@langchain/core` 1.2.14 asks for Node 20 or newer.
-- Nothing else: no Python yet (it starts in project 02) and no API key (you make one in
-  [project 9](../09-gemini-key/README.md)).
+- Nothing else: no Python and no API key.
 
 ## Files
 
@@ -68,12 +65,12 @@ All of the project's setup is in `package.json`:
 
 - **`"dependencies"`**: the one package this project uses, pinned to an exact version. `npm install` downloads it,
   and the packages it needs in turn, into a `node_modules/` folder, at the versions listed in `package-lock.json`.
-  Both files are in git, so everyone gets the same versions; `node_modules/` is not (the repo's `.gitignore` skips
-  it).
+  Both files are in git, so everyone gets the same versions; `node_modules/` is not: `npm install` makes it on your
+  machine.
 - **`"scripts"`**: `npm start` runs the `start` script, `node hello.js`. npm prints the script (`> node hello.js`)
   before running it.
 - **`"type": "module"`**: tells Node that the `.js` files here are ES modules, the modern JavaScript module format.
-  `hello.js` needs that for its `import` lines and for the `await` outside any function in ④.
+  `hello.js` is one: it has `import` lines and an `await` outside any function, in ④.
 
 ### The imports
 
@@ -82,9 +79,8 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableLambda } from "@langchain/core/runnables";
 ```
 
-Each line takes one name from a part of the `@langchain/core` package, like Python's
-`from langchain_core.prompts import PromptTemplate` in project 02. `@langchain/core` is LangChain's base package: the
-building blocks, such as prompts and Runnables, and no connection to any model.
+Each line takes one name from a part of the `@langchain/core` package. `@langchain/core` is LangChain's base
+package: the building blocks, such as prompts and Runnables, and no connection to any model.
 
 ### ① The template
 
@@ -92,11 +88,10 @@ building blocks, such as prompts and Runnables, and no connection to any model.
 const prompt = PromptTemplate.fromTemplate("Hello World, welcome to LangChain!");
 ```
 
-![This project's prompt has no variables, so invoke({}) gives back a StringPromptValue holding its text. A prompt with {name} needs a value: invoke({ name: "Ada" }) gives back one holding Hello Ada, welcome to LangChain!, and invoke({}) throws Error: (f-string) Missing value for input name.](images/1-template.svg)
+![prompt, a PromptTemplate, holds the fixed text Hello World, welcome to LangChain!; invoke({}) gives it back inside a StringPromptValue.](images/1-template.svg)
 
-`fromTemplate()` turns a text into a prompt template. A word in curly braces, like `{name}`, would be a variable for
-`invoke()` to fill in; this text has none, so `prompt.inputVariables` is `[]`. Curly braces are special in the text
-for that reason: see [When things go wrong](#when-things-go-wrong).
+`fromTemplate()` turns a text into a prompt template. This text is fixed, so each time the prompt runs it gives back
+the same words, inside a `StringPromptValue`.
 
 ### ② The converter
 
@@ -109,8 +104,8 @@ const toText = RunnableLambda.from((value) => value.toString());
 The prompt doesn't give back a string: `prompt.invoke({})` gives back a `StringPromptValue`, a LangChain object with
 the text inside ([Things to try](#things-to-try) prints one). `toText` turns it into text:
 
-- `(value) => value.toString()` is a small function (an arrow function, like Python's
-  `lambda value: value.to_string()`): it takes the `StringPromptValue` and returns the text inside it.
+- `(value) => value.toString()` is a small function (an arrow function): it takes the `StringPromptValue` and
+  returns the text inside it.
 - `RunnableLambda.from()` wraps that function as a **Runnable**, LangChain's word for a step: something with
   `invoke()` to run it and `pipe()` to join it to the next step. The prompt is a Runnable too.
 
@@ -120,12 +115,10 @@ the text inside ([Things to try](#things-to-try) prints one). `toText` turns it 
 const chain = prompt.pipe(toText);
 ```
 
-![prompt.pipe(toText) joins the two steps into chain, a RunnableSequence, and runs neither of them. The chain is built once and can then be run with invoke({}) as often as you like, as project 02's server does.](images/3-chain.svg)
+![prompt.pipe(toText) joins prompt and toText into chain, a RunnableSequence, and runs neither of them.](images/3-chain.svg)
 
 `pipe()` joins the two steps into a new Runnable, a `RunnableSequence`: what `prompt` gives back goes into `toText`.
-Building it runs nothing. No step is called until `invoke()`, and you can call `invoke()` as many times as you like.
-Project 02's server does exactly that: it builds the chain once, when it starts, and runs it on every call to
-`/api/hello`.
+Building it runs nothing: no step is called until `invoke()`, in ④.
 
 ### ④ Running it
 
@@ -135,7 +128,7 @@ const answer = await chain.invoke({});
 console.log(answer);
 ```
 
-![chain.invoke({}) sends {} to prompt, which gives a StringPromptValue to toText, which gives back the string. With await, console.log prints Hello World, welcome to LangChain!; without await, it prints the Promise, still pending.](images/4-invoke.svg)
+![chain.invoke({}) sends {} to prompt, which gives a StringPromptValue to toText, which gives back the string. invoke() returns a Promise; await waits until it has the string, and console.log prints Hello World, welcome to LangChain!](images/4-invoke.svg)
 
 | Step | Gets | Gives back |
 |---|---|---|
@@ -143,10 +136,8 @@ console.log(answer);
 | `toText` | that `StringPromptValue` | the string `Hello World, welcome to LangChain!` |
 | `chain` (both steps, in order) | `{}` | the same string |
 
-- `{}` is the input: an empty object, since the template has no variables to fill in.
-- In LangChain.js, `invoke()` returns a Promise (an answer that arrives later), so `await` waits for it and gives
-  back the string. In Python, from project 02 on, `invoke()` returns the answer directly and `ainvoke()` is the one
-  you `await`.
+- `{}` is the input: an empty object, because this template has nothing to fill in.
+- `invoke()` returns a Promise (an answer that arrives later), so `await` waits for it and gives back the string.
 - An `await` outside any function is allowed because this file is an ES module (`"type": "module"`).
 - `console.log(answer)` prints the string.
 
@@ -174,33 +165,25 @@ appears in the same terminal, and the program ends. In Windows PowerShell, if `n
 
 ## Test it
 
-No automated tests yet. The whole program is one chain that prints one line, so running it is the test:
-`npm start` should print `Hello World, welcome to LangChain!`. Tests start in
-[project 02](../02-langchain-python/README.md), in Python with pytest, and every project after it has them; a
-JavaScript test tool here would be one you'd use only once.
+No automated tests: the whole program is one chain that prints one line, so running it is the test. `npm start`
+should print `Hello World, welcome to LangChain!`.
 
 ## When things go wrong
 
-Node prints a lot for each error. The line that starts with `Error` is the one that says what went wrong; the
-lines around it mostly point inside Node and `node_modules/`.
+An error can print many lines. The "What you see" column quotes the part that says what went wrong.
 
 | What happens | What you see | What to do |
 |---|---|---|
 | `npm start` before `npm install` | `Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@langchain/core' imported from ...hello.js` | Run `npm install` in this folder, then `npm start` |
 | `npm start` in another folder, such as the repo root | `npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, ...` | `cd projects/01-langchain-basic` first |
-| Curly braces in the template's text | `{name}` with `invoke({})`: `Error: (f-string) Missing value for input name` (it names the word in the braces). A lone `{`: `Error: Unclosed '{' in template.` A lone `}`: `Error: Single '}' in template.` | Give each variable a value, as in `invoke({ name: "Ada" })`, or double a brace to print it: `{{World}}` prints `{World}` |
 | `npm` in Windows PowerShell | `npm.ps1 cannot be loaded because running scripts is disabled on this system` | Type `npm.cmd` instead of `npm` (`npm.cmd install`, `npm.cmd start`), or use Git Bash or Command Prompt. Or allow scripts for your Windows user once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
 
 ## Things to try
 
 1. **Change the text.** Replace the words in `fromTemplate("...")`, for example with `"Hi there, LangChain!"`, and
-   run `npm start` again: it prints `Hi there, LangChain!`. Leave out `{` and `}` for now; the next item shows what
-   they do.
-2. **Add a variable.** Change the text to `"Hello {name}, welcome to LangChain!"` and the call in ④ to
-   `await chain.invoke({ name: "Ada" })`. It prints `Hello Ada, welcome to LangChain!`. Put back `invoke({})` and it
-   stops with `Error: (f-string) Missing value for input name`. Project 04 does the same in Python, with the name
-   sent from a web page.
-3. **See what the prompt gives back.** Change the line under ③ to `const chain = prompt;`, the prompt alone,
+   run `npm start` again: it prints `Hi there, LangChain!`. Leave out `{` and `}`: they have a special meaning in a
+   template, and `npm start` would stop with an error.
+2. **See what the prompt gives back.** Change the line under ③ to `const chain = prompt;`, the prompt alone,
    without `toText`. Instead of the line, it prints the object:
 
    ```text
@@ -213,7 +196,7 @@ lines around it mostly point inside Node and `node_modules/`.
    ```
 
    That object is why `toText` is there.
-4. **Forget the `await`.** Change the line under ④ to `const answer = chain.invoke({});`. It prints
+3. **Forget the `await`.** Change the line under ④ to `const answer = chain.invoke({});`. It prints
    `Promise { <pending> }`:
    `console.log` ran before the chain had finished, so it printed the Promise instead of the answer.
 
