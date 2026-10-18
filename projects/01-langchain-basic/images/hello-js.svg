@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="948" viewBox="0 0 960 948" role="img" aria-labelledby="title desc">
+<!-- The picture for README.md's section "hello.js, from top to bottom". Plain SVG: edit the text in place. -->
+<title id="title">hello.js, from top to bottom</title>
+<desc id="desc">hello.js without its comments, in the order Node runs it, from top to bottom: the two import lines share the first box, then one statement per box. The two import lines take PromptTemplate and RunnableLambda from the package @langchain/core. 1: const prompt = PromptTemplate.fromTemplate("Hello World, welcome to LangChain!"); makes prompt, a PromptTemplate that holds the text; not run yet. 2: const toText = RunnableLambda.from((value) =&gt; value.toString()); makes toText, a RunnableLambda that holds the function; not run yet. 3: const chain = prompt.pipe(toText); makes chain, a RunnableSequence: prompt, then toText; not run yet. 4: const answer = await chain.invoke({}); runs the chain: the input {} goes into prompt, which gives back a StringPromptValue, which goes into toText, which gives back the string. await waits for the chain to finish, then answer holds "Hello World, welcome to LangChain!". Last: console.log(answer); prints Hello World, welcome to LangChain! in the terminal. Takeaway: making the steps runs nothing; invoke() is the line that runs them.</desc>
+<style><![CDATA[
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; fill: #1f2328; }
+.code, .term, .mono-in, .chip-val { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.mix { font-size: 13.5px; }
+.mix-head { font-size: 14.5px; font-weight: 700; }
+.title { font-size: 26px; font-weight: 700; }
+.sub { font-size: 16px; fill: #59636e; }
+.lane { font-size: 12.5px; font-weight: 700; fill: #59636e; letter-spacing: 1px; }
+.name { font-size: 15px; font-weight: 700; }
+.code { font-size: 13.5px; }
+.code-run { font-weight: 700; fill: #6639ba; }
+.verb { font-size: 14px; font-weight: 700; fill: #59636e; }
+.verb-run { fill: #6639ba; }
+.note { font-size: 13.5px; fill: #59636e; }
+.head { font-size: 14.5px; font-weight: 700; }
+.vhead { font-size: 14px; font-weight: 700; fill: #1a7f37; }
+.chip-val { font-size: 15px; font-weight: 700; fill: #116329; }
+.val { font-size: 13px; fill: #116329; }
+.term { font-size: 13.5px; fill: #9198a1; }
+.term-cmd { fill: #f0f6fc; }
+.term-ok { fill: #7ee787; }
+.term-bar { font-size: 12.5px; fill: #9198a1; }
+.take { font-size: 16px; }
+.take-head { font-weight: 700; fill: #7d4e00; }
+.num { font-size: 15px; font-weight: 700; fill: #ffffff; }
+.tag { font-size: 12px; fill: #59636e; }
+.card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+.cell { fill: #ffffff; }
+.cell-run { fill: #fdfaff; }
+.band { fill: #f6f8fa; }
+.band-run { fill: #fbefff; }
+.edge { fill: none; stroke: #d0d7de; stroke-width: 1.5; }
+.edge-run { fill: none; stroke: #8250df; stroke-width: 2; }
+.box-step { fill: #fbefff; stroke: #8250df; stroke-width: 2; }
+.box-idle { fill: #ffffff; stroke: #8250df; stroke-width: 2; stroke-dasharray: 7 5; }
+.box-chain { fill: #ffffff; stroke: #8250df; stroke-width: 1.5; }
+.box-val { fill: #dafbe1; stroke: #4ac26b; stroke-width: 1.5; }
+.box-term { fill: #1f2328; }
+.box-bar { fill: #32383f; }
+.box-take { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; }
+.box-tag { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+.dot { fill: #8c959f; }
+.bar-dot { fill: #6e7681; }
+.rule { stroke: #d0d7de; stroke-width: 1.5; }
+.rule-run { stroke: #c297ff; stroke-width: 1.5; }
+.flow { stroke: #8c959f; stroke-width: 2; fill: none; }
+.bracket { stroke: #8c959f; stroke-width: 1.5; fill: none; }
+.num-bg { fill: #8250df; }
+]]></style>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/>
+  </marker>
+</defs>
+<rect x="0.75" y="0.75" width="958.5" height="946.5" rx="14" class="card"/>
+<text x="32" y="59" class="title">hello.js, from top to bottom</text>
+<text x="32" y="92" class="sub">Node runs the statements one after the other, from the top of the file to the bottom.</text>
+<text x="84" y="130" class="lane">HELLO.JS WITHOUT ITS COMMENTS, AND WHAT EACH STATEMENT DOES</text>
+<rect x="84" y="146" width="844" height="92" rx="10" class="cell"/>
+<path d="M84,202 L84,156 A10,10 0 0 1 94,146 L918,146 A10,10 0 0 1 928,156 L928,202 Z" class="band"/>
+<line x1="84" y1="202" x2="928" y2="202" class="rule"/>
+<rect x="84" y="146" width="844" height="92" rx="10" class="edge"/>
+<text x="100" y="169" class="code" xml:space="preserve">import { PromptTemplate } from "@langchain/core/prompts";</text>
+<text x="100" y="189" class="code" xml:space="preserve">import { RunnableLambda } from "@langchain/core/runnables";</text>
+<text x="100" y="225" class="verb">takes</text>
+<text x="166" y="225" class="mix" xml:space="preserve"><tspan class="mono-in">PromptTemplate</tspan> and <tspan class="mono-in">RunnableLambda</tspan> from the package <tspan class="mono-in">@langchain/core</tspan></text>
+<rect x="84" y="248" width="844" height="88" rx="10" class="cell"/>
+<path d="M84,284 L84,258 A10,10 0 0 1 94,248 L918,248 A10,10 0 0 1 928,258 L928,284 Z" class="band"/>
+<line x1="84" y1="284" x2="928" y2="284" class="rule"/>
+<rect x="84" y="248" width="844" height="88" rx="10" class="edge"/>
+<text x="100" y="271" class="code" xml:space="preserve">const prompt = PromptTemplate.fromTemplate("Hello World, welcome to LangChain!");</text>
+<text x="100" y="315" class="verb">makes</text>
+<rect x="166" y="294" width="88" height="32" rx="8" class="box-idle"/>
+<text x="210" y="315" class="name" text-anchor="middle">prompt</text>
+<text x="270" y="315" class="mix" xml:space="preserve">a <tspan class="mono-in">PromptTemplate</tspan> that holds the text</text>
+<rect x="822.08" y="300" width="89.92" height="20" rx="10" class="box-tag"/>
+<text x="867.04" y="314" class="tag" text-anchor="middle">not run yet</text>
+<rect x="84" y="346" width="844" height="88" rx="10" class="cell"/>
+<path d="M84,382 L84,356 A10,10 0 0 1 94,346 L918,346 A10,10 0 0 1 928,356 L928,382 Z" class="band"/>
+<line x1="84" y1="382" x2="928" y2="382" class="rule"/>
+<rect x="84" y="346" width="844" height="88" rx="10" class="edge"/>
+<text x="100" y="369" class="code" xml:space="preserve">const toText = RunnableLambda.from((value) =&gt; value.toString());</text>
+<text x="100" y="413" class="verb">makes</text>
+<rect x="166" y="392" width="88" height="32" rx="8" class="box-idle"/>
+<text x="210" y="413" class="name" text-anchor="middle">toText</text>
+<text x="270" y="413" class="mix" xml:space="preserve">a <tspan class="mono-in">RunnableLambda</tspan> that holds the function</text>
+<rect x="822.08" y="398" width="89.92" height="20" rx="10" class="box-tag"/>
+<text x="867.04" y="412" class="tag" text-anchor="middle">not run yet</text>
+<rect x="84" y="444" width="844" height="100" rx="10" class="cell"/>
+<path d="M84,480 L84,454 A10,10 0 0 1 94,444 L918,444 A10,10 0 0 1 928,454 L928,480 Z" class="band"/>
+<line x1="84" y1="480" x2="928" y2="480" class="rule"/>
+<rect x="84" y="444" width="844" height="100" rx="10" class="edge"/>
+<text x="100" y="467" class="code" xml:space="preserve">const chain = prompt.pipe(toText);</text>
+<text x="100" y="517" class="verb">makes</text>
+<rect x="166" y="486" width="300" height="52" rx="10" class="box-chain"/>
+<text x="180" y="517" class="name">chain</text>
+<rect x="232" y="496" width="88" height="32" rx="8" class="box-idle"/>
+<text x="276" y="517" class="name" text-anchor="middle">prompt</text>
+<rect x="364" y="496" width="88" height="32" rx="8" class="box-idle"/>
+<text x="408" y="517" class="name" text-anchor="middle">toText</text>
+<path d="M324,512 L360,512" class="flow" marker-end="url(#arrow)"/>
+<text x="482" y="517" class="mix" xml:space="preserve">a <tspan class="mono-in">RunnableSequence</tspan>: <tspan class="mono-in">prompt</tspan>, then <tspan class="mono-in">toText</tspan></text>
+<rect x="822.08" y="502" width="89.92" height="20" rx="10" class="box-tag"/>
+<text x="867.04" y="516" class="tag" text-anchor="middle">not run yet</text>
+<rect x="84" y="554" width="844" height="186" rx="10" class="cell-run"/>
+<path d="M84,590 L84,564 A10,10 0 0 1 94,554 L918,554 A10,10 0 0 1 928,564 L928,590 Z" class="band-run"/>
+<line x1="84" y1="590" x2="928" y2="590" class="rule-run"/>
+<rect x="84" y="554" width="844" height="186" rx="10" class="edge-run"/>
+<text x="100" y="577" class="code" xml:space="preserve">const answer = await <tspan class="code-run">chain.invoke({})</tspan>;</text>
+<text x="100" y="635" class="verb verb-run">runs</text>
+<rect x="166" y="614" width="44" height="32" rx="8" class="box-val"/>
+<text x="188" y="635.5" class="chip-val" text-anchor="middle">{}</text>
+<rect x="242" y="604" width="439.5" height="52" rx="10" class="box-chain"/>
+<text x="256" y="635" class="name">chain</text>
+<rect x="308" y="614" width="88" height="32" rx="8" class="box-step"/>
+<text x="352" y="635" class="name" text-anchor="middle">prompt</text>
+<rect x="579.5" y="614" width="88" height="32" rx="8" class="box-step"/>
+<text x="623.5" y="635" class="name" text-anchor="middle">toText</text>
+<path d="M400,630 L575.5,630" class="flow" marker-end="url(#arrow)"/>
+<rect x="411" y="618" width="153.5" height="24" rx="12" class="box-val"/>
+<text x="487.75" y="634.5" class="vhead" style="font-size:12.5px" text-anchor="middle">StringPromptValue</text>
+<path d="M214,630 L238,630" class="flow" marker-end="url(#arrow)"/>
+<rect x="521.44" y="693" width="390.56" height="34" rx="8" class="box-val"/>
+<text x="539.44" y="715" class="vhead">answer</text>
+<text x="603.84" y="714.5" class="val code" style="font-size:13px">"Hello World, welcome to LangChain!"</text>
+<path d="M623.5,650 L623.5,689" class="flow" marker-end="url(#arrow)"/>
+<text x="609.5" y="675" class="mix" text-anchor="end" xml:space="preserve"><tspan class="mono-in">await</tspan> waits for the chain to finish</text>
+<rect x="84" y="750" width="844" height="98" rx="10" class="cell"/>
+<path d="M84,786 L84,760 A10,10 0 0 1 94,750 L918,750 A10,10 0 0 1 928,760 L928,786 Z" class="band"/>
+<line x1="84" y1="786" x2="928" y2="786" class="rule"/>
+<rect x="84" y="750" width="844" height="98" rx="10" class="edge"/>
+<text x="100" y="773" class="code" xml:space="preserve">console.log(answer);</text>
+<text x="100" y="822" class="verb">prints</text>
+<rect x="166" y="798" width="320.58" height="38" rx="8" class="box-term"/>
+<text x="184" y="822" class="term term-ok">Hello World, welcome to LangChain!</text>
+<text x="502.58" y="822" class="mix" xml:space="preserve">in the terminal</text>
+<path d="M52,183 L52,248" class="flow" marker-end="url(#arrow)"/>
+<path d="M52,283 L52,346" class="flow" marker-end="url(#arrow)"/>
+<path d="M52,381 L52,444" class="flow" marker-end="url(#arrow)"/>
+<path d="M52,479 L52,554" class="flow" marker-end="url(#arrow)"/>
+<path d="M52,589 L52,758" class="flow" marker-end="url(#arrow)"/>
+<circle cx="52" cy="174" r="6" class="dot"/>
+<circle cx="52" cy="266" r="14" class="num-bg"/>
+<text x="52" y="271.5" class="num" text-anchor="middle">1</text>
+<circle cx="52" cy="364" r="14" class="num-bg"/>
+<text x="52" y="369.5" class="num" text-anchor="middle">2</text>
+<circle cx="52" cy="462" r="14" class="num-bg"/>
+<text x="52" y="467.5" class="num" text-anchor="middle">3</text>
+<circle cx="52" cy="572" r="14" class="num-bg"/>
+<text x="52" y="577.5" class="num" text-anchor="middle">4</text>
+<circle cx="52" cy="768" r="6" class="dot"/>
+<rect x="32" y="872" width="896" height="52" rx="10" class="box-take"/>
+<text x="50" y="904" class="take"><tspan class="take-head">Takeaway</tspan><tspan dx="12">Making the steps runs nothing: invoke() is the line that runs them.</tspan></text>
+</svg>

@@ -37,7 +37,7 @@ no model yet, so you can see how steps are joined and run.
 | `hello.js` | The chain: `prompt.pipe(toText)`, run once with `invoke({})`, and the answer printed |
 | `package.json` | The project's settings for npm: one package, `@langchain/core` pinned at 1.2.14; the `start` script (`node hello.js`); `"type": "module"` |
 | `package-lock.json` | The exact version of every package `npm install` puts in `node_modules/` (`@langchain/core` and the packages it needs). Written by npm: don't edit it by hand |
-| `images/` | The five diagrams on this page, one per idea. They're SVG files: pictures written as text, which GitHub shows as images |
+| `images/` | The two pictures on this page: `hello.js` running from top to bottom, and the commands that run it. They're SVG files: pictures written as text, which GitHub shows as images |
 | `README.md` | This page |
 
 ## How it works
@@ -61,8 +61,6 @@ All of the project's setup is in `package.json`:
 }
 ```
 
-![package.json names @langchain/core 1.2.14, the module type and the start script. npm install, once, downloads the package into node_modules/, which is not in git; npm start, each time, runs node hello.js, which prints Hello World, welcome to LangChain!](images/npm.svg)
-
 - **`"dependencies"`**: the one package this project uses, pinned to an exact version. `npm install` downloads it,
   and the packages it needs in turn, into a `node_modules/` folder, at the versions listed in `package-lock.json`.
   Both files are in git, so everyone gets the same versions; `node_modules/` is not: `npm install` makes it on your
@@ -71,6 +69,16 @@ All of the project's setup is in `package.json`:
   before running it.
 - **`"type": "module"`**: tells Node that the `.js` files here are ES modules, the modern JavaScript module format.
   `hello.js` is one: it has `import` lines and an `await` outside any function, in ④.
+
+### `hello.js`, from top to bottom
+
+`npm start` runs `node hello.js`, and Node runs the file's statements one after the other, from the top:
+
+![hello.js from top to bottom. The imports take PromptTemplate and RunnableLambda from @langchain/core. ① makes prompt, ② makes toText and ③ makes chain, which joins them: none of them runs yet. ④ chain.invoke({}) runs the chain: {} goes into prompt, which gives a StringPromptValue to toText, which gives back the string; await waits for the chain to finish, and answer holds "Hello World, welcome to LangChain!". console.log(answer) prints it in the terminal.](images/hello-js.svg)
+
+① to ③ only make things: `prompt`, `toText`, and `chain`, which joins them. None of them runs yet. ④ is where the
+work happens: `chain.invoke({})` runs `prompt`, then `toText`, and `answer` gets the string. Then `console.log`
+prints it. The sections below go through the statements one at a time.
 
 ### The imports
 
@@ -88,8 +96,6 @@ package: the building blocks, such as prompts and Runnables, and no connection t
 const prompt = PromptTemplate.fromTemplate("Hello World, welcome to LangChain!");
 ```
 
-![prompt, a PromptTemplate, holds the fixed text Hello World, welcome to LangChain!; invoke({}) gives it back inside a StringPromptValue.](images/1-template.svg)
-
 `fromTemplate()` turns a text into a prompt template. This text is fixed, so each time the prompt runs it gives back
 the same words, inside a `StringPromptValue`.
 
@@ -98,8 +104,6 @@ the same words, inside a `StringPromptValue`.
 ```js
 const toText = RunnableLambda.from((value) => value.toString());
 ```
-
-![RunnableLambda.from() wraps the plain function (value) => value.toString() as toText, a Runnable with invoke() and pipe(), like prompt. When the chain runs, toText turns the StringPromptValue into the string Hello World, welcome to LangChain!](images/2-converter.svg)
 
 The prompt doesn't give back a string: `prompt.invoke({})` gives back a `StringPromptValue`, a LangChain object with
 the text inside ([Things to try](#things-to-try) prints one). `toText` turns it into text:
@@ -115,8 +119,6 @@ the text inside ([Things to try](#things-to-try) prints one). `toText` turns it 
 const chain = prompt.pipe(toText);
 ```
 
-![prompt.pipe(toText) joins prompt and toText into chain, a RunnableSequence, and runs neither of them.](images/3-chain.svg)
-
 `pipe()` joins the two steps into a new Runnable, a `RunnableSequence`: what `prompt` gives back goes into `toText`.
 Building it runs nothing: no step is called until `invoke()`, in ④.
 
@@ -127,8 +129,6 @@ const answer = await chain.invoke({});
 
 console.log(answer);
 ```
-
-![chain.invoke({}) sends {} to prompt, which gives a StringPromptValue to toText, which gives back the string. invoke() returns a Promise; await waits until it has the string, and console.log prints Hello World, welcome to LangChain!](images/4-invoke.svg)
 
 | Step | Gets | Gives back |
 |---|---|---|
@@ -148,6 +148,8 @@ cd projects/01-langchain-basic   # from the repo root
 npm install                      # once: downloads @langchain/core into node_modules/
 npm start                        # runs node hello.js
 ```
+
+![A terminal. cd projects/01-langchain-basic goes into the project's folder. npm install, once, downloads @langchain/core and the packages it needs into node_modules/, then prints its report: added 12 packages, and found 0 vulnerabilities, information only. npm start, each time, runs the start script in package.json, node hello.js: npm shows > start and > node hello.js, then console.log(answer) prints Hello World, welcome to LangChain! and the program ends.](images/run-it.svg)
 
 `npm start` prints:
 
