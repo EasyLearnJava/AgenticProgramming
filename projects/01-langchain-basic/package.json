@@ -7,6 +7,6 @@
     "start": "node hello.js"
   },
   "dependencies": {
-    "@langchain/core": "1.2.17"
+    "@langchain/core": "1.2.14"
   }
 }
