@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="496" viewBox="0 0 960 496" role="img" aria-labelledby="title desc">
+<!-- The diagram for README.md's section "② The converter". Plain SVG: edit the text in place. -->
+<title id="title">② The converter</title>
+<desc id="desc">RunnableLambda.from() wraps the plain function (value) =&gt; value.toString() as toText, a RunnableLambda with invoke() and pipe(). prompt, a PromptTemplate, has invoke() and pipe() too: both are Runnables, so step 3 can join them. When the chain runs, toText gets the StringPromptValue holding 'Hello World, welcome to LangChain!' and gives back the string "Hello World, welcome to LangChain!".</desc>
+<style><![CDATA[
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; fill: #1f2328; }
+.code, .code-muted, .kind, .val, .etext, .term, .alabel, .chip, .fname { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.title { font-size: 26px; font-weight: 700; }
+.sub { font-size: 16px; fill: #59636e; }
+.lane { font-size: 12.5px; font-weight: 700; fill: #59636e; letter-spacing: 1px; }
+.name { font-size: 17px; font-weight: 700; }
+.kind { font-size: 13.5px; fill: #6639ba; }
+.code { font-size: 13.5px; }
+.code-muted { font-size: 13px; fill: #59636e; }
+.fname { font-size: 15px; font-weight: 700; }
+.note { font-size: 13.5px; fill: #59636e; }
+.pill { font-size: 14px; font-weight: 600; fill: #6639ba; }
+.val { font-size: 13px; fill: #116329; }
+.val-big { font-size: 16px; font-weight: 700; }
+.vhead { font-size: 14px; font-weight: 700; fill: #1a7f37; }
+.ehead { font-size: 14px; font-weight: 700; fill: #cf222e; }
+.etext { font-size: 13px; fill: #a40e26; }
+.term { font-size: 13.5px; fill: #9198a1; }
+.term-ok { fill: #7ee787; }
+.term-bad { fill: #ff7b72; }
+.take { font-size: 16px; }
+.take-head { font-weight: 700; fill: #7d4e00; }
+.num { font-size: 18px; font-weight: 700; fill: #ffffff; }
+.alabel { font-size: 13px; fill: #59636e; }
+.alabel-step { font-size: 14px; font-weight: 700; fill: #6639ba; }
+.chip { font-size: 12.5px; fill: #6639ba; }
+.tag { font-size: 12px; fill: #59636e; }
+.blank { fill: #8250df; font-weight: 700; }
+.card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+.box-step { fill: #fbefff; stroke: #8250df; stroke-width: 2; }
+.box-idle { fill: #ffffff; stroke: #8250df; stroke-width: 2; stroke-dasharray: 7 5; }
+.box-chain { fill: #fdfaff; stroke: #8250df; stroke-width: 2; }
+.box-code { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1.5; }
+.box-val { fill: #dafbe1; stroke: #4ac26b; stroke-width: 1.5; }
+.box-err { fill: #ffebe9; stroke: #ff8182; stroke-width: 1.5; }
+.frame-ok { fill: #ffffff; stroke: #4ac26b; stroke-width: 2; }
+.frame-bad { fill: #ffffff; stroke: #ff8182; stroke-width: 2; }
+.box-term { fill: #1f2328; }
+.box-take { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; }
+.box-chip { fill: #ffffff; stroke: #c297ff; stroke-width: 1.2; }
+.box-tag { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+.rule { stroke: #d0d7de; stroke-width: 1.5; }
+.flow { stroke: #8c959f; stroke-width: 2; fill: none; }
+.flow-bad { stroke: #cf222e; stroke-width: 2; fill: none; }
+.num-bg { fill: #8250df; }
+]]></style>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/>
+  </marker>
+  <marker id="arrow-bad" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/>
+  </marker>
+</defs>
+<rect x="0.75" y="0.75" width="958.5" height="494.5" rx="14" class="card"/>
+<circle cx="49" cy="50" r="17" class="num-bg"/>
+<text x="49" y="56.5" class="num" text-anchor="middle">2</text>
+<text x="78" y="59" class="title">The converter</text>
+<text x="32" y="92" class="sub">RunnableLambda.from() turns a plain function into a Runnable: a step a chain can use.</text>
+<text x="32" y="130" class="lane">MAKING THE STEP</text>
+<rect x="32" y="150" width="290" height="76" rx="10" class="box-code"/>
+<text x="48" y="177" class="note">a plain function</text>
+<text x="48" y="204" class="code">(value) =&gt; value.toString()</text>
+<path d="M326,188 L506,188" class="flow" marker-end="url(#arrow)"/>
+<text x="416" y="178" class="alabel" text-anchor="middle">RunnableLambda.from()</text>
+<rect x="510" y="136" width="200" height="104" rx="10" class="box-step"/>
+<text x="526" y="166" class="name">toText</text>
+<text x="526" y="188" class="kind">RunnableLambda</text>
+<rect x="526" y="202" width="78" height="24" rx="12" class="box-chip"/>
+<text x="565" y="218.5" class="chip" text-anchor="middle">invoke()</text>
+<rect x="612" y="202" width="62.5" height="24" rx="12" class="box-chip"/>
+<text x="643.25" y="218.5" class="chip" text-anchor="middle">pipe()</text>
+<rect x="728" y="136" width="200" height="104" rx="10" class="box-step"/>
+<text x="744" y="166" class="name">prompt</text>
+<text x="744" y="188" class="kind">PromptTemplate</text>
+<rect x="744" y="202" width="78" height="24" rx="12" class="box-chip"/>
+<text x="783" y="218.5" class="chip" text-anchor="middle">invoke()</text>
+<rect x="830" y="202" width="62.5" height="24" rx="12" class="box-chip"/>
+<text x="861.25" y="218.5" class="chip" text-anchor="middle">pipe()</text>
+<text x="719" y="266" class="note" text-anchor="middle">Both are Runnables, so step 3 can join them.</text>
+<text x="32" y="312" class="lane">WHAT IT DOES WHEN THE CHAIN RUNS</text>
+<rect x="32" y="328" width="330" height="68" rx="10" class="box-val"/>
+<text x="48" y="354" class="vhead">StringPromptValue</text>
+<text x="48" y="379" class="val">'Hello World, welcome to LangChain!'</text>
+<path d="M366,362 L594,362" class="flow" marker-end="url(#arrow)"/>
+<text x="480" y="352" class="alabel-step" text-anchor="middle">toText</text>
+<text x="480" y="382" class="alabel" text-anchor="middle">value.toString()</text>
+<rect x="598" y="328" width="330" height="68" rx="10" class="box-val"/>
+<text x="614" y="354" class="vhead">a string</text>
+<text x="614" y="379" class="val">"Hello World, welcome to LangChain!"</text>
+<rect x="32" y="420" width="896" height="52" rx="10" class="box-take"/>
+<text x="50" y="452" class="take"><tspan class="take-head">Takeaway</tspan><tspan dx="12">Every step is a Runnable: invoke() runs it, and pipe() joins it to the next step.</tspan></text>
+</svg>

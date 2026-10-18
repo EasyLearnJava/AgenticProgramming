@@ -40,6 +40,7 @@ arrives in project 10.
 | `hello.js` | The chain: `prompt.pipe(toText)`, run once with `invoke({})`, and the answer printed |
 | `package.json` | The project's settings for npm: one package, `@langchain/core` pinned at 1.2.14; the `start` script (`node hello.js`); `"type": "module"` |
 | `package-lock.json` | The exact version of every package `npm install` puts in `node_modules/` (`@langchain/core` and the packages it needs). Written by npm: don't edit it by hand |
+| `images/` | The five diagrams on this page, one per idea. They're SVG files: pictures written as text, which GitHub shows as images |
 | `README.md` | This page |
 
 ## How it works
@@ -62,6 +63,8 @@ All of the project's setup is in `package.json`:
   }
 }
 ```
+
+![package.json names @langchain/core 1.2.14, the module type and the start script. npm install, once, downloads the package into node_modules/, which is not in git; npm start, each time, runs node hello.js, which prints Hello World, welcome to LangChain!](images/npm.svg)
 
 - **`"dependencies"`**: the one package this project uses, pinned to an exact version. `npm install` downloads it,
   and the packages it needs in turn, into a `node_modules/` folder, at the versions listed in `package-lock.json`.
@@ -89,6 +92,8 @@ building blocks, such as prompts and Runnables, and no connection to any model.
 const prompt = PromptTemplate.fromTemplate("Hello World, welcome to LangChain!");
 ```
 
+![This project's prompt has no variables, so invoke({}) gives back a StringPromptValue holding its text. A prompt with {name} needs a value: invoke({ name: "Ada" }) gives back one holding Hello Ada, welcome to LangChain!, and invoke({}) throws Error: (f-string) Missing value for input name.](images/1-template.svg)
+
 `fromTemplate()` turns a text into a prompt template. A word in curly braces, like `{name}`, would be a variable for
 `invoke()` to fill in; this text has none, so `prompt.inputVariables` is `[]`. Curly braces are special in the text
 for that reason: see [When things go wrong](#when-things-go-wrong).
@@ -98,6 +103,8 @@ for that reason: see [When things go wrong](#when-things-go-wrong).
 ```js
 const toText = RunnableLambda.from((value) => value.toString());
 ```
+
+![RunnableLambda.from() wraps the plain function (value) => value.toString() as toText, a Runnable with invoke() and pipe(), like prompt. When the chain runs, toText turns the StringPromptValue into the string Hello World, welcome to LangChain!](images/2-converter.svg)
 
 The prompt doesn't give back a string: `prompt.invoke({})` gives back a `StringPromptValue`, a LangChain object with
 the text inside ([Things to try](#things-to-try) prints one). `toText` turns it into text:
@@ -113,6 +120,8 @@ the text inside ([Things to try](#things-to-try) prints one). `toText` turns it 
 const chain = prompt.pipe(toText);
 ```
 
+![prompt.pipe(toText) joins the two steps into chain, a RunnableSequence, and runs neither of them. The chain is built once and can then be run with invoke({}) as often as you like, as project 02's server does.](images/3-chain.svg)
+
 `pipe()` joins the two steps into a new Runnable, a `RunnableSequence`: what `prompt` gives back goes into `toText`.
 Building it runs nothing. No step is called until `invoke()`, and you can call `invoke()` as many times as you like.
 Project 02's server does exactly that: it builds the chain once, when it starts, and runs it on every call to
@@ -125,6 +134,8 @@ const answer = await chain.invoke({});
 
 console.log(answer);
 ```
+
+![chain.invoke({}) sends {} to prompt, which gives a StringPromptValue to toText, which gives back the string. With await, console.log prints Hello World, welcome to LangChain!; without await, it prints the Promise, still pending.](images/4-invoke.svg)
 
 | Step | Gets | Gives back |
 |---|---|---|

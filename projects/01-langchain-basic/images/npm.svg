@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="480" viewBox="0 0 960 480" role="img" aria-labelledby="title desc">
+<!-- The diagram for README.md's section "npm install, then npm start". Plain SVG: edit the text in place. -->
+<title id="title">npm install, then npm start</title>
+<desc id="desc">package.json names the package (@langchain/core 1.2.14), the module type and the start script. npm install, once, downloads @langchain/core and the packages it needs into node_modules/, at the versions in package-lock.json; package.json is in git, node_modules/ is not. npm start, each time, runs node hello.js, and the terminal shows &gt; start, &gt; node hello.js, then Hello World, welcome to LangChain!</desc>
+<style><![CDATA[
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; fill: #1f2328; }
+.code, .code-muted, .kind, .val, .etext, .term, .alabel, .chip, .fname { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.title { font-size: 26px; font-weight: 700; }
+.sub { font-size: 16px; fill: #59636e; }
+.lane { font-size: 12.5px; font-weight: 700; fill: #59636e; letter-spacing: 1px; }
+.name { font-size: 17px; font-weight: 700; }
+.kind { font-size: 13.5px; fill: #6639ba; }
+.code { font-size: 13.5px; }
+.code-muted { font-size: 13px; fill: #59636e; }
+.fname { font-size: 15px; font-weight: 700; }
+.note { font-size: 13.5px; fill: #59636e; }
+.pill { font-size: 14px; font-weight: 600; fill: #6639ba; }
+.val { font-size: 13px; fill: #116329; }
+.val-big { font-size: 16px; font-weight: 700; }
+.vhead { font-size: 14px; font-weight: 700; fill: #1a7f37; }
+.ehead { font-size: 14px; font-weight: 700; fill: #cf222e; }
+.etext { font-size: 13px; fill: #a40e26; }
+.term { font-size: 13.5px; fill: #9198a1; }
+.term-ok { fill: #7ee787; }
+.term-bad { fill: #ff7b72; }
+.take { font-size: 16px; }
+.take-head { font-weight: 700; fill: #7d4e00; }
+.num { font-size: 18px; font-weight: 700; fill: #ffffff; }
+.alabel { font-size: 13px; fill: #59636e; }
+.alabel-step { font-size: 14px; font-weight: 700; fill: #6639ba; }
+.chip { font-size: 12.5px; fill: #6639ba; }
+.tag { font-size: 12px; fill: #59636e; }
+.blank { fill: #8250df; font-weight: 700; }
+.card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+.box-step { fill: #fbefff; stroke: #8250df; stroke-width: 2; }
+.box-idle { fill: #ffffff; stroke: #8250df; stroke-width: 2; stroke-dasharray: 7 5; }
+.box-chain { fill: #fdfaff; stroke: #8250df; stroke-width: 2; }
+.box-code { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1.5; }
+.box-val { fill: #dafbe1; stroke: #4ac26b; stroke-width: 1.5; }
+.box-err { fill: #ffebe9; stroke: #ff8182; stroke-width: 1.5; }
+.frame-ok { fill: #ffffff; stroke: #4ac26b; stroke-width: 2; }
+.frame-bad { fill: #ffffff; stroke: #ff8182; stroke-width: 2; }
+.box-term { fill: #1f2328; }
+.box-take { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; }
+.box-chip { fill: #ffffff; stroke: #c297ff; stroke-width: 1.2; }
+.box-tag { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+.rule { stroke: #d0d7de; stroke-width: 1.5; }
+.flow { stroke: #8c959f; stroke-width: 2; fill: none; }
+.flow-bad { stroke: #cf222e; stroke-width: 2; fill: none; }
+.num-bg { fill: #8250df; }
+]]></style>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/>
+  </marker>
+  <marker id="arrow-bad" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/>
+  </marker>
+</defs>
+<rect x="0.75" y="0.75" width="958.5" height="478.5" rx="14" class="card"/>
+<text x="32" y="59" class="title">npm install, then npm start</text>
+<text x="32" y="92" class="sub">package.json says what to install and what to run. npm reads it.</text>
+<rect x="32" y="120" width="300" height="250" rx="10" class="box-code"/>
+<text x="48" y="150" class="fname">package.json</text>
+<rect x="261.68" y="134" width="56.32" height="20" rx="10" class="box-tag"/>
+<text x="289.84" y="148" class="tag" text-anchor="middle">in git</text>
+<line x1="32" y1="166" x2="332" y2="166" class="rule"/>
+<text x="48" y="200" class="code">"@langchain/core": "1.2.14"</text>
+<text x="48" y="221" class="note">what npm install downloads</text>
+<text x="48" y="266" class="code">"type": "module"</text>
+<text x="48" y="287" class="note">makes hello.js an ES module</text>
+<text x="48" y="332" class="code">"start": "node hello.js"</text>
+<text x="48" y="353" class="note">what npm start runs</text>
+<path d="M336,195 L391,195" class="flow" marker-end="url(#arrow)"/>
+<rect x="395" y="175" width="150" height="40" rx="20" class="box-code"/>
+<text x="470" y="200" class="code" text-anchor="middle">npm install</text>
+<text x="470" y="235" class="note" text-anchor="middle">once</text>
+<path d="M549,195 L606,195" class="flow" marker-end="url(#arrow)"/>
+<path d="M336,327 L391,327" class="flow" marker-end="url(#arrow)"/>
+<rect x="395" y="307" width="150" height="40" rx="20" class="box-code"/>
+<text x="470" y="332" class="code" text-anchor="middle">npm start</text>
+<text x="470" y="367" class="note" text-anchor="middle">each time you run it</text>
+<path d="M549,327 L606,327" class="flow" marker-end="url(#arrow)"/>
+<rect x="610" y="143" width="318" height="104" rx="10" class="box-code"/>
+<text x="626" y="171" class="fname">node_modules/</text>
+<rect x="830.8" y="155" width="83.2" height="20" rx="10" class="box-tag"/>
+<text x="872.4" y="169" class="tag" text-anchor="middle">not in git</text>
+<text x="626" y="197" class="code">@langchain/core 1.2.14</text>
+<text x="626" y="218" class="note">and the packages it needs,</text>
+<text x="626" y="237" class="note">at the versions in package-lock.json</text>
+<rect x="610" y="272" width="318" height="110" rx="10" class="box-term"/>
+<text x="626" y="302" class="term">&gt; start</text>
+<text x="626" y="322" class="term">&gt; node hello.js</text>
+<text x="626" y="358" class="term term-ok">Hello World, welcome to LangChain!</text>
+<rect x="32" y="404" width="896" height="52" rx="10" class="box-take"/>
+<text x="50" y="436" class="take"><tspan class="take-head">Takeaway</tspan><tspan dx="12">npm install once, to download @langchain/core; npm start each time, to run hello.js.</tspan></text>
+</svg>
