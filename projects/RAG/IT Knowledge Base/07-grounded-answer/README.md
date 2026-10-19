@@ -70,7 +70,7 @@ python rag_chain.py "my printer is missing"
 To run the tests:
 
 ```bash
-python -m pytest                     # 29 passed, 5 skipped
+python -m pytest                     # 33 passed, 5 skipped
 ```
 
 The 5 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.
