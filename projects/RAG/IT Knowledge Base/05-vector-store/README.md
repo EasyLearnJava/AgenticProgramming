@@ -25,6 +25,10 @@ question here: the search starts in step 06.
 Each run makes 1 call to Gemini, for all 28 chunks. It embeds them again rather than using step 04's vectors, because
 each project runs on its own, from the CSV.
 
+In memory, nothing outside the script can see the points. If you want to look at them in Qdrant's own dashboard, the
+script can store them in a Qdrant server instead, run by Docker: see
+[See the points in Qdrant's dashboard](#see-the-points-in-qdrants-dashboard), below. It's optional.
+
 ## How to run it
 
 You need Python 3.11 or newer, and a Gemini API key.
@@ -55,6 +59,7 @@ in the article the chunk starts, its vector's size, its text's length and how ma
 aren't printed, so this is exactly what you'll see:
 
 ```text
+Qdrant: in memory, inside this script
 Collection 'it_knowledge_base': 28 points, vectors of 768 numbers, compared by Cosine
 Each point holds an id, a vector and a payload with metadata, page_content
 
@@ -71,10 +76,74 @@ The 7 labels are the article's 6 from step 02 (`doc_id`, title, system, category
 To run the tests:
 
 ```bash
-python -m pytest                     # 20 passed, 2 skipped
+python -m pytest                     # 22 passed, 2 skipped
 ```
 
-The 2 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.
+The 2 skipped tests are live tests: they call the real Gemini, so they run only when your key is set. The tests never
+need Docker: an in-memory Qdrant stands in for the server.
+
+## See the points in Qdrant's dashboard
+
+Optional. In memory, Qdrant lives inside the script, so there's no server to look at, and the points are gone when it
+ends. A Qdrant server, run by Docker, has a web dashboard where you can browse every stored point. You need Docker:
+Docker Desktop on Windows and macOS; GitHub Codespaces has it already.
+
+1. Start the Qdrant server, in this folder. `docker-compose.yml` runs `qdrant/qdrant:v1.19.1` on port 6333. The first
+   time, Docker downloads the image.
+
+   ```bash
+   docker compose up -d
+   ```
+
+2. Tell the script to use it: in `.env`, remove the `#` in front of the last line, so it reads:
+
+   ```text
+   QDRANT_URL=http://localhost:6333
+   ```
+
+3. Run the script as before:
+
+   ```bash
+   python vector_store.py
+   ```
+
+   It prints the same collection and points, but its first line is now `Qdrant: the server at http://localhost:6333`,
+   and it ends with where to find the dashboard:
+
+   ```text
+   See them in Qdrant's dashboard: http://localhost:6333/dashboard
+   In GitHub Codespaces: open the Ports tab, open the address for port 6333, and add /dashboard to it.
+   ```
+
+4. Open the dashboard:
+
+   | Where you run it | Address |
+   |---|---|
+   | On your own computer | http://localhost:6333/dashboard |
+   | In GitHub Codespaces | `https://<codespace-name>-6333.app.github.dev/dashboard` |
+
+   In Codespaces, `localhost` is the codespace, not your computer, so the browser needs the codespace's address. Open
+   the **Ports** tab next to **Terminal**: Codespaces forwards port 6333 once Qdrant is running (if it isn't listed,
+   click **Add Port** and type 6333). Open the address it shows for 6333, with the globe icon, then add `/dashboard`
+   to the end. `<codespace-name>` is the first part of your codespace's own address, for example
+   `silver-lamp-jwjq66xxgphp7rw` in `silver-lamp-jwjq66xxgphp7rw.github.dev`.
+
+5. In the dashboard, open **Collections**, then `it_knowledge_base`: its 28 points, each with its payload (the
+   chunk's text and labels) and its vector.
+
+Each run deletes the collection and stores the chunks again. The points get random ids, so without that, every run
+would add 28 more copies. Step 11 does better: it gives each chunk an id made from its text, and reuses the stored
+chunks instead of embedding them again.
+
+If `QDRANT_URL` is set but the server isn't running, the script stops before calling Gemini:
+
+```text
+Can't reach Qdrant at http://localhost:6333. Start it first, in this folder: docker compose up -d (or remove QDRANT_URL from .env to run Qdrant in memory).
+```
+
+To stop the server, run `docker compose down` in this folder. Its data stays in a Docker volume for next time
+(`docker compose down -v` deletes it). Only one server can use port 6333, so stop this one before starting step 11's.
+To go back to memory, put the `#` back in front of `QDRANT_URL` in `.env`.
 
 ## How Qdrant measures "close": the distance
 

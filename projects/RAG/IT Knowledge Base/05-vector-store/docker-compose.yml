@@ -1,0 +1,18 @@
+# Qdrant, the vector database, as a server in Docker. Optional in this step: with QDRANT_URL set in .env,
+# vector_store.py stores the chunks in this server instead of in memory, and Qdrant's dashboard shows them.
+#
+#   docker compose up -d      start it in the background (the first time, Docker downloads the image)
+#   docker compose down       stop it; its data stays in the qdrant_storage volume (down -v deletes that too)
+#
+# The dashboard is then at http://localhost:6333/dashboard (in GitHub Codespaces: the Ports tab, port 6333).
+# Only one server can use port 6333: stop this one before starting step 11's.
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.1        # pinned: the server version that matches qdrant-client 1.19.1
+    ports:
+      - "6333:6333"                     # Qdrant's REST API and dashboard, on this machine's port 6333
+    volumes:
+      - qdrant_storage:/qdrant/storage  # where Qdrant keeps its data, in a Docker volume that outlives the container
+
+volumes:
+  qdrant_storage:
