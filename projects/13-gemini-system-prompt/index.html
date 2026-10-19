@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Project 13: The system prompt</title>
+  <title>Project 13: Give the model a role: the system prompt</title>
 </head>
 <body>
-  <h1>Project 13: The system prompt</h1>
+  <h1>Project 13: Give the model a role: the system prompt</h1>
   <form id="form">
     <label>Your question <input id="question" size="50" value="What is an API?" autocomplete="off"></label>
     <button id="run">Ask both</button>
@@ -21,17 +21,30 @@
   </table>
 
   <script>
+    // On page load: get the two system prompts from the server (main.py's GET /api/prompts) and show them in the
+    // table. Each submit (click or Enter) gets them again, then sends the question to POST /api/ask, which asks
+    // Gemini once per system prompt; each answer goes under the system prompt that produced it.
     const show = (id, text) => { document.getElementById(id).textContent = text; };
     const status = document.getElementById("status");
     const button = document.getElementById("run");
 
-    // Show the two system prompts when the page opens.
-    fetch("/api/prompts")
-      .then((res) => res.json())
-      .then((prompts) => {
-        show("beginner-prompt", prompts.beginner);
-        show("expert-prompt", prompts.expert);
-      });
+    // Asked again before each question: if you edit SYSTEM_PROMPTS in hello.py, uvicorn --reload restarts the
+    // server with the new ones, and the table shows them without a page reload.
+    function showPrompts() {
+      return fetch("/api/prompts")
+        .then((res) => {
+          if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((prompts) => {
+          show("beginner-prompt", prompts.beginner);
+          show("expert-prompt", prompts.expert);
+        });
+    }
+
+    showPrompts().catch((err) => {
+      status.textContent = `Something went wrong: ${err.message}`;
+    });
 
     document.getElementById("form").addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -40,15 +53,18 @@
       show("beginner-answer", "");
       show("expert-answer", "");
       try {
+        await showPrompts();
         const res = await fetch("/api/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: document.getElementById("question").value }),
         });
-        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok && res.status !== 422 && res.status !== 502) {
+          throw new Error(`the server answered HTTP ${res.status}`);     // a status this page doesn't handle itself
+        }
         const data = await res.json();
         if (res.status === 422) {
-          status.textContent = "Please type a question (200 characters at most).";
+          status.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
         } else if (res.status === 502) {
           status.textContent = `${data.detail} The server's terminal says why.`;
         } else {
@@ -57,7 +73,7 @@
           status.textContent = "Done. Same question, different system prompts.";
         }
       } catch (err) {
-        status.textContent = `Could not reach the server: ${err.message}`;
+        status.textContent = `Something went wrong: ${err.message}`;
       } finally {
         button.disabled = false;
       }

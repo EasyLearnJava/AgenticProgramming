@@ -5,10 +5,12 @@ length. The user's question goes in a separate human message.
 
     {"question": "What is an API?"}  ->  {"beginner": "An API is like a waiter ...",
                                           "expert": "An API is a contract ... versioning ..."}
+                                         (made-up answers: Gemini's words change every time)
 
 Run it on its own:   python hello.py                         ->   "What is an API?" for both audiences
                      python hello.py "What is a database?"   ->   your own question
-main.py imports `chain` from here and serves it at POST /api/ask.
+main.py imports `chain` and `SYSTEM_PROMPTS` from here: it serves the chain at POST /api/ask, and the two system
+prompts at GET /api/prompts.
 """
 import sys
 
@@ -20,10 +22,13 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from config import MissingKeyError, load_api_key
 
 MODEL = "gemini-3.5-flash-lite"
+# The cap on each answer, in tokens. The system prompts below only ask for "at most three sentences": the model
+# usually does as asked, but nothing makes it. This cap is enforced: a longer answer is cut off (project 11).
 MAX_OUTPUT_TOKENS = 300
 
 # ① The two system prompts: the rules for each audience. Each one says who the model is, who it's talking to, how
 #    to sound, and how long to be. Change only these to change the style.
+#    Plain text, with one catch: { and } mark a slot to fill, like {question} below, so leave braces out of these.
 SYSTEM_PROMPTS = {
     "beginner": (
         "You are a patient teacher. The person asking has never written code. "
@@ -55,17 +60,25 @@ def make_prompt(system_prompt: str) -> ChatPromptTemplate:
     ])
 
 
-prompts = {audience: make_prompt(text) for audience, text in SYSTEM_PROMPTS.items()}
+prompts = {
+    "beginner": make_prompt(SYSTEM_PROMPTS["beginner"]),
+    "expert": make_prompt(SYSTEM_PROMPTS["expert"]),
+}
 
-# ③ Both audiences at once: RunnableParallel (project 6) gives the same input to each chain, and the two Gemini
-#    calls run at the same time.
-chain = RunnableParallel({audience: prompt | model | StrOutputParser() for audience, prompt in prompts.items()})
+# ③ Both audiences at once: RunnableParallel (project 6) gives the same input, {"question": ...}, to both chains,
+#    and the two Gemini calls run at the same time. A dict here means the same as project 6's keyword arguments:
+#    RunnableParallel({"beginner": ...}) is RunnableParallel(beginner=...).
+chain = RunnableParallel({
+    "beginner": prompts["beginner"] | model | StrOutputParser(),
+    "expert": prompts["expert"] | model | StrOutputParser(),
+})
 
 
 if __name__ == "__main__":
-    question = sys.argv[1] if len(sys.argv) > 1 else "What is an API?"
-    answers = chain.invoke({"question": question})
+    # Every word after hello.py is part of the question, so python hello.py What is a database works too.
+    question = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "What is an API?"
+    answers = chain.invoke({"question": question})       # {"beginner": "...", "expert": "..."}
     for audience, answer in answers.items():
-        print(f"--- for a {audience} ---")
+        print(f"--- for the {audience} ---")
         print(answer)
         print()
