@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="566" viewBox="0 0 960 566" role="img" aria-labelledby="title desc">
+<title id="title">Dot: direction and length together</title>
+<desc id="desc">The same three arrows. A dashed line drops from c's tip onto a's line: c's shadow on a is 4.8 long. Dot of a and b is 3x6 + 4x8 = 50, which is 5 x 10; dot of a and c is 3x4 + 4x3 = 24, which is 5 x 4.8. b is closest. On length-1 vectors dot ranks exactly like cosine.</desc>
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; fill: #1f2328; }
+.title { font-size: 24px; font-weight: 700; }
+.sub { font-size: 15px; fill: #59636e; }
+.head { font-size: 15px; font-weight: 700; }
+.body { font-size: 14px; }
+.note { font-size: 13px; fill: #59636e; }
+.math { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13.5px; }
+.axis { font-size: 11px; fill: #6e7781; }
+.lab { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; font-weight: 700; }
+.lab-a { fill: #0969da; } .lab-b { fill: #8250df; } .lab-c { fill: #bc4c00; }
+.measure { font-size: 13px; font-weight: 700; }
+.take { font-size: 15px; }
+.take-head { font-weight: 700; fill: #7d4e00; }
+.card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+.plot { fill: #ffffff; stroke: #d0d7de; stroke-width: 1; }
+.grid { stroke: #eaeef2; stroke-width: 1; }
+.axisline { stroke: #8c959f; stroke-width: 1.5; }
+.box-take { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; }
+.panel { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1; }
+</style>
+<defs><marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#0969da"/></marker><marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8250df"/></marker><marker id="mc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#bc4c00"/></marker></defs>
+<rect x="0.75" y="0.75" width="958.5" height="564.5" rx="14" class="card"/>
+<text x="32" y="52" class="title" xml:space="preserve">Dot: direction and length together</text>
+<text x="32" y="80" class="sub" xml:space="preserve">a = [3, 4] is the stored chunk; which is closer to it, b = [6, 8] or c = [4, 3]?</text>
+<rect x="66" y="108" width="336" height="336" rx="0" class="plot"/>
+<line x1="108" y1="108" x2="108" y2="444" class="grid"/>
+<line x1="66" y1="402" x2="402" y2="402" class="grid"/>
+<line x1="150" y1="108" x2="150" y2="444" class="grid"/>
+<line x1="66" y1="360" x2="402" y2="360" class="grid"/>
+<line x1="192" y1="108" x2="192" y2="444" class="grid"/>
+<line x1="66" y1="318" x2="402" y2="318" class="grid"/>
+<line x1="234" y1="108" x2="234" y2="444" class="grid"/>
+<line x1="66" y1="276" x2="402" y2="276" class="grid"/>
+<line x1="276" y1="108" x2="276" y2="444" class="grid"/>
+<line x1="66" y1="234" x2="402" y2="234" class="grid"/>
+<line x1="318" y1="108" x2="318" y2="444" class="grid"/>
+<line x1="66" y1="192" x2="402" y2="192" class="grid"/>
+<line x1="360" y1="108" x2="360" y2="444" class="grid"/>
+<line x1="66" y1="150" x2="402" y2="150" class="grid"/>
+<line x1="402" y1="108" x2="402" y2="444" class="grid"/>
+<line x1="66" y1="108" x2="402" y2="108" class="grid"/>
+<line x1="66" y1="444" x2="402" y2="444" class="axisline"/>
+<line x1="66" y1="444" x2="66" y2="108" class="axisline"/>
+<text x="66" y="460" class="axis" text-anchor="middle" xml:space="preserve">0</text>
+<text x="150" y="460" class="axis" text-anchor="middle" xml:space="preserve">2</text>
+<text x="58" y="364" class="axis" text-anchor="end" xml:space="preserve">2</text>
+<text x="234" y="460" class="axis" text-anchor="middle" xml:space="preserve">4</text>
+<text x="58" y="280" class="axis" text-anchor="end" xml:space="preserve">4</text>
+<text x="318" y="460" class="axis" text-anchor="middle" xml:space="preserve">6</text>
+<text x="58" y="196" class="axis" text-anchor="end" xml:space="preserve">6</text>
+<text x="402" y="460" class="axis" text-anchor="middle" xml:space="preserve">8</text>
+<text x="58" y="112" class="axis" text-anchor="end" xml:space="preserve">8</text>
+<line x1="66" y1="444" x2="186.96" y2="282.72" style="stroke:#bc4c00;stroke-width:14;stroke-opacity:0.3"/>
+<line x1="66" y1="444" x2="318" y2="108" style="stroke:#8250df;stroke-width:3" marker-end="url(#mb)"/>
+<line x1="66" y1="444" x2="192" y2="276" style="stroke:#0969da;stroke-width:4" marker-end="url(#ma)"/>
+<line x1="66" y1="444" x2="234" y2="318" style="stroke:#bc4c00;stroke-width:3" marker-end="url(#mc)"/>
+<text x="180" y="278" class="lab lab-a" text-anchor="end" xml:space="preserve">a [3, 4]</text>
+<text x="328" y="114" class="lab lab-b" xml:space="preserve">b [6, 8]</text>
+<text x="244" y="326" class="lab lab-c" xml:space="preserve">c [4, 3]</text>
+<line x1="234" y1="318" x2="186.96" y2="282.72" style="stroke:#bc4c00;stroke-width:2;stroke-dasharray:5 4"/>
+<text x="114.48" y="367.36" class="measure" text-anchor="end" style="fill:#bc4c00" xml:space="preserve">4.8</text>
+<text x="269" y="198" class="measure" style="fill:#8250df" xml:space="preserve">|b| = 10</text>
+<rect x="480" y="108" width="448" height="322" rx="10" class="panel"/>
+<text x="498" y="138" class="head" xml:space="preserve">How it scores</text>
+<text x="498" y="160" class="math" xml:space="preserve">3×6 + 4×8: direction and length</text>
+<text x="498" y="180" class="math" xml:space="preserve">a vs b: 3×6 + 4×8 = 50   (5 × 10)</text>
+<text x="498" y="200" class="math" xml:space="preserve">a vs c: 3×4 + 4×3 = 24   (5 × 4.8)</text>
+<text x="498" y="220" class="note" xml:space="preserve">= |a| × the other's shadow on a.</text>
+<text x="498" y="240" class="note" xml:space="preserve">Higher is closer; no upper limit.</text>
+<text x="498" y="274" class="head" xml:space="preserve">Closest to a: b</text>
+<text x="498" y="296" class="body" xml:space="preserve">Same direction, and twice as long.</text>
+<text x="498" y="330" class="head" xml:space="preserve">Use it for</text>
+<text x="498" y="352" class="body" xml:space="preserve">Vectors already length 1 (OpenAI's, Gemini's</text>
+<text x="498" y="372" class="body" xml:space="preserve">3072): it ranks like cosine, a little faster.</text>
+<text x="498" y="392" class="body" xml:space="preserve">Models whose docs say dot product, or when</text>
+<text x="498" y="412" class="body" xml:space="preserve">length means something, like popularity.</text>
+<rect x="32" y="488" width="896" height="46" rx="10" class="box-take"/>
+<text x="50" y="517" class="take" xml:space="preserve"><tspan class="take-head">Dot:</tspan> direction and length both count. On length-1 vectors it ranks exactly like cosine.</text>
+</svg>
