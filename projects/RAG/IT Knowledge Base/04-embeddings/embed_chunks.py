@@ -27,10 +27,13 @@ if __name__ == "__main__":
     chunks = split_documents(load_documents())
     # ② The one call to Gemini: 28 texts in, 28 vectors out, in the same order as the chunks.
     vectors = embed_chunks(chunks, embeddings)
-    # ③ Every chunk with its vector: where the chunk comes from, then how many numbers its vector has and the first 5.
+    # ③ Every chunk with its vector: its article and which characters of the article's text it holds (from start_index
+    #    to start_index + its length), then how many numbers it was converted to, and the first 5 of them.
     print(f"{len(chunks)} chunks -> {len(vectors)} vectors ({EMBEDDING_MODEL})")
     print()
     for number, (chunk, vector) in enumerate(zip(chunks, vectors), 1):
-        start = ", ".join(f"{x:.4f}" for x in vector[:5])
-        print(f"Chunk {number} of {len(chunks)}: {chunk.metadata['title']}, from character "
-              f"{chunk.metadata['start_index']} -> {len(vector)} numbers: [{start}, ...]")
+        start = chunk.metadata["start_index"]
+        end = start + len(chunk.page_content)
+        first = ", ".join(f"{x:.4f}" for x in vector[:5])
+        print(f"Chunk {number} of {len(chunks)}: {chunk.metadata['title']}, from character {start} to {end} "
+              f"-> converted to {len(vector)} numbers: [{first}, ...]")

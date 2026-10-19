@@ -53,18 +53,24 @@ Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and
 If `.env` still says `your-key-here`, it stops with `GOOGLE_API_KEY is still the placeholder from .env.example: put
 your real key in .env.` instead.
 
-`python embed_chunks.py` prints how many vectors came back, then every chunk, one line each: where it comes from, how
-many numbers its vector has, and the first 5 of them. The numbers in `< >` come from Gemini:
+`python embed_chunks.py` prints how many vectors came back, then every chunk, one line each: its article, which
+characters of the article's text it holds, how many numbers it was converted to, and the first 5 of them. The numbers
+in `< >` come from Gemini:
 
 ```text
 28 chunks -> 28 vectors (gemini-embedding-001)
 
-Chunk 1 of 28: VPN Connection Timeout, from character 0 -> 768 numbers: [<the first 5 numbers>, ...]
-Chunk 2 of 28: VPN Connection Timeout, from character 459 -> 768 numbers: [<the first 5 numbers>, ...]
-Chunk 3 of 28: MFA Setup Failure, from character 0 -> 768 numbers: [<the first 5 numbers>, ...]
+Chunk 1 of 28: VPN Connection Timeout, from character 0 to 457 -> converted to 768 numbers: [<the first 5 numbers>, ...]
+Chunk 2 of 28: VPN Connection Timeout, from character 459 to 569 -> converted to 768 numbers: [<the first 5 numbers>, ...]
+Chunk 3 of 28: MFA Setup Failure, from character 0 to 144 -> converted to 768 numbers: [<the first 5 numbers>, ...]
 ...
-Chunk 28 of 28: Microsoft Teams Audio Issues, from character 581 -> 768 numbers: [<the first 5 numbers>, ...]
+Chunk 28 of 28: Microsoft Teams Audio Issues, from character 581 to 699 -> converted to 768 numbers: [<the first 5 numbers>, ...]
 ```
+
+`from character 0 to 457` is the part of the article's text the chunk holds: it starts at character 0 and ends just
+before character 457, so it's 457 characters long. Chunk 2 holds characters 459 to 569, 110 characters: the blank
+line between them (characters 457 and 458) is in neither chunk. Every chunk, short or long, is converted to the same
+768 numbers.
 
 On their own, the numbers don't tell you anything: what matters is how close two vectors point. Step 06 uses that to
 compare a question with these chunks.

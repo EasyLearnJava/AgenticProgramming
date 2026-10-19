@@ -51,8 +51,10 @@ def test_running_it_embeds_the_chunks_and_never_a_question(monkeypatch, capsys):
     lines = capsys.readouterr().out.splitlines()
     assert stand_in.calls == [("documents", 28)]              # one call for the chunks, and no embed_query: no question
     assert lines[0] == "28 chunks -> 28 vectors (gemini-embedding-001)"
-    assert lines[2].startswith(f"Chunk 1 of 28: VPN Connection Timeout, from character 0 -> {SIZE} numbers: [")
-    assert lines[-1].startswith("Chunk 28 of 28: Microsoft Teams Audio Issues, from character 581 -> ")
+    assert lines[2].startswith(
+        f"Chunk 1 of 28: VPN Connection Timeout, from character 0 to 457 -> converted to {SIZE} numbers: [")
+    assert lines[3].startswith("Chunk 2 of 28: VPN Connection Timeout, from character 459 to 569 -> converted to ")
+    assert lines[-1].startswith("Chunk 28 of 28: Microsoft Teams Audio Issues, from character 581 to 699 -> ")
     assert sum(line.startswith("Chunk ") for line in lines) == 28
 
 
