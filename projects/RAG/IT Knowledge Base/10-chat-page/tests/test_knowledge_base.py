@@ -43,10 +43,17 @@ def test_making_the_loader_reads_nothing_and_load_reads_the_file(tmp_path):
         loader.load()                              # load() is what opens it
 
 
-def test_running_it_prints_the_split_then_the_first_document():
+def test_running_it_prints_the_split_then_every_document():
     printed = subprocess.run([sys.executable, str(FOLDER / "knowledge_base.py")], cwd=FOLDER, capture_output=True,
                              text=True, encoding="utf-8", check=True).stdout
     assert printed.startswith("10 documents\ntext:     title, problem, resolution, notes\n"
                               "metadata: doc_id, title, system, category, priority, tags\n\n"
-                              "Title: VPN Connection Timeout\n\nProblem: ")
-    assert printed.endswith("'tags': 'vpn;timeout;remote;connection'}\n")
+                              "Document 1 of 10\nText (page_content):\nTitle: VPN Connection Timeout\n\nProblem: ")
+    assert ("\n\nLabels (metadata):\n{'doc_id': '0', 'title': 'VPN Connection Timeout', 'system': 'VPN', "
+            "'category': 'Remote Access', 'priority': 'High', 'tags': 'vpn;timeout;remote;connection'}\n\n"
+            "Document 2 of 10\n") in printed
+    headings = [line for line in printed.splitlines() if line.startswith("Document ")]
+    assert headings == [f"Document {n} of 10" for n in range(1, 11)]
+    assert "\n\n\n" not in printed                  # never more than one blank line in a row
+    assert "\n\nLabels (metadata):\n{'doc_id': '9', 'title': 'Microsoft Teams Audio Issues', " in printed
+    assert printed.endswith("'tags': 'teams;audio;collaboration;windows'}\n")
