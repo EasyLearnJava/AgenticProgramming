@@ -3,7 +3,8 @@ The Gemini model this step uses, with the key checked first: the embedding model
 a list of numbers. Texts with close meanings get vectors that point in close directions.
 
     embeddings.embed_documents(["Title: VPN ...", ...])  ->  768 numbers per text   (one call to Gemini for the list)
-    embeddings.embed_query("My VPN won't connect")       ->  768 numbers            (one call to Gemini)
+    embeddings.embed_query("My VPN won't connect")       ->  768 numbers            (one call; from step 06 on, for
+                                                                                     the user's question)
 
 Building the model makes no call: each embed_... does, and uses your key's quota. Every module that needs Gemini
 imports it from here.

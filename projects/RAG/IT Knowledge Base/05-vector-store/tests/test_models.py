@@ -12,7 +12,7 @@ import pytest
 import models
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
-SCRIPTS = [name for name in ("similarity.py", "vector_store.py", "retriever.py", "rag_chain.py", "rag_engine.py",
+SCRIPTS = [name for name in ("embed_chunks.py", "vector_store.py", "retriever.py", "rag_chain.py", "rag_engine.py",
                              "tuning.py") if (FOLDER / name).exists()]
 
 
@@ -35,4 +35,4 @@ def test_without_a_key_each_script_stops_with_the_message_not_a_stack_trace(scri
 
 @pytest.mark.live
 def test_live_an_embedding_has_768_numbers():
-    assert len(models.embeddings.embed_query("My VPN won't connect")) == 768
+    assert len(models.embeddings.embed_documents(["Title: VPN Connection Timeout"])[0]) == 768
