@@ -24,6 +24,9 @@ chain = prompt | to_text
 # ④ Run it, but only when this file is run directly (python hello.py), not when main.py imports it.
 #    The input is now a dict with one key per template variable: {"name": "..."}.
 if __name__ == "__main__":
+    # sys.argv is the command line as a list: python hello.py Raghu -> ["hello.py", "Raghu"]. Item [0] is the
+    # file's name, so the name you typed is [1]; with nothing after the file name, it's "World". Quote a name
+    # with a space in it ("Raghu S"): unquoted, each word is its own item and only the first one is used.
     name = sys.argv[1] if len(sys.argv) > 1 else "World"
     answer = chain.invoke({"name": name})
     print(answer)

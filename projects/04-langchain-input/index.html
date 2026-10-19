@@ -14,8 +14,8 @@
   <p id="answer">Type a name and click the button.</p>
 
   <script>
-    // Nothing runs on load. Each submit (click or Enter) sends the name to the backend (main.py's POST /api/hello),
-    // which runs hello.py's chain with it.
+    // Nothing runs on load. The button is inside the <form>, so a click on it submits the form, and so does Enter
+    // in the box. Each submit sends the name to the backend (main.py's POST /api/hello), which runs hello.py's chain.
     const form = document.getElementById("form");
     const nameBox = document.getElementById("name");
     const button = document.getElementById("run");
@@ -34,19 +34,20 @@
       try {
         const res = await fetch("/api/hello", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },   // "the body is JSON": without it FastAPI answers 422
           body: JSON.stringify({ name: nameBox.value }),   // the JSON body: {"name": "..."}
         });
         if (res.status === 422) {
           const error = await res.json();
+          // a ?? b is b when a is undefined (or null): an error type FRIENDLY doesn't list gets the server's msg.
           answer.textContent = FRIENDLY[error.detail[0].type] ?? `Not a valid name: ${error.detail[0].msg}`;
           return;
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);   // any other error, e.g. a 500
         const data = await res.json();
         answer.textContent = data.answer;
       } catch (err) {
-        answer.textContent = `Could not reach the server: ${err.message}`;
+        answer.textContent = `Something went wrong: ${err.message}`;   // the error thrown above, or no server
       } finally {
         button.disabled = false;
       }

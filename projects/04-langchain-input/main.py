@@ -1,7 +1,7 @@
 """
 A small FastAPI app that serves hello.py's chain over HTTP, now with one input: a name.
 
-    GET / (or /index.html) -> index.html, a page with a name box; each click sends the name to /api/hello
+    GET / (or /index.html) -> index.html, a page with a name box; each submit (click or Enter) sends the name
     POST /api/hello  body {"name": "Raghu"}  -> {"answer": "Hello Raghu, welcome to LangChain!"}
                      an empty, blank or 41+ character name -> 422 with FastAPI's error details
 
@@ -38,6 +38,8 @@ async def page():
 @app.post("/api/hello")
 async def hello(body: HelloIn):
     """Runs the chain with the name from the request body and returns its answer."""
+    # body's type, HelloIn, is a Pydantic model, so FastAPI reads the JSON body into it (a plain `name: str`
+    # would come from the address, ?name=...) and checks it first: a bad name gets a 422 and never gets here.
     # ainvoke() is invoke()'s async twin: the server can serve other requests while this one waits.
     answer = await chain.ainvoke({"name": body.name})
     return {"answer": answer}
