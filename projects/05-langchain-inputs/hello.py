@@ -13,7 +13,8 @@ import sys
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 
-# ① The template, with three slots. prompt.input_variables is ["city", "greeting", "name"].
+# ① The template, with three slots. prompt.input_variables is ["city", "greeting", "name"]: LangChain lists the
+#    variables in alphabetical order, not in the order they appear in the text.
 prompt = PromptTemplate.from_template("{greeting} {name} from {city}, welcome to LangChain!")
 
 # ② partial() fills one slot in ahead of time and gives back a new prompt; the original is unchanged.

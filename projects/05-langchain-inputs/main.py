@@ -28,7 +28,7 @@ class HelloIn(BaseModel):
     """The JSON body the page sends. FastAPI checks every field before hello() runs; each bad one gets its own error."""
     model_config = ConfigDict(str_strip_whitespace=True)   # "  Raghu " -> "Raghu", and "   " -> "" (too short)
 
-    greeting: Literal["Hello", "Good morning", "Namaste"] | None = None   # only these three; left out -> default
+    greeting: Literal["Hello", "Good morning", "Namaste"] | None = None   # only these three; left out or null -> None
     name: str = Field(min_length=1, max_length=40)
     city: str = Field(min_length=1, max_length=40)
 
@@ -43,6 +43,9 @@ async def page():
 @app.post("/api/hello")
 async def hello(body: HelloIn):
     """Runs the chain with the fields from the request body and returns its answer."""
-    # exclude_none drops a greeting that wasn't sent, so the prompt's partial fills in "Hello".
+    # model_dump() turns the checked body into a dict: {"greeting": ..., "name": ..., "city": ...}. HelloIn's field
+    # names are the template's variable names, so that dict is exactly the chain's input.
+    # exclude_none=True leaves out a greeting that is None (not sent, or sent as null). Without it, None would
+    # replace the partial's "Hello", and the answer would read "None Raghu from Dallas, ...".
     answer = await chain.ainvoke(body.model_dump(exclude_none=True))
     return {"answer": answer}
