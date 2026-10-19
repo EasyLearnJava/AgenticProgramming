@@ -1,7 +1,8 @@
 """Tests for project 14. The plain tests make no model call: the format check, that the examples follow their own
-format, how the two prompts are built, the endpoints with a stand-in, and the page. The live test asks two questions
-with examples and checks both answers follow the format."""
+format, how the two prompts are built, the model settings, the script and the endpoints with a stand-in for Gemini,
+and the page. The live test asks two questions with examples and checks both answers follow the format."""
 import os
+import runpy
 import subprocess
 import sys
 from pathlib import Path
@@ -10,10 +11,11 @@ import pytest
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 import main
-from hello import (EXAMPLES, LABELS, QUESTIONS, SYSTEM_PROMPT, api_key, chain, follows_format, with_examples,
-                   without_examples)
+from hello import (EXAMPLES, LABELS, MAX_OUTPUT_TOKENS, MODEL, QUESTIONS, SYSTEM_PROMPT, api_key, chain,
+                   follows_format, model, with_examples, without_examples)
 
 client = TestClient(main.app)
 FOLDER = Path(__file__).resolve().parent.parent
@@ -59,7 +61,7 @@ def test_no_question_is_one_of_the_examples():
     assert len(QUESTIONS) == 10
 
 
-# ---- the two prompts, no call ----
+# ---- the two prompts and the model, no call ----
 
 def test_without_examples_is_the_system_message_then_the_question():
     messages = without_examples.format_messages(question="What is a list?")
@@ -79,12 +81,43 @@ def test_chain_asks_both_ways():
     assert list(chain.steps__) == ["without", "with"]
 
 
+def test_model_settings():
+    assert model.model == MODEL == "gemini-3.5-flash-lite"
+    assert model.max_output_tokens == MAX_OUTPUT_TOKENS == 200
+
+
+# ---- the script, no call ----
+
 def test_with_no_key_it_stops_with_the_message_not_a_stack_trace():
     env = {**os.environ, "GOOGLE_API_KEY": ""}
     result = subprocess.run([sys.executable, "hello.py"], cwd=FOLDER, env=env, capture_output=True, text=True)
     assert result.returncode == 1
     assert "Can't build the chain: GOOGLE_API_KEY is not set" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_the_script_reports_a_question_gemini_did_not_answer_and_goes_on(monkeypatch, capsys):
+    # capsys is a pytest fixture, like monkeypatch: it collects what print() writes, so the test can read it back.
+    # A stand-in for Gemini: every model.invoke() runs this instead of calling Google. It refuses one question, and
+    # answers in the format only when the prompt holds the examples (the AI messages).
+    def stand_in(self, prompt, config=None, **kwargs):
+        messages = prompt.to_messages()
+        if messages[-1].content == "What is a bug?":
+            raise RuntimeError("429 too many requests")
+        has_examples = any(isinstance(message, AIMessage) for message in messages)
+        return AIMessage(content=GOOD if has_examples else "A list holds items.")
+
+    # The endpoint tests below swap main.chain, but runpy runs hello.py again, and that builds a new model. So the
+    # stand-in replaces invoke on the ChatGoogleGenerativeAI class itself, which covers every model, the new one too.
+    # That's also why it takes self first: as a method of the class, it's handed the model it was called on.
+    monkeypatch.setattr(ChatGoogleGenerativeAI, "invoke", stand_in)
+    # runpy runs hello.py the way `python hello.py` does: with __name__ set to "__main__", so its last block runs.
+    runpy.run_path(str(FOLDER / "hello.py"), run_name="__main__")
+    printed = capsys.readouterr().out
+    assert "=== What is a bug?\nGemini didn't answer: RuntimeError: 429 too many requests\n" in printed
+    assert printed.endswith("Gemini answered 9 of 10 questions.\n"
+                            "without examples: 0 of 9 answers follow the format\n"
+                            "with examples: 9 of 9 answers follow the format\n")
 
 
 # ---- the endpoints, with the chain swapped out so no call is made ----
@@ -123,6 +156,7 @@ def test_a_question_gemini_did_not_answer_becomes_an_error_row(monkeypatch):
     ([], "too_short"),
     (["What is a list?"] * 11, "too_long"),
     (["   "], "string_too_short"),
+    (["x" * 201], "string_too_long"),
 ])
 def test_a_bad_list_gets_a_422_and_no_model_call(monkeypatch, questions, error_type):
     def must_not_run(inputs):

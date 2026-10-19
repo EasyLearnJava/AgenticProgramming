@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Project 14: Few-shot examples</title>
+  <title>Project 14: Show, don't tell: few-shot examples</title>
 </head>
 <body>
-  <h1>Project 14: Few-shot examples</h1>
+  <h1>Project 14: Show, don't tell: few-shot examples</h1>
   <p>System prompt (the same for both): <b id="system"></b></p>
 
   <h2>The examples (only the "with examples" answers see these)</h2>
   <div id="examples"></div>
 
   <h2>Compare</h2>
-  <p>One question per line, 10 at most. Each question is asked twice: 2 calls per question.</p>
+  <p>One question per line: 1 to 10 questions, each 200 characters at most. Each question is asked twice: 2 calls
+    per question.</p>
   <form id="form">
     <textarea id="questions" rows="10" cols="40"></textarea>
     <br>
@@ -26,6 +27,8 @@
   </table>
 
   <script>
+    // On load, GET /api/setup fills in the system prompt, the examples and the default questions. Each submit sends
+    // the questions to POST /api/compare (the server asks Gemini each one twice), then shows one row per question.
     const status = document.getElementById("status");
     const rows = document.getElementById("rows");
     const button = document.getElementById("run");
@@ -40,7 +43,10 @@
 
     // Show the system prompt, the examples and the default questions when the page opens.
     fetch("/api/setup")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+        return res.json();
+      })
       .then((setup) => {
         document.getElementById("system").textContent = setup.system_prompt;
         for (const example of setup.examples) {
@@ -49,6 +55,9 @@
           document.getElementById("examples").append(pre);
         }
         document.getElementById("questions").value = setup.questions.join("\n");
+      })
+      .catch((err) => {
+        status.textContent = `Something went wrong: ${err.message}`;
       });
 
     document.getElementById("form").addEventListener("submit", async (event) => {
@@ -64,13 +73,15 @@
           body: JSON.stringify({ questions }),
         });
         if (res.status === 422) {
-          status.textContent = "Type 1 to 10 questions, one per line, each 200 characters at most.";
+          // A bad list: no model was called. Each problem says where it is and what's wrong.
+          const data = await res.json();
+          status.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
           return;
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
         const { results } = await res.json();
 
-        let withOk = 0, withoutOk = 0, answered = 0;
+        let withoutOk = 0, withOk = 0, answered = 0;
         for (const r of results) {
           const tr = document.createElement("tr");
           tr.append(cell(r.question));
@@ -80,17 +91,22 @@
             tr.append(td);
           } else {
             answered += 1;
-            withoutOk += r.without_ok;
-            withOk += r.with_ok;
+            if (r.without_ok) withoutOk += 1;
+            if (r.with_ok) withOk += 1;
             tr.append(cell(r.without), cell(r.without_ok ? "✔" : "✘"), cell(r.with), cell(r.with_ok ? "✔" : "✘"));
           }
           rows.append(tr);
         }
-        status.textContent = `Followed the format: without examples ${withoutOk} of ${answered}, `
-          + `with examples ${withOk} of ${answered}.`
-          + (answered < results.length ? ` ${results.length - answered} question(s) got no answer.` : "");
+        const failed = results.length - answered;
+        if (answered === 0) {
+          status.textContent = "Gemini didn't answer any question. The server's terminal says why.";
+        } else {
+          status.textContent = `Followed the format: without examples ${withoutOk} of ${answered}, `
+            + `with examples ${withOk} of ${answered}.`
+            + (failed > 0 ? ` ${failed} question(s) got no answer: the server's terminal says why.` : "");
+        }
       } catch (err) {
-        status.textContent = `Could not reach the server: ${err.message}`;
+        status.textContent = `Something went wrong: ${err.message}`;
       } finally {
         button.disabled = false;
       }

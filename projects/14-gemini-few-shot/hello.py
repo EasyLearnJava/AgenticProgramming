@@ -1,7 +1,7 @@
 """
-Project 14: few-shot examples. Show the model two or three example answers, and it copies their format instead of
-guessing. The same questions are asked twice: without examples and with them. follows_format() checks each answer,
-so you can count how many kept the format.
+Project 14: few-shot examples. Show the model two or three example answers, and it tends to copy their format
+instead of guessing. The same questions are asked twice: without examples and with them. follows_format() checks
+each answer, so you can count how many kept the format.
 
 The format the examples show (the system prompt never describes it):
 
@@ -9,8 +9,14 @@ The format the examples show (the system prompt never describes it):
     Example: <a tiny example>
     Watch out: <one common mistake>
 
-Run it on its own:   python hello.py   ->   the 10 questions, without and with examples, and how many kept the format
-main.py imports `chain` and `follows_format` from here and serves them at POST /api/compare.
+    {"question": "What is a list?"}  ->  {"without": "**Lists in Python**\nA list is a collection ...",
+                                          "with": "In one line: A list holds items in order.\nExample: ..."}
+                                         (made-up answers: Gemini's words change every time)
+
+Run it on its own:   python hello.py   ->   the 10 questions, without and with examples, then how many Gemini
+                                            answered and how many answers kept the format
+main.py imports `chain` and `follows_format` from here and serves them at POST /api/compare. It also imports
+SYSTEM_PROMPT, EXAMPLES and QUESTIONS, to show them at GET /api/setup.
 """
 import sys
 
@@ -22,6 +28,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from config import MissingKeyError, load_api_key
 
 MODEL = "gemini-3.5-flash-lite"
+# The cap on each answer (project 11). The three-line format needs far less; a longer answer is cut off at the cap.
 MAX_OUTPUT_TOKENS = 200
 
 # The same short system prompt for both. It says what to do, but nothing about the format: only the examples show it.
@@ -69,7 +76,9 @@ LABELS = ("In one line:", "Example:", "Watch out:")
 
 # ② The check: exactly three lines, starting with the three labels in order. Plain code, no model.
 def follows_format(answer: str) -> bool:
-    lines = [line.strip() for line in answer.strip().splitlines() if line.strip()]
+    lines = [line.strip() for line in answer.splitlines() if line.strip()]      # the non-blank lines, trimmed
+    # zip() pairs line 1 with label 1, line 2 with label 2, ... and stops at the shorter of the two. So the count is
+    # checked first: otherwise an answer with only the first two lines, or with an extra fourth line, would pass.
     return len(lines) == len(LABELS) and all(line.startswith(label) for line, label in zip(lines, LABELS))
 
 
@@ -81,11 +90,14 @@ except MissingKeyError as err:
 model = ChatGoogleGenerativeAI(model=MODEL, google_api_key=api_key, max_output_tokens=MAX_OUTPUT_TOKENS)
 
 # ③ How one example becomes messages: the question as a human message, the answer as an AI message, as if the model
-#    had answered it that way before.
+#    had answered it that way before. {question} and {answer} here are filled from each dict in EXAMPLES (so the
+#    keys must match), never from the user's input: few_shot needs no input at all.
 example_prompt = ChatPromptTemplate.from_messages([("human", "{question}"), ("ai", "{answer}")])
 few_shot = FewShotChatMessagePromptTemplate(examples=EXAMPLES, example_prompt=example_prompt)
 
 # ④ The two prompts. The only difference is the examples, placed between the system message and the real question.
+#    few_shot sits in the list like one more message; when the prompt is filled in, it becomes the six example
+#    messages (three human, three AI).
 without_examples = ChatPromptTemplate.from_messages([("system", SYSTEM_PROMPT), ("human", "{question}")])
 with_examples = ChatPromptTemplate.from_messages([("system", SYSTEM_PROMPT), few_shot, ("human", "{question}")])
 
@@ -98,14 +110,23 @@ chain = RunnableParallel({
 
 if __name__ == "__main__":
     # batch() (project 7): all ten questions, at most 2 at a time, so 4 calls at most are running at once.
-    results = chain.batch([{"question": q} for q in QUESTIONS], config={"max_concurrency": 2})
-    for question, answers in zip(QUESTIONS, results):
+    # return_exceptions=True: a question Gemini didn't answer comes back as its error, in its place in the list,
+    # instead of stopping the whole run. main.py does the same.
+    results = chain.batch([{"question": q} for q in QUESTIONS], config={"max_concurrency": 2}, return_exceptions=True)
+    answered = []                     # the {"without": ..., "with": ...} answers of the questions Gemini answered
+    for question, result in zip(QUESTIONS, results):
         print(f"=== {question}")
+        if isinstance(result, Exception):
+            print(f"Gemini didn't answer: {type(result).__name__}: {result}")
+            print()
+            continue
+        answered.append(result)
         for kind in ("without", "with"):
-            mark = "follows the format" if follows_format(answers[kind]) else "does NOT follow the format"
+            mark = "follows the format" if follows_format(result[kind]) else "does NOT follow the format"
             print(f"--- {kind} examples: {mark}")
-            print(answers[kind].strip())
+            print(result[kind].strip())
         print()
+    print(f"Gemini answered {len(answered)} of {len(QUESTIONS)} questions.")
     for kind in ("without", "with"):
-        kept = sum(follows_format(answers[kind]) for answers in results)
-        print(f"{kind} examples: {kept} of {len(QUESTIONS)} answers follow the format")
+        kept = sum(1 for answers in answered if follows_format(answers[kind]))
+        print(f"{kind} examples: {kept} of {len(answered)} answers follow the format")

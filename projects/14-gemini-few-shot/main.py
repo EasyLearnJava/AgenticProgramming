@@ -8,6 +8,8 @@ A small FastAPI app that asks each question twice, without and with few-shot exa
                                          "without": "...", "without_ok": false,
                                          "with": "In one line: ...", "with_ok": true}, ...]}
                        a question Gemini didn't answer  ->  {"question": "...", "error": "Gemini didn't answer (...)."}
+                           in its row, and the reason in this terminal. Still a 200, not project 13's 502: one
+                           refused call doesn't throw away the other questions' answers
                        a bad list or question  ->  422, and no model call
 
 Start it with:   uvicorn main:app --reload
@@ -23,10 +25,13 @@ from pydantic import BaseModel, Field, StringConstraints
 from hello import EXAMPLES, QUESTIONS, SYSTEM_PROMPT, chain, follows_format
 
 app = FastAPI(title="AgenticProgramming project 14")
-logger = logging.getLogger("uvicorn.error")
+logger = logging.getLogger("uvicorn.error")        # prints in the same terminal as uvicorn's own messages
 
 PAGE = Path(__file__).resolve().parent / "index.html"
 
+# The rules for ONE question, so they can be put on every item of the list below. Annotated[str, ...] is still a
+# str, with rules attached: spaces trimmed first, then 1 to 200 characters. (Project 13 put the same rules on its
+# single question field, with ConfigDict and Field.)
 Question = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
@@ -38,6 +43,7 @@ class CompareIn(BaseModel):
 @app.get("/")
 @app.get("/index.html")
 async def page():
+    """The page. It has no key: it only calls this server's /api/setup and /api/compare."""
     return FileResponse(PAGE)
 
 
@@ -56,14 +62,15 @@ async def compare(body: CompareIn):
         return_exceptions=True,          # one failed question becomes an error in its row, not a failed page
     )
     rows = []
-    for question, answers in zip(body.questions, results):
-        if isinstance(answers, Exception):
-            logger.warning("Gemini call failed for %r: %s", question, answers)
-            rows.append({"question": question, "error": f"Gemini didn't answer ({type(answers).__name__})."})
+    for question, result in zip(body.questions, results):
+        if isinstance(result, Exception):
+            # The full reason goes to the server's terminal; the page only learns the error's type.
+            logger.warning("Gemini call failed for %r: %s", question, result)
+            rows.append({"question": question, "error": f"Gemini didn't answer ({type(result).__name__})."})
             continue
         rows.append({
             "question": question,
-            "without": answers["without"], "without_ok": follows_format(answers["without"]),
-            "with": answers["with"], "with_ok": follows_format(answers["with"]),
+            "without": result["without"], "without_ok": follows_format(result["without"]),
+            "with": result["with"], "with_ok": follows_format(result["with"]),
         })
     return {"results": rows}
