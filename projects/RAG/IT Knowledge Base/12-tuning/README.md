@@ -75,7 +75,7 @@ To run the engine, the server or the chat page in this folder, start Qdrant firs
 To run the tests (they don't need Docker):
 
 ```bash
-python -m pytest                     # 57 passed, 8 skipped
+python -m pytest                     # 61 passed, 8 skipped
 ```
 
 The 8 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.

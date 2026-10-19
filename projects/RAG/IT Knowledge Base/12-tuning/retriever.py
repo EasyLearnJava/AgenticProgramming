@@ -1,13 +1,18 @@
 """
-The retriever: the vector store wrapped as a LangChain Runnable. Give it a question, get back the k closest chunks.
-Being a Runnable, it has invoke(), batch() and ainvoke(), and it joins a chain with | (step 07).
+The user's question, where the app starts answering. The question is embedded with the same model as the chunks, and
+Qdrant gives back the chunks whose vectors are closest to it. The retriever, LangChain's standard way to say "give me
+the chunks for this question", does both in one call; being a Runnable, it joins a chain with | (step 07).
 
-    retriever = make_retriever(store)            k = 5
-    retriever.invoke("My VPN won't connect")  ->  5 chunks, closest first   (one call: the question's embedding)
-    format_docs(chunks)                       ->  one text with every chunk, numbered and titled, for a prompt
+    embeddings.embed_query("My VPN won't connect")  ->  768 numbers                      (one call to Gemini)
+    store.similarity_search_with_score_by_vector(those numbers, k=5)
+                                                    ->  [(chunk, 0.81), ...], the 5 closest, closest first
+    retriever = make_retriever(store)               k = 5
+    retriever.invoke("My VPN won't connect")        ->  the 5 closest chunks, the two steps above in one call
+    format_docs(chunks)                             ->  one text with every chunk, numbered and titled, for a prompt
 
-Run it on its own:   python retriever.py                      ->   the chunks found for three sample questions
-                     python retriever.py "my email bounced"   ->   the chunks found for your question
+Run it on its own:   python retriever.py                      ->   each step for "How do I fix VPN connection timeouts?"
+                     python retriever.py "my email bounced"   ->   each step for your question
+Each run makes 3 calls to Gemini: the chunks, then the question twice (by hand, then through the retriever).
 """
 import sys
 
@@ -38,18 +43,27 @@ def format_docs(docs: list[Document]) -> str:
 
 
 if __name__ == "__main__":
-    questions = [" ".join(sys.argv[1:])] if len(sys.argv) > 1 else QUESTIONS
+    question = " ".join(sys.argv[1:]) or QUESTIONS[0]
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
-    add_knowledge_base(store)
-    retriever = make_retriever(store)
-    # ③ batch(): invoke() once per question, side by side; the lists of chunks come back in the questions' order.
-    results = retriever.batch(questions)
-    for question, chunks in zip(questions, results):
-        print(f"Question: {question}")
-        print(f"The {len(chunks)} chunks found, closest first:")
-        for chunk in chunks:
-            print(f"  {chunk.metadata['title']}, from character {chunk.metadata['start_index']}")
-        print()
-    # ④ What a prompt will get for the first question: its two closest chunks, as one text.
-    print("What a prompt gets for the first question, its 2 closest chunks as one text (format_docs):")
-    print(format_docs(results[0][:2]))
+    add_knowledge_base(store)                    # steps 04 and 05: the 28 chunks embedded and stored (one call)
+    print(f"Question: {question}")
+    # ③ The question becomes a vector, made by the same model as the chunks' vectors, so the two can be compared.
+    #    embed_query() tells Gemini this text is a question looking for documents (RETRIEVAL_QUERY). One call.
+    question_vector = embeddings.embed_query(question)
+    start = ", ".join(f"{x:.4f}" for x in question_vector[:5])
+    print(f"The question became {len(question_vector)} numbers: [{start}, ...]")
+    # ④ The search. Qdrant compares the question's vector with every stored chunk's vector and gives back the 5
+    #    closest, with their scores. The score is the cosine similarity: how closely two vectors point the same way,
+    #    from -1 to 1; the closer to 1, the closer the meaning.
+    print(f"\nThe {TOP_K} closest chunks, with their scores, closest first:")
+    for chunk, score in store.similarity_search_with_score_by_vector(question_vector, k=TOP_K):
+        print(f"  {score:.3f}  {chunk.metadata['title']}, from character {chunk.metadata['start_index']}")
+    # ⑤ The retriever does ③ and ④ in one call (one more call to Gemini, for the question) and gives back the
+    #    chunks, without their scores.
+    chunks = make_retriever(store).invoke(question)
+    print("\nThe retriever, embedding and searching in one call, found:")
+    for chunk in chunks:
+        print(f"  {chunk.metadata['title']}, from character {chunk.metadata['start_index']}")
+    # ⑥ What a prompt will get (step 07): the 2 closest chunks, as one text.
+    print("\nWhat a prompt gets, the 2 closest chunks as one text (format_docs):")
+    print(format_docs(chunks[:2]))
