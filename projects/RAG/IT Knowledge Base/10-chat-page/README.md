@@ -56,7 +56,7 @@ The API from step 09 is still there, at the same addresses: `/docs`, `/api/query
 To run the tests:
 
 ```bash
-python -m pytest                     # 47 passed, 7 skipped
+python -m pytest                     # 51 passed, 7 skipped
 ```
 
 The 7 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.
