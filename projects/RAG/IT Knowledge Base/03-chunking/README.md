@@ -87,3 +87,56 @@ To run the tests:
 ```bash
 python -m pytest                     # 13 passed
 ```
+
+## Why a chunk can be shorter than 512 characters
+
+512 is a maximum, not a target. The splitter never makes a chunk longer than 512 characters, but it makes a shorter
+one rather than cut through the middle of a section. The MFA article shows it:
+
+```text
+Article 2 of 10: MFA Setup Failure, cut into 2 chunks
+
+Chunk 1 of 2, from character 0 (144 characters):
+Title: MFA Setup Failure
+
+Problem: Employee cannot complete Multi-Factor Authentication setup on mobile device using Microsoft Authenticator app
+
+Chunk 2 of 2, from character 146 (507 characters):
+Resolution: 1. Ensure device time is synchronized (Settings > Date & Time > Automatic). 2. Clear cache and data for Microsoft Authenticator app. 3. Uninstall and reinstall the authenticator app. 4. Re-scan the QR code from the MFA setup page. 5. If QR code fails use manual entry method. 6. Verify company app is not blocking authenticator app. 7. Contact security team for account reset if needed.
+
+Notes: Time synchronization is the most common root cause. iOS users should check Screen Time restrictions.
+```
+
+First the splitter breaks the article at its blank lines (`\n\n`), into its 4 sections:
+
+| Section | Characters |
+|---|---|
+| Title | 24 |
+| Problem | 118 |
+| Resolution | 398 |
+| Notes | 107 |
+
+Then it joins them back together in order, adding the next section only while the chunk stays at 512 or under. Each
+join puts back the blank line between them, which is 2 characters (`\n\n`):
+
+| Step | Sum | Result |
+|---|---|---|
+| Title | 24 | fits |
+| + Problem | 24 + 2 + 118 = **144** | fits |
+| + Resolution | 144 + 2 + 398 = 544 | over 512, so chunk 1 ends at 144 |
+| Resolution, starting chunk 2 | 398 | fits |
+| + Notes | 398 + 2 + 107 = **507** | fits, so chunk 2 is 507 |
+
+Chunk 2 starts at character 146: characters 144 and 145 are the blank line at the cut, which goes in neither chunk.
+
+**Why it doesn't fill chunk 1 up to 512:** it could cut the Resolution partway, but that would split the fix's steps
+across two chunks. The splitter only cuts inside a section (at a line break, then at a space) when the section alone
+is over 512, and the Resolution is 398. So the chunks come out uneven, but each one is whole sections: chunk 1 is
+what's wrong, and chunk 2 is how to fix it.
+
+**Why nothing is repeated:** the overlap repeats at most 50 characters of whole pieces, and the piece before the cut,
+the Problem, is 118 characters. With `python chunking.py 200`, the sections themselves get cut at spaces, and then
+the overlap shows.
+
+The VPN article works the same way. Its Title, Problem and Resolution make 29 + 2 + 110 + 2 + 314 = **457**. Adding
+the Notes would make 457 + 2 + 110 = 569, over 512, so the Notes (110 characters) become chunk 2, from character 459.
