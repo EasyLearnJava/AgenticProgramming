@@ -10,20 +10,15 @@
     <label>Your name <input id="name" autocomplete="off"></label>
     <button id="run">Ask Gemini</button>
   </form>
-  <p id="answer">Type a name and click the button. Click again: Gemini writes a different welcome each time.</p>
+  <p id="answer">Type a name and click the button. Click again: Gemini usually writes a different welcome each time.</p>
 
   <script>
-    // Each submit sends the name to the server (main.py's POST /api/hello). The server calls Gemini with its key
-    // and sends back only the answer: this page never sees the key.
+    // Nothing runs on load. Each submit sends the name to the server (main.py's POST /api/hello). The server calls
+    // Gemini with its key and sends back only the answer: this page never sees the key.
     const form = document.getElementById("form");
     const nameBox = document.getElementById("name");
     const button = document.getElementById("run");
     const answer = document.getElementById("answer");
-
-    const FRIENDLY = {
-      string_too_short: "Please type a name first.",
-      string_too_long: "That name is too long: 40 characters at most.",
-    };
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();               // stay on this page: the form would otherwise reload it
@@ -35,17 +30,22 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: nameBox.value }),
         });
-        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        // A 422 (a bad name) and a 502 (Gemini didn't answer) come back with a JSON "detail" that this page shows.
+        // Any other error status is unexpected: jump to the catch below.
+        if (!res.ok && res.status !== 422 && res.status !== 502) {
+          throw new Error(`the server answered HTTP ${res.status}`);
+        }
         const data = await res.json();
         if (res.status === 422) {
-          answer.textContent = FRIENDLY[data.detail[0].type] ?? `Not a valid name: ${data.detail[0].msg}`;
+          // FastAPI lists each problem with where it is (loc, ending in the field's name) and what's wrong (msg).
+          answer.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
         } else if (res.status === 502) {
           answer.textContent = `${data.detail} The server's terminal says why.`;
         } else {
           answer.textContent = data.answer;
         }
       } catch (err) {
-        answer.textContent = `Could not reach the server: ${err.message}`;
+        answer.textContent = `Something went wrong: ${err.message}`;
       } finally {
         button.disabled = false;
       }

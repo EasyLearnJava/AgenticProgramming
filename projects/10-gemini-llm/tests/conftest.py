@@ -1,4 +1,10 @@
-"""Shared test set-up: pytest runs this before any test file, so it decides once whether the live tests can run."""
+"""
+Shared test set-up for this folder. pytest reads a file named conftest.py by itself, before any test file, so this
+code runs first and decides once whether the live tests can run:
+
+    a real key (in .env or the environment)  ->  every test runs, the @pytest.mark.live ones too (real Gemini calls)
+    no key                                   ->  hello.py gets a fake key so it can be imported; live tests are skipped
+"""
 import os
 
 import pytest
@@ -14,6 +20,8 @@ except MissingKeyError:
     HAVE_KEY = False
 
 
+# A pytest "hook": pytest itself calls a function with exactly this name, after it has collected the tests and
+# before it runs them. Nothing in our code calls it.
 def pytest_collection_modifyitems(items):
     """Skip every @pytest.mark.live test when there is no real key."""
     if HAVE_KEY:

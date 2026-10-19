@@ -18,7 +18,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from config import MissingKeyError, load_api_key
 
-MODEL = "gemini-3.5-flash-lite"   # small, fast and cheap; change it here and nowhere else
+MODEL = "gemini-3.5-flash-lite"   # small, fast and cheap: the one place the code names the model (a test checks it)
 MAX_OUTPUT_TOKENS = 200           # a cap on the length of each answer, and so on its cost
 
 # ① The key, checked first (project 9). No key, no chain.
@@ -34,6 +34,8 @@ prompt = PromptTemplate.from_template(
 
 # ③ The model. Building it makes no call: the call happens each time the chain runs.
 #    The key goes in here and only here. The model keeps it as a SecretStr, which prints as '**********'.
+#    It takes the prompt's output as it is: a chat model turns the StringPromptValue into one HumanMessage
+#    (a chat message from the user), so no to_text step is needed between them.
 model = ChatGoogleGenerativeAI(model=MODEL, google_api_key=api_key, max_output_tokens=MAX_OUTPUT_TOKENS)
 
 # ④ The parser: the model gives back an AIMessage (text plus details); this keeps just the text.

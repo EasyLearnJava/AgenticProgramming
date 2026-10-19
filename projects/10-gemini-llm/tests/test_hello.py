@@ -1,6 +1,6 @@
 """Tests for project 10. The plain tests make no model call: the prompt, the model's settings, the parser, the
-missing-key message, the endpoint's 422 and 502, and the page. The live test calls the real Gemini once and checks
-the shape of the answer, not its words (it changes every time)."""
+missing-key message, the endpoint's 422 and 502 (with the reason in the server's log), and the page. The live test
+calls the real Gemini once and checks the shape of the answer, not its words (it changes every time)."""
 import os
 import subprocess
 import sys
@@ -45,16 +45,17 @@ def test_parser_keeps_only_the_text_of_the_reply():
     assert parser.invoke(AIMessage(content="Welcome, Asha!")) == "Welcome, Asha!"
 
 
-@pytest.mark.parametrize("script_args, message", [
-    (["hello.py"], "Can't build the chain: GOOGLE_API_KEY is not set"),
-    (["-m", "uvicorn", "main:app", "--port", "8596"], "Can't build the chain: GOOGLE_API_KEY is not set"),
-])
-def test_with_no_key_it_stops_with_the_message_not_a_stack_trace(script_args, message):
-    # An empty GOOGLE_API_KEY also stops .env from being used: load_dotenv() never overwrites a variable already set.
+# ---- no key: the script and the server stop with a message ----
+
+@pytest.mark.parametrize("script_args", [["hello.py"], ["-m", "uvicorn", "main:app", "--port", "8596"]],
+                         ids=["python hello.py", "uvicorn main:app"])
+def test_with_no_key_it_stops_with_the_message_not_a_stack_trace(script_args):
+    # A copy of this process's environment, with GOOGLE_API_KEY set to "". An empty key also stops .env from being
+    # used: load_dotenv() never overwrites a variable that is already set.
     env = {**os.environ, "GOOGLE_API_KEY": ""}
     result = subprocess.run([sys.executable, *script_args], cwd=FOLDER, env=env, capture_output=True, text=True)
     assert result.returncode == 1
-    assert message in result.stderr
+    assert "Can't build the chain: GOOGLE_API_KEY is not set" in result.stderr
     assert "Traceback" not in result.stderr
 
 
@@ -67,23 +68,36 @@ def test_api_hello_returns_the_chains_answer(monkeypatch):
     assert response.json() == {"answer": "Welcome, Asha!"}
 
 
-@pytest.mark.parametrize("name, error_type", [("", "string_too_short"), ("x" * 41, "string_too_long")])
-def test_a_bad_name_gets_a_422_and_no_model_call(monkeypatch, name, error_type):
-    def must_not_run(inputs):
-        raise AssertionError("the model was called for a bad name")
-    monkeypatch.setattr(main, "chain", RunnableLambda(must_not_run))
+# The page shows each problem in a 422 as "<the last part of loc>: <msg>", here "name: String should have ...".
+@pytest.mark.parametrize("name, message", [
+    ("", "String should have at least 1 character"),
+    ("x" * 41, "String should have at most 40 characters"),
+], ids=["empty", "41 characters"])
+def test_a_bad_name_gets_a_422_and_no_model_call(monkeypatch, name, message):
+    calls = []                                    # the stand-in chain writes down every input it gets
+
+    def stand_in(inputs):
+        calls.append(inputs)
+        return "Welcome!"
+
+    monkeypatch.setattr(main, "chain", RunnableLambda(stand_in))
     response = client.post("/api/hello", json={"name": name})
     assert response.status_code == 422
-    assert response.json()["detail"][0]["type"] == error_type
+    problem = response.json()["detail"][0]
+    assert problem["loc"] == ["body", "name"]
+    assert problem["msg"] == message
+    assert calls == []                            # the chain never ran: a bad name costs nothing
 
 
-def test_a_failed_model_call_gets_a_502_without_the_details(monkeypatch):
+def test_a_failed_model_call_gets_a_502_without_the_details(monkeypatch, caplog):
     def fail(inputs):
         raise RuntimeError("quota exceeded for project 1234")
     monkeypatch.setattr(main, "chain", RunnableLambda(fail))
     response = client.post("/api/hello", json={"name": "Asha"})
     assert response.status_code == 502
     assert response.json() == {"detail": "Gemini didn't answer (RuntimeError)."}
+    # caplog is a pytest fixture that collects what the code logs: the full reason is in the server's log.
+    assert "quota exceeded for project 1234" in caplog.text
 
 
 def test_api_hello_only_answers_post():

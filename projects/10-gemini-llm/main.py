@@ -26,7 +26,8 @@ PAGE = Path(__file__).resolve().parent / "index.html"
 
 class HelloIn(BaseModel):
     """The JSON body: one name. Checked before the model is called, so a bad name costs nothing."""
-    model_config = ConfigDict(str_strip_whitespace=True)
+    # model_config holds Pydantic's settings for this class: nothing to do with the Gemini model.
+    model_config = ConfigDict(str_strip_whitespace=True)   # "  Asha " -> "Asha", and "   " -> "" (too short)
 
     name: str = Field(min_length=1, max_length=40)
 
@@ -42,6 +43,7 @@ async def page():
 async def hello(body: HelloIn):
     """Runs the chain once: one real call to Gemini."""
     try:
+        # ainvoke() is invoke()'s async twin (project 4): while Gemini writes, the server can serve other requests.
         answer = await chain.ainvoke({"name": body.name})
     except Exception as err:
         # The full reason goes to the server's terminal; the page only learns that the model didn't answer.
