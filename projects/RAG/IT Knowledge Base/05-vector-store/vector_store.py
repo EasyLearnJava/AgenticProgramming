@@ -44,6 +44,10 @@ def make_vector_store(embeddings: Embeddings, size: int, client: QdrantClient | 
 #    each chunk as a point: vector, text, metadata.
 def add_knowledge_base(store: QdrantVectorStore) -> list[Document]:
     chunks = split_documents(load_documents())
+    # add_documents() embeds and stores in one go. Inside LangChain it calls embeddings.embed_documents() on the
+    # chunks' texts, the same method step 04's embed_chunks.py calls (one call to Gemini for all 28), then stores
+    # each chunk as a point. This is how production code usually does it: hand the chunks to the vector store and
+    # let it embed and store them, rather than embedding them yourself and building each point by hand.
     store.add_documents(chunks)
     return chunks
 
