@@ -1,8 +1,8 @@
 # AgenticProgramming
 
-Agents built one step at a time, starting from the smallest LangChain chain. Every project in [`projects/`](projects)
+Agents built one step at a time, starting from the smallest LangChain chain. Every project in [`tutorials/`](tutorials)
 is one small step that runs on its own: just code, a README that says what you build, what you learn and how it works,
-and (from project 02 on) tests. Start at [project 01](projects/01-langchain-basic/README.md) and go in order: each step
+and (from project 02 on) tests. Start at [project 01](tutorials/01-langchain-basic/README.md) and go in order: each step
 builds on the one before.
 
 **The running example is one greeting.** It starts as fixed text, "Hello World, welcome to LangChain!", then takes a
@@ -39,7 +39,7 @@ them.
 
 | # | Project | What you build | What you learn |
 |---|---|---|---|
-| 01 | [LangChain basic](projects/01-langchain-basic/README.md) | `hello.js`: a prompt template piped into a converter step. `npm start` prints "Hello World, welcome to LangChain!" | `PromptTemplate`, `RunnableLambda`, `.pipe()`, `await chain.invoke({})`, npm basics |
+| 01 | [LangChain basic](tutorials/01-langchain-basic/README.md) | `hello.js`: a prompt template piped into a converter step. `npm start` prints "Hello World, welcome to LangChain!" | `PromptTemplate`, `RunnableLambda`, `.pipe()`, `await chain.invoke({})`, npm basics |
 
 ### 02-07 · LangChain without a model
 
@@ -48,12 +48,12 @@ from a web page and tested.
 
 | # | Project | What you build | What you learn |
 |---|---|---|---|
-| 02 | [LangChain basic (Python)](projects/02-langchain-python/README.md) | The same chain in Python, a FastAPI server, and a page that calls `GET /api/hello` as soon as it opens; the repo's first tests | `prompt \| to_text`, `if __name__ == "__main__":`, FastAPI and uvicorn, `ainvoke()`, `fetch()`, pytest with `TestClient` |
-| 03 | [Run on a button click](projects/03-langchain-button/README.md) | A page that calls the server once per click, with the button greyed out while it waits | `addEventListener("click", ...)`, `async`/`await`, `try`/`catch`/`finally` |
-| 04 | [Pass one input](projects/04-langchain-input/README.md) | A name typed into the page, sent as JSON in a `POST`, trimmed and checked before the chain runs | a `{name}` template variable, `sys.argv`, a Pydantic body model, 422 errors in plain words |
-| 05 | [Pass several inputs](projects/05-langchain-inputs/README.md) | A greeting, a name and a city in one template, with a default greeting, and each bad field's error shown next to it | several variables, `prompt.partial()`, `Literal` and optional fields, `model_dump(exclude_none=True)` |
-| 06 | [Run steps side by side](projects/06-langchain-parallel/README.md) | One name in, four results out: three steps side by side plus one computed key, and the chain's graph | `RunnableParallel`, `RunnablePassthrough`, `.assign()`, `get_graph().draw_mermaid()` |
-| 07 | [Branch and batch a chain](projects/07-langchain-branch/README.md) | A formal or a casual greeting picked for each person, and `POST /api/batch` for 1 to 10 people at once | `RunnableBranch`, `batch()` and `abatch()`, `config={"max_concurrency": 3}`, a list in a Pydantic model |
+| 02 | [LangChain basic (Python)](tutorials/02-langchain-python/README.md) | The same chain in Python, a FastAPI server, and a page that calls `GET /api/hello` as soon as it opens; the repo's first tests | `prompt \| to_text`, `if __name__ == "__main__":`, FastAPI and uvicorn, `ainvoke()`, `fetch()`, pytest with `TestClient` |
+| 03 | [Run on a button click](tutorials/03-langchain-button/README.md) | A page that calls the server once per click, with the button greyed out while it waits | `addEventListener("click", ...)`, `async`/`await`, `try`/`catch`/`finally` |
+| 04 | [Pass one input](tutorials/04-langchain-input/README.md) | A name typed into the page, sent as JSON in a `POST`, trimmed and checked before the chain runs | a `{name}` template variable, `sys.argv`, a Pydantic body model, 422 errors in plain words |
+| 05 | [Pass several inputs](tutorials/05-langchain-inputs/README.md) | A greeting, a name and a city in one template, with a default greeting, and each bad field's error shown next to it | several variables, `prompt.partial()`, `Literal` and optional fields, `model_dump(exclude_none=True)` |
+| 06 | [Run steps side by side](tutorials/06-langchain-parallel/README.md) | One name in, four results out: three steps side by side plus one computed key, and the chain's graph | `RunnableParallel`, `RunnablePassthrough`, `.assign()`, `get_graph().draw_mermaid()` |
+| 07 | [Branch and batch a chain](tutorials/07-langchain-branch/README.md) | A formal or a casual greeting picked for each person, and `POST /api/batch` for 1 to 10 people at once | `RunnableBranch`, `batch()` and `abatch()`, `config={"max_concurrency": 3}`, a list in a Pydantic model |
 
 ### 08 · Building with an AI coding assistant
 
@@ -62,7 +62,7 @@ and you read, run and test every change before you keep it.
 
 | # | Project | What you build | What you learn |
 |---|---|---|---|
-| 08 | [Vibe-code a data app](projects/08-vibecode-data-app/README.md) | A Streamlit page over a CSV of fruit sales (filters, totals, two charts), and four mini-specs to rebuild it with your own assistant | mini-specs (goal, inputs, done when), reviewing each change, Streamlit's rerun model, pandas, `AppTest` |
+| 08 | [Vibe-code a data app](tutorials/08-vibecode-data-app/README.md) | A Streamlit page over a CSV of fruit sales (filters, totals, two charts), and four mini-specs to rebuild it with your own assistant | mini-specs (goal, inputs, done when), reviewing each change, Streamlit's rerun model, pandas, `AppTest` |
 
 ### 09 · The Gemini key
 
@@ -71,7 +71,7 @@ server: out of the page, out of every response and out of git.
 
 | # | Project | What you build | What you learn |
 |---|---|---|---|
-| 09 | [Get a Gemini key and keep it secret](projects/09-gemini-key/README.md) | A key restricted to the Gemini API, with a budget alert, kept in `.env`; `config.py`, which stops without it; a server and page that never show it | environment variables and `python-dotenv`, failing fast with your own error class, `.gitignore` and `.env.example` |
+| 09 | [Get a Gemini key and keep it secret](tutorials/09-gemini-key/README.md) | A key restricted to the Gemini API, with a budget alert, kept in `.env`; `config.py`, which stops without it; a server and page that never show it | environment variables and `python-dotenv`, failing fast with your own error class, `.gitignore` and `.env.example` |
 
 ### 10-12 · Your first real LLM
 
@@ -80,9 +80,9 @@ errors handled, measure what each call would cost, and stream the answer.
 
 | # | Project | What you build | What you learn |
 |---|---|---|---|
-| 10 | [First real LLM call](projects/10-gemini-llm/README.md) | `prompt \| model \| parser` with Gemini writing a welcome for any name: a 422 before any call for a bad name, a 502 when Gemini fails | `ChatGoogleGenerativeAI`, `StrOutputParser`, `max_output_tokens`, plain and live tests |
-| 11 | [Tokens and cost](projects/11-gemini-tokens/README.md) | The same welcome with its numbers: tokens counted before and after, the time, the price, and a cap you set for each call | tokens, `get_num_tokens()`, `usage_metadata`, `model.bind()`, why temperature is ignored on this model |
-| 12 | [Streaming answers](projects/12-gemini-stream/README.md) | A three-paragraph welcome that appears piece by piece, in the terminal and on the page, with the time to the first words | `stream()` and `astream()`, generators, `StreamingResponse`, `getReader()`, errors in a stream |
+| 10 | [First real LLM call](tutorials/10-gemini-llm/README.md) | `prompt \| model \| parser` with Gemini writing a welcome for any name: a 422 before any call for a bad name, a 502 when Gemini fails | `ChatGoogleGenerativeAI`, `StrOutputParser`, `max_output_tokens`, plain and live tests |
+| 11 | [Tokens and cost](tutorials/11-gemini-tokens/README.md) | The same welcome with its numbers: tokens counted before and after, the time, the price, and a cap you set for each call | tokens, `get_num_tokens()`, `usage_metadata`, `model.bind()`, why temperature is ignored on this model |
+| 12 | [Streaming answers](tutorials/12-gemini-stream/README.md) | A three-paragraph welcome that appears piece by piece, in the terminal and on the page, with the time to the first words | `stream()` and `astream()`, generators, `StreamingResponse`, `getReader()`, errors in a stream |
 
 ### 13-15 · Prompt basics
 
@@ -91,9 +91,9 @@ and a schema for the answer.
 
 | # | Project | What you build | What you learn |
 |---|---|---|---|
-| 13 | [Give the model a role: the system prompt](projects/13-gemini-system-prompt/README.md) | One question answered twice, for a beginner and for an expert, where only the system prompt changes | `ChatPromptTemplate.from_messages`, system and human messages, two calls at once, prompt injection |
-| 14 | [Show, don't tell: few-shot examples](projects/14-gemini-few-shot/README.md) | 10 questions asked with and without three example answers, each answer's format checked in code | `FewShotChatMessagePromptTemplate`, examples vs instructions, `batch()` with `return_exceptions=True` |
-| 15 | [Structured output](projects/15-gemini-structured/README.md) | A greeting and a support ticket that come back as checked Pydantic objects, each field in its own box on the page | `with_structured_output()`, a Pydantic class as the schema, `OutputParserException`, `response_model=` |
+| 13 | [Give the model a role: the system prompt](tutorials/13-gemini-system-prompt/README.md) | One question answered twice, for a beginner and for an expert, where only the system prompt changes | `ChatPromptTemplate.from_messages`, system and human messages, two calls at once, prompt injection |
+| 14 | [Show, don't tell: few-shot examples](tutorials/14-gemini-few-shot/README.md) | 10 questions asked with and without three example answers, each answer's format checked in code | `FewShotChatMessagePromptTemplate`, examples vs instructions, `batch()` with `return_exceptions=True` |
+| 15 | [Structured output](tutorials/15-gemini-structured/README.md) | A greeting and a support ticket that come back as checked Pydantic objects, each field in its own box on the page | `with_structured_output()`, a Pydantic class as the schema, `OutputParserException`, `response_model=` |
 
 ### 16-17 · Reasoning and prompt files
 
@@ -102,8 +102,8 @@ and rolled back like code.
 
 | # | Project | What you build | What you learn |
 |---|---|---|---|
-| 16 | [Reasoning: chain-of-thought and thinking](projects/16-gemini-reasoning/README.md) | Six word problems asked three ways (directly, step by step, with thinking) and scored in code; a badly written prompt, fixed | chain-of-thought, `thinking_level`, what reasoning costs, `asyncio.gather` with a `Semaphore`, prompt anti-patterns |
-| 17 | [Prompts as versioned files](projects/17-gemini-prompt-files/README.md) | The greeting prompt as files, `prompts/greeting.v1.md` to `v3.md`, the active one picked in `prompt_versions.toml`, and every answer labelled with its version | prompt files, fingerprints with `hashlib`, `tomllib`, `with_config()`, checking files at start-up |
+| 16 | [Reasoning: chain-of-thought and thinking](tutorials/16-gemini-reasoning/README.md) | Six word problems asked three ways (directly, step by step, with thinking) and scored in code; a badly written prompt, fixed | chain-of-thought, `thinking_level`, what reasoning costs, `asyncio.gather` with a `Semaphore`, prompt anti-patterns |
+| 17 | [Prompts as versioned files](tutorials/17-gemini-prompt-files/README.md) | The greeting prompt as files, `prompts/greeting.v1.md` to `v3.md`, the active one picked in `prompt_versions.toml`, and every answer labelled with its version | prompt files, fingerprints with `hashlib`, `tomllib`, `with_config()`, checking files at start-up |
 
 ## Before you start
 
@@ -131,7 +131,7 @@ Windows' 260-character limit on file paths.
 The Python projects share one layout. Here is project 02's:
 
 ```text
-projects/02-langchain-python/
+tutorials/02-langchain-python/
 ├── hello.py              the chain; runs on its own: python hello.py
 ├── main.py               the FastAPI server: GET / and /index.html send the page; /api/... runs the chain
 ├── index.html            the page: plain HTML and a little JavaScript that calls /api/...
@@ -171,7 +171,7 @@ from project 09 on you add your own `.env`. The repo's `.gitignore` keeps all of
 Each project installs and runs on its own, from its own folder. Start in the repo's top folder; for project 02:
 
 ```bash
-cd projects/02-langchain-python
+cd tutorials/02-langchain-python
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell: .venv\Scripts\Activate.ps1
@@ -206,7 +206,7 @@ A few projects run differently:
 - **01** (JavaScript) prints one line in the terminal, with no server and no page:
 
   ```bash
-  cd projects/01-langchain-basic
+  cd tutorials/01-langchain-basic
   npm install                          # once: downloads @langchain/core into node_modules/
   npm start                            # runs hello.js: Hello World, welcome to LangChain!
   ```
@@ -224,17 +224,17 @@ Each project's README has its exact commands, curl examples and what you should 
 **The rule: the key stays on the server.** It lives in a `.env` file in the project's folder, or in a Codespaces
 secret, and never in the code, the page, a response, a commit, a screenshot or a chat.
 
-1. **Make it once, in [project 09](projects/09-gemini-key/README.md).** You create an API key in the Google Cloud
+1. **Make it once, in [project 09](tutorials/09-gemini-key/README.md).** You create an API key in the Google Cloud
    console, restricted to the Gemini API, with application restrictions set to None, and set a budget alert. Then you
    save it in that project's folder:
 
    ```bash
-   cd projects/09-gemini-key
+   cd tutorials/09-gemini-key
    cp .env.example .env                 # then open .env and replace your-key-here with your key
    ```
 
 2. **Copy it into each later project, once.** Each project reads only the `.env` in its own folder, so from the new
-   project's folder (`projects/10-gemini-llm`, say):
+   project's folder (`tutorials/10-gemini-llm`, say):
 
    ```bash
    cp ../09-gemini-key/.env .env
@@ -283,11 +283,11 @@ the check. Each project's README says what its tests check, and how many there a
 | The venv isn't active, in a new terminal say | `uvicorn: command not found` (PowerShell: `The term 'uvicorn' is not recognized ...`), or a `ModuleNotFoundError` naming a package such as `langchain_core` | Activate the venv again (see [Run a project](#run-a-project)); if that isn't enough, run `pip install -r requirements-dev.txt` |
 | No key in this project's folder | `Can't build the chain: GOOGLE_API_KEY is not set. ...` (in 09: `Can't start the server: ...`). With `--reload`, uvicorn still says `Uvicorn running on ...`, but the page won't open | In 10 to 17, `cp ../09-gemini-key/.env .env` in this project's folder; in 09, make the key first (see [Your Gemini key](#your-gemini-key-projects-09-on)). Then press Ctrl+C and start the server again: `--reload` doesn't notice a new `.env` |
 | A wrong key | The page says `Gemini didn't answer (GoogleInvalidRequestError).` (in 11: `ClientError`), and the server's terminal says `API key not valid` | Fix the key in `.env` (or in the Codespaces secret), then restart the server |
-| A key restricted to websites | The page says `Gemini didn't answer (...)`, and the server's terminal says `403 PERMISSION_DENIED` and "Requests from referer &lt;empty&gt; are blocked." | The server sends no website address, so Google blocks every call. Make a server key with application restrictions set to None, as [project 09](projects/09-gemini-key/README.md) shows. Don't use the "Browser key (auto created by Firebase)" |
+| A key restricted to websites | The page says `Gemini didn't answer (...)`, and the server's terminal says `403 PERMISSION_DENIED` and "Requests from referer &lt;empty&gt; are blocked." | The server sends no website address, so Google blocks every call. Make a server key with application restrictions set to None, as [project 09](tutorials/09-gemini-key/README.md) shows. Don't use the "Browser key (auto created by Firebase)" |
 | Too many calls in a minute on the free tier | Answers slow down while the library retries by itself, then an error such as `Gemini didn't answer (GoogleRateLimitError).` The terminal says `429 RESOURCE_EXHAUSTED` | Wait a minute and try again |
 | `.env` saved as UTF-16, which Windows PowerShell 5's `echo ... > .env` does | `.env isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding.` | Save `.env` as UTF-8 in your editor, or make it again with `cp .env.example .env` and put the key back in |
 | Printing non-English text or an emoji on Windows into a file, a pipe, or Git Bash's terminal (which Python sees as a pipe) | `UnicodeEncodeError: 'charmap' codec can't encode character ...` | Run `export PYTHONUTF8=1` (Git Bash) or `$env:PYTHONUTF8 = "1"` (PowerShell) first: Python then writes UTF-8 |
-| A streamed answer arrives all at once | The whole answer appears in one go, usually in Codespaces | A proxy between the page and the server held the pieces back: see [project 12](projects/12-gemini-stream/README.md#when-things-go-wrong). Try the page on your laptop, or `python hello.py`, which goes through no proxy |
+| A streamed answer arrives all at once | The whole answer appears in one go, usually in Codespaces | A proxy between the page and the server held the pieces back: see [project 12](tutorials/12-gemini-stream/README.md#when-things-go-wrong). Try the page on your laptop, or `python hello.py`, which goes through no proxy |
 
 Projects 10 to 17 also print `Direct use of automatic function calling (AFC) ... is not recommended` on the first call
 in each run. It comes from `google-genai`, the library under `langchain-google-genai`, and it's harmless. Each project's
@@ -297,7 +297,7 @@ README has its own table for its own surprises.
 
 For the maintainer, when a new project joins:
 
-1. **The folder**: `projects/NN-short-name/`, with the next two-digit number and a few lowercase words joined by
+1. **The folder**: `tutorials/NN-short-name/`, with the next two-digit number and a few lowercase words joined by
    hyphens, like `17-gemini-prompt-files`.
 2. **The files** every Python project has (see [How a project is laid out](#how-a-project-is-laid-out)): `hello.py`
    (the chain, runnable on its own), `main.py` (`GET /` and `/index.html` serve the page, plus `/api/...`),
