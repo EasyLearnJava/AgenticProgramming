@@ -59,6 +59,8 @@ if __name__ == "__main__":
     chain = make_rag_chain(make_retriever(store), chat_model)
     # ③ Run it: the retrieval, the prompt and Gemini's answer all happen in this one invoke().
     result = chain.invoke(question)
+    print(f"Question: {question}\n")
+    print("Answer (Gemini's, from the chunks found):")
     print(result["answer"])
     print("\nSources (the articles of the chunks found, closest first):")
     for title in dict.fromkeys(doc.metadata["title"] for doc in result["docs"]):   # each title once, in order
