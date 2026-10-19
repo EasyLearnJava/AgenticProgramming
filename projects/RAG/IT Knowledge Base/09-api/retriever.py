@@ -45,9 +45,11 @@ if __name__ == "__main__":
     # ③ batch(): invoke() once per question, side by side; the lists of chunks come back in the questions' order.
     results = retriever.batch(questions)
     for question, chunks in zip(questions, results):
-        print(question)
+        print(f"Question: {question}")
+        print(f"The {len(chunks)} chunks found, closest first:")
         for chunk in chunks:
             print(f"  {chunk.metadata['title']}, from character {chunk.metadata['start_index']}")
         print()
     # ④ What a prompt will get for the first question: its two closest chunks, as one text.
+    print("What a prompt gets for the first question, its 2 closest chunks as one text (format_docs):")
     print(format_docs(results[0][:2]))
