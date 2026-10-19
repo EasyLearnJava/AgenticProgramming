@@ -2,21 +2,26 @@
 
 ## What it does
 
-A retriever is LangChain's standard way to say "give me the chunks for this question". `retriever.py` turns step 05's
-vector store into one:
+This is where the user's question comes in: the query side of RAG. Steps 04 and 05 got the knowledge base ready;
+now a question finds the chunks that answer it, in two steps:
 
-- `invoke(question)` gives back the 5 chunks closest to the question, closest first.
-- `batch(questions)` does the same for several questions at once.
-- It's a Runnable, like the prompts and models in the tutorials, so in step 07 it joins a chain with `|`.
+1. **Embed the question.** `embed_query()` turns it into 768 numbers, with the same model as the chunks, so the two
+   can be compared. It tells Gemini this text is a question looking for documents (`RETRIEVAL_QUERY`).
+2. **Search.** Qdrant compares the question's vector with the 28 stored vectors and gives back the 5 closest chunks,
+   each with a score: the cosine similarity, how closely the two vectors point the same way, from -1 to 1. The closer
+   to 1, the closer the meaning.
 
-`format_docs()` joins chunks into one text, each with a number and its article's title, ready to go into a prompt.
+Then comes the retriever, LangChain's standard way to say "give me the chunks for this question":
+`make_retriever(store).invoke(question)` does both steps in one call. It's a Runnable, like the prompts and models in
+the tutorials, so in step 07 it joins a chain with `|`. `format_docs()` joins chunks into one text, each with a number
+and its article's title, ready to go into a prompt.
 
 ```text
-a question  ->  retriever  ->  the 5 closest chunks  ->  format_docs  ->  one text for a prompt
+a question  ->  Gemini: 768 numbers  ->  Qdrant: the 5 closest chunks, with scores  ->  format_docs  ->  text for a prompt
 ```
 
-The script asks the course app's three sample questions. Each run makes 4 calls to Gemini: one for the 28 chunks,
-then one for each question.
+The script shows each step for one question, `How do I fix VPN connection timeouts?`, or for yours. Each run makes 3
+calls to Gemini: one for the 28 chunks, then the question twice, once by hand and once through the retriever.
 
 ## How to run it
 
@@ -43,30 +48,30 @@ to make one). `.env` is in `.gitignore`, so your key never goes into git. Withou
 Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).
 ```
 
-`python retriever.py` prints each question with the 5 chunks found for it. Then it prints what a prompt would get for
-the first question: its 2 closest chunks, as one text. The parts in `< >` come from Gemini's search:
+`python retriever.py` prints each step: the question's vector, the 5 closest chunks with their scores, the same 5
+found by the retriever in one call, and the text a prompt would get. The parts in `< >` come from Gemini:
 
 ```text
 Question: How do I fix VPN connection timeouts?
-The 5 chunks found, closest first:
+The question became 768 numbers: [<the first 5 numbers>, ...]
+
+The 5 closest chunks, with their scores, closest first:
+  <score>  <article title>, from character <start_index>
+  ...
+
+The retriever, embedding and searching in one call, found:
   <article title>, from character <start_index>
   ...
 
-Question: I can't set up MFA on my mobile device
-The 5 chunks found, closest first:
-  ...
-
-Question: My laptop is running very slow
-The 5 chunks found, closest first:
-  ...
-
-What a prompt gets for the first question, its 2 closest chunks as one text (format_docs):
+What a prompt gets, the 2 closest chunks as one text (format_docs):
 [1] <article title>
 <the chunk's text>
 
 [2] <article title>
 <the chunk's text>
 ```
+
+The retriever finds the same 5 chunks as the search by hand: it does the same two steps.
 
 To ask your own question, put it after the script's name:
 
@@ -77,7 +82,7 @@ python retriever.py "my email bounced"
 To run the tests:
 
 ```bash
-python -m pytest                     # 24 passed, 3 skipped
+python -m pytest                     # 28 passed, 3 skipped
 ```
 
 The 3 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.
