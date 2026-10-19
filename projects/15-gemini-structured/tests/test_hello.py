@@ -1,6 +1,6 @@
 """Tests for project 15. The plain tests make no model call: the two schemas (what Gemini is told, and what Pydantic
-accepts), how the chains are built, turning JSON into objects, the endpoints with a stand-in, and the page. The live
-tests ask Gemini for one greeting and one ticket and check they're real, typed objects."""
+accepts), the model's settings, how the chains are built, turning JSON into objects, the endpoints with a stand-in,
+and the page. The live tests ask Gemini for one greeting and one ticket and check they're real, typed objects."""
 import os
 import subprocess
 import sys
@@ -8,14 +8,15 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.runnables import RunnableLambda
 from pydantic import ValidationError
 
 import main
-from hello import (LANGUAGES, SAMPLE_MESSAGE, Greeting, Ticket, api_key, greet_chain, greet_prompt, triage_chain,
-                   triage_prompt)
+from hello import (LANGUAGES, MAX_OUTPUT_TOKENS, MODEL, SAMPLE_MESSAGE, Greeting, Ticket, api_key, greet_chain,
+                   greet_prompt, model, triage_chain, triage_prompt)
 
 client = TestClient(main.app)
 FOLDER = Path(__file__).resolve().parent.parent
@@ -40,6 +41,7 @@ def test_the_ticket_schema_lists_the_choices_for_category_urgency_and_team():
     assert properties["category"]["enum"] == ["billing", "technical", "account", "shipping", "other"]
     assert properties["urgency"]["enum"] == ["low", "medium", "high"]
     assert "billing_team" in properties["route_to_team"]["enum"]
+    assert "money lost" in properties["urgency"]["description"]      # the rule for "high", which Gemini reads
 
 
 def test_pydantic_accepts_data_that_fits():
@@ -62,7 +64,12 @@ def test_pydantic_rejects_a_ticket_with_a_missing_field():
         Ticket(**{k: v for k, v in A_TICKET.items() if k != "urgency"})
 
 
-# ---- the chains, no call ----
+# ---- the model and the chains, no call ----
+
+def test_model_settings():
+    assert model.model == MODEL == "gemini-3.5-flash-lite"
+    assert model.max_output_tokens == MAX_OUTPUT_TOKENS == 300
+
 
 def test_each_chain_is_prompt_then_model_then_a_pydantic_parser():
     for chain, prompt, schema in [(greet_chain, greet_prompt, Greeting), (triage_chain, triage_prompt, Ticket)]:
@@ -73,9 +80,10 @@ def test_each_chain_is_prompt_then_model_then_a_pydantic_parser():
 
 
 def test_the_model_is_asked_for_json_in_the_schemas_shape():
-    bound_model = greet_chain.middle[0]
+    bound_model = greet_chain.middle[0]          # the step between the prompt and the parser
+    assert bound_model.bound is model            # our model, with two settings bound to it for this chain
     assert bound_model.kwargs["response_mime_type"] == "application/json"
-    assert bound_model.kwargs["response_json_schema"]["required"] == ["message", "language", "emoji", "tone"]
+    assert bound_model.kwargs["response_json_schema"] == Greeting.model_json_schema()
 
 
 def test_the_parser_turns_geminis_json_into_an_object():
@@ -87,11 +95,13 @@ def test_the_parser_turns_geminis_json_into_an_object():
 
 def test_the_parser_refuses_json_that_does_not_fit():
     reply = AIMessage(content='{"message": "Welcome!", "language": "English", "emoji": "👋", "tone": "angry"}')
-    with pytest.raises(Exception, match="tone"):
+    with pytest.raises(OutputParserException, match="tone"):
         greet_chain.last.invoke(reply)
 
 
 def test_with_no_key_it_stops_with_the_message_not_a_stack_trace():
+    # A copy of the environment with the key set to "". load_dotenv() doesn't replace a variable that is already set,
+    # so hello.py finds no key even when there is a .env file.
     env = {**os.environ, "GOOGLE_API_KEY": ""}
     result = subprocess.run([sys.executable, "hello.py"], cwd=FOLDER, env=env, capture_output=True, text=True)
     assert result.returncode == 1
@@ -107,11 +117,16 @@ def test_api_setup_gives_the_languages_and_the_sample_message():
 
 def test_api_greet_returns_every_field(monkeypatch):
     seen = {}
-    monkeypatch.setattr(main, "greet_chain", RunnableLambda(lambda inputs: seen.update(inputs) or Greeting(**A_GREETING)))
+
+    def fake_greet_chain(inputs):
+        seen.update(inputs)                  # remember what the endpoint passed to the chain
+        return Greeting(**A_GREETING)
+
+    monkeypatch.setattr(main, "greet_chain", RunnableLambda(fake_greet_chain))
     response = client.post("/api/greet", json={"name": " Asha ", "language": "English"})
     assert response.status_code == 200
     assert response.json() == A_GREETING
-    assert seen == {"name": "Asha", "language": "English"}
+    assert seen == {"name": "Asha", "language": "English"}      # the spaces around the name were trimmed
 
 
 def test_api_triage_returns_every_field(monkeypatch):
@@ -137,12 +152,16 @@ def test_bad_input_gets_a_422_and_no_model_call(monkeypatch, url, body, field):
 
 
 def test_an_answer_that_does_not_fit_the_schema_is_a_502(monkeypatch):
-    def bad_answer(inputs):
-        return Greeting(**{**A_GREETING, "tone": "angry"})           # raises ValidationError, like a bad reply
-    monkeypatch.setattr(main, "greet_chain", RunnableLambda(bad_answer))
+    def gemini_answers_with_a_wrong_tone(prompt_value):
+        # A stand-in for the model: real JSON, but "angry" isn't one of the three tones.
+        return AIMessage(content='{"message": "Welcome!", "language": "English", "emoji": "👋", "tone": "angry"}')
+
+    # The real prompt and the real parser, with only the Gemini call replaced.
+    chain = greet_prompt | RunnableLambda(gemini_answers_with_a_wrong_tone) | greet_chain.last
+    monkeypatch.setattr(main, "greet_chain", chain)
     response = client.post("/api/greet", json={"name": "Asha", "language": "English"})
     assert response.status_code == 502
-    assert response.json() == {"detail": "Gemini didn't answer (ValidationError)."}
+    assert response.json() == {"detail": "Gemini didn't answer (OutputParserException)."}
 
 
 @pytest.mark.parametrize("path", ["/", "/index.html"])
@@ -152,6 +171,14 @@ def test_page_is_served_and_holds_no_key(path):
     assert 'id="greet-fields"' in response.text
     assert 'id="triage-fields"' in response.text
     assert api_key not in response.text
+
+
+def test_page_checks_res_ok_on_load_and_on_submit():
+    # fetch() doesn't fail on an error answer such as a 500 (the server did answer), so the page checks res.ok itself:
+    # once for GET /api/setup when it opens, and once in the submit handler that both forms share.
+    page = (FOLDER / "index.html").read_text(encoding="utf-8")
+    assert page.count("throw new Error(`the server answered HTTP ${res.status}`);") == 2
+    assert "`Something went wrong: ${err.message}`" in page
 
 
 # ---- live: one greeting and one ticket ----

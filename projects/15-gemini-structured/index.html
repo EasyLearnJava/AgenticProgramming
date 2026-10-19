@@ -32,12 +32,22 @@
   <div class="fields" id="triage-fields"></div>
 
   <script>
-    // Fill the language dropdown and the sample message when the page opens.
+    // On load: GET /api/setup fills the language dropdown and the sample message. The greeting form sends
+    // {"name", "language"} to POST /api/greet, and the ticket form sends {"message"} to POST /api/triage (main.py).
+    // Each answer comes back as an object, and each of its fields is shown in its own box.
     fetch("/api/setup")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+        return res.json();
+      })
       .then((setup) => {
         for (const language of setup.languages) document.getElementById("language").add(new Option(language));
         document.getElementById("message").value = setup.sample_message;
+      })
+      .catch((err) => {
+        // Without the languages the greeting form can't work (it would send an empty language and get a 422),
+        // so say so where its answer would go.
+        document.getElementById("greet-status").textContent = `Something went wrong: ${err.message}`;
       });
 
     // One box per field: its name on top, its value below.
@@ -69,7 +79,10 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(readBody()),
           });
-          if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+          // 422 and 502 are handled below. Any other error status, e.g. a 500: the server did answer, so say which.
+          if (!res.ok && res.status !== 422 && res.status !== 502) {
+            throw new Error(`the server answered HTTP ${res.status}`);
+          }
           const data = await res.json();
           if (res.status === 422) {
             status.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
@@ -80,7 +93,7 @@
             status.textContent = "Every field is filled in and checked.";
           }
         } catch (err) {
-          status.textContent = `Could not reach the server: ${err.message}`;
+          status.textContent = `Something went wrong: ${err.message}`;   // the error thrown above, or no server
         } finally {
           button.disabled = false;
         }
