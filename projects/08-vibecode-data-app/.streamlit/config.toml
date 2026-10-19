@@ -1,4 +1,4 @@
-# Streamlit reads this file when you run `streamlit run app.py` from this folder.
+# Streamlit reads this file because it sits in .streamlit/ next to app.py, whichever folder you start it from.
 [server]
 headless = true            # don't ask for an email on the first run, and don't try to open a browser
 

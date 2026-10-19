@@ -1,5 +1,11 @@
-"""Tests for project 8: the plain functions in data.py, then the whole app, run by Streamlit's AppTest (no browser
-needed)."""
+"""
+Tests for project 8: the plain functions in data.py, running data.py as a script, then the whole app, run by
+Streamlit's AppTest (no browser needed).
+
+    City: Chennai, Fruit: Mango   ->   the page shows 110 units sold, ₹5,500 and 4 rows
+
+Run them:   python -m pytest        (add -v for one line per test)
+"""
 import subprocess
 import sys
 from pathlib import Path
@@ -42,11 +48,22 @@ def test_sales_by_date_is_in_date_order():
 
 def test_running_data_py_prints_the_totals():
     result = subprocess.run([sys.executable, str(FOLDER / "data.py")], capture_output=True, text=True, check=True)
-    assert "Mango     16500" in result.stdout
+    assert "Mango     16500" in result.stdout      # pandas pads each name so the totals line up in a column
 
 
 def run_app():
-    return AppTest.from_file(str(FOLDER / "app.py")).run()
+    # AppTest gives each run 3 seconds by default. The first run is the slowest (the chart library loads then) and
+    # can take longer on a slow or busy machine, so allow 30: a run that finishes sooner doesn't wait.
+    return AppTest.from_file(str(FOLDER / "app.py"), default_timeout=30).run()
+
+
+def test_app_starts_with_every_city_and_fruit_picked():
+    app = run_app()
+    assert not app.exception
+    assert app.title[0].value == "Project 8: Vibe-code a data app"
+    city, fruit = app.sidebar.multiselect          # the two multiselects, in the order app.py draws them
+    assert city.value == ["Bengaluru", "Chennai", "Hyderabad"]
+    assert fruit.value == ["Apple", "Banana", "Mango"]
 
 
 def test_app_shows_the_totals_for_everything():
