@@ -9,7 +9,15 @@ what it costs:
 Every way ends with a line "Answer: <number>", so code can check it against the right answer. Then a second part:
 one prompt full of common mistakes (anti-patterns), and the same prompt fixed.
 
-Run it on its own:   python hello.py   ->   the table for the three ways, then the prompt before and after
+    read_answer("Step 3: 24 + 7 = 31. Answer: 31")  ->  31.0
+    compare()  ->  [{"question": "A bat and a ball cost 110 rupees ...", "expected": 5,
+                     "ways": {"direct": {"value": 10.0, "correct": False, "output_tokens": 4, ...},
+                              "step_by_step": {...}, "thinking": {...}}},
+                    ...one row per question]
+                   (made-up example: Gemini's answers and counts change every run)
+
+Run it on its own:   python hello.py   ->   20 calls: the table for the three ways (18 calls), then the prompt
+                                            before and after (2 calls)
 main.py imports from here and serves it at POST /api/compare and POST /api/fix.
 """
 import asyncio
@@ -26,7 +34,7 @@ from config import MissingKeyError, load_api_key
 
 MODEL = "gemini-3.5-flash-lite"
 MAX_OUTPUT_TOKENS = 2000          # room for the steps: thinking tokens count towards this cap too
-AT_ONCE = 4                       # at most 4 calls running at the same time (the free tier limits calls per minute)
+AT_ONCE = 4                       # at most 4 calls running at the same time, so the 18 don't all go out at once
 
 # ① Questions with one right number each. Several are classic traps: the quick answer that comes to mind is wrong.
 QUESTIONS = [
@@ -84,11 +92,13 @@ chains = {name: make_chain(way) for name, way in WAYS.items()}
 # ④ Reading and checking the answer: plain code, no model.
 def read_answer(text: str) -> float | None:
     """The number on the last "Answer:" line, or None if there isn't one. "Answer: 1,250" -> 1250.0"""
-    found = re.findall(r"Answer:\s*[₹$]?\s*(-?[\d,]*\.?\d+)", text)
+    plain = text.replace("*", "")            # Markdown bold: "**Answer:** 5" and "Answer: **5**" mean "Answer: 5"
+    found = re.findall(r"Answer:\s*[₹$]?\s*(-?[\d,]*\.?\d+)", plain)
     return float(found[-1].replace(",", "")) if found else None
 
 
 def report(message: AIMessage, expected: float, latency_ms: int) -> dict:
+    """One answer, as a cell of the table: its text, the number read from it, right or wrong, tokens and time."""
     value = read_answer(message.text)
     usage = message.usage_metadata or {}
     return {
@@ -96,32 +106,38 @@ def report(message: AIMessage, expected: float, latency_ms: int) -> dict:
         "value": value,
         "correct": value == expected,
         "output_tokens": usage.get("output_tokens", 0),            # the visible answer plus any thinking
-        "thinking_tokens": usage.get("output_token_details", {}).get("reasoning", 0),
+        "thinking_tokens": usage.get("output_token_details", {}).get("reasoning", 0),   # missing when it's 0
         "latency_ms": latency_ms,
     }
 
 
+# ⑤ Asking: all 18 calls start at once, but at most AT_ONCE of them run at the same time. Projects 7 and 14 used
+#    batch(config={"max_concurrency": ...}), which runs ONE chain over a list; here three chains share one cap and
+#    each call is timed on its own, so we use asyncio directly. gather() runs many calls at the same time and gives
+#    back their results in order; Semaphore(AT_ONCE) hands out AT_ONCE permits, and `async with limit:` waits for one.
 async def ask(way: str, item: dict, limit: asyncio.Semaphore) -> dict:
     """One question, one way, timed. Any failure comes back as an error for that one cell."""
     async with limit:                        # wait here if AT_ONCE calls are already running
         try:
-            start = time.perf_counter()
+            start = time.perf_counter()      # the clock starts once the call is let in: waiting isn't counted
             message = await chains[way].ainvoke({"question": item["question"]})
             return report(message, item["answer"], round((time.perf_counter() - start) * 1000))
         except Exception as err:
             return {"error": f"Gemini didn't answer ({type(err).__name__}).", "detail": str(err)}
 
 
+async def ask_every_way(item: dict, limit: asyncio.Semaphore) -> dict:
+    """One question, all three ways: one row of the table."""
+    # The * hands gather() each call as its own argument. dict(zip(...)) pairs each way's name with its cell.
+    cells = await asyncio.gather(*(ask(way, item, limit) for way in WAYS))
+    return {"question": item["question"], "expected": item["answer"], "ways": dict(zip(WAYS, cells))}
+
+
 async def compare() -> list[dict]:
     """Every question, every way: 6 x 3 = 18 calls, at most AT_ONCE at a time."""
-    limit = asyncio.Semaphore(AT_ONCE)
-    # Start all 18 at once; the semaphore lets only AT_ONCE through at a time. gather keeps them in order.
-    results = await asyncio.gather(*(ask(way, item, limit) for item in QUESTIONS for way in WAYS))
-    rows = []
-    for i, item in enumerate(QUESTIONS):
-        cells = results[i * len(WAYS):(i + 1) * len(WAYS)]
-        rows.append({"question": item["question"], "expected": item["answer"], "ways": dict(zip(WAYS, cells))})
-    return rows
+    limit = asyncio.Semaphore(AT_ONCE)       # one set of permits, shared by all 18 calls
+    # Every row starts at once; the rows come back in the order of QUESTIONS.
+    return await asyncio.gather(*(ask_every_way(item, limit) for item in QUESTIONS))
 
 
 def summary(rows: list[dict]) -> dict:
@@ -129,9 +145,9 @@ def summary(rows: list[dict]) -> dict:
     result = {}
     for way in WAYS:
         cells = [row["ways"][way] for row in rows if "error" not in row["ways"][way]]
-        count = len(cells) or 1
+        count = len(cells) or 1                  # "or 1": no dividing by zero when every call failed
         result[way] = {
-            "correct": sum(cell["correct"] for cell in cells),
+            "correct": sum(cell["correct"] for cell in cells),         # True counts as 1, False as 0
             "answered": len(cells),
             "avg_output_tokens": round(sum(cell["output_tokens"] for cell in cells) / count),
             "avg_thinking_tokens": round(sum(cell["thinking_tokens"] for cell in cells) / count),
@@ -140,22 +156,25 @@ def summary(rows: list[dict]) -> dict:
     return result
 
 
-# ⑤ Part two: one prompt with four common mistakes, and the same request fixed.
+# ⑥ Part two: one prompt with four common mistakes, and the same request fixed.
 BEFORE_PROMPT = (
     "Look at this message from a customer and tell me about it. Keep it short but explain everything in detail, "
     "and write them a reply too.\n\n{message}"
 )
-AFTER_SYSTEM = "You read customer support messages for an online shop."
-AFTER_PROMPT = (
+# The fixed one puts the rules in the system message, and the customer's words, labelled, in the human message,
+# kept apart from the rules (project 13).
+AFTER_SYSTEM = (
+    "You read customer support messages for an online shop. "
     'Say what the customer wants, in one sentence of at most 20 words, starting with "The customer wants". '
-    "Do not write a reply.\n\n"
-    "Customer message:\n{message}"
+    "Do not write a reply."
 )
+AFTER_PROMPT = "Customer message:\n{message}"
 ANTI_PATTERNS = [
     {"mistake": "A vague goal", "before": '"tell me about it"', "after": '"say what the customer wants"'},
     {"mistake": "Instructions that conflict", "before": '"keep it short but explain everything in detail"',
      "after": '"one sentence of at most 20 words"'},
-    {"mistake": "No output format", "before": "(none: any shape will do)", "after": '"starting with \'The customer wants\'"'},
+    {"mistake": "No output format", "before": "(none: any shape will do)",
+     "after": '"starting with \'The customer wants\'"'},
     {"mistake": "Several tasks in one request", "before": '"tell me about it ... and write them a reply too"',
      "after": 'one task, and "Do not write a reply"'},
 ]
@@ -170,12 +189,13 @@ after_chain = (ChatPromptTemplate.from_messages([("system", AFTER_SYSTEM), ("hum
 
 
 if __name__ == "__main__":
+    # asyncio.run() runs an async function from plain code. In main.py's route, FastAPI awaits it instead.
     rows = asyncio.run(compare())
     for row in rows:
         print(f"=== {row['question']}  (right answer: {row['expected']})")
         for way, cell in row["ways"].items():
             if "error" in cell:
-                print(f"  {way:>12}: {cell['error']}")
+                print(f"  {way:>12}: {cell['error']} {cell['detail']}")
             else:
                 mark = "right" if cell["correct"] else "WRONG"
                 print(f"  {way:>12}: {cell['value']} {mark}  {cell['output_tokens']} tokens "

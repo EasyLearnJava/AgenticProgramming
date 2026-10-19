@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Project 16: Reasoning</title>
+  <title>Project 16: Reasoning: chain-of-thought and thinking</title>
 </head>
 <body>
-  <h1>Project 16: Reasoning</h1>
+  <h1>Project 16: Reasoning: chain-of-thought and thinking</h1>
 
   <h2>1. Three ways to answer</h2>
   <p>The same questions, asked three ways. Only the system prompt and the thinking level change.</p>
   <table border="1" cellpadding="4" id="ways"></table>
-  <p><button id="compare-run">Run all</button> <span id="compare-status">6 questions × 3 ways = 18 calls.</span></p>
+  <p><button id="compare-run">Run all</button> <span id="compare-status"></span></p>
   <table border="1" cellpadding="4">
     <thead><tr><th>Way</th><th>Right</th><th>Avg output tokens</th><th>Avg thinking tokens</th><th>Avg time (ms)</th></tr></thead>
     <tbody id="summary"></tbody>
@@ -40,7 +40,14 @@
   </table>
 
   <script>
-    const $ = (id) => document.getElementById(id);
+    // On load: GET /api/setup fills in the three ways, the anti-patterns, both prompts and the sample message.
+    // "Run all" sends POST /api/compare (every question, every way: one Gemini call each) and shows the summary
+    // and a row per question. "Try both prompts" sends the customer message to POST /api/fix and shows both answers.
+
+    // byId("rows") is short for document.getElementById("rows").
+    function byId(id) {
+      return document.getElementById(id);
+    }
 
     function row(...cells) {
       const tr = document.createElement("tr");
@@ -53,18 +60,26 @@
       return tr;
     }
 
-    // Show the three ways, the anti-patterns, both prompts and the sample message when the page opens.
     fetch("/api/setup")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+        return res.json();
+      })
       .then((setup) => {
-        $("ways").append(row("Way", "System prompt", "Thinking level"));
+        byId("ways").append(row("Way", "System prompt", "Thinking level"));
         for (const [name, way] of Object.entries(setup.ways)) {
-          $("ways").append(row(name, way.system, way.thinking_level ?? "the default (minimal)"));
+          byId("ways").append(row(name, way.system, way.thinking_level ?? "the default (minimal)"));
         }
-        for (const a of setup.anti_patterns) $("anti").append(row(a.mistake, a.before, a.after));
-        $("before-prompt").textContent = setup.before_prompt;
-        $("after-prompt").textContent = `system: ${setup.after_system}\n\nhuman: ${setup.after_prompt}`;
-        $("message").value = setup.sample_message;
+        const questions = setup.questions.length;
+        const ways = Object.keys(setup.ways).length;
+        byId("compare-status").textContent = `${questions} questions × ${ways} ways = ${questions * ways} calls.`;
+        for (const a of setup.anti_patterns) byId("anti").append(row(a.mistake, a.before, a.after));
+        byId("before-prompt").textContent = setup.before_prompt;
+        byId("after-prompt").textContent = `system: ${setup.after_system}\n\nhuman: ${setup.after_prompt}`;
+        byId("message").value = setup.sample_message;
+      })
+      .catch((err) => {
+        byId("compare-status").textContent = `Something went wrong: ${err.message}`;
       });
 
     // One way's cell: ✔ or ✘, the number it read, its tokens and time, and the full text folded away; or the error.
@@ -85,58 +100,69 @@
       return td;
     }
 
-    $("compare-run").addEventListener("click", async () => {
-      $("compare-run").disabled = true;
-      $("compare-status").textContent = "Asking Gemini 18 times, 4 at a time…";
-      $("rows").replaceChildren();
-      $("summary").replaceChildren();
+    byId("compare-run").addEventListener("click", async () => {
+      byId("compare-run").disabled = true;
+      byId("compare-status").textContent = "Asking Gemini every question, every way…";
+      byId("rows").replaceChildren();
+      byId("summary").replaceChildren();
       try {
         const res = await fetch("/api/compare", { method: "POST" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
         const data = await res.json();
+        let calls = 0;
+        let failed = 0;
         for (const r of data.rows) {
           const tr = row(r.question, r.expected);
-          for (const cell of Object.values(r.ways)) tr.append(wayCell(cell));
-          $("rows").append(tr);
+          for (const cell of Object.values(r.ways)) {
+            calls += 1;
+            if (cell.error) failed += 1;
+            tr.append(wayCell(cell));
+          }
+          byId("rows").append(tr);
         }
         for (const [way, s] of Object.entries(data.summary)) {
-          $("summary").append(row(way, `${s.correct} of ${s.answered}`, s.avg_output_tokens, s.avg_thinking_tokens,
-                                  s.avg_latency_ms));
+          byId("summary").append(row(way, `${s.correct} of ${s.answered}`, s.avg_output_tokens, s.avg_thinking_tokens,
+                                     s.avg_latency_ms));
         }
-        $("compare-status").textContent = "Done. Open \"the answer\" in a cell to read what Gemini wrote.";
+        // A 200 even when some calls failed: each failure is an error in its own cell, so count them.
+        byId("compare-status").textContent = failed === 0
+          ? "Done. Open \"the answer\" in a cell to read what Gemini wrote."
+          : `Done, but Gemini didn't answer ${failed} of the ${calls} calls: the server's terminal says why.`;
       } catch (err) {
-        $("compare-status").textContent = `Could not reach the server: ${err.message}`;
+        byId("compare-status").textContent = `Something went wrong: ${err.message}`;
       } finally {
-        $("compare-run").disabled = false;
+        byId("compare-run").disabled = false;
       }
     });
 
-    $("fix-run").addEventListener("click", async () => {
-      $("fix-run").disabled = true;
-      $("fix-status").textContent = "Asking Gemini twice…";
-      $("before-answer").textContent = "";
-      $("after-answer").textContent = "";
+    byId("fix-run").addEventListener("click", async () => {
+      byId("fix-run").disabled = true;
+      byId("fix-status").textContent = "Asking Gemini twice…";
+      byId("before-answer").textContent = "";
+      byId("after-answer").textContent = "";
       try {
         const res = await fetch("/api/fix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: $("message").value }),
+          body: JSON.stringify({ message: byId("message").value }),
         });
-        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok && res.status !== 422 && res.status !== 502) {
+          throw new Error(`the server answered HTTP ${res.status}`);
+        }
         const data = await res.json();
         if (res.status === 422) {
-          $("fix-status").textContent = "Please type a message (1,000 characters at most).";
+          byId("fix-status").textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
         } else if (res.status === 502) {
-          $("fix-status").textContent = `${data.detail} The server's terminal says why.`;
+          byId("fix-status").textContent = `${data.detail} The server's terminal says why.`;
         } else {
-          $("before-answer").textContent = data.before;
-          $("after-answer").textContent = data.after;
-          $("fix-status").textContent = "Done.";
+          byId("before-answer").textContent = data.before;
+          byId("after-answer").textContent = data.after;
+          byId("fix-status").textContent = "Done.";
         }
       } catch (err) {
-        $("fix-status").textContent = `Could not reach the server: ${err.message}`;
+        byId("fix-status").textContent = `Something went wrong: ${err.message}`;
       } finally {
-        $("fix-run").disabled = false;
+        byId("fix-run").disabled = false;
       }
     });
   </script>

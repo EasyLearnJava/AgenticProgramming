@@ -1,6 +1,7 @@
-"""Tests for project 16. The plain tests make no model call: reading the "Answer:" line, the three ways and their
-settings, the report and summary, compare() with stand-ins (its order, its limit of calls at once, a failed call),
-the two prompts, the endpoints, and the page. The live tests ask one question three ways, and try the fixed prompt."""
+"""Tests for project 16. The plain tests make no model call: reading the "Answer:" line (in Markdown bold too), the
+three ways and the model's settings, the report and summary, compare() with stand-ins (its order, its limit of calls
+at once, a failed call), the two prompts, the endpoints, and the page. The live tests ask one question three ways,
+and try the fixed prompt."""
 import asyncio
 import os
 import subprocess
@@ -34,6 +35,9 @@ def reply(text, output_tokens=10, thinking=0):
     ("Answer: 1,250", 1250),
     ("Answer: ₹660", 660),
     ("Answer: 47 days", 47),
+    ("**Answer:** 5", 5),                                            # Markdown bold, wherever the stars are
+    ("Answer: **5**", 5),
+    ("**Answer**: 5", 5),
     ("First guess. Answer: 10\nChecking again... Answer: 5", 5),     # the last Answer line counts
     ("The ball costs 5 rupees.", None),                              # no Answer line: can't be checked
 ])
@@ -65,8 +69,9 @@ def test_only_the_thinking_chain_turns_thinking_up():
     assert hello.chains["step_by_step"].last is hello.model
 
 
-def test_the_cap_leaves_room_for_steps_and_thinking():
-    assert hello.model.max_output_tokens == hello.MAX_OUTPUT_TOKENS == 2000
+def test_model_settings():
+    assert hello.model.model == hello.MODEL == "gemini-3.5-flash-lite"
+    assert hello.model.max_output_tokens == hello.MAX_OUTPUT_TOKENS == 2000     # room for the steps and the thinking
 
 
 # ---- the report and the summary, no call ----
@@ -84,7 +89,9 @@ def test_a_wrong_or_missing_answer_is_not_correct():
 
 
 def test_summary_counts_right_answers_and_averages_only_the_calls_that_answered():
-    cell = lambda correct, tokens: {"correct": correct, "output_tokens": tokens, "thinking_tokens": 0, "latency_ms": 100}
+    def cell(correct, tokens):
+        return {"correct": correct, "output_tokens": tokens, "thinking_tokens": 0, "latency_ms": 100}
+
     rows = [
         {"ways": {"direct": cell(False, 10), "step_by_step": cell(True, 200), "thinking": cell(True, 30)}},
         {"ways": {"direct": cell(True, 20), "step_by_step": cell(True, 100), "thinking": {"error": "..."}}},
@@ -110,7 +117,7 @@ def stand_in_chains(monkeypatch, answer_for, delay=0.0):
             await asyncio.sleep(delay)
             state["running"] -= 1
             return reply(answer_for(way, inputs["question"]))
-        return RunnableLambda(lambda inputs: None, afunc=run)
+        return RunnableLambda(run)               # an async function: this stand-in can only be awaited (ainvoke)
 
     monkeypatch.setattr(hello, "chains", {way: make(way) for way in hello.WAYS})
     return state
@@ -123,7 +130,8 @@ def test_compare_asks_every_question_every_way_in_order(monkeypatch):
     assert [row["question"] for row in rows] == [item["question"] for item in hello.QUESTIONS]
     assert all(list(row["ways"]) == ["direct", "step_by_step", "thinking"] for row in rows)
     s = hello.summary(rows)
-    assert (s["direct"]["correct"], s["step_by_step"]["correct"], s["thinking"]["correct"]) == (0, 6, 6)
+    every = len(hello.QUESTIONS)
+    assert (s["direct"]["correct"], s["step_by_step"]["correct"], s["thinking"]["correct"]) == (0, every, every)
 
 
 def test_compare_never_runs_more_than_at_once_calls(monkeypatch):
@@ -149,9 +157,10 @@ def test_the_prompt_before_has_the_four_mistakes_and_the_one_after_fixes_them():
     assert "tell me about it" in hello.BEFORE_PROMPT                       # vague goal
     assert "short but explain everything in detail" in hello.BEFORE_PROMPT  # conflicting instructions
     assert "write them a reply too" in hello.BEFORE_PROMPT                  # several tasks
-    assert "at most 20 words" in hello.AFTER_PROMPT                         # a clear length
-    assert 'starting with "The customer wants"' in hello.AFTER_PROMPT       # an output format
-    assert "Do not write a reply" in hello.AFTER_PROMPT                     # one task
+    assert "at most 20 words" in hello.AFTER_SYSTEM                         # a clear length
+    assert 'starting with "The customer wants"' in hello.AFTER_SYSTEM       # an output format
+    assert "Do not write a reply" in hello.AFTER_SYSTEM                     # one task
+    assert hello.AFTER_PROMPT == "Customer message:\n{message}"             # the customer's words, apart from the rules
     assert len(hello.ANTI_PATTERNS) == 4
 
 
@@ -172,19 +181,23 @@ def test_api_setup_shows_the_questions_ways_and_prompts():
     assert setup["before_prompt"] == hello.BEFORE_PROMPT
 
 
-def test_api_compare_returns_rows_and_a_summary_without_error_details(monkeypatch):
+def test_api_compare_returns_rows_and_a_summary_without_error_details(monkeypatch, caplog):
     def answer_for(way, question):
         if way == "thinking":
             raise RuntimeError("quota exceeded for project 1234")
         return "Answer: 5"
     stand_in_chains(monkeypatch, answer_for)
-    data = client.post("/api/compare").json()
-    assert len(data["rows"]) == 6
+    response = client.post("/api/compare")
+    assert response.status_code == 200                                  # failed calls don't fail the request
+    data = response.json()
+    assert len(data["rows"]) == len(hello.QUESTIONS)
     assert data["rows"][0]["ways"]["thinking"] == {"error": "Gemini didn't answer (RuntimeError)."}   # no detail
-    assert data["summary"]["direct"]["answered"] == 6
+    assert data["summary"]["direct"]["answered"] == len(hello.QUESTIONS)
+    assert "quota exceeded for project 1234" in caplog.text             # the full reason is in the server's log
 
 
 def test_api_fix_runs_both_prompts(monkeypatch):
+    # main.py looks up hello.before_chain on every request, so the stand-ins go on the hello module.
     monkeypatch.setattr(hello, "before_chain", RunnableLambda(lambda inputs: "A long, rambling answer..."))
     monkeypatch.setattr(hello, "after_chain", RunnableLambda(lambda inputs: "The customer wants a refund."))
     response = client.post("/api/fix", json={"message": " charged twice "})
