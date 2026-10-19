@@ -34,8 +34,9 @@ python read_kb.py
 
 Creating the venv and installing are once only; activate it again in every new terminal.
 
-`python read_kb.py` prints how many documents it read, each article's row number and title, then the first document
-in full: its text, then its metadata.
+`python read_kb.py` prints how many documents it read and each article's row number and title. Then it prints every
+document in full, with a blank line between them: a heading (`Document 1 of 10`), its text, then its metadata, each
+with a note saying what it is. The start and the end of what it prints:
 
 ```text
 10 documents
@@ -50,6 +51,8 @@ row 7  title: Email Attachment Size Limit
 row 8  title: Database Connection Timeout
 row 9  title: Microsoft Teams Audio Issues
 
+Document 1 of 10
+Text (page_content):
 title: VPN Connection Timeout
 problem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations
 resolution: 1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.
@@ -59,8 +62,25 @@ notes: Common issue during peak hours especially for users on home networks. May
 priority: High
 tags: vpn;timeout;remote;connection
 
+Where it came from (metadata):
 {'source': 'sample_it_kb.csv', 'row': 0}
+
+Document 2 of 10
+Text (page_content):
+title: MFA Setup Failure
+...
+
+Document 10 of 10
+Text (page_content):
+title: Microsoft Teams Audio Issues
+...
+tags: teams;audio;collaboration;windows
+
+Where it came from (metadata):
+{'source': 'sample_it_kb.csv', 'row': 9}
 ```
+
+The `...` lines stand for the parts left out here: your terminal shows all 10 documents in full.
 
 To run the tests:
 

@@ -4,8 +4,8 @@ No model, no API key.
 
     data/sample_it_kb.csv  ->  KBLoader(KB_FILE).load()  ->  docs, a list of 10 Documents: one per article
 
-Run it in this folder:   python read_kb.py   ->   how many documents, every article's title, then the first
-                                                  document's text and metadata
+Run it in this folder:   python read_kb.py   ->   how many documents, every article's title, then each document's
+                                                  text and metadata
 """
 import csv
 from collections.abc import Iterator
@@ -49,7 +49,12 @@ if __name__ == "__main__":
         print(f"row {doc.metadata['row']}  {doc.page_content.splitlines()[0]}")   # the first line: the title
     print()
 
-    first = docs[0]
-    print(first.page_content)
-    print()
-    print(first.metadata)
+    for number, doc in enumerate(docs):
+        if number > 0:
+            print()                                   # a blank line between documents, not before the first one
+        print(f"Document {number + 1} of {len(docs)}")
+        print("Text (page_content):")
+        print(doc.page_content)
+        print()
+        print("Where it came from (metadata):")
+        print(doc.metadata)

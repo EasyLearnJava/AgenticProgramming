@@ -67,11 +67,19 @@ def test_load_gives_the_same_documents_as_lazy_load():
     assert loader.load() == list(loader.lazy_load()) == docs
 
 
-def test_running_the_script_prints_the_titles_then_the_first_document():
+def test_running_the_script_prints_the_titles_then_every_document():
     printed = run_script(cwd=FOLDER)
     assert printed.startswith("10 documents\nrow 0  title: VPN Connection Timeout\n")
-    assert "row 9  title: Microsoft Teams Audio Issues\n\ntitle: VPN Connection Timeout\n" in printed
-    assert printed.endswith("tags: vpn;timeout;remote;connection\n\n{'source': 'sample_it_kb.csv', 'row': 0}\n")
+    assert ("row 9  title: Microsoft Teams Audio Issues\n\n"
+            "Document 1 of 10\nText (page_content):\ntitle: VPN Connection Timeout\n") in printed
+    assert ("tags: vpn;timeout;remote;connection\n\n"
+            "Where it came from (metadata):\n{'source': 'sample_it_kb.csv', 'row': 0}\n\n"
+            "Document 2 of 10\n") in printed
+    headings = [line for line in printed.splitlines() if line.startswith("Document ")]
+    assert headings == [f"Document {n} of 10" for n in range(1, 11)]
+    assert "\n\n\n" not in printed                  # never more than one blank line in a row
+    assert printed.endswith("tags: teams;audio;collaboration;windows\n\n"
+                            "Where it came from (metadata):\n{'source': 'sample_it_kb.csv', 'row': 9}\n")
 
 
 def test_the_script_finds_the_csv_from_any_folder(tmp_path):
