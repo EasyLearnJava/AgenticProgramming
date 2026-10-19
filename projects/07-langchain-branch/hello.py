@@ -4,7 +4,8 @@ batch() runs a whole list of inputs in one call.
 
     RunnableBranch((is_formal, formal_chain), casual_chain)
 
-Run it on its own:   python hello.py                 ->   one greeting in each style, then a batch of five
+Run it on its own:   python hello.py                 ->   Raghu in each style, then a batch of five
+                     python hello.py Asha            ->   Asha in each style, then the same batch
                      python hello.py Asha formal     ->   Good day, Asha. Welcome to LangChain.
 main.py imports `chain` from here and serves it at POST /api/hello (one input) and POST /api/batch (a list).
 """
@@ -22,6 +23,7 @@ casual_chain = PromptTemplate.from_template("Hey {name}! Welcome to LangChain!")
 
 
 # ③ The condition: gets the whole input and says True or False.
+#    It's a plain function, not a Runnable: RunnableBranch wraps it in a RunnableLambda for you.
 def is_formal(inputs: dict) -> bool:
     return inputs["style"] == "formal"
 
@@ -34,8 +36,8 @@ chain = RunnableBranch(
 )
 
 
-# ⑤ The same thing without LangChain, to compare: a plain if. It gives the same text, but it is not a Runnable,
-#    so it has no .batch(), .ainvoke() or .astream(), and you can't pipe it into anything.
+# ⑤ The same thing without LangChain, to compare: a plain if. It gives the same text, but it is a plain function,
+#    not a Runnable, so it has no .batch(), .ainvoke() or .astream() of its own.
 def greet_with_if(inputs: dict) -> str:
     if inputs["style"] == "formal":
         return f"Good day, {inputs['name']}. Welcome to LangChain."
@@ -43,14 +45,18 @@ def greet_with_if(inputs: dict) -> str:
 
 
 # ⑥ Run it, but only when this file is run directly (python hello.py), not when main.py imports it.
+#    The first argument is the name. A second one is the style: then only that one greeting is printed.
 if __name__ == "__main__":
+    name = sys.argv[1] if len(sys.argv) > 1 else "Raghu"
     if len(sys.argv) > 2:
-        print(chain.invoke({"name": sys.argv[1], "style": sys.argv[2]}))
+        print(chain.invoke({"name": name, "style": sys.argv[2]}))
     else:
-        print(chain.invoke({"name": "Raghu", "style": "formal"}))
-        print(chain.invoke({"name": "Raghu", "style": "casual"}))
+        print(chain.invoke({"name": name, "style": "formal"}))
+        print(chain.invoke({"name": name, "style": "casual"}))
         print()
-        # batch(): a list in, a list out, in the same order. max_concurrency: at most 3 run at the same time.
+        # batch(): a list in, a list out, in the same order. config= holds settings for the run: with
+        # "max_concurrency": 3, at most 3 run at the same time. It only works inside config=: in
+        # chain.batch(people, max_concurrency=3) it is passed on to each invoke() instead, and nothing is capped.
         people = [
             {"name": "Raghu", "style": "formal"},
             {"name": "Asha", "style": "casual"},

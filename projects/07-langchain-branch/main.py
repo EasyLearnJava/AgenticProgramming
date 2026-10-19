@@ -3,6 +3,7 @@ A small FastAPI app that serves hello.py's branching chain over HTTP: one input 
 
     GET / (or /index.html) -> index.html, a page with a one-greeting form and a batch form
     POST /api/hello  body {"name": "Raghu", "style": "formal"}  -> {"answer": "Good day, Raghu. Welcome to LangChain."}
+                     a style other than "formal" or "casual", or an empty, blank or 41+ character name -> 422
     POST /api/batch  body {"people": [{"name": "Raghu", "style": "formal"}, {"name": "Asha", "style": "casual"}]}
                      -> {"answers": ["Good day, Raghu. Welcome to LangChain.", "Hey Asha! Welcome to LangChain!"]}
                      any bad field (or an empty list, or more than 10 people) -> 422
@@ -29,7 +30,7 @@ class HelloIn(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)   # "  Raghu " -> "Raghu", and "   " -> "" (too short)
 
     name: str = Field(min_length=1, max_length=40)
-    style: Literal["formal", "casual"]
+    style: Literal["formal", "casual"]   # must match exactly: not stripped, so " formal " is a 422
 
 
 class BatchIn(BaseModel):

@@ -31,6 +31,10 @@ Li,casual</textarea>
   <ol id="batch-answers"></ol>
 
   <script>
+    // Nothing runs on load. Each form's button submits it (so does Enter in the name box), and each submit sends one
+    // request to the backend, which runs hello.py's chain: the first form sends {"name", "style"} to POST /api/hello,
+    // the second sends {"people": [...]} to POST /api/batch.
+
     // Each 422 error says what was wrong in its type; turn the ones we expect into plain words.
     const FRIENDLY = {
       missing: "missing",
@@ -42,14 +46,15 @@ Li,casual</textarea>
     };
     const explain = (problem) => FRIENDLY[problem.type] ?? problem.msg;
 
-    // POST some JSON and give back [status, body].
+    // POST some JSON and give back [status, body]; both forms use it. A 200 (the answer) and a 422 (what was wrong)
+    // come back for the form to show. Any other status is thrown as an error, and the form's catch shows it.
     async function post(url, body) {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (res.status !== 200 && res.status !== 422) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok && res.status !== 422) throw new Error(`the server answered HTTP ${res.status}`);   // e.g. a 500
       return [res.status, await res.json()];
     }
 
@@ -67,7 +72,7 @@ Li,casual</textarea>
           ? data.detail.map((p) => `${p.loc.at(-1)}: ${explain(p)}`).join("; ")
           : data.answer;
       } catch (err) {
-        oneAnswer.textContent = `Could not reach the server: ${err.message}`;
+        oneAnswer.textContent = `Something went wrong: ${err.message}`;   // the error post() threw, or no server
       } finally {
         oneButton.disabled = false;
       }
@@ -87,14 +92,17 @@ Li,casual</textarea>
         .filter((line) => line.trim())
         .map((line) => {
           const [name, style = ""] = line.split(",");
+          // The server trims the name, but the style must be exactly "formal" or "casual", so trim it here
+          // ("Raghu, formal" sends " formal" otherwise, and that's a 422).
           return { name, style: style.trim() };
         });
       try {
         const [status, data] = await post("/api/batch", { people });
         if (status === 422) {
-          // loc is ["body", "people", 1, "style"] for line 2's style, or ["body", "people"] for the list itself.
+          // loc is ["body", "people", 1, "style"] for the second person's style (counted by person, not by line:
+          // blank lines were skipped), or ["body", "people"] for the list itself.
           batchStatus.textContent = data.detail
-            .map((p) => (p.loc.length > 3 ? `Line ${p.loc[2] + 1}, ${p.loc[3]}: ` : "") + explain(p))
+            .map((p) => (p.loc.length > 3 ? `Person ${p.loc[2] + 1}, ${p.loc[3]}: ` : "") + explain(p))
             .join("; ");
           return;
         }
@@ -105,7 +113,7 @@ Li,casual</textarea>
           batchAnswers.append(item);
         });
       } catch (err) {
-        batchStatus.textContent = `Could not reach the server: ${err.message}`;
+        batchStatus.textContent = `Something went wrong: ${err.message}`;
       } finally {
         batchButton.disabled = false;
       }
