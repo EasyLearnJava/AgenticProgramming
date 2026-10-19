@@ -82,7 +82,7 @@ and add `/docs` to the address it opens.
 To run the tests:
 
 ```bash
-python -m pytest                     # 44 passed, 7 skipped
+python -m pytest                     # 48 passed, 7 skipped
 ```
 
 The 7 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.
