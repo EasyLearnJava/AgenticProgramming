@@ -16,16 +16,17 @@ LlamaIndex, Gemini in place of OpenAI, and a plain HTML page served by FastAPI i
 ## The projects
 
 Each folder is a project of its own: it holds the app as built so far plus one new piece, runs on its own, and has
-its own tests.
+its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk, embed, store), with
+no question anywhere; the user's question comes in at 06, and 07 onward answer it.
 
 | Project | What it adds | Run it |
 |---|---|---|
 | `01-read-the-knowledge-base` | The CSV file of 10 articles read into LangChain `Document`s by a document loader | `python read_kb.py` |
 | `02-documents-and-metadata` | Each article's text to search (title, problem, resolution, notes) kept apart from its labels (system, category, priority, tags) | `python knowledge_base.py` |
 | `03-chunking` | The articles cut into chunks of at most 512 characters with `RecursiveCharacterTextSplitter`: 28 in all | `python chunking.py` |
-| `04-embeddings` | Text turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers), and the articles ranked by cosine similarity to a question | `python similarity.py` |
-| `05-vector-store` | The chunks stored in Qdrant, in memory, through `QdrantVectorStore`, and searched by meaning | `python vector_store.py` |
-| `06-retriever` | The store as a retriever, a Runnable that gives the 5 closest chunks for a question | `python retriever.py` |
+| `04-embeddings` | The 28 chunks turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers each), in one call. No question yet | `python embed_chunks.py` |
+| `05-vector-store` | The chunks stored in Qdrant, in memory, through `QdrantVectorStore`: one point per chunk, with its vector, text and labels | `python vector_store.py` |
+| `06-retriever` | The user's question: embedded, then searched in Qdrant for the 5 closest chunks; then both in one call with a retriever, a Runnable | `python retriever.py` |
 | `07-grounded-answer` | The RAG chain: the chunks and the question go into a prompt, and Gemini (`gemini-3.5-flash-lite`) answers from them only | `python rag_chain.py` |
 | `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python rag_engine.py` |
 | `09-api` | A FastAPI server: `POST /api/query`, `GET /api/stats`, `GET /api/health` | `uvicorn main:app --reload` |
