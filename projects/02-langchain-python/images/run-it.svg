@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="851" viewBox="0 0 960 851" role="img" aria-labelledby="title desc">
+<!-- The picture for README.md's section "Run it". Plain SVG: edit the text in place. -->
+<title id="title">Run it</title>
+<desc id="desc">A terminal, as typed in Git Bash. $ cd projects/02-langchain-python: go into the project's folder. $ python -m venv .venv: once, make .venv/. $ source .venv/Scripts/activate: in each new terminal; the prompt now starts with (.venv). (.venv) $ pip install -r requirements-dev.txt: once; it prints Collecting fastapi==0.142.2 (from -r ...requirements.txt (line 1)), many more lines, then Successfully installed and the packages, and [notice] A new release of pip is available: 25.1.1 -&gt; 26.2.1, information only. (.venv) $ python hello.py prints Hello World, welcome to LangChain!: the chain alone. (.venv) $ uvicorn main:app --reload prints INFO: Will watch for changes in these directories: ['...02-langchain-python'], INFO: Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit), INFO: Started reloader process [46024] using StatReload, INFO: Started server process [18724], INFO: Waiting for application startup., INFO: Application startup complete.: main.py is imported, the chain is built, and the server waits. You open http://127.0.0.1:8000: INFO: 127.0.0.1:65317 - "GET / HTTP/1.1" 200 OK, the page; INFO: 127.0.0.1:65317 - "GET /api/hello HTTP/1.1" 200 OK, the page's fetch, which runs the chain; INFO: 127.0.0.1:65183 - "GET /favicon.ico HTTP/1.1" 404 Not Found, the tab icon, harmless. You press Ctrl+C: INFO: Shutting down, INFO: Waiting for application shutdown., INFO: Application shutdown complete., INFO: Finished server process [18724], INFO: Stopping reloader process [46024]: the server stops, and the prompt comes back. Takeaway: install once; then uvicorn runs the chain each time the page asks for it.</desc>
+<style><![CDATA[
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; fill: #1f2328; }
+.code, .lcode, .term, .mono-in, .chip-val, .fname, .val { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; }
+.mix { font-size: 13.5px; }
+.mix-small { font-size: 13px; }
+.title { font-size: 26px; font-weight: 700; }
+.sub { font-size: 16px; fill: #59636e; }
+.lane { font-size: 12.5px; font-weight: 700; fill: #59636e; letter-spacing: 1px; }
+.name { font-size: 14px; font-weight: 700; }
+.code { font-size: 13.5px; }
+.lcode { font-size: 12.5px; }
+.dim { fill: #6e7781; }
+.code-run { font-weight: 700; fill: #6639ba; }
+.fname { font-size: 13.5px; font-weight: 700; }
+.where { font-size: 12px; fill: #59636e; }
+.verb { font-size: 14px; font-weight: 700; fill: #59636e; }
+.verb-run { fill: #6639ba; }
+.note { font-size: 13px; fill: #59636e; }
+.head { font-size: 14px; font-weight: 700; }
+.vhead { font-size: 12.5px; font-weight: 700; fill: #1a7f37; }
+.chip-val { font-size: 14px; font-weight: 700; fill: #116329; }
+.val { font-size: 12.5px; fill: #116329; }
+.term { font-size: 12px; fill: #9198a1; }
+.term-cmd { fill: #f0f6fc; }
+.term-ok { fill: #7ee787; }
+.term-info { fill: #3fb950; }
+.term-bad { fill: #ff7b72; }
+.term-bar { font-size: 12px; fill: #9198a1; }
+.term-cut { fill: #848d97; }
+.divider { font-size: 11.5px; fill: #c9d1d9; }
+.take { font-size: 16px; }
+.take-head { font-weight: 700; fill: #7d4e00; }
+.num { font-size: 13px; font-weight: 700; fill: #ffffff; }
+.tag { font-size: 12px; fill: #59636e; }
+.page-h { font-size: 15px; font-weight: 700; }
+.page-p { font-size: 13.5px; }
+.page-url { font-size: 11.5px; fill: #59636e; }
+.card { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+.cell { fill: #ffffff; }
+.cell-run { fill: #fdfaff; }
+.band { fill: #f6f8fa; }
+.band-run { fill: #fbefff; }
+.edge { fill: none; stroke: #d0d7de; stroke-width: 1.5; }
+.edge-run { fill: none; stroke: #8250df; stroke-width: 2; }
+.box-step { fill: #fbefff; stroke: #8250df; stroke-width: 2; }
+.box-idle { fill: #ffffff; stroke: #8250df; stroke-width: 1.6; stroke-dasharray: 6 4; }
+.box-chain { fill: #ffffff; stroke: #8250df; stroke-width: 1.5; }
+.box-val { fill: #dafbe1; stroke: #4ac26b; stroke-width: 1.5; }
+.box-term { fill: #1f2328; }
+.box-bar { fill: #32383f; }
+.box-take { fill: #fff8c5; stroke: #d4a72c; stroke-width: 1.5; }
+.box-tag { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.2; }
+.box-page { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+.dot { fill: #8c959f; }
+.bar-dot { fill: #6e7681; }
+.rule { stroke: #d0d7de; stroke-width: 1.5; }
+.rule-run { stroke: #c297ff; stroke-width: 1.5; }
+.rule-term { stroke: #484f58; stroke-width: 1; stroke-dasharray: 4 3; }
+.flow { stroke: #8c959f; stroke-width: 2; fill: none; }
+.rail { stroke: #d0d7de; stroke-width: 2; fill: none; }
+.bracket { stroke: #8c959f; stroke-width: 1.5; fill: none; }
+.num-bg { fill: #8250df; }
+]]></style>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/>
+  </marker>
+</defs>
+<rect x="0.75" y="0.75" width="958.5" height="849.5" rx="14" class="card"/>
+<text x="32" y="59" class="title" xml:space="preserve">Run it</text>
+<text x="32" y="92" class="sub" xml:space="preserve">Type these in a terminal, starting in the repo's root folder. This is what you'll see.</text>
+<rect x="32" y="120" width="634.64" height="631" rx="10" class="box-term"/>
+<path d="M32,148 L32,130 A10,10 0 0 1 42,120 L656.64,120 A10,10 0 0 1 666.64,130 L666.64,148 Z" class="box-bar"/>
+<circle cx="50" cy="134" r="5" class="bar-dot"/>
+<circle cx="66" cy="134" r="5" class="bar-dot"/>
+<circle cx="82" cy="134" r="5" class="bar-dot"/>
+<text x="108" y="138.5" class="term-bar" xml:space="preserve">Terminal (Git Bash)</text>
+<text x="48" y="172" class="term" xml:space="preserve">$ <tspan class="term-cmd">cd projects/02-langchain-python</tspan></text>
+<text x="48" y="191" class="term" xml:space="preserve">$ <tspan class="term-cmd">python -m venv .venv</tspan></text>
+<text x="48" y="210" class="term" xml:space="preserve">$ <tspan class="term-cmd">source .venv/Scripts/activate</tspan></text>
+<text x="48" y="229" class="term" xml:space="preserve">(.venv) $ <tspan class="term-cmd">pip install -r requirements-dev.txt</tspan></text>
+<text x="48" y="248" class="term" xml:space="preserve">Collecting fastapi==0.142.2 (from -r ...requirements.txt (line 1))</text>
+<text x="48" y="267" class="term" xml:space="preserve"><tspan class="term-cut">  … many more lines, a few for each package …</tspan></text>
+<text x="48" y="286" class="term" xml:space="preserve">Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 …</text>
+<text x="48" y="324" class="term" xml:space="preserve">[notice] A new release of pip is available: 25.1.1 -&gt; 26.2.1</text>
+<text x="48" y="343" class="term" xml:space="preserve">[notice] To update, run: python.exe -m pip install --upgrade pip</text>
+<text x="48" y="362" class="term" xml:space="preserve">(.venv) $ <tspan class="term-cmd">python hello.py</tspan></text>
+<text x="48" y="381" class="term" xml:space="preserve"><tspan class="term-ok">Hello World, welcome to LangChain!</tspan></text>
+<text x="48" y="400" class="term" xml:space="preserve">(.venv) $ <tspan class="term-cmd">uvicorn main:app --reload</tspan></text>
+<text x="48" y="419" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Will watch for changes in these directories: ['...02-langchain-python']</text>
+<text x="48" y="438" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)</text>
+<text x="48" y="457" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Started reloader process [46024] using StatReload</text>
+<text x="48" y="476" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Started server process [18724]</text>
+<text x="48" y="495" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Waiting for application startup.</text>
+<text x="48" y="514" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Application startup complete.</text>
+<line x1="48" y1="529" x2="650.64" y2="529" class="rule-term"/>
+<rect x="60" y="520" width="209.2" height="18" rx="4" class="box-term"/>
+<text x="68" y="533.5" class="divider" xml:space="preserve">you open http://127.0.0.1:8000</text>
+<text x="48" y="558" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     127.0.0.1:65317 - "GET / HTTP/1.1" 200 OK</text>
+<text x="48" y="577" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     127.0.0.1:65317 - "GET /api/hello HTTP/1.1" 200 OK</text>
+<text x="48" y="596" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     127.0.0.1:65183 - "GET /favicon.ico HTTP/1.1" <tspan class="term-bad">404 Not Found</tspan></text>
+<line x1="48" y1="611" x2="650.64" y2="611" class="rule-term"/>
+<rect x="60" y="602" width="119.04" height="18" rx="4" class="box-term"/>
+<text x="68" y="615.5" class="divider" xml:space="preserve">you press Ctrl+C</text>
+<text x="48" y="640" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Shutting down</text>
+<text x="48" y="659" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Waiting for application shutdown.</text>
+<text x="48" y="678" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Application shutdown complete.</text>
+<text x="48" y="697" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Finished server process [18724]</text>
+<text x="48" y="716" class="term" xml:space="preserve"><tspan class="term-info">INFO</tspan>:     Stopping reloader process [46024]</text>
+<text x="48" y="735" class="term" xml:space="preserve">(.venv) $ <tspan class="term-cmd"></tspan></text>
+<path d="M692.64,168 L672.64,168" class="flow" marker-end="url(#arrow)"/>
+<text x="700.64" y="172" class="head" xml:space="preserve">Into the project's folder</text>
+<path d="M692.64,187 L672.64,187" class="flow" marker-end="url(#arrow)"/>
+<text x="700.64" y="191" class="head" xml:space="preserve">Once: make .venv/</text>
+<path d="M692.64,206 L672.64,206" class="flow" marker-end="url(#arrow)"/>
+<text x="700.64" y="210" class="head" xml:space="preserve">Each new terminal</text>
+<path d="M672.64,216 L680.64,216 L680.64,348 L672.64,348" class="bracket"/>
+<path d="M680.64,282 L692.64,282" class="bracket"/>
+<text x="700.64" y="269" class="head" xml:space="preserve">Once: fill .venv/</text>
+<text x="700.64" y="287" class="note" xml:space="preserve">pip's report; the notice</text>
+<text x="700.64" y="305" class="note" xml:space="preserve">is information only</text>
+<path d="M692.64,377 L672.64,377" class="flow" marker-end="url(#arrow)"/>
+<text x="700.64" y="381" class="head" xml:space="preserve">The chain alone</text>
+<text x="700.64" y="399" class="note" xml:space="preserve">hello.py runs on its own</text>
+<path d="M672.64,387 L680.64,387 L680.64,519 L672.64,519" class="bracket"/>
+<path d="M680.64,453 L692.64,453" class="bracket"/>
+<text x="700.64" y="440" class="head" xml:space="preserve">The server starts</text>
+<text x="700.64" y="458" class="note" xml:space="preserve">main.py is imported and the</text>
+<text x="700.64" y="476" class="note" xml:space="preserve">chain built; then it waits</text>
+<path d="M692.64,554 L672.64,554" class="flow" marker-end="url(#arrow)"/>
+<text x="700.64" y="558" class="head" xml:space="preserve">The page: page() sends it</text>
+<path d="M692.64,573 L672.64,573" class="flow" marker-end="url(#arrow)"/>
+<text x="700.64" y="577" class="head" xml:space="preserve">Its fetch: the chain runs</text>
+<path d="M692.64,592 L672.64,592" class="flow" marker-end="url(#arrow)"/>
+<text x="700.64" y="596" class="head" xml:space="preserve">The tab icon: harmless</text>
+<path d="M672.64,627 L680.64,627 L680.64,721 L672.64,721" class="bracket"/>
+<path d="M680.64,674 L692.64,674" class="bracket"/>
+<text x="700.64" y="679" class="head" xml:space="preserve">The server stops</text>
+<rect x="32" y="775" width="896" height="52" rx="10" class="box-take"/>
+<text x="50" y="807" class="take"><tspan class="take-head">Takeaway</tspan><tspan dx="12">Install once; then uvicorn runs the chain each time the page asks for it.</tspan></text>
+</svg>

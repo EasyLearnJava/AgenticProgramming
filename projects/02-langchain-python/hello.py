@@ -3,7 +3,7 @@ Project 2: project 1's LangChain example, in Python.
 
 Same chain as project 1 (LangChain.js), written with Python's LangChain:
 
-    prompt (PromptTemplate: the text)  |  to_text (RunnableLambda: PromptValue -> str)
+    prompt (PromptTemplate: the text)  |  to_text (RunnableLambda: StringPromptValue -> str)
 
 Run it on its own:   python hello.py   ->   Hello World, welcome to LangChain!
 main.py imports `chain` from here and serves it at GET /api/hello.
@@ -15,12 +15,15 @@ from langchain_core.runnables import RunnableLambda
 prompt = PromptTemplate.from_template("Hello World, welcome to LangChain!")
 
 # ② The converter: the prompt gives back an object (a StringPromptValue), this turns it into text.
+#    to_string() is project 1's toString() in Python; str(value) would give text='Hello World, ...' instead.
 to_text = RunnableLambda(lambda value: value.to_string())
 
-# ③ Join them: prompt first, then to_text. `a | b` is Python's a.pipe(b).
+# ③ Join them: prompt first, then to_text. `a | b` is Python's a.pipe(b): it builds the chain (a RunnableSequence),
+#    and nothing runs yet.
 chain = prompt | to_text
 
-# ④ Run it, but only when this file is run directly (python hello.py), not when main.py imports it.
+# ④ Run it, but only when this file is run directly (python hello.py), not when main.py imports it. Python's invoke()
+#    gives back the string itself, so there's no await here, unlike project 1's.
 if __name__ == "__main__":
     answer = chain.invoke({})
     print(answer)

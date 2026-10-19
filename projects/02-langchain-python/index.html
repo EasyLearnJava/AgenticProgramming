@@ -1,4 +1,11 @@
 <!doctype html>
+<!--
+  Project 2's page, sent by main.py for / and /index.html (⑥). As soon as it opens, its script asks the server for the
+  answer and shows it under the heading:
+      ⑧ fetch("/api/hello")  ->  {"answer": "Hello World, welcome to LangChain!"}  ->  ⑨ the page shows the answer
+  Open it through the server, http://127.0.0.1:8000. Opened straight from the folder, its fetch fails
+  (Chrome: "Something went wrong: Failed to fetch").
+-->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -9,17 +16,20 @@
   <p id="answer">Asking the server…</p>
 
   <script>
-    // On page load: call the backend (main.py's GET /api/hello), which runs hello.py's chain, then show its answer.
+    // ⑧ On page load: call the server (main.py's GET /api/hello, ⑦), which runs hello.py's chain.
     fetch("/api/hello")
+      // ⑨ Show the answer, or what went wrong.
       .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // fetch() itself only fails when no answer comes back (the server is stopped, say). An error answer
+        // such as a 500 still arrives as a normal answer, so check res.ok and turn it into an error here.
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
         return res.json();
       })
       .then((data) => {
         document.getElementById("answer").textContent = data.answer;
       })
       .catch((err) => {
-        document.getElementById("answer").textContent = `Could not reach the server: ${err.message}`;
+        document.getElementById("answer").textContent = `Something went wrong: ${err.message}`;
       });
   </script>
 </body>
