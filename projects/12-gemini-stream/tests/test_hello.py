@@ -1,11 +1,11 @@
-"""Tests for project 12. The plain tests make no model call: the chain's parts, the missing-key message, and the
-endpoint streaming from a stand-in (its pieces in order, a failure before the first piece, a failure part-way, a bad
-name) and the page. The live test streams one real answer from Gemini and checks it came in more than one piece."""
+"""Tests for project 12. The plain tests make no model call: the chain's parts, the missing-key message, the endpoint
+with a stand-in for the chain (the text in order, each piece handed on separately, the two headers, a failure before
+the first piece, a failure part-way, an empty answer, a bad name) and the page. The live test streams one real answer
+from Gemini and checks it came in more than one piece."""
 import asyncio
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -25,21 +25,15 @@ class StandIn:
     def __init__(self, pieces, fail_at=None):
         self.pieces = pieces
         self.fail_at = fail_at
-        self.called = False
+        self.inputs = None                               # what main.py passed in; None: the stream never started
 
     async def astream(self, inputs):
-        self.called = True
+        self.inputs = inputs                             # runs only when main.py asks for the first piece
         for i, piece in enumerate(self.pieces):
             if i == self.fail_at:
                 raise RuntimeError("the connection to Gemini dropped")
             await asyncio.sleep(0)                       # give way, as a real stream does between pieces
             yield piece
-
-
-def post_and_read(name):
-    """POST a name and read the reply as it streams: the status, the content type and the pieces of text."""
-    with client.stream("POST", "/api/hello", json={"name": name}) as response:
-        return response.status_code, response.headers["content-type"], list(response.iter_text())
 
 
 # ---- the chain's parts, no call ----
@@ -70,13 +64,32 @@ def test_with_no_key_it_stops_with_the_message_not_a_stack_trace():
 
 
 # ---- the endpoint, streaming from a stand-in ----
+# The TestClient runs the app to the end and only then hands back the reply, all in one. So most of these tests check
+# the status, the headers and the text; test_each_piece_is_handed_on_separately checks the pieces themselves.
 
-def test_api_hello_streams_the_pieces_in_order_as_plain_text(monkeypatch):
+def test_api_hello_sends_the_pieces_in_order_as_plain_text(monkeypatch):
+    stand_in = StandIn(["Welcome", ", Asha", "!"])
+    monkeypatch.setattr(main, "chain", stand_in)
+    response = client.post("/api/hello", json={"name": " Asha "})
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.text == "Welcome, Asha!"
+    assert stand_in.inputs == {"name": "Asha"}           # the name reached the chain, spaces trimmed
+
+
+def test_each_piece_is_handed_on_separately(monkeypatch):
+    # Calls the endpoint function itself, then reads the StreamingResponse's generator the way StreamingResponse
+    # does: one item per piece, in order, so each piece can go to the page as soon as it's ready.
     monkeypatch.setattr(main, "chain", StandIn(["Welcome", ", Asha", "!"]))
-    status, content_type, pieces = post_and_read("Asha")
-    assert status == 200
-    assert content_type.startswith("text/plain")
-    assert "".join(pieces) == "Welcome, Asha!"
+
+    async def call_and_read():
+        response = await main.hello(main.HelloIn(name="Asha"))
+        pieces = []
+        async for piece in response.body_iterator:
+            pieces.append(piece)
+        return pieces
+
+    assert asyncio.run(call_and_read()) == ["Welcome", ", Asha", "!"]
 
 
 def test_streaming_headers_ask_proxies_not_to_buffer(monkeypatch):
@@ -95,16 +108,23 @@ def test_a_failure_before_the_first_piece_is_a_502(monkeypatch):
 
 def test_a_failure_part_way_keeps_the_text_so_far_and_says_it_stopped(monkeypatch):
     monkeypatch.setattr(main, "chain", StandIn(["Welcome", ", Asha", "!"], fail_at=2))
-    status, _, pieces = post_and_read("Asha")
-    assert status == 200                                 # already sent with the first piece
-    assert "".join(pieces) == "Welcome, Asha" + main.STOPPED
+    response = client.post("/api/hello", json={"name": "Asha"})
+    assert response.status_code == 200                   # sent before the failure, so it can't change
+    assert response.text == "Welcome, Asha" + main.STOPPED
+
+
+def test_an_answer_with_no_pieces_is_an_empty_200_not_a_502(monkeypatch):
+    monkeypatch.setattr(main, "chain", StandIn([]))      # no pieces at all: anext() gives back its default, ""
+    response = client.post("/api/hello", json={"name": "Asha"})
+    assert response.status_code == 200
+    assert response.text == ""
 
 
 def test_a_bad_name_gets_a_422_and_no_model_call(monkeypatch):
     stand_in = StandIn(["never sent"])
     monkeypatch.setattr(main, "chain", stand_in)
     assert client.post("/api/hello", json={"name": ""}).status_code == 422
-    assert stand_in.called is False
+    assert stand_in.inputs is None
 
 
 @pytest.mark.parametrize("path", ["/", "/index.html"])
@@ -119,16 +139,6 @@ def test_page_reads_the_stream_piece_by_piece(path):
 
 @pytest.mark.live
 def test_live_gemini_streams_the_answer_in_several_pieces():
-    start = time.perf_counter()
-    first_at = None
-    pieces = []
-    for piece in chain.stream({"name": "Asha"}):
-        if first_at is None:
-            first_at = time.perf_counter() - start
-        pieces.append(piece)
-    total = time.perf_counter() - start
-
-    answer = "".join(pieces)
-    assert "Asha" in answer
+    pieces = list(chain.stream({"name": "Asha"}))        # list() runs the stream to the end and keeps every piece
+    assert "Asha" in "".join(pieces)
     assert len(pieces) > 1                               # it came in pieces, not all at once
-    assert first_at < total                              # the first piece came before the end

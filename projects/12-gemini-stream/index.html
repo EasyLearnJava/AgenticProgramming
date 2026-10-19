@@ -15,6 +15,8 @@
   <p id="answer" style="white-space: pre-wrap"></p>
 
   <script>
+    // Nothing runs on load. Each submit sends the name to the server (main.py's POST /api/hello) and shows the
+    // answer as it arrives, with how long the first words and the whole answer took.
     const form = document.getElementById("form");
     const button = document.getElementById("run");
     const timing = document.getElementById("timing");
@@ -34,33 +36,38 @@
           body: JSON.stringify({ name: document.getElementById("name").value }),
         });
         if (res.status === 422) {
-          timing.textContent = "Please type a name (40 characters at most).";
+          const data = await res.json();
+          timing.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
           return;
         }
         if (res.status === 502) {
           timing.textContent = `${(await res.json()).detail} The server's terminal says why.`;
           return;
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
 
         // Read the body piece by piece, instead of await res.text(), which would wait for all of it.
         const reader = res.body.getReader();
         const decoder = new TextDecoder();         // the pieces arrive as bytes; this turns them into text
         let firstMs = null;
-        let pieces = 0;
+        let reads = 0;                             // one read() can hold several of the server's pieces
         while (true) {
-          const { done, value } = await reader.read();   // waits for the next piece
+          const { done, value } = await reader.read();   // waits until more of the answer has arrived
           if (done) break;                               // the server has sent everything
           if (firstMs === null) firstMs = ms();
-          pieces += 1;
+          reads += 1;
           answer.textContent += decoder.decode(value, { stream: true });
           timing.textContent = `First words after ${firstMs} ms… still writing`;
         }
+        if (firstMs === null) {                          // a 200 with no text at all
+          timing.textContent = "Gemini sent back an empty answer. The server's terminal may say why.";
+          return;
+        }
         const totalMs = ms();
-        timing.textContent = `First words after ${firstMs} ms, all of it after ${totalMs} ms, in ${pieces} pieces. `
-          + `Without streaming, you would have seen nothing for ${totalMs} ms.`;
+        timing.textContent = `First words after ${firstMs} ms, all of it after ${totalMs} ms `
+          + `(the browser got it in ${reads} reads). Without streaming, you would have seen nothing for ${totalMs} ms.`;
       } catch (err) {
-        timing.textContent = `Could not reach the server: ${err.message}`;
+        timing.textContent = `Something went wrong: ${err.message}`;
       } finally {
         button.disabled = false;
       }
