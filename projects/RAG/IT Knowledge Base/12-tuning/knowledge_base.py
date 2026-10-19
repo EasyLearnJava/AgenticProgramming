@@ -9,10 +9,7 @@ No model, no API key.
         metadata:      {"doc_id": "0", "title": "VPN Connection Timeout", "system": "VPN", "category": "Remote Access",
                         "priority": "High", "tags": "vpn;timeout;remote;connection"}
 
-Run it on its own:   python knowledge_base.py   ->   which columns went where, then the first Document
-
-The data: 10 made-up IT support articles, copied unchanged from the course repo
-https://github.com/Brianletort/KBs-For-RAGs (Clip1-v2/data/sample_it_kb.csv).
+Run it on its own:   python knowledge_base.py   ->   which columns went where, then every Document in full
 """
 import csv
 from collections.abc import Iterator
@@ -54,11 +51,17 @@ def load_documents(path: Path = KB_FILE) -> list[Document]:
 
 if __name__ == "__main__":
     docs = load_documents()
-    # ⑤ What went where, then the first Document in full.
+    # ⑤ What went where, then every Document in full, with a note before each part.
     print(f"{len(docs)} documents")
     print("text:     " + ", ".join(TEXT_COLUMNS))
     print("metadata: " + ", ".join(["doc_id", *METADATA_COLUMNS]))
     print()
-    print(docs[0].page_content)
-    print()
-    print(docs[0].metadata)
+    for number, doc in enumerate(docs):
+        if number > 0:
+            print()                                   # a blank line between documents, not before the first one
+        print(f"Document {number + 1} of {len(docs)}")
+        print("Text (page_content):")
+        print(doc.page_content)
+        print()
+        print("Labels (metadata):")
+        print(doc.metadata)
