@@ -71,7 +71,7 @@ python rag_engine.py "printer not found"
 To run the tests:
 
 ```bash
-python -m pytest                     # 35 passed, 6 skipped
+python -m pytest                     # 39 passed, 6 skipped
 ```
 
 The 6 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.
