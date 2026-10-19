@@ -6,7 +6,7 @@ No model, no API key.
     split_documents(load_documents())  ->  chunks: Documents of at most CHUNK_SIZE characters, each with its
                                            article's metadata plus start_index, where in the article's text it starts
 
-Run it on its own:   python chunking.py        ->   how many chunks each article makes, then the first article's chunks
+Run it on its own:   python chunking.py        ->   how many chunks each article makes, then every article's chunks
                      python chunking.py 200    ->   the same, with chunks of at most 200 characters
 """
 import sys
@@ -40,13 +40,18 @@ if __name__ == "__main__":
     size = int(sys.argv[1]) if len(sys.argv) > 1 else CHUNK_SIZE
     docs = load_documents()
     chunks = split_documents(docs, chunk_size=size)
-    # ④ How many chunks each article made, then the first article's chunks, each with where it starts and its length.
+    # ④ How many chunks each article made, then every article's chunks, each with where it starts and its length.
     print(f"{len(docs)} articles -> {len(chunks)} chunks of at most {size} characters")
     for doc in docs:
         count = sum(chunk.metadata["doc_id"] == doc.metadata["doc_id"] for chunk in chunks)
         print(f"  {count} from {doc.metadata['title']} ({len(doc.page_content)} characters)")
-    print()
-    for chunk in chunks:
-        if chunk.metadata["doc_id"] == "0":
-            print(f"--- start_index {chunk.metadata['start_index']}, {len(chunk.page_content)} characters")
+    for number, doc in enumerate(docs):
+        mine = [chunk for chunk in chunks if chunk.metadata["doc_id"] == doc.metadata["doc_id"]]
+        print()
+        print(f"Article {number + 1} of {len(docs)}: {doc.metadata['title']}, "
+              f"cut into {len(mine)} chunk{'s' if len(mine) > 1 else ''}")
+        for place, chunk in enumerate(mine, 1):
+            print()                                   # a blank line before each chunk
+            print(f"Chunk {place} of {len(mine)}, from character {chunk.metadata['start_index']} "
+                  f"({len(chunk.page_content)} characters):")
             print(chunk.page_content)
