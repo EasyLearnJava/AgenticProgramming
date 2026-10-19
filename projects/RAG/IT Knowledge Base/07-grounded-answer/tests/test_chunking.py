@@ -48,9 +48,16 @@ def test_1000_characters_keep_every_article_whole():
     assert [chunk.page_content for chunk in chunks] == [doc.page_content for doc in DOCS]
 
 
-def test_running_it_prints_the_counts_then_the_first_articles_chunks():
+def test_running_it_prints_the_counts_then_every_articles_chunks():
     printed = subprocess.run([sys.executable, str(FOLDER / "chunking.py")], cwd=FOLDER, capture_output=True,
                              text=True, encoding="utf-8", check=True).stdout
+    lines = printed.splitlines()
     assert printed.startswith("10 articles -> 28 chunks of at most 512 characters\n"
                               "  2 from VPN Connection Timeout (569 characters)\n")
-    assert "\n--- start_index 0, " in printed
+    assert ("\n\nArticle 1 of 10: VPN Connection Timeout, cut into 2 chunks\n\n"
+            "Chunk 1 of 2, from character 0 (") in printed
+    articles = [line for line in lines if line.startswith("Article ")]
+    assert len(articles) == 10
+    assert articles[-1] == "Article 10 of 10: Microsoft Teams Audio Issues, cut into 3 chunks"
+    assert sum(line.startswith("Chunk ") for line in lines) == 28
+    assert "\n\n\n" not in printed                  # never more than one blank line in a row
