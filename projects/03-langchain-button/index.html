@@ -11,27 +11,29 @@
   <p id="clicks">Clicks: 0</p>
 
   <script>
-    // Nothing runs on load. Each click calls the backend (main.py's GET /api/hello) once, which runs hello.py's chain.
+    // On load, nothing is sent: the script only finds the elements and gives the button a click handler.
+    // Each click calls the backend (main.py's GET /api/hello) once, which runs hello.py's chain.
     const button = document.getElementById("run");
     const answer = document.getElementById("answer");
     const clicks = document.getElementById("clicks");
     let count = 0;
 
     button.addEventListener("click", async () => {
-      count += 1;
+      count += 1;                           // the answer is the same every time: the counter shows each click
       clicks.textContent = `Clicks: ${count}`;
       button.disabled = true;               // one request at a time: no new click while this one is waiting
       answer.textContent = "Asking the server…";
       try {
         // cache: "no-store" makes every click a real request to the server, never a cached answer.
         const res = await fetch("/api/hello", { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // fetch only fails by itself when the server can't be reached. A 404 or a 500 still arrives, with res.ok false.
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
         const data = await res.json();
         answer.textContent = data.answer;
       } catch (err) {
-        answer.textContent = `Could not reach the server: ${err.message}`;
+        answer.textContent = `Something went wrong: ${err.message}`;
       } finally {
-        button.disabled = false;
+        button.disabled = false;            // runs after success and failure alike: the button always comes back
       }
     });
   </script>

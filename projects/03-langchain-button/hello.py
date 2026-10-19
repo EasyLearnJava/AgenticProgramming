@@ -1,8 +1,8 @@
 """
-Project 3: the same chain as project 2, unchanged. What changes is the page (index.html): it runs the chain
-only when you click a button.
+Project 3: the same chain as project 2, unchanged. What changes is the page (index.html): it asks the server to
+run the chain only when you click a button.
 
-    prompt (PromptTemplate: the text)  |  to_text (RunnableLambda: PromptValue -> str)
+    prompt (PromptTemplate: the text)  |  to_text (RunnableLambda: StringPromptValue -> str)
 
 Run it on its own:   python hello.py   ->   Hello World, welcome to LangChain!
 main.py imports `chain` from here and serves it at GET /api/hello.
