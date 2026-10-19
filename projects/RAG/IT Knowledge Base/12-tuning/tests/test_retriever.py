@@ -1,0 +1,51 @@
+"""
+Tests for retriever.py: the retriever as a Runnable (invoke, batch, k), and the chunks formatted for a prompt. The
+plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py); the live test asks the real Gemini.
+"""
+import pytest
+from fakes import SIZE, KeywordEmbeddings
+
+from models import EMBEDDING_SIZE, embeddings
+from retriever import QUESTIONS, TOP_K, format_docs, make_retriever
+from vector_store import add_knowledge_base, make_vector_store
+
+
+def filled_store(stand_in=None):
+    store = make_vector_store(stand_in or KeywordEmbeddings(), SIZE)
+    add_knowledge_base(store)
+    return store
+
+
+def test_invoke_gives_the_k_closest_chunks_closest_first():
+    assert TOP_K == 5
+    chunks = make_retriever(filled_store()).invoke("My VPN won't connect")
+    assert len(chunks) == 5
+    assert chunks[0].metadata["title"] == "VPN Connection Timeout"
+
+
+def test_k_sets_how_many_chunks_come_back():
+    assert len(make_retriever(filled_store(), k=2).invoke("My VPN won't connect")) == 2
+
+
+def test_batch_answers_each_question_in_order_with_one_query_call_each():
+    stand_in = KeywordEmbeddings()
+    results = make_retriever(filled_store(stand_in)).batch(["my vpn drops", "the printer is missing"])
+    assert [chunks[0].metadata["title"] for chunks in results] == ["VPN Connection Timeout", "Printer Not Found"]
+    assert sorted(call for call in stand_in.calls if call[0] == "query") == [("query", "my vpn drops"),
+                                                                            ("query", "the printer is missing")]
+
+
+def test_format_docs_numbers_and_titles_each_chunk():
+    chunks = make_retriever(filled_store()).invoke("My VPN won't connect")[:2]
+    text = format_docs(chunks)
+    assert text.startswith("[1] VPN Connection Timeout\n" + chunks[0].page_content)
+    assert f"\n\n[2] {chunks[1].metadata['title']}\n{chunks[1].page_content}" in text
+
+
+@pytest.mark.live
+def test_live_the_sample_questions_find_their_articles():
+    store = make_vector_store(embeddings, EMBEDDING_SIZE)
+    add_knowledge_base(store)
+    results = make_retriever(store).batch(QUESTIONS)
+    assert [chunks[0].metadata["title"] for chunks in results] == [
+        "VPN Connection Timeout", "MFA Setup Failure", "Laptop Performance Degradation"]
