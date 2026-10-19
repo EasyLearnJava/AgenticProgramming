@@ -6,9 +6,6 @@ No model, no API key.
 
 Run it in this folder:   python read_kb.py   ->   how many documents, every article's title, then the first
                                                   document's text and metadata
-
-The data: 10 made-up IT support articles, copied unchanged from the course repo
-https://github.com/Brianletort/KBs-For-RAGs (Clip1-v2/data/sample_it_kb.csv).
 """
 import csv
 from collections.abc import Iterator
