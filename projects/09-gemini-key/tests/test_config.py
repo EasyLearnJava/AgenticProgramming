@@ -1,5 +1,8 @@
 """Tests for project 9: where the key is read from, the fail-fast check, config.py and the server with no key,
-that the key never reaches a response or the page, and that git ignores .env. Every key here is fake."""
+that the key never reaches a response or the page, and that git ignores .env. Every key here is fake.
+
+Run them:   python -m pytest        (add -v for one line per test)
+"""
 import os
 import shutil
 import subprocess
@@ -7,14 +10,14 @@ import sys
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+
+from config import MissingKeyError, load_api_key
 
 FAKE_KEY = "fake-key-for-tests-123"
-os.environ["GOOGLE_API_KEY"] = FAKE_KEY          # before importing main, which checks the key at import
+os.environ["GOOGLE_API_KEY"] = FAKE_KEY          # before importing main: main checks the key as soon as it's imported
 
-from fastapi.testclient import TestClient        # noqa: E402
-
-from config import MissingKeyError, load_api_key  # noqa: E402
-from main import app                              # noqa: E402
+from main import app  # noqa: E402  (it has to come after the line above; noqa tells linters that's on purpose)
 
 client = TestClient(app)
 FOLDER = Path(__file__).resolve().parent.parent
@@ -22,9 +25,11 @@ FOLDER = Path(__file__).resolve().parent.parent
 
 def run(script_args, key):
     """Run a command in this folder with GOOGLE_API_KEY set to `key`. An empty key also stops .env from being used:
-    load_dotenv() never overwrites a variable that is already set, even to ""."""
+    load_dotenv() never overwrites a variable that is already set, even to "".
+    timeout=30: if the server ever starts after all, the test fails after 30 seconds instead of waiting forever."""
     env = {**os.environ, "GOOGLE_API_KEY": key}
-    return subprocess.run([sys.executable, *script_args], cwd=FOLDER, env=env, capture_output=True, text=True)
+    return subprocess.run([sys.executable, *script_args], cwd=FOLDER, env=env, capture_output=True, text=True,
+                          timeout=30)
 
 
 def test_the_key_is_read_from_the_env_file(tmp_path, monkeypatch):
@@ -53,6 +58,15 @@ def test_no_usable_key_stops_with_a_clear_message(tmp_path, monkeypatch, key, me
         monkeypatch.setenv("GOOGLE_API_KEY", key)
     with pytest.raises(MissingKeyError, match=message):
         load_api_key(tmp_path / "no-such.env")
+
+
+def test_an_env_file_that_is_not_utf8_stops_with_a_clear_message(tmp_path, monkeypatch):
+    monkeypatch.delenv("GOOGLE_API_KEY")
+    env_file = tmp_path / ".env"
+    # UTF-16 is what Windows PowerShell 5's `echo GOOGLE_API_KEY=... > .env` writes. load_dotenv() reads UTF-8.
+    env_file.write_text("GOOGLE_API_KEY=key-from-the-file\n", encoding="utf-16")
+    with pytest.raises(MissingKeyError, match="isn't saved as UTF-8 text"):
+        load_api_key(env_file)
 
 
 def test_config_py_says_the_key_is_set_without_printing_it():
@@ -86,11 +100,26 @@ def test_page_is_served_and_holds_no_key(path):
     assert FAKE_KEY not in response.text
 
 
+def test_page_checks_res_ok_and_shows_what_went_wrong():
+    # fetch() doesn't fail on an error answer such as a 404 or a 500, so the page must check res.ok itself.
+    page = (FOLDER / "index.html").read_text(encoding="utf-8")
+    assert "if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);" in page
+    assert "`Something went wrong: ${err.message}`" in page
+
+
 def test_example_file_holds_only_the_placeholder():
     assert (FOLDER / ".env.example").read_text().splitlines()[-1] == "GOOGLE_API_KEY=your-key-here"
 
 
-@pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
+def in_a_git_work_tree():
+    """True when git is installed and this folder is inside a git clone (not, say, a downloaded ZIP)."""
+    if shutil.which("git") is None:
+        return False
+    result = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=FOLDER, capture_output=True, text=True)
+    return result.stdout.strip() == "true"
+
+
+@pytest.mark.skipif(not in_a_git_work_tree(), reason="needs git, and this folder inside a git clone")
 def test_git_ignores_env_but_not_the_example():
     def ignored(name):
         return subprocess.run(["git", "check-ignore", "-q", name], cwd=FOLDER).returncode == 0

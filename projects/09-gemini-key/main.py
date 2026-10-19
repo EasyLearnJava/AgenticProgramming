@@ -16,12 +16,14 @@ from fastapi.responses import FileResponse
 
 from config import MissingKeyError, load_api_key
 
-# ① The fail-fast check, when this module is imported at server start: no key, no server.
+# ① The fail-fast check. It runs once, when uvicorn imports this module, before the server answers anything:
+#    no key, no server.
 try:
-    GOOGLE_API_KEY = load_api_key()          # project 10 hands this to Gemini; nothing here sends it anywhere
+    GOOGLE_API_KEY = load_api_key()          # kept here, on the server: nothing in this project sends it anywhere
 except MissingKeyError as err:
-    sys.exit(f"Can't start the server: {err}")
+    sys.exit(f"Can't start the server: {err}")   # one line in the terminal, exit code 1, no traceback
 
+# ② The server. It is only built if ① found a key, and neither route ever puts the key in its answer.
 app = FastAPI(title="AgenticProgramming project 9")
 
 PAGE = Path(__file__).resolve().parent / "index.html"

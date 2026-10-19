@@ -2,25 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Project 9: Keep the Gemini key secret</title>
+  <title>Project 9: Get a Gemini key and keep it secret</title>
 </head>
 <body>
-  <h1>Project 9: Keep the Gemini key secret</h1>
+  <h1>Project 9: Get a Gemini key and keep it secret</h1>
   <p id="status">Asking the server…</p>
   <p>This page never gets the key. Check it yourself: view the page source, and look at the
     <code>/api/status</code> request in the browser's Network tab.</p>
 
   <script>
-    // Ask the server about the key when the page opens. The answer is only true or false.
+    // On page load: ask the server (main.py's GET /api/status) whether it has the key, and show the answer.
+    // That's the page's only request. The answer is {"key_set": true}, never the key itself.
     fetch("/api/status")
-      .then((res) => res.json())
+      .then((res) => {
+        // An error answer, such as a 404 or a 500, still arrives as an answer: check res.ok and make it an error.
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
+        // This server never says false: with no key, it doesn't start at all (see main.py).
         document.getElementById("status").textContent = data.key_set
           ? "The server has a Gemini key (GOOGLE_API_KEY is set)."
           : "The server has no Gemini key.";
       })
       .catch((err) => {
-        document.getElementById("status").textContent = `Could not reach the server: ${err.message}`;
+        document.getElementById("status").textContent = `Something went wrong: ${err.message}`;
       });
   </script>
 </body>
