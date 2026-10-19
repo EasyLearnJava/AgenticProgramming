@@ -8,7 +8,7 @@
   <h1>Project 11: Tokens and cost</h1>
   <form id="form">
     <label>Your name <input id="name" autocomplete="off"></label>
-    <label>Max output tokens <input id="max" type="number" value="200"></label>
+    <label>Max output tokens (10 to 200) <input id="max" type="number" value="200"></label>
     <button id="run">Ask Gemini</button>
   </form>
   <p id="status">Each click is one real call. Try 200, then 10: the answer gets cut off and costs less.</p>
@@ -25,6 +25,9 @@
   <p id="total"></p>
 
   <script>
+    // Nothing runs on load. Each submit sends the name and the max output tokens to POST /api/hello (main.py).
+    // The server counts the prompt, calls Gemini and sends back the answer with its numbers; this page adds one row
+    // per call, newest first, and keeps a running total of the cost.
     const form = document.getElementById("form");
     const button = document.getElementById("run");
     const status = document.getElementById("status");
@@ -37,8 +40,8 @@
     const dollars = (usd) => `$${usd.toFixed(7)}`;
 
     form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      button.disabled = true;
+      event.preventDefault();               // stay on this page: the form would otherwise reload it
+      button.disabled = true;               // one call at a time: each click is a real call
       status.textContent = "Asking Gemini…";
       const maxTokens = Number(document.getElementById("max").value);
       try {
@@ -47,7 +50,9 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: document.getElementById("name").value, max_output_tokens: maxTokens }),
         });
-        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok && res.status !== 422 && res.status !== 502) {
+          throw new Error(`the server answered HTTP ${res.status}`);
+        }
         const data = await res.json();
         if (res.status === 422) {
           status.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
@@ -73,9 +78,10 @@
         status.textContent = data.finish_reason === "MAX_TOKENS"
           ? "Cut off: the answer hit the max output tokens."
           : "Done.";
-        total.textContent = `${count} calls, ${dollars(totalCost)} in total (on the paid tier; the free tier costs nothing).`;
+        total.textContent = `Calls so far: ${count}. Total cost: ${dollars(totalCost)}`
+          + " (on the paid tier; the free tier costs nothing).";
       } catch (err) {
-        status.textContent = `Could not reach the server: ${err.message}`;
+        status.textContent = `Something went wrong: ${err.message}`;
       } finally {
         button.disabled = false;
       }
