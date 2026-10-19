@@ -27,7 +27,14 @@
   </table>
 
   <script>
-    const $ = (id) => document.getElementById(id);
+    // On load: GET /api/prompts fills the versions table and the dropdown, with the active version picked.
+    // "Ask Gemini" sends the name and the chosen version to POST /api/hello, and adds the answer to the top of the
+    // answers table, with the version and fingerprint that produced it.
+
+    // byId("name") is short for document.getElementById("name").
+    function byId(id) {
+      return document.getElementById(id);
+    }
 
     function row(...cells) {
       const tr = document.createElement("tr");
@@ -40,43 +47,50 @@
       return tr;
     }
 
-    // Show every version, and fill the dropdown with the active one picked.
     fetch("/api/prompts")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+        return res.json();
+      })
       .then(({ active, versions }) => {
         for (const [version, p] of Object.entries(versions)) {
-          $("versions").append(row(version === active ? `${version} (active)` : version, p.fingerprint, p.system, p.human));
-          $("version").add(new Option(version === active ? `${version} (active)` : version, version, false, version === active));
+          const shown = version === active ? `${version} (active)` : version;
+          byId("versions").append(row(shown, p.fingerprint, p.system, p.human));
+          // new Option(text, value, defaultSelected, selected): the active version starts selected.
+          byId("version").add(new Option(shown, version, false, version === active));
         }
+      })
+      .catch((err) => {
+        byId("status").textContent = `Something went wrong: ${err.message}`;
       });
 
     let count = 0;
-    $("form").addEventListener("submit", async (event) => {
+    byId("form").addEventListener("submit", async (event) => {
       event.preventDefault();
-      $("run").disabled = true;
-      $("status").textContent = "Asking Gemini…";
+      byId("run").disabled = true;
+      byId("status").textContent = "Asking Gemini…";
       try {
         const res = await fetch("/api/hello", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: $("name").value, version: $("version").value }),
+          body: JSON.stringify({ name: byId("name").value, version: byId("version").value }),
         });
-        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok && res.status !== 422 && res.status !== 502) throw new Error(`the server answered HTTP ${res.status}`);
         const data = await res.json();
         if (res.status === 422) {
-          $("status").textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
+          byId("status").textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
         } else if (res.status === 502) {
-          $("status").textContent = `${data.detail} The server's terminal says why.`;
+          byId("status").textContent = `${data.detail} The server's terminal says why.`;
         } else {
           count += 1;
           // Every answer keeps the version and fingerprint that produced it.
-          $("answers").prepend(row(count, data.answer, `${data.prompt} ${data.version} (${data.fingerprint})`));
-          $("status").textContent = "Done.";
+          byId("answers").prepend(row(count, data.answer, `${data.prompt} ${data.version} (${data.fingerprint})`));
+          byId("status").textContent = "Done.";
         }
       } catch (err) {
-        $("status").textContent = `Could not reach the server: ${err.message}`;
+        byId("status").textContent = `Something went wrong: ${err.message}`;
       } finally {
-        $("run").disabled = false;
+        byId("run").disabled = false;
       }
     });
   </script>
