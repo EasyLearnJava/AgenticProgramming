@@ -76,7 +76,7 @@ Either way: run `docker compose up -d`, then try again.
 To run the tests (they don't need Docker):
 
 ```bash
-python -m pytest                     # 51 passed, 7 skipped
+python -m pytest                     # 55 passed, 7 skipped
 ```
 
 The 7 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.

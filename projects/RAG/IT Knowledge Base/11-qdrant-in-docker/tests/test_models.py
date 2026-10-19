@@ -12,7 +12,7 @@ import pytest
 import models
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
-SCRIPTS = [name for name in ("similarity.py", "vector_store.py", "retriever.py", "rag_chain.py", "rag_engine.py",
+SCRIPTS = [name for name in ("embed_chunks.py", "vector_store.py", "retriever.py", "rag_chain.py", "rag_engine.py",
                              "tuning.py") if (FOLDER / name).exists()]
 
 
