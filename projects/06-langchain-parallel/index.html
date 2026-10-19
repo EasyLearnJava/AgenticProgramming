@@ -24,24 +24,32 @@
   <pre id="graph">Loading…</pre>
 
   <script>
+    // On load: ask the backend (main.py's GET /api/graph) for the chain's graph, once: it doesn't depend on the name.
+    // Each submit (click or Enter) sends the name to POST /api/hello, which runs hello.py's chain; its one answer
+    // holds all four results.
     const KEYS = ["original", "upper", "length", "shout"];
     const form = document.getElementById("form");
     const nameBox = document.getElementById("name");
     const button = document.getElementById("run");
     const status = document.getElementById("status");
+    const graphBox = document.getElementById("graph");
 
+    // FastAPI's 422 says what was wrong in detail[0].type; turn the two we expect into plain words.
     const FRIENDLY = {
       string_too_short: "Please type a name first.",
       string_too_long: "That name is too long: 40 characters at most.",
     };
 
-    // The graph doesn't depend on the name, so the page asks for it once, on load (GET /api/graph).
     fetch("/api/graph")
-      .then((res) => res.json())
-      .then((data) => { document.getElementById("graph").textContent = data.mermaid; })
-      .catch((err) => { document.getElementById("graph").textContent = `Could not load the graph: ${err.message}`; });
+      .then((res) => {
+        // fetch() only fails by itself when no answer comes back. An error answer (a 404, a 500) still arrives,
+        // with res.ok false, so turn it into an error here.
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => { graphBox.textContent = data.mermaid; })
+      .catch((err) => { graphBox.textContent = `Something went wrong: ${err.message}`; });
 
-    // Each submit sends the name to POST /api/hello; the one answer holds all four results.
     form.addEventListener("submit", async (event) => {
       event.preventDefault();               // stay on this page: the form would otherwise reload it
       button.disabled = true;               // one request at a time
@@ -58,12 +66,12 @@
           status.textContent = FRIENDLY[error.detail[0].type] ?? `Not a valid name: ${error.detail[0].msg}`;
           return;
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);   // any other error, e.g. a 500
         const data = await res.json();      // {"original": ..., "upper": ..., "length": ..., "shout": ...}
         KEYS.forEach((key) => { document.getElementById(key).textContent = data[key]; });
         status.textContent = "One call, four results:";
       } catch (err) {
-        status.textContent = `Could not reach the server: ${err.message}`;
+        status.textContent = `Something went wrong: ${err.message}`;   // the error thrown above, or no server
       } finally {
         button.disabled = false;
       }

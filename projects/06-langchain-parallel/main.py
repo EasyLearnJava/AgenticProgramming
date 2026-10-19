@@ -1,12 +1,13 @@
 """
 A small FastAPI app that serves hello.py's chain over HTTP: one name in, four results out.
 
-    GET / (or /index.html) -> index.html, a page with a name box that shows all four results
+    GET / (or /index.html) -> index.html, a page with a name box, a table for the four results and the chain's graph
     POST /api/hello  body {"name": "Raghu"}
                      -> {"original": "Hello Raghu, welcome to LangChain!", "upper": "HELLO RAGHU, WELCOME TO LANGCHAIN!",
                          "length": 34, "shout": "HELLO RAGHU, WELCOME TO LANGCHAIN!!!"}
                      an empty, blank or 41+ character name -> 422
-    GET /api/graph   -> {"mermaid": "graph TD; ..."}, the chain's shape as a Mermaid diagram
+    GET /api/graph   -> {"mermaid": "..."}: the chain's shape as Mermaid text, a short "---" config block first,
+                        then "graph TD;" and the boxes and arrows
 
 The chain is built once, when this module is imported at server start. Each request only runs it.
 Start it with:   uvicorn main:app --reload

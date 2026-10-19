@@ -4,7 +4,12 @@ side by side on it and returns a dict; then RunnablePassthrough.assign() adds on
 
     prompt | to_text | RunnableParallel(original, upper, length) | RunnablePassthrough.assign(shout=make_shout)
 
-Run it on its own:   python hello.py         ->   the four results for "Raghu", then the chain's graph
+    {"name": "Raghu"}  ->  {"original": "Hello Raghu, welcome to LangChain!",
+                            "upper": "HELLO RAGHU, WELCOME TO LANGCHAIN!",
+                            "length": 34,
+                            "shout": "HELLO RAGHU, WELCOME TO LANGCHAIN!!!"}
+
+Run it on its own:   python hello.py         ->   the four results for "Raghu" as JSON, then the chain's graph
                      python hello.py Asha    ->   the same for "Asha"
 main.py imports `chain` from here and serves it at POST /api/hello, and its graph at GET /api/graph.
 """
@@ -18,6 +23,8 @@ from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnableP
 prompt = PromptTemplate.from_template("Hello {name}, welcome to LangChain!")
 
 # ② The converter: the prompt gives back an object (a StringPromptValue), this turns it into text.
+#    name="to_text" is new: it is this step's label in the chain's graph (⑥). A lambda has no name of its own,
+#    so without it the graph's box would just say "Lambda".
 to_text = RunnableLambda(lambda value: value.to_string(), name="to_text")
 
 # ③ Side by side: every step gets the SAME input (the greeting), and the results come back as one dict.
@@ -31,6 +38,8 @@ side_by_side = RunnableParallel(
 
 # ④ .assign() takes the dict, keeps every key, and adds one computed from it.
 #    In .assign(shout=make_shout), shout is the name of the new key and make_shout is the function that computes it.
+#    make_shout gets the whole dict from ③, which is why it can read result["upper"]. It is a plain function:
+#    .assign() wraps it in a RunnableLambda for you.
 def make_shout(result: dict) -> str:
     return result["upper"].replace("!", "!!!")
 
@@ -43,7 +52,8 @@ chain = prompt | to_text | side_by_side | add_shout
 # ⑥ Run it, but only when this file is run directly (python hello.py), not when main.py imports it.
 if __name__ == "__main__":
     name = sys.argv[1] if len(sys.argv) > 1 else "Raghu"
-    print(json.dumps(chain.invoke({"name": name}), indent=2))
+    # ensure_ascii=False prints a name like José as José, the way the API sends it, not as Jos\u00e9.
+    print(json.dumps(chain.invoke({"name": name}), indent=2, ensure_ascii=False))
     print()
     print("The chain's graph (Mermaid; paste it into https://mermaid.live to see the picture):")
     print(chain.get_graph().draw_mermaid())
