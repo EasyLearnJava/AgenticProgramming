@@ -8,8 +8,9 @@ is embedded and Qdrant finds the chunks closest to it.
     add_knowledge_base(store)                               ->  the 28 chunks embedded and stored   (one call to Gemini)
 
 Run it on its own:   python vector_store.py   ->   the collection, then every point stored in it
-Optional: with QDRANT_URL set in .env and a Qdrant server running (docker compose up -d), the script stores the
-chunks in that server instead of in memory, and Qdrant's dashboard shows them: http://localhost:6333/dashboard
+With QDRANT_URL set in .env (as .env.example has it) and the Qdrant server running (docker compose up -d), the script
+stores the chunks in that server, and Qdrant's dashboard shows them: http://localhost:6333/dashboard. Without
+QDRANT_URL, Qdrant runs in memory, inside the script.
 """
 import os
 import sys

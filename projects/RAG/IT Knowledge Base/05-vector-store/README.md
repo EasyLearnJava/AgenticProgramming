@@ -2,9 +2,10 @@
 
 ## What it does
 
-A vector database stores vectors so that they can be searched later. This step stores the 28 chunks in Qdrant,
-running inside the Python process ("in memory"): there's no server and nothing to install, and everything in it is
-gone when the program ends (step 11 changes that).
+A vector database stores vectors so that they can be searched later. This step stores the 28 chunks in Qdrant, run
+as a server by Docker (`docker-compose.yml`). The server has a web dashboard where you can see every stored point.
+Qdrant can also run inside the script ("in memory"), with no Docker: then nothing outside the script can see the
+points, and they're gone when it ends. See [Run it without Docker](#run-it-without-docker).
 
 `vector_store.py`:
 
@@ -19,19 +20,18 @@ This is the last step of getting the knowledge base ready to be searched: load, 
 question here: the search starts in step 06.
 
 ```text
-28 chunks  ->  Gemini: 768 numbers each  ->  Qdrant, in memory: 28 points (vector + text + labels)
+28 chunks  ->  Gemini: 768 numbers each  ->  the Qdrant server: 28 points (vector + text + labels)  ->  the dashboard
 ```
 
 Each run makes 1 call to Gemini, for all 28 chunks. It embeds them again rather than using step 04's vectors, because
-each project runs on its own, from the CSV.
-
-In memory, nothing outside the script can see the points. If you want to look at them in Qdrant's own dashboard, the
-script can store them in a Qdrant server instead, run by Docker: see
-[See the points in Qdrant's dashboard](#see-the-points-in-qdrants-dashboard), below. It's optional.
+each project runs on its own, from the CSV. Each run also starts fresh: it deletes the collection and stores the
+chunks again. The points get random ids, so without that, every run would add 28 more copies. Step 11 does better: it
+gives each chunk an id made from its text, and keeps the stored chunks between runs instead of embedding them again.
 
 ## How to run it
 
-You need Python 3.11 or newer, and a Gemini API key.
+You need Python 3.11 or newer, a Gemini API key, and Docker (Docker Desktop on Windows and macOS; GitHub Codespaces
+has Docker already). To run without Docker, see [Run it without Docker](#run-it-without-docker).
 
 ```bash
 cd "projects/RAG/IT Knowledge Base/05-vector-store"   # from the repo root; the quotes are for the spaces
@@ -42,10 +42,17 @@ source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows Git Bash:        source .venv/Scripts/activate
 pip install -r requirements-dev.txt  # once: the packages and pytest, into .venv/
 cp .env.example .env                 # once (Windows PowerShell or Command Prompt: copy .env.example .env)
-python vector_store.py
+docker compose up -d                 # start the Qdrant server, in the background (the first time, Docker downloads it)
+docker compose ps                    # check: the qdrant service is "Up"
+python vector_store.py               # store the 28 chunks in the server
 ```
 
-Creating the venv, installing and making `.env` are once only; activate the venv again in every new terminal.
+Then open the dashboard: http://localhost:6333/dashboard on your own computer, or, in GitHub Codespaces, the address
+the **Ports** tab gives for port 6333 (see [Open the dashboard](#open-the-dashboard), below).
+
+Creating the venv, installing and making `.env` are once only; activate the venv again in every new terminal. The
+Qdrant server keeps running in the background until you stop it (see [Stop the server](#stop-the-server)), so next
+time you only need `python vector_store.py`.
 
 **Your key:** open `.env` in an editor and put your key after `GOOGLE_API_KEY=` (`tutorials/09-gemini-key` shows how
 to make one). `.env` is in `.gitignore`, so your key never goes into git. Without a key, the script stops with:
@@ -54,12 +61,15 @@ to make one). `.env` is in `.gitignore`, so your key never goes into git. Withou
 Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).
 ```
 
-`python vector_store.py` prints the collection's settings, then every stored point, one line each: its article, where
-in the article the chunk starts, its vector's size, its text's length and how many labels it has. Gemini's numbers
-aren't printed, so this is exactly what you'll see:
+`.env` also has `QDRANT_URL=http://localhost:6333`, from `.env.example`: that's what tells the script to use the
+server. The script itself runs next to Qdrant, so for it the server is always `localhost`, in Codespaces too.
+
+`python vector_store.py` says where Qdrant is, prints the collection's settings, then every stored point, one line
+each: its article, where in the article the chunk starts, its vector's size, its text's length and how many labels it
+has. It ends with where to find the dashboard. Gemini's numbers aren't printed, so this is exactly what you'll see:
 
 ```text
-Qdrant: in memory, inside this script
+Qdrant: the server at http://localhost:6333
 Collection 'it_knowledge_base': 28 points, vectors of 768 numbers, compared by Cosine
 Each point holds an id, a vector and a payload with metadata, page_content
 
@@ -68,99 +78,38 @@ Point 2 of 28: VPN Connection Timeout, from character 459: 768 numbers, 110 char
 Point 3 of 28: MFA Setup Failure, from character 0: 768 numbers, 144 characters of text, 7 labels
 ...
 Point 28 of 28: Microsoft Teams Audio Issues, from character 581: 768 numbers, 118 characters of text, 7 labels
+
+See them in Qdrant's dashboard: http://localhost:6333/dashboard
+In GitHub Codespaces: open the Ports tab, open the address for port 6333, and add /dashboard to it.
 ```
 
 The 7 labels are the article's 6 from step 02 (`doc_id`, title, system, category, priority, tags), plus
 `start_index` from step 03.
 
-To run the tests:
+### Open the dashboard
 
-```bash
-python -m pytest                     # 22 passed, 2 skipped
-```
+| Where you run it | The dashboard's address |
+|---|---|
+| On your own computer | http://localhost:6333/dashboard |
+| In GitHub Codespaces | `https://<codespace-name>-6333.app.github.dev/dashboard` |
 
-The 2 skipped tests are live tests: they call the real Gemini, so they run only when your key is set. The tests never
-need Docker: an in-memory Qdrant stands in for the server.
+In Codespaces, your browser is on your own computer, not in the codespace, so it needs the codespace's forwarded
+address. The surest way to get it is the **Ports** tab:
 
-## See the points in Qdrant's dashboard
+1. Open the **Ports** tab, next to **Terminal**. Codespaces forwards port 6333 once Qdrant is running.
+2. If 6333 isn't listed, click **Add Port** and type `6333`.
+3. Click the globe icon on the 6333 row: it opens the exact forwarded address for your codespace.
+4. Add `/dashboard` to the end of that address.
 
-Optional. In memory, Qdrant lives inside the script, so there's no server to look at, and the points are gone when it
-ends. A Qdrant server, run by Docker, has a web dashboard where you can browse every stored point. You need Docker:
-Docker Desktop on Windows and macOS; GitHub Codespaces has it already.
+`<codespace-name>` is the first part of your codespace's own address, for example `silver-lamp-jwjq66xxgphp7rw` in
+`silver-lamp-jwjq66xxgphp7rw.github.dev`. The port is private by default: open it in the browser where you're signed
+in to GitHub.
 
-1. Start the Qdrant server, in this folder. `docker-compose.yml` runs `qdrant/qdrant:v1.19.1` on port 6333. The first
-   time, Docker downloads the image.
-
-   ```bash
-   docker compose up -d
-   ```
-
-   Then check that it's running, before going on:
-
-   ```bash
-   docker compose ps                    # a line for the qdrant service: "Up" in its status, 6333->6333 in its ports
-   curl http://localhost:6333           # a short JSON reply from Qdrant, with "qdrant" and its version, 1.19.1
-   ```
-
-   If `curl` says the connection was refused, Qdrant isn't running: see
-   [If the dashboard says 404](#if-the-dashboard-says-404-page-cant-be-found), below.
-
-2. Tell the script to use it: in `.env`, remove the `#` in front of the last line, so it reads:
-
-   ```text
-   QDRANT_URL=http://localhost:6333
-   ```
-
-3. Run the script as before:
-
-   ```bash
-   python vector_store.py
-   ```
-
-   It prints the same collection and points, but its first line is now `Qdrant: the server at http://localhost:6333`,
-   and it ends with where to find the dashboard:
-
-   ```text
-   See them in Qdrant's dashboard: http://localhost:6333/dashboard
-   In GitHub Codespaces: open the Ports tab, open the address for port 6333, and add /dashboard to it.
-   ```
-
-4. Open the dashboard:
-
-   | Where you run it | Address |
-   |---|---|
-   | On your own computer | http://localhost:6333/dashboard |
-   | In GitHub Codespaces | `https://<codespace-name>-6333.app.github.dev/dashboard` |
-
-   In Codespaces, `localhost` is the codespace, not your computer, so the browser needs the codespace's address. The
-   surest way to get it is the **Ports** tab:
-
-   1. Open the **Ports** tab, next to **Terminal**. Codespaces forwards port 6333 once Qdrant is running.
-   2. If 6333 isn't listed, click **Add Port** and type `6333`.
-   3. Click the globe icon on the 6333 row: it opens the exact forwarded address for your codespace.
-   4. Add `/dashboard` to the end of that address.
-
-   `<codespace-name>` is the first part of your codespace's own address, for example `silver-lamp-jwjq66xxgphp7rw` in
-   `silver-lamp-jwjq66xxgphp7rw.github.dev`. The port is private by default: open it in the browser where you're
-   signed in to GitHub.
-
-5. In the dashboard, open **Collections**, then `it_knowledge_base`: its 28 points, each with its payload (the
-   chunk's text and labels) and its vector. If the collection isn't there, run `python vector_store.py` again (with
-   `QDRANT_URL` set) and refresh the page.
-
-Each run deletes the collection and stores the chunks again. The points get random ids, so without that, every run
-would add 28 more copies. Step 11 does better: it gives each chunk an id made from its text, and reuses the stored
-chunks instead of embedding them again.
-
-If `QDRANT_URL` is set but the server isn't running, the script stops before calling Gemini:
-
-```text
-Can't reach Qdrant at http://localhost:6333. Start it first, in this folder: docker compose up -d (or remove QDRANT_URL from .env to run Qdrant in memory).
-```
-
-To stop the server, run `docker compose down` in this folder. Its data stays in a Docker volume for next time
-(`docker compose down -v` deletes it). Only one server can use port 6333, so stop this one before starting step 11's.
-To go back to memory, put the `#` back in front of `QDRANT_URL` in `.env`.
+In the dashboard, open **Collections**, then `it_knowledge_base`: its 28 points, each with its payload (the chunk's
+text and labels) and its vector. If the dashboard says `No collection is present`, the script hasn't stored anything
+in this server yet: check that the first line `python vector_store.py` prints is `Qdrant: the server at ...`, then
+refresh the page (the ↻ next to **Collections**). If it says `Qdrant: in memory, inside this script`, `.env` has no
+`QDRANT_URL` line, or it has a `#` in front: fix it, and run the script again.
 
 ### If the dashboard says 404 (page can't be found)
 
@@ -195,9 +144,44 @@ is answering on port 6333 inside the codespace. Check, in the codespace's termin
 
    A short JSON reply from Qdrant means it's working. `Connection refused` means it isn't running yet: go back to 2.
 
-4. **The port is forwarded.** Once `curl` works, open the dashboard from the **Ports** tab, as in "Open the
-   dashboard" above: the globe icon on the 6333 row, then `/dashboard`. Typing the address by hand can go wrong; the Ports tab's address
-   can't.
+4. **The port is forwarded.** Once `curl` works, open the dashboard from the **Ports** tab, as in
+   [Open the dashboard](#open-the-dashboard): the globe icon on the 6333 row, then `/dashboard`. Typing the address
+   by hand can go wrong; the Ports tab's address can't.
+
+### If Qdrant isn't running
+
+If `QDRANT_URL` is set but no server answers, the script stops before calling Gemini:
+
+```text
+Can't reach Qdrant at http://localhost:6333. Start it first, in this folder: docker compose up -d (or remove QDRANT_URL from .env to run Qdrant in memory).
+```
+
+### Stop the server
+
+Run `docker compose down` in this folder. Its data stays in a Docker volume for next time (`docker compose down -v`
+deletes it). In Codespaces, the server also stops when the codespace stops: run `docker compose up -d` again next
+time. Only one server can use port 6333, so stop this one before starting step 11's.
+
+### Run it without Docker
+
+In `.env`, put a `#` at the start of the `QDRANT_URL` line:
+
+```text
+# QDRANT_URL=http://localhost:6333
+```
+
+Then `python vector_store.py` keeps Qdrant in memory, inside the script. It prints the same collection and points, but
+its first line is `Qdrant: in memory, inside this script`, and there's no dashboard line, because there's no server to
+look at. To go back to the server, remove the `#`.
+
+### Run the tests
+
+```bash
+python -m pytest                     # 22 passed, 2 skipped
+```
+
+The 2 skipped tests are live tests: they call the real Gemini, so they run only when your key is set. The tests never
+need Docker: an in-memory Qdrant stands in for the server.
 
 ## How Qdrant measures "close": the distance
 

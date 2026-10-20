@@ -1,5 +1,5 @@
-# Qdrant, the vector database, as a server in Docker. Optional in this step: with QDRANT_URL set in .env,
-# vector_store.py stores the chunks in this server instead of in memory, and Qdrant's dashboard shows them.
+# Qdrant, the vector database, as a server in Docker. With QDRANT_URL in .env, as .env.example has it,
+# vector_store.py stores the chunks in this server, and Qdrant's dashboard shows them.
 #
 #   docker compose up -d      start it in the background (the first time, Docker downloads the image)
 #   docker compose down       stop it; its data stays in the qdrant_storage volume (down -v deletes that too)
