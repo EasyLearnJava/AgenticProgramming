@@ -111,6 +111,83 @@ in this server yet: check that the first line `python vector_store.py` prints is
 refresh the page (the ↻ next to **Collections**). If it says `Qdrant: in memory, inside this script`, `.env` has no
 `QDRANT_URL` line, or it has a `#` in front: fix it, and run the script again.
 
+### The Visualize tab: every chunk on one map
+
+In `it_knowledge_base`, the **Visualize** tab draws all 28 points as dots on one map. Its right-hand side holds a
+request, and nothing is drawn until you click the small **RUN** link just above the request's `{`. To color the dots
+by article, replace the request with this one, then click **RUN**:
+
+```json
+{
+  "limit": 100,
+  "color_by": { "payload": "metadata.title" }
+}
+```
+
+- `limit`: how many points to draw. There are 28, so anything above that draws them all.
+- `color_by`: the payload field that picks each dot's color. Our labels are inside `metadata`, so it's
+  `metadata.title`.
+- If the map stays blank, or **Data Panel** shows an error, add `"algorithm": "PCA"`. The default, UMAP, is made for
+  thousands of points; PCA does better with 28.
+
+Each dot is one chunk. The map squeezes each vector's 768 numbers into 2, so it shows roughly which chunks are near
+each other, but its distances aren't the real scores.
+
+Click a dot, and **Data Panel** shows that point's payload and, under **Similar points**, the points whose vectors are
+closest to it, with their scores. On the map, the clicked dot and those neighbours stay bright, and the rest fade.
+Clicking the MFA article's first chunk (its Title and Problem) gives:
+
+![Qdrant's dashboard, Visualize tab, for it_knowledge_base. On the left, 28 dots: the clicked one circled, its nearest neighbours bright, the others faded. On the right, Data Panel shows the clicked point's payload: page_content "Title: MFA Setup Failure Problem: Employee cannot...", and metadata doc_id 1, title MFA Setup Failure, system MFA, category Security, priority High, tags mfa;authentication;mobile;security, start_index 0. Below it, Similar points lists 12 points with their scores, from 0.8691 down to 0.7558 for the last one, bd4a67d9-f0f7-4e02-bf5e-ea47122b9c8e.](images/dashboard-similar-points.png)
+
+#### What the score means: 0.7558
+
+Each score is the cosine similarity between the clicked point's vector and that point's vector: how closely the two
+point the same way.
+
+- **1.0** means the same direction, the same meaning; **0** means unrelated.
+- **0.7558**, the last one listed, means fairly similar: an angle of about 41° between the two vectors. The top one,
+  **0.8691**, is about 30°.
+
+It's the cosine from [How Qdrant measures "close"](#how-qdrant-measures-close-the-distance), below, with 768
+numbers instead of 2:
+
+```text
+cosine(a, b) = (a₁×b₁ + a₂×b₂ + … + a₇₆₈×b₇₆₈) / (length of a × length of b)
+```
+
+The collection uses cosine, so Qdrant stores every vector at length 1 (see
+[Why Qdrant's stored numbers differ from Gemini's](#why-qdrants-stored-numbers-differ-from-geminis)). Both lengths
+are 1, so the score is just the sum of the 768 products: the two vectors multiplied number by number, then added up.
+With 2 numbers, `[0.6, 0.8]` and `[0.8, 0.6]` give `0.6×0.8 + 0.8×0.6 = 0.96`. The Qdrant server does this sum
+between the clicked point and every other point, and lists the highest first.
+
+Reading the scores:
+
+- **The order matters more than the values.** All 28 chunks are IT help-desk text, so to Gemini they're all fairly
+  similar, and the scores sit close together: 0.76 to 0.87 here. What decides a search, in step 06, is which chunks
+  score highest.
+- **To see which chunk a score belongs to,** click the eye icon next to it.
+
+#### Check a score yourself
+
+With Qdrant running and the venv active, in this folder, this reads two stored vectors from Qdrant and does the sum
+itself, with no call to Gemini. Put in the id of the clicked point and the id of one point from its list:
+
+```bash
+python - <<'EOF'
+from qdrant_client import QdrantClient
+client = QdrantClient(url="http://localhost:6333", check_compatibility=False)
+a, b = client.retrieve("it_knowledge_base", with_vectors=True,
+                       ids=["f0f1e50f-598b-42f8-b135-f45456994f00", "bd4a67d9-f0f7-4e02-bf5e-ea47122b9c8e"])
+print("length of a:", round(sum(x * x for x in a.vector) ** 0.5, 4))   # 1.0: stored at length 1
+print("cosine:", round(sum(x * y for x, y in zip(a.vector, b.vector)), 4))
+EOF
+```
+
+It prints `length of a: 1.0` and the same score as the dashboard: `0.7558` for the two points in the picture. Each run
+of `vector_store.py` stores the points again, with new random ids, so copy the ids from the dashboard after your latest
+run.
+
 ### If the dashboard says 404 (page can't be found)
 
 In Codespaces, `This ... page can't be found` with `HTTP ERROR 404` comes from Codespaces, not from Qdrant: nothing
