@@ -25,7 +25,7 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 | `02-documents-and-metadata` | Each article's text to search (title, problem, resolution, notes) kept apart from its labels (system, category, priority, tags) | `python knowledge_base.py` |
 | `03-chunking` | The articles cut into chunks of at most 512 characters with `RecursiveCharacterTextSplitter`: 28 in all | `python chunking.py` |
 | `04-embeddings` | The 28 chunks turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers each), in one call. No question yet | `python embed_chunks.py` |
-| `05-vector-store` | The chunks stored in Qdrant, in memory, through `QdrantVectorStore`: one point per chunk, with its vector, text and labels | `python vector_store.py` |
+| `05-vector-store` | The chunks stored in a Qdrant server in Docker (or in memory), through `QdrantVectorStore`: one point per chunk, with its vector, text and labels, shown in Qdrant's dashboard | `docker compose up -d`, then `python vector_store.py` |
 | `06-retriever` | The user's question: embedded, then searched in Qdrant for the 5 closest chunks; then both in one call with a retriever, a Runnable | `python retriever.py` |
 | `07-grounded-answer` | The RAG chain: the chunks and the question go into a prompt, and Gemini (`gemini-3.5-flash-lite`) answers from them only | `python rag_chain.py` |
 | `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python rag_engine.py` |
@@ -42,8 +42,8 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
   `.env.example` to `.env` and put the key after `GOOGLE_API_KEY=`. Every call to Gemini uses your key's quota.
   Without a key, the scripts stop with a message that says what to do.
 - **Docker, for projects 11 and 12**: `docker compose up -d` in the project's folder starts the Qdrant server that
-  their `rag_engine.py` and `main.py` use. (`tuning.py` runs Qdrant in memory and doesn't need it.) It's optional in
-  project 05, where a Qdrant server lets you see the stored points in Qdrant's dashboard.
+  their `rag_engine.py` and `main.py` use. (`tuning.py` runs Qdrant in memory and doesn't need it.) Project 05 uses it
+  too, to show the stored points in Qdrant's dashboard; it can also run in memory, without Docker.
 - **Tests**: `python -m pytest` in a project's folder. The plain tests use stand-ins for Gemini, so they need no key;
   the live tests call the real Gemini and run only when a key is set.
 
