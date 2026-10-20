@@ -2,9 +2,9 @@
 
 ## What it does
 
-Until now, Qdrant ran inside the Python process: every start embedded all 28 chunks again (a call to Gemini), and
-they were gone when the program ended. This step runs Qdrant as a server of its own, in Docker, which keeps the chunks
-on disk between runs.
+Until now, every start embedded all 28 chunks again (a call to Gemini). From step 06 to 10, Qdrant ran inside the
+Python process, so the chunks were gone when the program ended; step 05's server started fresh on each run. This step
+runs Qdrant as a server, in Docker, that keeps the chunks on disk between runs, and reuses them.
 
 - `docker-compose.yml` starts the Qdrant server (`qdrant/qdrant:v1.19.1`) on port 6333, with its data in a Docker
   volume.
