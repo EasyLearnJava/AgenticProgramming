@@ -95,6 +95,16 @@ Docker Desktop on Windows and macOS; GitHub Codespaces has it already.
    docker compose up -d
    ```
 
+   Then check that it's running, before going on:
+
+   ```bash
+   docker compose ps                    # a line for the qdrant service: "Up" in its status, 6333->6333 in its ports
+   curl http://localhost:6333           # a short JSON reply from Qdrant, with "qdrant" and its version, 1.19.1
+   ```
+
+   If `curl` says the connection was refused, Qdrant isn't running: see
+   [If the dashboard says 404](#if-the-dashboard-says-404-page-cant-be-found), below.
+
 2. Tell the script to use it: in `.env`, remove the `#` in front of the last line, so it reads:
 
    ```text
@@ -122,14 +132,21 @@ Docker Desktop on Windows and macOS; GitHub Codespaces has it already.
    | On your own computer | http://localhost:6333/dashboard |
    | In GitHub Codespaces | `https://<codespace-name>-6333.app.github.dev/dashboard` |
 
-   In Codespaces, `localhost` is the codespace, not your computer, so the browser needs the codespace's address. Open
-   the **Ports** tab next to **Terminal**: Codespaces forwards port 6333 once Qdrant is running (if it isn't listed,
-   click **Add Port** and type 6333). Open the address it shows for 6333, with the globe icon, then add `/dashboard`
-   to the end. `<codespace-name>` is the first part of your codespace's own address, for example
-   `silver-lamp-jwjq66xxgphp7rw` in `silver-lamp-jwjq66xxgphp7rw.github.dev`.
+   In Codespaces, `localhost` is the codespace, not your computer, so the browser needs the codespace's address. The
+   surest way to get it is the **Ports** tab:
+
+   1. Open the **Ports** tab, next to **Terminal**. Codespaces forwards port 6333 once Qdrant is running.
+   2. If 6333 isn't listed, click **Add Port** and type `6333`.
+   3. Click the globe icon on the 6333 row: it opens the exact forwarded address for your codespace.
+   4. Add `/dashboard` to the end of that address.
+
+   `<codespace-name>` is the first part of your codespace's own address, for example `silver-lamp-jwjq66xxgphp7rw` in
+   `silver-lamp-jwjq66xxgphp7rw.github.dev`. The port is private by default: open it in the browser where you're
+   signed in to GitHub.
 
 5. In the dashboard, open **Collections**, then `it_knowledge_base`: its 28 points, each with its payload (the
-   chunk's text and labels) and its vector.
+   chunk's text and labels) and its vector. If the collection isn't there, run `python vector_store.py` again (with
+   `QDRANT_URL` set) and refresh the page.
 
 Each run deletes the collection and stores the chunks again. The points get random ids, so without that, every run
 would add 28 more copies. Step 11 does better: it gives each chunk an id made from its text, and reuses the stored
@@ -144,6 +161,43 @@ Can't reach Qdrant at http://localhost:6333. Start it first, in this folder: doc
 To stop the server, run `docker compose down` in this folder. Its data stays in a Docker volume for next time
 (`docker compose down -v` deletes it). Only one server can use port 6333, so stop this one before starting step 11's.
 To go back to memory, put the `#` back in front of `QDRANT_URL` in `.env`.
+
+### If the dashboard says 404 (page can't be found)
+
+In Codespaces, `This ... page can't be found` with `HTTP ERROR 404` comes from Codespaces, not from Qdrant: nothing
+is answering on port 6333 inside the codespace. Check, in the codespace's terminal:
+
+1. **You're in this folder, with the latest code.** `docker-compose.yml` must be here:
+
+   ```bash
+   cd "projects/RAG/IT Knowledge Base/05-vector-store"   # from the repo root (/workspaces/AgenticProgramming)
+   git pull
+   ls docker-compose.yml
+   ```
+
+   Without it, `docker compose up -d` stops with `no configuration file provided: not found`.
+
+2. **Qdrant is running.** Start it, then look:
+
+   ```bash
+   docker compose up -d
+   docker compose ps
+   ```
+
+   `docker compose ps` should list the qdrant service with `Up` in its status. If `up -d` printed an error, or `ps`
+   lists nothing, Qdrant isn't running: the error says why.
+
+3. **Qdrant answers inside the codespace:**
+
+   ```bash
+   curl http://localhost:6333
+   ```
+
+   A short JSON reply from Qdrant means it's working. `Connection refused` means it isn't running yet: go back to 2.
+
+4. **The port is forwarded.** Once `curl` works, open the dashboard from the **Ports** tab, as in "Open the
+   dashboard" above: the globe icon on the 6333 row, then `/dashboard`. Typing the address by hand can go wrong; the Ports tab's address
+   can't.
 
 ## How Qdrant measures "close": the distance
 
