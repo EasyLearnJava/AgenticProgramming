@@ -20,23 +20,25 @@ retriever does both in one call. Built with **LangChain**, **Qdrant** (in memory
   searches, and returns the 5 chunks
 - **Joins chunks into one text** with `format_docs()`: each chunk numbered and titled, ready to go into a prompt
 - **Prints** each step for one question, `How do I fix VPN connection timeouts?`, or for yours
+- **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
-**Try it:** `python retriever.py "my email bounced"`, and see which chunks come back for your question.
+**Try it:** `python pipeline.py "my email bounced"`, and see which chunks come back for your question.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-data/sample_it_kb.csv  →  10 articles  →  28 chunks
-                                              │
+pipeline.py: main(), the one file to run, calls each step in order:
+data/sample_it_kb.csv  →  10 articles  →  28 chunks         ← Steps 1 and 2: read, then chunk
+                                              │ Step 3: Embed and store
                                               ↓
 ┌──────────────────────────────────────────────────┐
 │  make_vector_store(embeddings, 768)              │  ← vector_store.py: Qdrant in memory, cosine
-│  add_knowledge_base(store)                       │     the 28 chunks embedded and stored (call 1)
+│  store.add_documents(chunks)                     │     the 28 chunks embedded and stored (call 1)
 └────────────────────────┬─────────────────────────┘
                          │
-a question ──────────────┤
+a question ──────────────┤ Step 4: Retrieve
                          ↓
 ┌──────────────────────────────────────────────────┐
 │  embeddings.embed_query(question)                │  ← 768 numbers for the question (call 2)
@@ -52,12 +54,13 @@ a question ──────────────┤
 
 ### The Pipeline in This Project
 
-1. **Store** → the 28 chunks embedded in one call and stored in an in-memory Qdrant collection
-2. **Embed the question** → `embed_query()`: 768 numbers, from the same model
-3. **Search** → Qdrant compares the question's vector with every stored one and keeps the 5 closest, with scores
-4. **Retrieve** → `make_retriever(store).invoke(question)` does steps 2 and 3 in one call
-5. **Format** → `format_docs()` joins chunks into one numbered, titled text
-6. **Print** → each step's result
+1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
+2. **Store** → the 28 chunks embedded in one call and stored in an in-memory Qdrant collection
+3. **Embed the question** → `embed_query()`: 768 numbers, from the same model
+4. **Search** → Qdrant compares the question's vector with every stored one and keeps the 5 closest, with scores
+5. **Retrieve** → `make_retriever(store).invoke(question)` does steps 3 and 4 in one call
+6. **Format** → `format_docs()` joins chunks into one numbered, titled text
+7. **Print** → `print_retrieval()`: each step's result
 
 ---
 
@@ -108,13 +111,18 @@ into git: never commit it, and never put a real key in `.env.example`.
 ### Step 5: Run It
 
 ```bash
-python retriever.py
+python pipeline.py
 ```
 
-It prints each step: the question's vector, the 5 closest chunks with their scores, the same 5 found by the retriever
-in one call, and the text a prompt would get. The parts in `< >` come from Gemini:
+It prints Steps 1 to 3 in one line each, then Step 4 in full: the question's vector, the 5 closest chunks with their
+scores, the same 5 found by the retriever in one call, and the text a prompt would get. The parts in `< >` come from
+Gemini:
 
 ```text
+Step 1: Read the knowledge base: 10 documents
+Step 2: Chunk: 28 chunks of at most 512 characters
+Step 3: Embed and store: 28 points, in Qdrant in memory
+Step 4: Retrieve
 Question: How do I fix VPN connection timeouts?
 The question became 768 numbers: [<the first 5 numbers>, ...]
 
@@ -136,10 +144,10 @@ What a prompt gets, the 2 closest chunks as one text (format_docs):
 
 The `...` lines stand for the other 4 chunks: your terminal shows all 5.
 
-To ask your own question, put it after the script's name:
+To ask your own question, put it after `pipeline.py`:
 
 ```bash
-python retriever.py "my email bounced"
+python pipeline.py "my email bounced"
 ```
 
 ### Or: Run It in One Command
@@ -151,8 +159,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/06-retriever   # from the r
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python retriever.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 5.
+`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basic/06-retriever "my email bounced"`.
 
 ---
 
@@ -160,18 +168,20 @@ in Step 5.
 
 ```text
 06-retriever/
-├── retriever.py                          # make_retriever(), format_docs(), and the lines that show each step
-├── vector_store.py                       # make_vector_store(), add_knowledge_base(): Qdrant in memory
+├── pipeline.py                           # the one file to run: main() calls each step in order
+├── retriever.py                          # make_retriever(), format_docs() and print_retrieval(): Step 4
+├── vector_store.py                       # make_vector_store(): Step 3, Qdrant in memory
 ├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
 ├── config.py                             # load_api_key(): the key, checked before anything else runs
-├── chunking.py                           # split_documents(): the 28 chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles, text + labels
+├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
+├── knowledge_base.py                     # load_documents(): Step 1, the 10 articles, text + labels
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
 │   ├── conftest.py                       # decides once whether the live tests can run
 │   ├── fakes.py                          # stand-ins for Gemini: no key, no network
-│   ├── test_retriever.py                 # the search, the retriever, format_docs(), the script
+│   ├── test_pipeline.py                  # the steps and what they print; nothing else runs
+│   ├── test_retriever.py                 # the search, the retriever, format_docs(), what's printed
 │   ├── test_vector_store.py              # the collection and the stored points
 │   ├── test_models.py                    # the model's settings, and the no-key message
 │   ├── test_chunking.py                  # the chunks
@@ -179,19 +189,16 @@ in Step 5.
 ├── .env.example                          # copy it to .env and put your key in .env
 ├── requirements.txt                      # the packages, pinned to exact versions
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the scripts, and finds them in tests/
+├── pytest.ini                            # lets the tests import the files, and finds them in tests/
 └── README.md                             # you are here
 ```
-
-`python vector_store.py` also runs on its own: it stores the 28 chunks and prints the collection and every point
-(one call to Gemini).
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 28 passed, 3 skipped     (add -v for one line per test)
+python -m pytest                     # 30 passed, 3 skipped     (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
@@ -201,7 +208,9 @@ points closest to the VPN chunks, the same every time. They check:
 - **The retriever**: searching with the question's vector gives the closest chunks and their scores; `invoke()`
   gives the k closest, closest first, the same chunks as the search by hand; `k` sets how many come back; `batch()`
   answers several questions in order, with one query call each; `format_docs()` numbers and titles each chunk; and
-  the script embeds the chunks, then the question by hand, then through the retriever
+  what `print_retrieval()` prints
+- **The pipeline**: it embeds the chunks, then the question by hand, then through the retriever; it takes a question
+  of your own; and no other file runs anything
 - **The store, the model, the chunks and the Documents**: 28 points with their vectors, text and labels, stored in
   one embedding call; the model's settings and the no-key message; 28 chunks; 10 Documents
 
@@ -212,6 +221,9 @@ so it can be built, and skips the live tests.
 ---
 
 ## 📊 Understanding the Output
+
+The output starts with one line each for Steps 1 to 3, then `Step 4: Retrieve`, the question and its vector, and the
+search:
 
 ```text
 The 5 closest chunks, with their scores, closest first:
@@ -276,6 +288,13 @@ format_docs(chunks[:2])   # -> "[1] <title>\n<chunk text>\n\n[2] <title>\n<chunk
 A prompt takes text, not Documents. `format_docs()` joins the chunks into one text, each with a number and its
 article's title, so the source of every part stays visible.
 
+### 5. One File Runs the Steps
+
+`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4,
+the search by hand and with the retriever, and `print_retrieval()` prints it. The other files only define the steps,
+so importing them makes no call. The question, the model and its vector size are parameters of `main()`, so the
+tests pass a stand-in for Gemini.
+
 ---
 
 ## 🛠️ Troubleshooting
@@ -294,6 +313,9 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
+**Issue**: `python retriever.py` prints nothing
+**Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
+
 ---
 
 ## 📚 Next Steps
@@ -306,7 +328,8 @@ Its README lists what it will add.
 
 ### Ideas to Try
 
-- Ask a question in your own words, with none of the articles' words in it: `python retriever.py "my screen freezes all the time"`.
+- Ask a question in your own words, with none of the articles' words in it:
+  `python pipeline.py "my screen freezes all the time"`.
 - In `retriever.py`, change `TOP_K` to `2`, and see 2 chunks come back instead of 5.
-- Ask something the knowledge base doesn't cover, `python retriever.py "how do I bake bread"`, and look at the
+- Ask something the knowledge base doesn't cover, `python pipeline.py "how do I bake bread"`, and look at the
   scores: 5 chunks still come back, as a search always returns the closest ones.

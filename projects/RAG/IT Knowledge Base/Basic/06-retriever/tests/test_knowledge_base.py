@@ -1,15 +1,13 @@
 """
-Tests for knowledge_base.py: the CSV file read into 10 Documents, with each article's text and labels kept apart.
-No key, no network.
+Tests for knowledge_base.py: the CSV file read into 10 Documents, with each article's text and labels kept apart,
+and what print_documents() prints. No key, no network.
 """
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 from langchain_core.documents import Document
 
-from knowledge_base import KB_FILE, KBLoader, load_documents
+from knowledge_base import KB_FILE, KBLoader, load_documents, print_documents
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 DOCS = load_documents()
@@ -43,9 +41,9 @@ def test_making_the_loader_reads_nothing_and_load_reads_the_file(tmp_path):
         loader.load()                              # load() is what opens it
 
 
-def test_running_it_prints_the_split_then_every_document():
-    printed = subprocess.run([sys.executable, str(FOLDER / "knowledge_base.py")], cwd=FOLDER, capture_output=True,
-                             text=True, encoding="utf-8", check=True).stdout
+def test_print_documents_prints_the_split_then_every_document(capsys):
+    print_documents(DOCS)
+    printed = capsys.readouterr().out
     assert printed.startswith("10 documents\ntext:     title, problem, resolution, notes\n"
                               "metadata: doc_id, title, system, category, priority, tags\n\n"
                               "Document 1 of 10\nText (page_content):\nTitle: VPN Connection Timeout\n\nProblem: ")

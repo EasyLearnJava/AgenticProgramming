@@ -8,8 +8,9 @@ labels. It handles:
   2. Putting the article's number, title, system, category, priority and tags into its labels (metadata)
   3. Printing which columns went where, and every Document
 
-Usage:
-    python knowledge_base.py      # which columns went where, then every Document in full
+Usage (this file only defines these; pipeline.py runs the steps):
+    docs = load_documents()   ->  10 Documents: the text in page_content, the labels in metadata
+    print_documents(docs)     ->  which columns went where, then every Document in full
 """
 import csv
 from collections.abc import Iterator
@@ -52,8 +53,8 @@ def load_documents(path: Path = KB_FILE) -> list[Document]:
     return KBLoader(path).load()
 
 
-if __name__ == "__main__":
-    docs = load_documents()
+def print_documents(docs: list[Document]) -> None:
+    """Print which columns went where, then every Document in full: its text, then its labels."""
     print(f"{len(docs)} documents")
     print("text:     " + ", ".join(TEXT_COLUMNS))
     print("metadata: " + ", ".join(["doc_id", *METADATA_COLUMNS]))
