@@ -84,20 +84,22 @@ class KBLoader(BaseLoader):
             FileNotFoundError: there's no file at data_path
             ValueError: the file is empty, so it has no header row; or it isn't text in `encoding`
         """
-        # Step 2a: Check that the file is there, so a wrong path fails with a message that names it.
-        if not self.data_path.is_file():
-            raise FileNotFoundError(f"Knowledge base file not found: {self.data_path}")
+        # Step 2a: Check that the file is there, so a wrong path fails with a message that names it. The messages give
+        #          the full path: a relative one is looked for from the folder you're in, and this shows which that was.
+        path = self.data_path.resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"Knowledge base file not found: {path}")
 
         # Step 2b: Open it. newline="" is how the csv module wants a file opened. DictReader takes the column names
         #          from the first line, then gives each line after it as a dict, {"title": ..., ...}, skipping empty
         #          lines. Logger calls take their values as arguments (%s, %d): the message is only built if it's shown.
         count = 0
         try:
-            with open(self.data_path, encoding=self.encoding, newline="") as file:
+            with open(path, encoding=self.encoding, newline="") as file:
                 reader = csv.DictReader(file)
                 if reader.fieldnames is None:
-                    raise ValueError(f"Knowledge base file is empty, with no header row: {self.data_path}")
-                logger.info("Reading %s: %d columns (%s)", self.data_path.name, len(reader.fieldnames),
+                    raise ValueError(f"Knowledge base file is empty, with no header row: {path}")
+                logger.info("Reading %s (%s): %d columns (%s)", path, self.encoding, len(reader.fieldnames),
                             ", ".join(reader.fieldnames))
 
                 # Step 2c: One Document per row. DEBUG logs each one; the default level, INFO, leaves those lines out.
@@ -108,7 +110,7 @@ class KBLoader(BaseLoader):
                     yield doc
         except UnicodeDecodeError as err:
             # A common Windows surprise: PowerShell 5's `>` saves a file as UTF-16, which can't be read as UTF-8.
-            raise ValueError(f"Knowledge base file isn't {self.encoding} text ({err.reason}): {self.data_path}. "
+            raise ValueError(f"Knowledge base file isn't {self.encoding} text ({err.reason}): {path}. "
                              "Save it as UTF-8, or give KBLoader its encoding.") from None
 
         # Step 2d: The total. A header with no rows under it isn't an error, but it's worth a warning.

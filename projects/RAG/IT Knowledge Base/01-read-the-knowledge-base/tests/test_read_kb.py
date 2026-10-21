@@ -6,7 +6,7 @@ how it fails, and what the script prints.
                                   page_content "title: ...\nproblem: ...\n...", metadata {"source", "row"}
 
 No key, no network: the tests only read CSV files and run the script.
-Run them:   python -m pytest   ->   20 passed        (add -v for one line per test)
+Run them:   python -m pytest   ->   21 passed        (add -v for one line per test)
 """
 import logging
 import subprocess
@@ -20,6 +20,7 @@ from read_kb import KB_FILE, KBLoader, main, parse_args
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 COLUMNS = ["title", "problem", "resolution", "system", "category", "notes", "priority", "tags"]
+READING = f"Reading {KB_FILE.resolve()} (utf-8): 8 columns ({', '.join(COLUMNS)})"   # the first log line
 
 docs = KBLoader(KB_FILE).load()
 
@@ -121,10 +122,7 @@ def test_any_csv_with_a_header_row_can_be_read(tmp_path):
 def test_loading_logs_the_columns_and_the_total(caplog):
     with caplog.at_level(logging.INFO, logger="read_kb"):
         KBLoader(KB_FILE).load()
-    assert caplog.messages == [
-        "Reading sample_it_kb.csv: 8 columns (title, problem, resolution, system, category, notes, priority, tags)",
-        "Read 10 documents from sample_it_kb.csv",
-    ]
+    assert caplog.messages == [READING, "Read 10 documents from sample_it_kb.csv"]
 
 
 def test_debug_logs_one_line_per_row(caplog):
@@ -174,8 +172,7 @@ def test_running_the_script_prints_the_titles_then_every_document():
                             "Where it came from (metadata):\n{'source': 'sample_it_kb.csv', 'row': 9}\n")
     # The log goes to stderr, apart from the printed output: one line when reading starts, one at the end.
     assert [line.split(" ", 2)[2] for line in result.stderr.splitlines()] == [
-        "INFO Reading sample_it_kb.csv: 8 columns "
-        "(title, problem, resolution, system, category, notes, priority, tags)",
+        f"INFO {READING}",
         "INFO Read 10 documents from sample_it_kb.csv",
     ]
 
@@ -191,3 +188,10 @@ def test_a_missing_file_ends_the_script_with_exit_code_1_and_no_traceback(tmp_pa
     assert result.stdout == ""
     assert "ERROR Knowledge base file not found:" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_a_relative_path_is_logged_as_the_full_path_it_was_looked_for_at(tmp_path):
+    # Started in tmp_path, "data/it_kb.csv" means tmp_path/data/it_kb.csv: the message says so.
+    result = run_script("--data-path", "data/it_kb.csv", cwd=tmp_path)
+    assert result.returncode == 1
+    assert f"Knowledge base file not found: {(tmp_path / 'data' / 'it_kb.csv').resolve()}\n" in result.stderr

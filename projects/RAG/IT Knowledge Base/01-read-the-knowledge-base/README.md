@@ -103,11 +103,12 @@ python read_kb.py
 ```
 
 First the log says what it read, then the output shows how many documents there are, each one's row and title, and
-then every document in full. The start and the end of what you'll see (your times will differ):
+then every document in full. The start and the end of what you'll see (your times will differ, and `<this folder>`
+stands for the full path of this project's folder on your machine):
 
 ```text
-2026-10-20 22:01:19,167 INFO Reading sample_it_kb.csv: 8 columns (title, problem, resolution, system, category, notes, priority, tags)
-2026-10-20 22:01:19,167 INFO Read 10 documents from sample_it_kb.csv
+2026-10-20 22:16:59,293 INFO Reading <this folder>/data/sample_it_kb.csv (utf-8): 8 columns (title, problem, resolution, system, category, notes, priority, tags)
+2026-10-20 22:16:59,293 INFO Read 10 documents from sample_it_kb.csv
 10 documents
 row 0  title: VPN Connection Timeout
 row 1  title: MFA Setup Failure
@@ -161,7 +162,7 @@ The `...` lines stand for the parts left out here: your terminal shows all 10 do
 ├── data/
 │   └── sample_it_kb.csv    # the knowledge base: 10 IT support articles
 ├── tests/
-│   └── test_read_kb.py     # 20 tests: the Documents, the loader, the log, the script
+│   └── test_read_kb.py     # 21 tests: the Documents, the loader, the log, the script
 ├── requirements.txt        # langchain-core, pinned to an exact version
 ├── requirements-dev.txt    # requirements.txt plus pytest, for the tests
 ├── pytest.ini              # lets the tests import read_kb, and finds them in tests/
@@ -216,7 +217,7 @@ docs = KBLoader("export.csv", encoding="utf-16").load()   # a file saved as UTF-
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 20 passed     (add -v for one line per test)
+python -m pytest                     # 21 passed     (add -v for one line per test)
 ```
 
 The tests need no network. They read the sample file and a few small CSV files they write themselves, and they run
@@ -225,9 +226,11 @@ the script as its own process:
 - **The Documents**: 10 of them, every column as a line in order, the metadata, the first one is the VPN article
 - **The loader**: the constructor reads nothing; `load()` and `lazy_load()` agree; a missing, empty or non-UTF-8 file
   fails with a clear message; the encoding can be changed; any CSV with a header row can be read
-- **The log**: the two INFO lines, one DEBUG line per row, and a warning for a header with no rows
-- **The script**: the options' defaults, exit code 1 with no traceback for a missing file, the exact printed output,
-  and the same output whichever folder it's started from
+- **The log**: the two INFO lines, the first with the file's full path; one DEBUG line per row; and a warning for a
+  header with no rows
+- **The script**: the options' defaults, exit code 1 with no traceback for a missing file, a relative path reported
+  as the full path it was looked for at, the exact printed output, and the same output whichever folder it's
+  started from
 
 ---
 
@@ -321,9 +324,10 @@ it from. A bare `"data/sample_it_kb.csv"` would be looked for in the current fol
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
-**Issue**: `ERROR Knowledge base file not found: data/it_kb.csv`
-**Fix**: Check the path given to `--data-path`. A relative path is looked for from the folder you're in, not from
-the script's folder. Run without `--data-path` to read the sample file.
+**Issue**: `ERROR Knowledge base file not found: <the folder you're in>/data/it_kb.csv`
+**Fix**: The message gives the full path the file was looked for at. A relative path given to `--data-path` is looked
+for from the folder you're in, not from the script's folder. Check the path, or run without `--data-path` to read the
+sample file.
 
 **Issue**: `ERROR Knowledge base file is empty, with no header row: ...`
 **Fix**: The file has no lines at all. Its first line must name the columns, like `title,problem,resolution,...`.
