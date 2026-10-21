@@ -127,6 +127,18 @@ Chunk 28 of 28: Microsoft Teams Audio Issues, from character 581 to 699 -> conve
 
 The `...` stands for chunks 4 to 27: your terminal shows all 28.
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/04-embeddings   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`python embed_chunks.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same
+as in Step 5.
+
 ---
 
 ## 📁 Project Structure

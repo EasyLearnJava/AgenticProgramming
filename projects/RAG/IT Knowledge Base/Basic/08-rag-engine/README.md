@@ -133,6 +133,18 @@ To ask your own question, put it after the script's name:
 python rag_engine.py "printer not found"
 ```
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/08-rag-engine   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`python rag_engine.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same
+as in Step 5.
+
 ---
 
 ## 📁 Project Structure

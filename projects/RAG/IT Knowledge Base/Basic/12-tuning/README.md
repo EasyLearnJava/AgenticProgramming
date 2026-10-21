@@ -143,6 +143,18 @@ uvicorn main:app --reload            # or the server: the chat page at http://12
 The first run embeds and stores the chunks in the server; every run after that reuses them. `docker compose down`
 stops the server and keeps the chunks; `docker compose down -v` deletes them too.
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/12-tuning   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python tuning.py`
+in this folder with the venv's Python, so there's nothing to activate. Options after the project's name go to
+`tuning.py`: add `--answers` at the end for the two answers. The output is the same as in Step 5.
+
 ---
 
 ## 📁 Project Structure

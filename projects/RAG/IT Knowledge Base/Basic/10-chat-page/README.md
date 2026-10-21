@@ -122,6 +122,18 @@ start of its text.
 In GitHub Codespaces, `127.0.0.1` is your own computer, not the codespace: open the **Ports** tab next to
 **Terminal** and click the globe icon on port 8000.
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/10-chat-page   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops the
+server. Then open the page as in Step 6.
+
 ---
 
 ## 📁 Project Structure

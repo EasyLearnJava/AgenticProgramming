@@ -129,6 +129,18 @@ Labels (metadata):
 
 The `...` lines stand for the parts left out here: your terminal shows all 10 documents in full.
 
+### Or: Run It in One Command
+
+This one command does Steps 2 to 4 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/02-documents-and-metadata   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`python knowledge_base.py` in this folder with the venv's Python, so there's nothing to activate. The output is the
+same as in Step 4.
+
 ---
 
 ## 📁 Project Structure

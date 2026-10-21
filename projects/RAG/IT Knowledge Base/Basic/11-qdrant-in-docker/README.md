@@ -150,6 +150,19 @@ A: <Gemini's answer>
 `uvicorn main:app --reload` builds the engine the same way. Then open http://127.0.0.1:8000 for the chat page; the
 API answers at `/docs`, `/api/query`, `/api/stats` and `/api/health`.
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4) and Qdrant started (Step 5), this one command does Steps 2 and 3, then starts the
+server from Step 6:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/11-qdrant-in-docker   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops it.
+Then open http://127.0.0.1:8000 for the chat page. For `python rag_engine.py`, use Step 6.
+
 ---
 
 ## 📁 Project Structure

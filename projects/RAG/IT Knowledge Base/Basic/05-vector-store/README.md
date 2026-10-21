@@ -175,6 +175,19 @@ in to GitHub.
 In the dashboard, open **Collections**, then `it_knowledge_base`: its 28 points, each with its payload (the chunk's
 text and labels) and its vector.
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4) and the Qdrant server started (Step 5), this one command does Steps 2, 3 and 6 for
+you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/05-vector-store   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`python vector_store.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same
+as in Step 6. Then open the dashboard as in Step 7.
+
 ### Or: Run It Without Docker
 
 In `.env`, put a `#` at the start of the `QDRANT_URL` line:

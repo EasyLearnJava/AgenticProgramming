@@ -144,6 +144,18 @@ In GitHub Codespaces, the curl commands work as they are, in the codespace's ter
 your own computer, not the codespace: open the **Ports** tab next to **Terminal**, click the globe icon on port 8000,
 and add `/docs` to the address it opens.
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/09-api   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops the
+server. Then ask it a question as in Step 6.
+
 ---
 
 ## 📁 Project Structure

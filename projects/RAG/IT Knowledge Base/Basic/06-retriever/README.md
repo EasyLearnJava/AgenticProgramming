@@ -142,6 +142,18 @@ To ask your own question, put it after the script's name:
 python retriever.py "my email bounced"
 ```
 
+### Or: Run It in One Command
+
+With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/06-retriever   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`python retriever.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 5.
+
 ---
 
 ## 📁 Project Structure

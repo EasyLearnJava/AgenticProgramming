@@ -142,6 +142,18 @@ python chunking.py 1000              # 10 chunks: every article whole
 `python knowledge_base.py` on its own prints the 10 articles before they're cut: which columns went into the text
 and which into the labels, then every Document.
 
+### Or: Run It in One Command
+
+This one command does Steps 2 to 4 for you:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" Basic/03-chunking   # from the repo root
+```
+
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
+`python chunking.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 4.
+
 ---
 
 ## 📁 Project Structure
