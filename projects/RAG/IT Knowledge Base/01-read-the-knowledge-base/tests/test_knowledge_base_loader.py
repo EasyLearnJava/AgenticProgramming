@@ -1,6 +1,6 @@
 """
-Tests for IT Knowledge Base step 1: the LangChain Documents read_kb.py reads from data/sample_it_kb.csv, what it logs,
-how it fails, and what the script prints.
+Tests for IT Knowledge Base step 1: the LangChain Documents knowledge_base_loader.py reads from
+data/sample_it_kb.csv, what it logs, how it fails, and what the script prints.
 
     KBLoader(KB_FILE).load()  ->  10 Documents, one per article;
                                   page_content "title: ...\nproblem: ...\n...", metadata {"source", "row"}
@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from langchain_core.documents import Document
 
-from read_kb import KB_FILE, KBLoader, main, parse_args
+from knowledge_base_loader import KB_FILE, KBLoader, main, parse_args
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 COLUMNS = ["title", "problem", "resolution", "system", "category", "notes", "priority", "tags"]
@@ -26,10 +26,10 @@ docs = KBLoader(KB_FILE).load()
 
 
 def run_script(*args, cwd=FOLDER):
-    """Runs read_kb.py as its own process, started in the folder `cwd`, and gives back the finished process."""
+    """Runs knowledge_base_loader.py as its own process, started in the folder `cwd`, and gives back the process."""
     # sys.executable is the Python running these tests (the venv's), so the script gets the same packages.
-    return subprocess.run([sys.executable, str(FOLDER / "read_kb.py"), *args], cwd=cwd, capture_output=True,
-                          text=True, encoding="utf-8")
+    return subprocess.run([sys.executable, str(FOLDER / "knowledge_base_loader.py"), *args], cwd=cwd,
+                          capture_output=True, text=True, encoding="utf-8")
 
 
 def write_csv(path, text):
@@ -120,13 +120,13 @@ def test_any_csv_with_a_header_row_can_be_read(tmp_path):
 # -------------------------------------------------
 
 def test_loading_logs_the_columns_and_the_total(caplog):
-    with caplog.at_level(logging.INFO, logger="read_kb"):
+    with caplog.at_level(logging.INFO, logger="knowledge_base_loader"):
         KBLoader(KB_FILE).load()
     assert caplog.messages == [READING, "Read 10 documents from sample_it_kb.csv"]
 
 
 def test_debug_logs_one_line_per_row(caplog):
-    with caplog.at_level(logging.DEBUG, logger="read_kb"):
+    with caplog.at_level(logging.DEBUG, logger="knowledge_base_loader"):
         KBLoader(KB_FILE).load()
     rows = [record.getMessage() for record in caplog.records if record.levelno == logging.DEBUG]
     assert rows[0] == "Row 0: title: VPN Connection Timeout"
@@ -134,7 +134,7 @@ def test_debug_logs_one_line_per_row(caplog):
 
 
 def test_a_header_with_no_rows_gives_no_documents_and_a_warning(tmp_path, caplog):
-    with caplog.at_level(logging.INFO, logger="read_kb"):
+    with caplog.at_level(logging.INFO, logger="knowledge_base_loader"):
         assert KBLoader(write_csv(tmp_path / "header.csv", "title,problem\n")).load() == []
     assert [(record.levelname, record.getMessage()) for record in caplog.records][-1] == \
         ("WARNING", "header.csv has a header row but no articles")

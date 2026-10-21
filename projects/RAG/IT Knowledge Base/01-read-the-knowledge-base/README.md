@@ -1,15 +1,14 @@
 # 01 · Read the Knowledge Base
 
-Step 1 of the IT Knowledge Base RAG application: read the knowledge base, a CSV file of 10 IT support articles, into
-LangChain `Document`s, the form every later step works with. Built with **LangChain** and the Python standard library
-(`csv`, `logging`, `argparse`).
+Read the IT knowledge base, a CSV file of 10 IT support articles, into LangChain `Document`s: one per article, each
+with its text and where it came from. Built with **LangChain** and the Python standard library (`csv`, `logging`,
+`argparse`).
 
-> **Series:** [IT Knowledge Base](../README.md), step 1 of 12
-> **Needs:** Python only. No model, no API key, no Docker: this step only reads a file.
+> **Needs:** Python 3.11 or newer, and nothing else: this project only reads a local file.
 
 ---
 
-## 🎯 What This Step Does
+## 🎯 What This Project Does
 
 - **Loads** `data/sample_it_kb.csv` into 10 LangChain `Document`s, one per article
 - **Keeps every column** as text: each `Document`'s `page_content` has one `column: value` line per column
@@ -17,7 +16,7 @@ LangChain `Document`s, the form every later step works with. Built with **LangCh
 - **Logs** what it's doing (on stderr) and **prints** every `Document` (on stdout)
 - **Fails clearly**: a missing, empty or non-UTF-8 file stops it with one log line and exit code 1, not a traceback
 
-**Try it:** `python read_kb.py`, and see the 10 articles the way LangChain holds them.
+**Try it:** `python knowledge_base_loader.py`, and see the 10 articles the way LangChain holds them.
 
 ---
 
@@ -45,7 +44,7 @@ data/sample_it_kb.csv                 10 rows × 8 columns
 └────────────┘ └────────────┘
 ```
 
-### The Pipeline in This Step
+### The Pipeline in This Project
 
 1. **Configure** → `KBLoader(data_path)` stores the settings
 2. **Check** → the file must exist and start with a header row (the column names)
@@ -53,20 +52,12 @@ data/sample_it_kb.csv                 10 rows × 8 columns
 4. **Convert** → each row becomes a `Document`: its text, and where it came from
 5. **Report** → the log says what was read; the output shows every `Document`
 
-### Where This Step Fits in the RAG Pipeline
-
-1. **Load** → the CSV file into `Document`s ← **this step** (and 02)
-2. **Chunk** → cut them into smaller pieces (03)
-3. **Embed** → turn each chunk into a vector with Gemini (04)
-4. **Store** → keep the vectors in Qdrant (05)
-5. **Query** → find the closest chunks to a question, and answer from them (06 to 08)
-
 ---
 
 ## 📋 Prerequisites
 
 - **Python 3.11 or newer**
-- Nothing else: no API key, no Docker, no network once the package is installed
+- Nothing else: once the packages are installed, it runs without a network
 
 ---
 
@@ -99,7 +90,7 @@ pip install -r requirements-dev.txt  # once: langchain-core and pytest, into .ve
 ### Step 4: Run It
 
 ```bash
-python read_kb.py
+python knowledge_base_loader.py
 ```
 
 First the log says what it read, then the output shows how many documents there are, each one's row and title, and
@@ -158,18 +149,18 @@ The `...` lines stand for the parts left out here: your terminal shows all 10 do
 
 ```text
 01-read-the-knowledge-base/
-├── read_kb.py              # the whole step: KBLoader, print_documents() and main()
+├── knowledge_base_loader.py              # the whole project: KBLoader, print_documents() and main()
 ├── data/
-│   └── sample_it_kb.csv    # the knowledge base: 10 IT support articles
+│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
-│   └── test_read_kb.py     # 21 tests: the Documents, the loader, the log, the script
-├── requirements.txt        # langchain-core, pinned to an exact version
-├── requirements-dev.txt    # requirements.txt plus pytest, for the tests
-├── pytest.ini              # lets the tests import read_kb, and finds them in tests/
-└── README.md               # you are here
+│   └── test_knowledge_base_loader.py     # 21 tests: the Documents, the loader, the log, the script
+├── requirements.txt                      # langchain-core, pinned to an exact version
+├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
+├── pytest.ini                            # lets the tests import knowledge_base_loader, and finds them in tests/
+└── README.md                             # you are here
 ```
 
-`read_kb.py` is laid out in sections, each with a banner comment:
+`knowledge_base_loader.py` is laid out in sections, each with a banner comment:
 
 | Section | What's in it |
 |---|---|
@@ -190,9 +181,9 @@ The `...` lines stand for the parts left out here: your terminal shows all 10 do
 | `--log-level` | `INFO` | The least serious log messages to show: `DEBUG`, `INFO`, `WARNING` or `ERROR`. `DEBUG` adds one line per row. |
 
 ```bash
-python read_kb.py --data-path data/sample_it_kb.csv   # the same as no option
-python read_kb.py --log-level DEBUG                   # one more log line per row
-python read_kb.py --help                              # every option, with its default
+python knowledge_base_loader.py --data-path data/sample_it_kb.csv   # the same as no option
+python knowledge_base_loader.py --log-level DEBUG                   # one more log line per row
+python knowledge_base_loader.py --help                              # every option, with its default
 ```
 
 ### The Loader's Constructor
@@ -246,8 +237,8 @@ The script writes to two places, kept apart on purpose:
 Both show in your terminal, but each can be sent somewhere else on its own:
 
 ```bash
-python read_kb.py > documents.txt    # the Documents go to the file; the log still shows on screen
-python read_kb.py 2> /dev/null       # only the Documents (macOS, Linux, Codespaces; PowerShell: 2>$null)
+python knowledge_base_loader.py > documents.txt    # the Documents go to the file; the log still shows on screen
+python knowledge_base_loader.py 2> /dev/null       # only the Documents (macOS, Linux, Codespaces; PowerShell: 2>$null)
 ```
 
 Each Document has two parts:
@@ -273,8 +264,8 @@ Where it came from (metadata):                 ← the file, and the row (0 = th
 Document(page_content="title: VPN Connection Timeout\nproblem: ...", metadata={"source": "sample_it_kb.csv", "row": 0})
 ```
 
-`page_content` is the text that later steps will cut up, embed and search; `metadata` travels with it, so an answer
-can say where it came from.
+`page_content` is the article's text; `metadata` travels with it and says where that text came from: the file, and
+the row.
 
 ### 2. Configure First, Load Later
 
@@ -283,12 +274,13 @@ loader = KBLoader(KB_FILE)   # says what to do: which file. Nothing is read yet.
 docs = loader.load()         # does it: this is the line that reads the file.
 ```
 
-The same split as a RAG engine's constructor: the settings go in first, and the work happens when it's asked for.
+The settings go in first, and the work happens only when it's asked for: a loader made for a file that doesn't exist
+is no error until `load()`.
 
 ### 3. `lazy_load()` and `load()`
 
 `lazy_load()` hands out one Document at a time, so even a very large file never has to be in memory all at once.
-`load()`, from LangChain's `BaseLoader`, just collects them into a list. Every LangChain loader works this way.
+`load()`, from LangChain's `BaseLoader`, just collects them into a list.
 
 ### 4. Logging for What Happened, `print()` for the Output
 
@@ -333,26 +325,25 @@ sample file.
 **Fix**: The file has no lines at all. Its first line must name the columns, like `title,problem,resolution,...`.
 
 **Issue**: `ERROR Knowledge base file isn't utf-8 text (invalid start byte): ... Save it as UTF-8, or give KBLoader its encoding.`
-**Fix**: The file was saved in another encoding, often UTF-16 by Windows PowerShell 5's `>`. Save it again as UTF-8
-(in VS Code: the encoding in the status bar, then *Save with Encoding*), or read it with
-`KBLoader(path, encoding="utf-16")`.
+**Fix**: The file was saved in another encoding, often UTF-16 by Windows PowerShell 5's `>`. Save it again as UTF-8,
+or read it with `KBLoader(path, encoding="utf-16")`.
 
 **Issue**: `WARNING ... has a header row but no articles`, then `0 documents`
 **Fix**: The file has the column names but no rows under them. Add the articles, one per line.
 
-**Issue**: `read_kb.py: error: argument --log-level: invalid choice: 'LOUD' (choose from DEBUG, INFO, WARNING, ERROR)`
-**Fix**: Use one of the four levels it lists. Run `python read_kb.py --help` to see every option.
+**Issue**: `knowledge_base_loader.py: error: argument --log-level: invalid choice: 'LOUD' (choose from DEBUG, INFO, WARNING, ERROR)`
+**Fix**: Use one of the four levels it lists. Run `python knowledge_base_loader.py --help` to see every option.
 
 ---
 
 ## 📚 Next Steps
 
-**[Step 02: Documents and Metadata](../02-documents-and-metadata/README.md)**: this step put every column into a
-Document's text. Step 02 splits each article into the text to search (title, problem, resolution, notes) and the
-labels kept next to it (system, category, priority, tags), which later show with an answer as its source.
+**[02 · Documents and Metadata](../02-documents-and-metadata/README.md)**: this project put every column into a
+Document's text. 02 splits each article into its text (title, problem, resolution, notes) and the labels kept next
+to it (system, category, priority, tags).
 
 ### Ideas to Try
 
-- Run `python read_kb.py --log-level DEBUG` and find the log line for each row.
+- Run `python knowledge_base_loader.py --log-level DEBUG` and find the log line for each row.
 - Point `--data-path` at a CSV file of your own, with a header row, and see its rows become Documents.
 - Copy the sample file and delete everything but its first line, then read it: 0 documents, and a warning in the log.

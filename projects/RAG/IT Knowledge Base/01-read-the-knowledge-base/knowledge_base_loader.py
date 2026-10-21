@@ -14,9 +14,9 @@ Architecture:
 No model, no API key: it only reads a file.
 
 Usage:
-    python read_kb.py                            # reads data/sample_it_kb.csv
-    python read_kb.py --data-path other.csv      # reads another CSV file with a header row
-    python read_kb.py --log-level DEBUG          # also logs each row as it's read
+    python knowledge_base_loader.py                            # reads data/sample_it_kb.csv
+    python knowledge_base_loader.py --data-path other.csv      # reads another CSV file with a header row
+    python knowledge_base_loader.py --log-level DEBUG          # also logs each row as it's read
 """
 import argparse
 import csv
@@ -167,7 +167,7 @@ def print_documents(docs: list[Document]) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """
-    Read the command-line options. Each has a default, so `python read_kb.py` alone reads the sample file.
+    Read the command-line options. Each has a default, so `python knowledge_base_loader.py` alone reads the sample file.
 
     Args:
         argv: the options to read; None means the ones the script was started with (sys.argv)
