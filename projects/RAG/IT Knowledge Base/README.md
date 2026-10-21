@@ -34,7 +34,7 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 | `02-documents-and-metadata` | Each article's text to search (title, problem, resolution, notes) kept apart from its labels (system, category, priority, tags) | `python pipeline.py` |
 | `03-chunking` | The articles cut into chunks of at most 512 characters with `RecursiveCharacterTextSplitter`: 28 in all | `python pipeline.py` |
 | `04-embeddings` | The 28 chunks turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers each), in one call. No question yet | `python pipeline.py` |
-| `05-vector-store` | The chunks stored in a Qdrant server in Docker (or in memory), through `QdrantVectorStore`: one point per chunk, with its vector, text and labels, shown in Qdrant's dashboard | `docker compose up -d`, then `python vector_store.py` |
+| `05-vector-store` | The chunks stored in a Qdrant server in Docker (or in memory), through `QdrantVectorStore`: one point per chunk, with its vector, text and labels, shown in Qdrant's dashboard | `docker compose up -d`, then `python pipeline.py` |
 | `06-retriever` | The user's question: embedded, then searched in Qdrant for the 5 closest chunks; then both in one call with a retriever, a Runnable | `python retriever.py` |
 | `07-grounded-answer` | The RAG chain: the chunks and the question go into a prompt, and Gemini (`gemini-3.5-flash-lite`) answers from them only | `python rag_chain.py` |
 | `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python rag_engine.py` |

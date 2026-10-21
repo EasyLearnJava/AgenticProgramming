@@ -8,16 +8,12 @@ matches. It handles:
   2. Keeping each chunk's article labels, plus start_index: where in the article's text it starts
   3. Printing how many chunks each article makes, then every chunk
 
-Usage:
-    python chunking.py        # how many chunks each article makes, then every article's chunks
-    python chunking.py 200    # the same, with chunks of at most 200 characters
+Usage (this file only defines these; pipeline.py runs the steps):
+    chunks = split_documents(docs)   ->  28 chunks of at most 512 characters, each with its article's labels
+    print_chunks(docs, chunks)       ->  how many chunks each article makes, then every article's chunks
 """
-import sys
-
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-from knowledge_base import load_documents
 
 # In characters: the articles are 569 to 716 characters long, so 512 makes 2 or 3 chunks each (28 in all)
 CHUNK_SIZE = 512
@@ -35,11 +31,9 @@ def split_documents(docs: list[Document], chunk_size: int = CHUNK_SIZE,
     return make_splitter(chunk_size, chunk_overlap).split_documents(docs)
 
 
-if __name__ == "__main__":
-    size = int(sys.argv[1]) if len(sys.argv) > 1 else CHUNK_SIZE
-    docs = load_documents()
-    chunks = split_documents(docs, chunk_size=size)
-    print(f"{len(docs)} articles -> {len(chunks)} chunks of at most {size} characters")
+def print_chunks(docs: list[Document], chunks: list[Document], chunk_size: int = CHUNK_SIZE) -> None:
+    """Print how many chunks each article makes, then every article's chunks: where each starts, and its text."""
+    print(f"{len(docs)} articles -> {len(chunks)} chunks of at most {chunk_size} characters")
     for doc in docs:
         count = sum(chunk.metadata["doc_id"] == doc.metadata["doc_id"] for chunk in chunks)
         print(f"  {count} from {doc.metadata['title']} ({len(doc.page_content)} characters)")

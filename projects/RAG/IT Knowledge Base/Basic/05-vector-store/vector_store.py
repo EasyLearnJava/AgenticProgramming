@@ -8,29 +8,23 @@ its metadata. It handles:
   2. Embedding and storing the 28 chunks (one call to Gemini)
   3. Printing the collection, then every point stored in it
 
+Usage (this file only defines these; pipeline.py runs the steps):
     store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  an empty collection, "it_knowledge_base"
     add_knowledge_base(store)                               ->  the 28 chunks embedded and stored
-
-Usage:
-    python vector_store.py    # the collection, then every point stored in it
-                              # with QDRANT_URL in .env: in the Qdrant server (docker compose up -d), shown in its
-                              # dashboard; without it: Qdrant in memory, inside the script
+    print_points(store)                                     ->  the collection, then every point stored in it
 """
 import os
-import sys
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.http.exceptions import ResponseHandlingException
 from qdrant_client.models import Distance, VectorParams
 
 from chunking import split_documents
 from config import ENV_FILE
 from knowledge_base import load_documents
-from models import EMBEDDING_SIZE, embeddings
 
 # Not the course app's "it_kb", so the two apps never change each other's points on the same Qdrant server
 COLLECTION = "it_knowledge_base"
@@ -59,28 +53,14 @@ def add_knowledge_base(store: QdrantVectorStore) -> list[Document]:
     return chunks
 
 
-if __name__ == "__main__":
-    # A server keeps its points between runs, and these get random ids, so the collection is deleted first.
-    # check_compatibility=False skips qdrant-client's background version check, which only warns.
-    if QDRANT_URL:
-        client = QdrantClient(url=QDRANT_URL, check_compatibility=False)
-        try:
-            if client.collection_exists(COLLECTION):
-                client.delete_collection(COLLECTION)
-        except ResponseHandlingException:
-            sys.exit(f"Can't reach Qdrant at {QDRANT_URL}. Start it first, in this folder: docker compose up -d "
-                     "(or remove QDRANT_URL from .env to run Qdrant in memory).")
-        print(f"Qdrant: the server at {QDRANT_URL}")
-    else:
-        client = QdrantClient(":memory:")
-        print("Qdrant: in memory, inside this script")
-    store = make_vector_store(embeddings, EMBEDDING_SIZE, client)
-    add_knowledge_base(store)
+def print_points(store: QdrantVectorStore) -> None:
+    """Print the collection's settings, then every point stored in it, in article and place order."""
+    collection = store.collection_name
+    params = store.client.get_collection(collection).config.params.vectors
     # scroll() returns points in id order, so they're sorted back into article and place order
-    params = store.client.get_collection(COLLECTION).config.params.vectors
-    points, _ = store.client.scroll(COLLECTION, limit=100, with_vectors=True)
+    points, _ = store.client.scroll(collection, limit=100, with_vectors=True)
     points.sort(key=lambda point: (int(point.payload["metadata"]["doc_id"]), point.payload["metadata"]["start_index"]))
-    print(f"Collection {COLLECTION!r}: {len(points)} points, vectors of {params.size} numbers, "
+    print(f"Collection {collection!r}: {len(points)} points, vectors of {params.size} numbers, "
           f"compared by {params.distance.value}")
     print(f"Each point holds an id, a vector and a payload with {', '.join(sorted(points[0].payload))}")
     print()
@@ -89,6 +69,3 @@ if __name__ == "__main__":
         print(f"Point {number} of {len(points)}: {metadata['title']}, from character {metadata['start_index']}: "
               f"{len(point.vector)} numbers, {len(point.payload['page_content'])} characters of text, "
               f"{len(metadata)} labels")
-    if QDRANT_URL:
-        print(f"\nSee them in Qdrant's dashboard: {QDRANT_URL.rstrip('/')}/dashboard")
-        print("In GitHub Codespaces: open the Ports tab, open the address for port 6333, and add /dashboard to it.")

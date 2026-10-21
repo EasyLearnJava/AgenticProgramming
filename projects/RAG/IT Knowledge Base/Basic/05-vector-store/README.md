@@ -22,27 +22,30 @@ and its labels, then look at them in Qdrant's web dashboard. Qdrant runs as a se
   random ids, so without that, every run would add 28 more copies
 - **Prints** where Qdrant is, the collection's settings, then every stored point, read back from Qdrant, and where to
   find the dashboard
+- **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
-**Try it:** run it, then open the dashboard and click through the 28 points.
+**Try it:** `python pipeline.py`, then open the dashboard and click through the 28 points.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-data/sample_it_kb.csv                        10 rows × 8 columns
-          │
-          ↓
 ┌───────────────────────────────────┐
-│  load_documents()                 │  ← knowledge_base.py: 10 Documents, text + labels
+│  pipeline.py: main()              │  ← the one file to run: calls each step in order
+└─────────────────┬─────────────────┘
+                  │ Steps 1 and 2: Read the knowledge base, then chunk it
+                  ↓
+┌───────────────────────────────────┐
+│  load_documents()                 │  ← knowledge_base.py: data/sample_it_kb.csv → 10 Documents, text + labels
 │  split_documents()                │  ← chunking.py: 28 chunks of at most 512 characters
 └─────────────────┬─────────────────┘
-                  │ 28 chunks
+                  │ 28 chunks; Step 3: Embed and store
                   ↓
 ┌───────────────────────────────────┐
 │  make_vector_store(embeddings,    │  ← vector_store.py: the it_knowledge_base collection,
 │                    768, client)   │     768 numbers, cosine, wrapped in QdrantVectorStore
-│  add_knowledge_base(store)        │  ← add_documents(): one call to Gemini, then 28 points
+│  store.add_documents(chunks)      │  ← one call to Gemini, then 28 points
 └─────────────────┬─────────────────┘
                   │ 28 points: id + vector + payload (page_content, metadata)
         ┌─────────┴──────────┐
@@ -58,12 +61,13 @@ data/sample_it_kb.csv                        10 rows × 8 columns
 
 ### The Pipeline in This Project
 
-1. **Choose Qdrant** → with `QDRANT_URL` in `.env`, the server; without it, Qdrant in memory
-2. **Start fresh** → on the server, delete the collection if it's there
-3. **Make the collection** → `make_vector_store()`: `it_knowledge_base`, 768 numbers per vector, cosine
-4. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
-5. **Embed and store** → `add_knowledge_base()`: `add_documents()` embeds the 28 texts in one call and stores 28 points
-6. **Read back and print** → the collection's settings, then every point, sorted by article and place
+1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
+2. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
+3. **Choose Qdrant** → with `QDRANT_URL` in `.env`, the server; without it, Qdrant in memory
+4. **Start fresh** → on the server, delete the collection if it's there
+5. **Make the collection** → `make_vector_store()`: `it_knowledge_base`, 768 numbers per vector, cosine
+6. **Embed and store** → `store.add_documents(chunks)` embeds the 28 texts in one call and stores 28 points
+7. **Read back and print** → `print_points()`: the collection's settings, then every point, by article and place
 
 ---
 
@@ -129,14 +133,18 @@ you only need Step 6.
 ### Step 6: Run It
 
 ```bash
-python vector_store.py               # store the 28 chunks in the server
+python pipeline.py                   # store the 28 chunks in the server
 ```
 
-It says where Qdrant is, prints the collection's settings, then every stored point, one line each: its article, where
-in the article the chunk starts, its vector's size, its text's length and how many labels it has. It ends with where
-to find the dashboard. Gemini's numbers aren't printed, so this is exactly what you'll see:
+It prints Steps 1 and 2 in one line each, then Step 3 in full: where Qdrant is, the collection's settings, then every
+stored point, one line each: its article, where in the article the chunk starts, its vector's size, its text's length
+and how many labels it has. It ends with where to find the dashboard. Gemini's numbers aren't printed, so this is
+exactly what you'll see:
 
 ```text
+Step 1: Read the knowledge base: 10 documents
+Step 2: Chunk: 28 chunks of at most 512 characters
+Step 3: Embed and store
 Qdrant: the server at http://localhost:6333
 Collection 'it_knowledge_base': 28 points, vectors of 768 numbers, compared by Cosine
 Each point holds an id, a vector and a payload with metadata, page_content
@@ -185,8 +193,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/05-vector-store   # from th
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python vector_store.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same
-as in Step 6. Then open the dashboard as in Step 7.
+`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 6. Then open the dashboard as in Step 7.
 
 ### Or: Run It Without Docker
 
@@ -196,9 +204,9 @@ In `.env`, put a `#` at the start of the `QDRANT_URL` line:
 # QDRANT_URL=http://localhost:6333
 ```
 
-Then `python vector_store.py` keeps Qdrant in memory, inside the script. It prints the same collection and points, but
-its first line is `Qdrant: in memory, inside this script`, and there's no dashboard line, because there's no server to
-look at. To go back to the server, remove the `#`.
+Then `python pipeline.py` keeps Qdrant in memory, inside the script. It prints the same steps, collection and points,
+but the line after `Step 3: Embed and store` is `Qdrant: in memory, inside this script`, and there's no dashboard
+line, because there's no server to look at. To go back to the server, remove the `#`.
 
 ### Stop the Server
 
@@ -212,11 +220,12 @@ time. Only one program can use port 6333 at a time, so stop this server before s
 
 ```text
 05-vector-store/
-├── vector_store.py                       # make_vector_store(), add_knowledge_base(), and the lines that store and print
+├── pipeline.py                           # the one file to run: main() calls each step in order
+├── vector_store.py                       # make_vector_store(), add_knowledge_base() and print_points(): Step 3
 ├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
 ├── config.py                             # load_api_key(): the key, checked before anything else runs
-├── chunking.py                           # split_documents(): the 28 chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles, text + labels
+├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
+├── knowledge_base.py                     # load_documents(): Step 1, the 10 articles, text + labels
 ├── docker-compose.yml                    # the Qdrant server, qdrant/qdrant:v1.19.1, on port 6333
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
@@ -224,14 +233,15 @@ time. Only one program can use port 6333 at a time, so stop this server before s
 ├── tests/
 │   ├── conftest.py                       # decides once whether the live tests can run
 │   ├── fakes.py                          # stand-ins for Gemini: no key, no network
-│   ├── test_vector_store.py              # the collection, the points, the server and in-memory runs
+│   ├── test_pipeline.py                  # the steps, in memory and with a server; nothing else runs
+│   ├── test_vector_store.py              # the collection, the points, what's printed
 │   ├── test_models.py                    # the model's settings, and the no-key message
 │   ├── test_chunking.py                  # the chunks
 │   └── test_knowledge_base.py            # the Documents
 ├── .env.example                          # copy it to .env: your key, and QDRANT_URL for the server
 ├── requirements.txt                      # the packages, pinned to exact versions
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the scripts, and finds them in tests/
+├── pytest.ini                            # lets the tests import the files, and finds them in tests/
 └── README.md                             # you are here
 ```
 
@@ -240,16 +250,18 @@ time. Only one program can use port 6333 at a time, so stop this server before s
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 22 passed, 2 skipped     (add -v for one line per test)
+python -m pytest                     # 24 passed, 2 skipped     (add -v for one line per test)
 ```
 
 The tests never need Docker: an in-memory Qdrant stands in for the server. Most of them also use `tests/fakes.py`'s
 stand-in for Gemini, so they need no key and no network. They check:
 
 - **The store**: a new collection is empty, cosine, of the right size; adding the knowledge base stores 28 chunks in
-  one embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is kept
-- **The script**: in memory, it stores the chunks and never embeds a question; with `QDRANT_URL` it uses that server
-  and starts fresh on each run; with `QDRANT_URL` but no server, it stops and says what to do
+  one embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is kept;
+  and what `print_points()` prints
+- **The pipeline**: in memory, it stores the chunks and never embeds a question; with a server's address it uses that
+  server and starts fresh on each run; with an address but no server, it stops and says what to do; and no other
+  file runs anything
 - **The model, the chunks and the Documents**: the model's settings and the no-key message; 28 chunks with their
   labels; 10 Documents with their text and labels
 
@@ -342,7 +354,7 @@ EOF
 ```
 
 It prints `length of a: 1.0` and the same score as the dashboard: `0.7558` for the two points in the picture. Each run
-of `vector_store.py` stores the points again, with new random ids, so copy the ids from the dashboard after your latest
+of `pipeline.py` stores the points again, with new random ids, so copy the ids from the dashboard after your latest
 run.
 
 ---
@@ -363,14 +375,14 @@ QdrantClient(url="http://localhost:6333")    # the server: points kept between r
 QdrantClient(":memory:")                     # inside the script: nothing outside can see them, gone at the end
 ```
 
-The same code works with either: only the client differs. `QDRANT_URL` in `.env` picks the server; without it, the
-script keeps Qdrant in memory.
+The same code works with either: only the client differs. `QDRANT_URL` in `.env` picks the server; without it,
+`pipeline.py` keeps Qdrant in memory.
 
 ### 3. Starting Fresh on Every Run
 
 `QdrantVectorStore` gives each new point a random id. Storing the same 28 chunks twice would make 56 points, so on the
-server the script deletes the collection first and stores the chunks again. Each run embeds the chunks again too: one
-call to Gemini.
+server `pipeline.py` deletes the collection first and stores the chunks again. Each run embeds the chunks again too:
+one call to Gemini.
 
 ### 4. How Qdrant Measures "Close": the Distance
 
@@ -468,6 +480,14 @@ the vector stored here, they'd differ, by the same factor for every number in th
 - **It decides what the scores mean.** With cosine and dot, higher is closer; with Euclid and Manhattan, lower is
   closer. This project uses cosine, so its scores read "the closer to 1, the closer the meaning".
 
+### 7. One File Runs the Steps
+
+`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 and 2, printing a line each, then Step 3:
+`connect()` picks the server or memory, `make_vector_store()` and `add_documents()` store the chunks, and
+`print_points()` prints them. The other files only define the steps, so importing them makes no call. The model, its
+vector size and the server's address are parameters of `main()`, so the tests pass a stand-in for Gemini and an
+in-memory Qdrant.
+
 ---
 
 ## 🛠️ Troubleshooting
@@ -479,7 +499,7 @@ the vector stored here, they'd differ, by the same factor for every number in th
 **Fix**: `.env` still says `your-key-here`. Put your real key after `GOOGLE_API_KEY=`.
 
 **Issue**: `Can't reach Qdrant at http://localhost:6333. Start it first, in this folder: docker compose up -d (or remove QDRANT_URL from .env to run Qdrant in memory).`
-**Fix**: `QDRANT_URL` is set, but no server answers. The script stops before calling Gemini. Start the server
+**Fix**: `QDRANT_URL` is set, but no server answers. `pipeline.py` stops before calling Gemini. Start the server
 (Step 5), or run without Docker ([Or: Run It Without Docker](#or-run-it-without-docker)).
 
 **Issue**: `no configuration file provided: not found`, from `docker compose up -d`
@@ -487,10 +507,13 @@ the vector stored here, they'd differ, by the same factor for every number in th
 `ls docker-compose.yml` to check.
 
 **Issue**: The dashboard says `No collection is present`
-**Fix**: The script hasn't stored anything in this server yet. Check that the first line `python vector_store.py`
-prints is `Qdrant: the server at ...`, then refresh the page (the ↻ next to **Collections**). If it says
-`Qdrant: in memory, inside this script`, `.env` has no `QDRANT_URL` line, or it has a `#` in front: fix it, and run
-the script again.
+**Fix**: Nothing has been stored in this server yet. Check that, in what `python pipeline.py` prints, the line after
+`Step 3: Embed and store` is `Qdrant: the server at ...`, then refresh the page (the ↻ next to **Collections**). If
+it says `Qdrant: in memory, inside this script`, `.env` has no `QDRANT_URL` line, or it has a `#` in front: fix it,
+and run `python pipeline.py` again.
+
+**Issue**: `python vector_store.py` prints nothing
+**Fix**: That file only defines the step. Run `python pipeline.py` (Step 6), which runs every step.
 
 **Issue**: In Codespaces, the dashboard says `This ... page can't be found` with `HTTP ERROR 404`
 **Fix**: That comes from Codespaces, not from Qdrant: nothing is answering on port 6333 inside the codespace. Check,
@@ -541,4 +564,5 @@ grade. Its README lists what it will add.
 - In the Visualize tab, color the dots by `metadata.category` instead of `metadata.title`, and see which categories
   sit near each other.
 - Click a chunk from another article, and compare its **Similar points** with the MFA one's.
-- Run it twice and look at the ids in the dashboard: the same 28 chunks, with new random ids each time.
+- Run `python pipeline.py` twice and look at the ids in the dashboard: the same 28 chunks, with new random ids each
+  time.
