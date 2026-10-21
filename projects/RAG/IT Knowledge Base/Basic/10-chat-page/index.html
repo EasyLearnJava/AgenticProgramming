@@ -6,8 +6,7 @@
 </head>
 <body>
   <!--
-    The chat page. main.py serves it at / and /index.html, and it talks only to that same server:
-    on load, GET /api/stats for one line about the knowledge base; on each question, POST /api/query.
+    IT Knowledge Base: Chat Page. Served by main.py at /; calls GET /api/stats and POST /api/query.
   -->
   <h1>IT Knowledge Base</h1>
   <p id="stats">Loading…</p>
@@ -26,7 +25,7 @@
     const button = document.getElementById("ask");
     const answers = document.getElementById("answers");
 
-    // ① On load: one line about what the server holds (main.py's GET /api/stats).
+    // On load: one line about what the server holds.
     fetch("/api/stats")
       .then((res) => {
         if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
@@ -38,8 +37,7 @@
       })
       .catch((err) => { statsLine.textContent = `Something went wrong: ${err.message}`; });
 
-    // ② One answer on the page, newest first: the question, the answer, then its sources. textContent everywhere,
-    //    never innerHTML, so text from the server is shown as text and can't add HTML to the page.
+    // One answer, newest first. textContent, never innerHTML, so the server's text can't add HTML.
     function showAnswer(question, data) {
       const block = document.createElement("section");
       const q = document.createElement("h3");
@@ -59,7 +57,7 @@
       answers.prepend(block);
     }
 
-    // ③ Each submit (click or Enter): send the question, then show the answer, or what went wrong.
+    // Each submit: send the question, then show the answer or what went wrong.
     document.getElementById("form").addEventListener("submit", async (event) => {
       event.preventDefault();                   // stay on this page: the form would otherwise reload it
       const question = document.getElementById("question").value;
@@ -71,8 +69,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question }),
         });
-        // A 422 (a bad question) and a 502 (Gemini didn't answer) come back with a JSON "detail" to show.
-        // Any other error status is unexpected: jump to the catch below.
+        // 422 (bad question) and 502 (Gemini didn't answer) have a JSON "detail" to show; others are unexpected.
         if (!res.ok && res.status !== 422 && res.status !== 502) {
           throw new Error(`the server answered HTTP ${res.status}`);
         }
