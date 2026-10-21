@@ -17,15 +17,20 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
   with its title, system, category and the start of the chunk's text
 - **`aquery(question)`**: the same as `query()`, for async code
 - **`stats()`**: what the engine holds (10 articles, 28 chunks) and how it's set up
-- **The script** builds the engine and answers the three sample questions, or the one you give it
+- **`pipeline.py`**, the one file to run, builds the engine, then answers the three sample questions, or the one you
+  give it, naming each step first
 
-**Try it:** `python rag_engine.py "printer not found"`, and read the answer with its sources.
+**Try it:** `python pipeline.py "printer not found"`, and read the answer with its sources.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
+┌───────────────────────────────────┐
+│  pipeline.py: main()              │  ← the one file to run: Step 1, build; Step 2, answer
+└────────────────┬──────────────────┘
+                 ↓
 ┌───────────────────────────────────┐
 │  RAGEngine()                      │  ← settings only: nothing read, no call yet
 └────────────────┬──────────────────┘
@@ -46,17 +51,22 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
 └────────────────┬──────────────────┘
                  ↓
    {"answer": "...", "sources": [{"title", "system", "category", "snippet"}, ...]}
+                 │
+                 ↓
+   print_result(): the question, the answer, then each source
 ```
 
 ### The Pipeline in This Project
 
-1. **Configure** → `RAGEngine()` stores the models, the Qdrant client, the data file, the collection and the
+1. **Run** → `python pipeline.py`: `main()` builds the engine (Step 1), then answers each question (Step 2)
+2. **Configure** → `RAGEngine()` stores the models, the Qdrant client, the data file, the collection and the
    sizes; it reads nothing
-2. **Build** → `build()` loads and chunks the articles, embeds and stores the chunks, and makes the chain
-3. **Ask** → `query(question)` runs the chain: the 5 closest chunks, then Gemini's answer from them
-4. **Name the sources** → the first 3 different articles among those chunks, closest first, each with the first 200
+3. **Build** → `build()` loads and chunks the articles, embeds and stores the chunks, and makes the chain
+4. **Ask** → `query(question)` runs the chain: the 5 closest chunks, then Gemini's answer from them
+5. **Name the sources** → the first 3 different articles among those chunks, closest first, each with the first 200
    characters of its chunk
-5. **Report** → `stats()` gives what the engine holds and how it's set up
+6. **Print** → `print_result()`: the question, the answer, then each source
+7. **Report** → `stats()` gives what the engine holds and how it's set up
 
 ---
 
@@ -105,14 +115,15 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 ### Step 5: Run It
 
 ```bash
-python rag_engine.py
+python pipeline.py
 ```
 
-It prints what it built, then each question (`Q:`), its answer (`A:`) and its sources. The parts in `< >` come from
-Gemini, so they change from run to run:
+It prints Step 1, what it built, in one line, then Step 2: each question (`Q:`), its answer (`A:`) and its sources.
+The parts in `< >` come from Gemini, so they change from run to run:
 
 ```text
-Built: 10 articles, 28 chunks
+Step 1: Build the engine: 10 articles, 28 chunks
+Step 2: Answer
 
 Q: How do I fix VPN connection timeouts?
 A: <Gemini's answer>
@@ -128,10 +139,10 @@ A: <Gemini's answer>
    ...
 ```
 
-To ask your own question, put it after the script's name:
+To ask your own question, put it after `pipeline.py`:
 
 ```bash
-python rag_engine.py "printer not found"
+python pipeline.py "printer not found"
 ```
 
 ### Or: Run It in One Command
@@ -143,8 +154,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/08-rag-engine   # from the 
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python rag_engine.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same
-as in Step 5.
+`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 5. A question at the end of the command goes to `pipeline.py`.
 
 ---
 
@@ -152,7 +163,8 @@ as in Step 5.
 
 ```text
 08-rag-engine/
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats()
+├── pipeline.py                           # the one file to run: main() calls each step in order
+├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats(); print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_vector_store() (Qdrant, in memory), add_knowledge_base()
@@ -178,14 +190,16 @@ as in Step 5.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 42 passed, 6 skipped     (add -v for one line per test)
+python -m pytest                     # 44 passed, 6 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the engine, they check that
 nothing is read or called before `build()`; that `build()` embeds the 28 chunks in one call; that `query()` gives the
 answer and up to 3 different sources; that `aquery()` gives the same; that other chunk sizes and numbers of chunks,
 another data file and another collection can be set, and engines in collections of their own keep their own
-chunks; and that every setting is passed by name.
+chunks; that every setting is passed by name; and what `print_result()` prints. For the pipeline, they check that
+it builds the engine, then answers each question, or one of your own, after the steps' names; and that no other file
+runs anything.
 
 The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -195,14 +209,15 @@ no key is set. With your key in `.env`, they run too. To run only the plain ones
 ## 📊 Understanding the Output
 
 ```text
-Built: 10 articles, 28 chunks                     ← build() is done: the chunks are embedded and stored
+Step 1: Build the engine: 10 articles, 28 chunks  ← build() is done: the chunks are embedded and stored
+Step 2: Answer
 
 Q: How do I fix VPN connection timeouts?         ← the question
 A: <Gemini's answer>                              ← written from the 5 closest chunks only
    source: <article title> (<system>, <category>) ← up to 3 sources, each a different article, closest first
 ```
 
-`query()` gives back a dictionary, and the script prints it:
+`query()` gives back a dictionary, and `print_result()` prints it:
 
 ```python
 {"answer": "...", "sources": [{"title": "...", "system": "...", "category": "...", "snippet": "..."}, ...]}
@@ -253,6 +268,13 @@ first, and stops at 3, so every source names a different article.
 `aquery()` does what `query()` does, with `await`: while Gemini works, a program that runs many requests at once can
 get on with the others.
 
+### 5. One File Runs the Steps
+
+`pipeline.py` is the only file that runs anything: `main()` builds the engine (Step 1, in one line, from `stats()`),
+then answers each question (Step 2), and `print_result()` prints each answer. `rag_engine.py` and the other files
+only define the parts, so importing them reads nothing and makes no call. The engine is a parameter of `main()`, so
+the tests pass one with stand-ins for Gemini.
+
 ---
 
 ## 🛠️ Troubleshooting
@@ -267,6 +289,9 @@ get on with the others.
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
+**Issue**: `python rag_engine.py` prints nothing
+**Fix**: That file only defines the engine. Run `python pipeline.py` (Step 5), which builds it and asks it.
+
 ---
 
 ## 📚 Next Steps
@@ -279,6 +304,6 @@ grade. Its README lists what it will add.
 
 ### Ideas to Try
 
-- Ask a question of your own, and check that each source is a different article.
+- Ask a question of your own with `python pipeline.py "..."`, and check that each source is a different article.
 - Change `MAX_SOURCES` in `rag_engine.py` from 3 to 1, and see one source per answer.
-- Build the engine with `RAGEngine(top_k=2)`, and compare its answers with the default 5 chunks.
+- In `pipeline.py`, build the engine with `RAGEngine(top_k=2)`, and compare its answers with the default 5 chunks.

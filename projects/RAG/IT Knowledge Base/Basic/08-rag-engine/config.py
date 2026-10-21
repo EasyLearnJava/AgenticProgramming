@@ -6,11 +6,10 @@ Loads the Gemini API key and checks it before anything else runs. It handles:
   1. Reading GOOGLE_API_KEY from the environment, or from the .env file next to this one
   2. Stopping with a clear MissingKeyError when there's no usable key
 
-Usage:
-    python config.py      # "GOOGLE_API_KEY is set." (the key itself is never printed)
+Usage (models.py calls it, before it builds the models):
+    load_api_key()   ->  the key; or MissingKeyError, saying how to set one (the key itself is never printed)
 """
 import os
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -46,11 +45,3 @@ def load_api_key(env_file: Path = ENV_FILE) -> str:
     if key == PLACEHOLDER:
         raise MissingKeyError("GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.")
     return key
-
-
-if __name__ == "__main__":
-    try:
-        load_api_key()
-    except MissingKeyError as err:
-        sys.exit(str(err))                   # the message, and exit code 1: no stack trace
-    print("GOOGLE_API_KEY is set.")          # never print the key itself, not even part of it

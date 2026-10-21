@@ -26,7 +26,7 @@ COMMANDS = {
     "Basic/05-vector-store": ["pipeline.py"],
     "Basic/06-retriever": ["pipeline.py"],
     "Basic/07-grounded-answer": ["pipeline.py"],
-    "Basic/08-rag-engine": ["rag_engine.py"],
+    "Basic/08-rag-engine": ["pipeline.py"],
     "Basic/09-api": ["-m", "uvicorn", "main:app", "--reload"],
     "Basic/10-chat-page": ["-m", "uvicorn", "main:app", "--reload"],
     "Basic/11-qdrant-in-docker": ["-m", "uvicorn", "main:app", "--reload"],

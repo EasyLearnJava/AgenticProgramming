@@ -7,12 +7,13 @@ answers each question with its sources. It handles:
   1. Building: load and split the articles, embed and store the chunks, make the chain (one call to Gemini)
   2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds and how it's set up
+  4. Printing an answer with its sources
 
-Usage:
-    python rag_engine.py                       # answers to the three sample questions
-    python rag_engine.py "printer not found"   # the answer to your question
+Usage (this file only defines these; pipeline.py runs the steps):
+    engine = RAGEngine()                             ->  settings only: nothing is read and no call is made
+    engine.build()                                   ->  read, chunk, embed and store (one call to Gemini)
+    print_result(question, engine.query(question))   ->  the answer and up to 3 sources (two calls)
 """
-import sys
 from pathlib import Path
 
 from langchain_core.embeddings import Embeddings
@@ -24,7 +25,7 @@ from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
 from knowledge_base import KB_FILE, load_documents
 from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
-from retriever import QUESTIONS, TOP_K, make_retriever
+from retriever import TOP_K, make_retriever
 from vector_store import COLLECTION, make_vector_store
 
 MAX_SOURCES = 3        # sources per answer: the first 3 different articles among the chunks found
@@ -94,14 +95,9 @@ class RAGEngine:
                 "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL}
 
 
-if __name__ == "__main__":
-    questions = [" ".join(sys.argv[1:])] if len(sys.argv) > 1 else QUESTIONS
-    engine = RAGEngine()
-    engine.build()
-    print(f"Built: {engine.stats()['documents']} articles, {engine.stats()['chunks']} chunks\n")
-    for question in questions:
-        result = engine.query(question)
-        print(f"Q: {question}\nA: {result['answer']}")
-        for source in result["sources"]:
-            print(f"   source: {source['title']} ({source['system']}, {source['category']})")
-        print()
+def print_result(question: str, result: dict) -> None:
+    """Print one question, its answer and its sources, then a blank line."""
+    print(f"Q: {question}\nA: {result['answer']}")
+    for source in result["sources"]:
+        print(f"   source: {source['title']} ({source['system']}, {source['category']})")
+    print()

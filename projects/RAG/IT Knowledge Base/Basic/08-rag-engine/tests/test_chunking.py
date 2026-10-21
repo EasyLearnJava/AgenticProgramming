@@ -1,17 +1,12 @@
 """
 Tests for chunking.py: the 10 articles cut into chunks, each no longer than the chunk size, each keeping its
-article's metadata and where in the article it starts. No key, no network.
+article's metadata and where in the article it starts, and what print_chunks() prints. No key, no network.
 """
-import subprocess
-import sys
-from pathlib import Path
-
 import pytest
 
-from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
+from chunking import CHUNK_OVERLAP, CHUNK_SIZE, print_chunks, split_documents
 from knowledge_base import load_documents
 
-FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 DOCS = load_documents()
 
 
@@ -48,9 +43,9 @@ def test_1000_characters_keep_every_article_whole():
     assert [chunk.page_content for chunk in chunks] == [doc.page_content for doc in DOCS]
 
 
-def test_running_it_prints_the_counts_then_every_articles_chunks():
-    printed = subprocess.run([sys.executable, str(FOLDER / "chunking.py")], cwd=FOLDER, capture_output=True,
-                             text=True, encoding="utf-8", check=True).stdout
+def test_print_chunks_prints_the_counts_then_every_articles_chunks(capsys):
+    print_chunks(DOCS, split_documents(DOCS))
+    printed = capsys.readouterr().out
     lines = printed.splitlines()
     assert printed.startswith("10 articles -> 28 chunks of at most 512 characters\n"
                               "  2 from VPN Connection Timeout (569 characters)\n")

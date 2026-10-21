@@ -37,7 +37,7 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 | `05-vector-store` | The chunks stored in a Qdrant server in Docker (or in memory), through `QdrantVectorStore`: one point per chunk, with its vector, text and labels, shown in Qdrant's dashboard | `docker compose up -d`, then `python pipeline.py` |
 | `06-retriever` | The user's question: embedded, then searched in Qdrant for the 5 closest chunks; then both in one call with a retriever, a Runnable | `python pipeline.py` |
 | `07-grounded-answer` | The RAG chain: the chunks and the question go into a prompt, and Gemini (`gemini-3.5-flash-lite`) answers from them only | `python pipeline.py` |
-| `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python rag_engine.py` |
+| `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python pipeline.py` |
 | `09-api` | A FastAPI server: `POST /api/query`, `GET /api/stats`, `GET /api/health` | `uvicorn main:app --reload` |
 | `10-chat-page` | A chat page at http://127.0.0.1:8000, served by the same server | `uvicorn main:app --reload` |
 | `11-qdrant-in-docker` | Qdrant as a server in Docker, which keeps the chunks between runs, so they're embedded only once | `docker compose up -d`, then `uvicorn main:app --reload` |
