@@ -7,8 +7,9 @@ Reads the IT knowledge base CSV file into LangChain Documents, one per article, 
   2. Turning each row into a Document (page_content + metadata)
   3. Printing every Document
 
-Usage:
-    python knowledge_base_loader.py
+Usage (pipeline.py runs these; this file only defines them):
+    docs = KBLoader(KB_FILE).load()   ->  10 Documents, one per article
+    print_documents(docs)             ->  the count and each title, then every Document in full
 """
 import csv
 from collections.abc import Iterator
@@ -54,7 +55,3 @@ def print_documents(docs: list[Document]) -> None:
         print()
         print("Where it came from (metadata):")
         print(doc.metadata)
-
-
-if __name__ == "__main__":
-    print_documents(KBLoader(KB_FILE).load())

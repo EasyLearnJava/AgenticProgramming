@@ -13,26 +13,29 @@ with its text and where it came from, and print them. Built with **LangChain** a
 - **Turns each row into a LangChain `Document`**: its `page_content` has one `column: value` line per column
 - **Records where each one came from** in its `metadata`: the file's name and the row number
 - **Prints** how many there are, each one's title, then every `Document` in full
+- **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
 The happy path only: the file is there, and every row is a good article.
 
-**Try it:** `python knowledge_base_loader.py`, and see the 10 articles the way LangChain holds them.
+**Try it:** `python pipeline.py`, and see the 10 articles the way LangChain holds them.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-data/sample_it_kb.csv                 10 rows × 8 columns
-          │
-          ↓
+┌──────────────────────────┐
+│   pipeline.py: main()    │  ← the one file to run: calls each step in order
+└────────────┬─────────────┘
+             │ Step 1: Read the knowledge base
+             ↓
 ┌──────────────────────────┐
 │   KBLoader(data_path)    │  ← configure: stores which file to read; reads nothing
 └────────────┬─────────────┘
              │ load()
              ↓
 ┌──────────────────────────┐
-│       lazy_load()        │  ← reads the file one row at a time:
+│       lazy_load()        │  ← reads data/sample_it_kb.csv (10 rows × 8 columns) one row at a time:
 │                          │     row → Document(page_content, metadata)
 └────────────┬─────────────┘
              │ 10 Documents
@@ -44,10 +47,11 @@ data/sample_it_kb.csv                 10 rows × 8 columns
 
 ### The Pipeline in This Project
 
-1. **Configure** → `KBLoader(data_path)` stores which file to read
-2. **Read** → `csv.DictReader` gives each row as `{column: value}`
-3. **Convert** → each row becomes a `Document`: its text, and where it came from
-4. **Print** → the count and the titles, then every `Document`
+1. **Run** → `python pipeline.py`: `main()` prints each step's name, then runs it
+2. **Configure** → `KBLoader(data_path)` stores which file to read
+3. **Read** → `csv.DictReader` gives each row as `{column: value}`
+4. **Convert** → each row becomes a `Document`: its text, and where it came from
+5. **Print** → the count and the titles, then every `Document`
 
 ---
 
@@ -87,13 +91,14 @@ pip install -r requirements-dev.txt  # once: langchain-core and pytest, into .ve
 ### Step 4: Run It
 
 ```bash
-python knowledge_base_loader.py
+python pipeline.py
 ```
 
-It prints how many documents it read and each one's row and title, then every document in full. The start and the
-end of what you'll see:
+It prints the step's name, then how many documents it read and each one's row and title, then every document in
+full. The start and the end of what you'll see:
 
 ```text
+Step 1: Read the knowledge base
 10 documents
 row 0  title: VPN Connection Timeout
 row 1  title: MFA Setup Failure
@@ -146,8 +151,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/01-read-the-knowledge-base 
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python knowledge_base_loader.py` in this folder with the venv's Python, so there's nothing to activate. The output is
-the same as in Step 4.
+`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 4.
 
 ---
 
@@ -155,11 +160,13 @@ the same as in Step 4.
 
 ```text
 01-read-the-knowledge-base/
-├── knowledge_base_loader.py              # KBLoader, print_documents(), and the lines that run them
+├── pipeline.py                           # the one file to run: main() calls each step in order
+├── knowledge_base_loader.py              # KBLoader and print_documents(): Step 1, which pipeline.py runs
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
-│   └── test_knowledge_base_loader.py     # 9 tests: the Documents, the loader, the script
+│   ├── test_knowledge_base_loader.py     # 7 tests: the Documents and the loader
+│   └── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
 ├── requirements.txt                      # langchain-core, pinned to an exact version
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
 ├── pytest.ini                            # lets the tests import knowledge_base_loader, and finds them in tests/
@@ -171,18 +178,20 @@ the same as in Step 4.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 9 passed     (add -v for one line per test)
+python -m pytest                     # 10 passed     (add -v for one line per test)
 ```
 
-The tests read the sample file and run the script as its own process: 10 Documents, every column as a line in
+The tests read the sample file and run `pipeline.py` as its own process: 10 Documents, every column as a line in
 order, the metadata, the first one is the VPN article, making the loader reads nothing, `load()` and `lazy_load()`
-agree, the printed output, and the same output whichever folder the script is started from.
+agree, the printed output, the same output whichever folder it's started from, and that `knowledge_base_loader.py`
+run on its own prints nothing.
 
 ---
 
 ## 📊 Understanding the Output
 
-Each Document has two parts:
+The output starts with the step's name, `Step 1: Read the knowledge base`, then the count and the titles. Each
+Document has two parts:
 
 ```text
 Document 1 of 10
@@ -222,14 +231,32 @@ The settings go in first, and the work happens only when it's asked for.
 `lazy_load()` hands out one Document at a time, so even a very large file never has to be in memory all at once.
 `load()`, from LangChain's `BaseLoader`, just collects them into a list.
 
-### 4. A Path From the Script, Not From Where You Run It
+### 4. A Path From the File, Not From Where You Run It
 
 ```python
 KB_FILE = Path(__file__).resolve().parent / "data" / "sample_it_kb.csv"
 ```
 
-`Path(__file__).resolve().parent` is the folder the script is in, so the file is found whichever folder you start
-it from. A bare `"data/sample_it_kb.csv"` would be looked for in the current folder.
+`Path(__file__).resolve().parent` is the folder `knowledge_base_loader.py` is in, so the data file is found whichever
+folder you start `pipeline.py` from. A bare `"data/sample_it_kb.csv"` would be looked for in the current folder.
+
+### 5. One File Runs the Steps
+
+```python
+def main() -> None:
+    print("Step 1: Read the knowledge base")
+    docs = KBLoader(KB_FILE).load()
+    print_documents(docs)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+`pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order.
+`knowledge_base_loader.py` only defines the step, so importing it, as the tests do, reads and prints nothing. A new
+step is one more part of `main()`. `if __name__ == "__main__":` is true only in the file you run, so `main()` runs
+from `python pipeline.py`, and not when the file is imported.
 
 ---
 
@@ -241,6 +268,9 @@ it from. A bare `"data/sample_it_kb.csv"` would be looked for in the current fol
 
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
+
+**Issue**: `python knowledge_base_loader.py` prints nothing
+**Fix**: That file only defines the step. Run `python pipeline.py` (Step 4), which runs it.
 
 ---
 
@@ -257,4 +287,5 @@ sensitive data, removes duplicates, and reports everything it skipped or changed
 ### Ideas to Try
 
 - Change `KB_FILE` to read a copy of the sample with fewer rows, and see fewer Documents.
-- Print only the `metadata` of each Document, to see where each one came from.
+- Add a Step 2 to `main()` in `pipeline.py` that prints only each Document's `metadata`, to see where each one
+  came from.

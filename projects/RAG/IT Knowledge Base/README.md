@@ -30,7 +30,7 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 
 | Project | What it adds | Run it |
 |---|---|---|
-| `01-read-the-knowledge-base` | The CSV file of 10 articles read into LangChain `Document`s by a document loader | `python knowledge_base_loader.py` |
+| `01-read-the-knowledge-base` | The CSV file of 10 articles read into LangChain `Document`s by a document loader | `python pipeline.py` |
 | `02-documents-and-metadata` | Each article's text to search (title, problem, resolution, notes) kept apart from its labels (system, category, priority, tags) | `python knowledge_base.py` |
 | `03-chunking` | The articles cut into chunks of at most 512 characters with `RecursiveCharacterTextSplitter`: 28 in all | `python chunking.py` |
 | `04-embeddings` | The 28 chunks turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers each), in one call. No question yet | `python embed_chunks.py` |
