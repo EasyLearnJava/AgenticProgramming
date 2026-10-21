@@ -13,8 +13,12 @@ with its text and where it came from. Built with **LangChain** and the Python st
 - **Loads** `data/sample_it_kb.csv` into 10 LangChain `Document`s, one per article
 - **Keeps every column** as text: each `Document`'s `page_content` has one `column: value` line per column
 - **Records where each one came from** in its `metadata`: the file's name and the row number
-- **Logs** what it's doing (on stderr) and **prints** every `Document` (on stdout)
-- **Fails clearly**: a missing, empty or non-UTF-8 file stops it with one log line and exit code 1, not a traceback
+- **Checks the data**: the header must name `title`, `problem` and `resolution`, each once; a row with the wrong
+  number of fields or a blank required value is skipped; values are trimmed
+- **Skips exact duplicates**, and flags a title used for two different articles
+- **Logs** what it's doing and what it skipped (on stderr) and **prints** every `Document` (on stdout)
+- **Fails clearly**: a missing, empty or non-UTF-8 file, or an unusable header, stops it with one log line and exit
+  code 1, not a traceback
 
 **Try it:** `python knowledge_base_loader.py`, and see the 10 articles the way LangChain holds them.
 
@@ -32,8 +36,10 @@ data/sample_it_kb.csv                 10 rows × 8 columns
              │ load()
              ↓
 ┌──────────────────────────┐
-│       lazy_load()        │  ← checks the file, then reads it one row at a time
-│  └─ _row_to_document()   │     row → Document(page_content, metadata)
+│       lazy_load()        │  ← checks the file, then reads it one row at a time:
+│  ├─ _check_header()      │     the column names: required ones there, none twice
+│  ├─ _row_problem()       │     each row: right number of fields, no blank required value
+│  └─ _row_to_document()   │     row → Document(page_content, metadata), unless a duplicate
 └────────────┬─────────────┘
              │ 10 Documents
         ┌────┴─────┐
@@ -47,10 +53,13 @@ data/sample_it_kb.csv                 10 rows × 8 columns
 ### The Pipeline in This Project
 
 1. **Configure** → `KBLoader(data_path)` stores the settings
-2. **Check** → the file must exist and start with a header row (the column names)
-3. **Read** → `csv.DictReader` gives each row as `{column: value}`
-4. **Convert** → each row becomes a `Document`: its text, and where it came from
-5. **Report** → the log says what was read; the output shows every `Document`
+2. **Check the file** → it must exist and start with a header row (the column names)
+3. **Check the header** → the names are cleaned; `title`, `problem` and `resolution` must be there, and no name twice
+4. **Read** → `csv.DictReader` gives each row as `{column: value}`
+5. **Check each row** → the right number of fields and no blank required value, or the row is skipped
+6. **Convert** → each good row becomes a `Document`: its text, and where it came from
+7. **Deduplicate** → a row exactly like an earlier one is skipped; a reused title is flagged
+8. **Report** → the log says what was read and what was skipped; the output shows every `Document`
 
 ---
 
@@ -153,7 +162,7 @@ The `...` lines stand for the parts left out here: your terminal shows all 10 do
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
-│   └── test_knowledge_base_loader.py     # 21 tests: the Documents, the loader, the log, the script
+│   └── test_knowledge_base_loader.py     # 29 tests: the Documents, the loader, the checks, the log, the script
 ├── requirements.txt                      # langchain-core, pinned to an exact version
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
 ├── pytest.ini                            # lets the tests import knowledge_base_loader, and finds them in tests/
@@ -164,8 +173,8 @@ The `...` lines stand for the parts left out here: your terminal shows all 10 do
 
 | Section | What's in it |
 |---|---|
-| Configuration | `KB_FILE`, the path to the CSV file, and `LOG_FORMAT`, the shape of each log line |
-| KBLoader Class | the loader: `__init__` (configure), `lazy_load()` (Steps 2a to 2d: check, open, convert, total) and `_row_to_document()` (one row) |
+| Configuration | `KB_FILE`, the path to the CSV file; `LOG_FORMAT`, the shape of each log line; `REQUIRED_COLUMNS`; and the reasons a row is skipped |
+| KBLoader Class | the loader: `__init__` (configure), `lazy_load()` (Steps 2a to 2e: file, header, rows, duplicates, totals), `_check_header()`, `_row_problem()` and `_row_to_document()` (one row) |
 | Output | `print_documents()`: everything the script prints |
 | Entry Point | `parse_args()` (the command-line options) and `main()` (Steps 3a to 3c: logging, load, print) |
 
@@ -177,7 +186,7 @@ The `...` lines stand for the parts left out here: your terminal shows all 10 do
 
 | Option | Default | What it does |
 |---|---|---|
-| `--data-path` | `data/sample_it_kb.csv`, next to the script | The CSV file to read. Any file whose first line names the columns works. |
+| `--data-path` | `data/sample_it_kb.csv`, next to the script | The CSV file to read. Any file whose first line names the columns, including `title`, `problem` and `resolution`, works. |
 | `--log-level` | `INFO` | The least serious log messages to show: `DEBUG`, `INFO`, `WARNING` or `ERROR`. `DEBUG` adds one line per row. |
 
 ```bash
@@ -190,17 +199,19 @@ python knowledge_base_loader.py --help                              # every opti
 
 ```python
 KBLoader(
-    data_path: str | Path,     # required: the CSV file to read
-    encoding: str = "utf-8",   # the file's text encoding
+    data_path: str | Path,                                         # required: the CSV file to read
+    encoding: str = "utf-8",                                       # the file's text encoding
+    required_columns: tuple = ("title", "problem", "resolution"),  # the header must have them; every row fills them in
 )
 ```
 
-The constructor only stores these two settings; nothing is opened until `load()`. To read a different file or
-encoding, you change the arguments, not the code:
+The constructor only stores these settings; nothing is opened until `load()`. To read a different file, encoding
+or kind of CSV, you change the arguments, not the code:
 
 ```python
 docs = KBLoader("data/sample_it_kb.csv").load()
-docs = KBLoader("export.csv", encoding="utf-16").load()   # a file saved as UTF-16
+docs = KBLoader("export.csv", encoding="utf-16").load()           # a file saved as UTF-16
+docs = KBLoader("assets.csv", required_columns=("name",)).load()  # a CSV with other columns
 ```
 
 ---
@@ -208,7 +219,7 @@ docs = KBLoader("export.csv", encoding="utf-16").load()   # a file saved as UTF-
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 21 passed     (add -v for one line per test)
+python -m pytest                     # 29 passed     (add -v for one line per test)
 ```
 
 The tests need no network. They read the sample file and a few small CSV files they write themselves, and they run
@@ -216,10 +227,14 @@ the script as its own process:
 
 - **The Documents**: 10 of them, every column as a line in order, the metadata, the first one is the VPN article
 - **The loader**: the constructor reads nothing; `load()` and `lazy_load()` agree; a missing, empty or non-UTF-8 file
-  fails with a clear message; the encoding can be changed; any CSV with a header row can be read
+  fails with a clear message; the encoding and the required columns can be changed
+- **The checks**: the sample file passes with no warning; an Excel BOM and spaces in the header are cleaned; a column
+  named twice or a missing required column fails; a file with one row of each problem gives the exact warnings, the
+  summary, and only the 2 good rows, with their row numbers kept; values are trimmed
 - **The log**: the two INFO lines, the first with the file's full path; one DEBUG line per row; and a warning for a
   header with no rows
-- **The script**: the options' defaults, exit code 1 with no traceback for a missing file, a relative path reported
+- **The script**: the options' defaults, exit code 1 with no traceback for a missing file or a missing required
+  column, a relative path reported
   as the full path it was looked for at, the exact printed output, and the same output whichever folder it's
   started from
 
@@ -290,7 +305,8 @@ logger.info("Read %d documents from %s", count, name)      # the values as argum
 ```
 
 Each log line has a level, so you choose how much to see without changing the code: `DEBUG` (every row), `INFO`
-(the default: start and total), `WARNING` (a header with no rows), `ERROR` (the file can't be read). Logging is set
+(the default: start and total), `WARNING` (a skipped row, a reused title, a header with no rows), `ERROR` (the file
+can't be read). Logging is set
 up once, in `main()`: a module that's only imported, as the tests import this one, leaves that to whoever imports it.
 
 ### 5. Fail Fast, With a Clear Message
@@ -307,6 +323,27 @@ KB_FILE = Path(__file__).resolve().parent / "data" / "sample_it_kb.csv"
 
 `Path(__file__).resolve().parent` is the folder the script is in, so the file is found whichever folder you start
 it from. A bare `"data/sample_it_kb.csv"` would be looked for in the current folder.
+
+### 7. Check the Data: Stop on a Bad Header, Skip a Bad Row
+
+A bad header makes every row unreadable, so it stops the run. A bad row affects only itself, so it's skipped with a
+warning that gives its row and line, and the rest are still read:
+
+| Problem | What happens | Why it matters |
+|---|---|---|
+| A required column is missing | stop | without `title`, `problem` and `resolution` a row isn't an article |
+| A column is named twice | stop | `csv.DictReader` would silently keep only the last of the two |
+| A BOM or spaces in the column names | cleaned | Excel's "CSV UTF-8" adds an invisible BOM; `title, problem` has spaces |
+| A row has more or fewer fields than the header | skip | usually a comma inside a value that isn't in quotes: the fields have shifted |
+| A required value is blank | skip | an article with no fix can't help anyone |
+| Spaces around a value | trimmed | `" VPN "` and `"VPN"` should be the same value |
+
+### 8. Deduplicate, and Keep Where Each Row Came From
+
+A row exactly like an earlier one is skipped, with a warning naming the row it copies. Two rows with the same title
+but different content are both kept, with a warning: they may be two versions of one article, and only a person can
+say which is right. Skipped rows don't renumber the others: each Document's `row` is still its place in the file,
+so a warning or a Document leads straight back to its line. One summary line counts what was skipped, and why.
 
 ---
 
@@ -328,6 +365,28 @@ sample file.
 **Fix**: The file was saved in another encoding, often UTF-16 by Windows PowerShell 5's `>`. Save it again as UTF-8,
 or read it with `KBLoader(path, encoding="utf-16")`.
 
+**Issue**: `ERROR Knowledge base file is missing required columns (resolution): ...`
+**Fix**: Add the column to the first line of the file. For a CSV that isn't made of articles, give `KBLoader` its own
+`required_columns`.
+
+**Issue**: `ERROR Knowledge base file has a column more than once (title): ...`
+**Fix**: Rename or remove one of the two columns in the first line.
+
+**Issue**: `WARNING Skipping row 1 (line 3): 1 more field than the header` (or `fewer fields than the header`)
+**Fix**: Open the file at that line. Usually a value has a comma in it: put the whole value in double quotes.
+
+**Issue**: `WARNING Skipping row 3 (line 5): no value for resolution`
+**Fix**: Fill in the value on that line.
+
+**Issue**: `WARNING Skipping row 4 (line 6): a duplicate of row 0`
+**Fix**: Nothing is lost: the first copy was read. Delete the extra line to silence the warning.
+
+**Issue**: `WARNING Row 5 (line 7) has the same title as row 0, with different content: VPN down`
+**Fix**: Both rows were read. Merge them into one article, or give one a different title.
+
+**Issue**: `WARNING Skipped 5 of 7 rows in messy.csv: 2 malformed, 2 missing a required value, 1 duplicate`
+**Fix**: The summary of the warnings above it, one per skipped row.
+
 **Issue**: `WARNING ... has a header row but no articles`, then `0 documents`
 **Fix**: The file has the column names but no rows under them. Add the articles, one per line.
 
@@ -345,5 +404,8 @@ to it (system, category, priority, tags).
 ### Ideas to Try
 
 - Run `python knowledge_base_loader.py --log-level DEBUG` and find the log line for each row.
-- Point `--data-path` at a CSV file of your own, with a header row, and see its rows become Documents.
+- Point `--data-path` at a CSV file of your own, with `title`, `problem` and `resolution` columns, and see its rows
+  become Documents.
 - Copy the sample file and delete everything but its first line, then read it: 0 documents, and a warning in the log.
+- In a copy of the sample file, paste the second line again at the end and empty another row's `resolution`, then
+  read it: the duplicate and the row with the blank value are skipped, and the summary counts both.

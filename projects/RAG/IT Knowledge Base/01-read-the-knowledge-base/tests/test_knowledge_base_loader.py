@@ -1,12 +1,12 @@
 """
 Tests for IT Knowledge Base step 1: the LangChain Documents knowledge_base_loader.py reads from
-data/sample_it_kb.csv, what it logs, how it fails, and what the script prints.
+data/sample_it_kb.csv, the checks on the data, what it logs, how it fails, and what the script prints.
 
     KBLoader(KB_FILE).load()  ->  10 Documents, one per article;
                                   page_content "title: ...\nproblem: ...\n...", metadata {"source", "row"}
 
 No key, no network: the tests only read CSV files and run the script.
-Run them:   python -m pytest   ->   21 passed        (add -v for one line per test)
+Run them:   python -m pytest   ->   29 passed        (add -v for one line per test)
 """
 import logging
 import subprocess
@@ -21,6 +21,16 @@ from knowledge_base_loader import KB_FILE, KBLoader, main, parse_args
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 COLUMNS = ["title", "problem", "resolution", "system", "category", "notes", "priority", "tags"]
 READING = f"Reading {KB_FILE.resolve()} (utf-8): 8 columns ({', '.join(COLUMNS)})"   # the first log line
+
+# One row of each problem the checks look for; rows 0 and 5 are the only ones kept
+MESSY = ("title,problem,resolution,system\n"
+         "VPN down,Can't connect,Restart the client,VPN\n"             # row 0: kept
+         "Printer jam,Paper stuck,Open the tray,Printer,EXTRA\n"       # row 1: one field too many
+         "Short row,only two\n"                                        # row 2: too few fields
+         "Bounced email,Too big,   ,Email\n"                           # row 3: blank resolution
+         "VPN down,Can't connect,Restart the client,VPN\n"             # row 4: a duplicate of row 0
+         "  VPN down  ,Drops every hour,Update the client,VPN\n"       # row 5: kept; row 0's title, other content
+         ",,,\n")                                                      # row 6: nothing filled in
 
 docs = KBLoader(KB_FILE).load()
 
@@ -77,6 +87,7 @@ def test_the_constructor_stores_the_configuration_and_reads_nothing(tmp_path):
     loader = KBLoader(str(tmp_path / "missing.csv"))     # no error yet: the loader hasn't opened the file
     assert loader.data_path == tmp_path / "missing.csv"  # a str is turned into a Path
     assert loader.encoding == "utf-8"
+    assert loader.required_columns == ("title", "problem", "resolution")
 
 
 def test_load_gives_the_same_documents_as_lazy_load():
@@ -97,22 +108,77 @@ def test_an_empty_file_fails_because_it_has_no_header_row(tmp_path):
 
 def test_a_file_that_isnt_utf8_fails_with_a_message_saying_so(tmp_path):
     path = tmp_path / "utf16.csv"
-    path.write_text("title,system\nA,B\n", encoding="utf-16")   # what PowerShell 5's `>` writes
+    path.write_text("title,problem,resolution\nA,B,C\n", encoding="utf-16")   # what PowerShell 5's `>` writes
     with pytest.raises(ValueError, match="isn't utf-8 text"):
         KBLoader(path).load()
 
 
 def test_the_encoding_is_part_of_the_configuration(tmp_path):
     path = tmp_path / "utf16.csv"
-    path.write_text("title,system\nA,B\n", encoding="utf-16")
-    assert KBLoader(path, encoding="utf-16").load()[0].page_content == "title: A\nsystem: B"
+    path.write_text("title,problem,resolution\nA,B,C\n", encoding="utf-16")
+    assert KBLoader(path, encoding="utf-16").load()[0].page_content == "title: A\nproblem: B\nresolution: C"
 
 
-def test_any_csv_with_a_header_row_can_be_read(tmp_path):
-    loaded = KBLoader(write_csv(tmp_path / "two.csv", "title,system\nPrinter jam,Printing\nDisk full,Storage\n")).load()
-    assert [doc.page_content for doc in loaded] == ["title: Printer jam\nsystem: Printing",
-                                                    "title: Disk full\nsystem: Storage"]
+def test_any_csv_with_the_required_columns_can_be_read(tmp_path):
+    text = ("title,problem,resolution,system\n"
+            "Printer jam,Paper stuck,Open the tray,Printing\n"
+            "Disk full,No space,Clean up,Storage\n")
+    loaded = KBLoader(write_csv(tmp_path / "two.csv", text)).load()
+    assert [doc.page_content.splitlines()[0] for doc in loaded] == ["title: Printer jam", "title: Disk full"]
     assert [doc.metadata for doc in loaded] == [{"source": "two.csv", "row": 0}, {"source": "two.csv", "row": 1}]
+
+
+def test_the_required_columns_are_part_of_the_configuration(tmp_path):
+    path = write_csv(tmp_path / "two.csv", "title,system\nPrinter jam,Printing\n")
+    with pytest.raises(ValueError, match=r"missing required columns \(problem, resolution\)"):
+        KBLoader(path).load()
+    assert KBLoader(path, required_columns=("title",)).load()[0].page_content == "title: Printer jam\nsystem: Printing"
+
+
+# -------------------------------------------------
+# Checking the Data
+# -------------------------------------------------
+
+def test_the_sample_file_passes_every_check_without_a_warning(caplog):
+    with caplog.at_level(logging.DEBUG, logger="knowledge_base_loader"):
+        assert len(KBLoader(KB_FILE).load()) == 10
+    assert [record for record in caplog.records if record.levelno >= logging.WARNING] == []
+
+
+def test_the_column_names_are_cleaned_of_an_excel_bom_and_spaces(tmp_path):
+    path = tmp_path / "excel.csv"
+    path.write_text("title, problem ,resolution\nA,B,C\n", encoding="utf-8-sig")   # Excel's "CSV UTF-8"
+    assert KBLoader(path).load()[0].page_content == "title: A\nproblem: B\nresolution: C"
+
+
+def test_a_column_named_twice_fails(tmp_path):
+    with pytest.raises(ValueError, match=r"a column more than once \(title\)"):
+        KBLoader(write_csv(tmp_path / "twice.csv", "title,problem,resolution,title\nA,B,C,D\n")).load()
+
+
+def test_a_missing_required_column_fails(tmp_path):
+    with pytest.raises(ValueError, match=r"missing required columns \(resolution\): .*no_fix.csv"):
+        KBLoader(write_csv(tmp_path / "no_fix.csv", "title,problem\nA,B\n")).load()
+
+
+def test_bad_rows_and_duplicates_are_skipped_with_a_warning_each(tmp_path, caplog):
+    with caplog.at_level(logging.INFO, logger="knowledge_base_loader"):
+        loaded = KBLoader(write_csv(tmp_path / "messy.csv", MESSY)).load()
+    assert [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING] == [
+        "Skipping row 1 (line 3): 1 more field than the header",
+        "Skipping row 2 (line 4): fewer fields than the header",
+        "Skipping row 3 (line 5): no value for resolution",
+        "Skipping row 4 (line 6): a duplicate of row 0",
+        "Row 5 (line 7) has the same title as row 0, with different content: VPN down",
+        "Skipping row 6 (line 8): no value for title, problem, resolution",
+        "Skipped 5 of 7 rows in messy.csv: 2 malformed, 2 missing a required value, 1 duplicate",
+    ]
+    assert [doc.metadata["row"] for doc in loaded] == [0, 5]          # rows keep their place in the file
+
+
+def test_values_are_trimmed_and_a_blank_optional_value_is_kept(tmp_path):
+    loaded = KBLoader(write_csv(tmp_path / "spaces.csv", "title,problem,resolution,notes\n  A  , B ,C,\n")).load()
+    assert loaded[0].page_content == "title: A\nproblem: B\nresolution: C\nnotes: "
 
 
 # -------------------------------------------------
@@ -135,7 +201,7 @@ def test_debug_logs_one_line_per_row(caplog):
 
 def test_a_header_with_no_rows_gives_no_documents_and_a_warning(tmp_path, caplog):
     with caplog.at_level(logging.INFO, logger="knowledge_base_loader"):
-        assert KBLoader(write_csv(tmp_path / "header.csv", "title,problem\n")).load() == []
+        assert KBLoader(write_csv(tmp_path / "header.csv", "title,problem,resolution\n")).load() == []
     assert [(record.levelname, record.getMessage()) for record in caplog.records][-1] == \
         ("WARNING", "header.csv has a header row but no articles")
 
@@ -187,6 +253,13 @@ def test_a_missing_file_ends_the_script_with_exit_code_1_and_no_traceback(tmp_pa
     assert result.returncode == 1
     assert result.stdout == ""
     assert "ERROR Knowledge base file not found:" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_a_missing_required_column_ends_the_script_with_exit_code_1(tmp_path):
+    result = run_script("--data-path", str(write_csv(tmp_path / "no_fix.csv", "title,problem\nA,B\n")))
+    assert result.returncode == 1
+    assert "ERROR Knowledge base file is missing required columns (resolution):" in result.stderr
     assert "Traceback" not in result.stderr
 
 
