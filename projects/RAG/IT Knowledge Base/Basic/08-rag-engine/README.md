@@ -50,7 +50,8 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
 
 ### The Pipeline in This Project
 
-1. **Configure** → `RAGEngine()` stores the models, the Qdrant client and the sizes; it reads nothing
+1. **Configure** → `RAGEngine()` stores the models, the Qdrant client, the data file, the collection and the
+   sizes; it reads nothing
 2. **Build** → `build()` loads and chunks the articles, embeds and stores the chunks, and makes the chain
 3. **Ask** → `query(question)` runs the chain: the 5 closest chunks, then Gemini's answer from them
 4. **Name the sources** → the first 3 different articles among those chunks, closest first, each with the first 200
@@ -177,13 +178,14 @@ as in Step 5.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 39 passed, 6 skipped     (add -v for one line per test)
+python -m pytest                     # 42 passed, 6 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the engine, they check that
 nothing is read or called before `build()`; that `build()` embeds the 28 chunks in one call; that `query()` gives the
-answer and up to 3 different sources; that `aquery()` gives the same; and that other chunk sizes and numbers of chunks
-can be set.
+answer and up to 3 different sources; that `aquery()` gives the same; that other chunk sizes and numbers of chunks,
+another data file and another collection can be set, and engines in collections of their own keep their own
+chunks; and that every setting is passed by name.
 
 The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -231,11 +233,15 @@ question and asks for the answer.
 ### 2. Configure First, Build Later
 
 ```python
-RAGEngine(embeddings=..., model=..., embedding_size=768, client=None, chunk_size=512, chunk_overlap=50, top_k=5)
+RAGEngine(embeddings=..., model=..., embedding_size=768, client=None, data_path=KB_FILE,
+          collection="it_knowledge_base", chunk_size=512, chunk_overlap=50, top_k=5)
 ```
 
 The constructor only stores its settings, each with a default. Passing others changes how the engine is built
-without changing its code: the tests pass stand-ins for Gemini this way.
+without changing its code: the tests pass stand-ins for Gemini this way, and `data_path` and `collection` give
+an engine another knowledge base file or a collection of its own. Every setting is passed by name (the `*` at the
+start of the constructor's parameters), so `RAGEngine(collection="it_kb_1000", chunk_size=1000)` can't put a value
+in the wrong setting.
 
 ### 3. Sources: Different Articles, Not Just Chunks
 

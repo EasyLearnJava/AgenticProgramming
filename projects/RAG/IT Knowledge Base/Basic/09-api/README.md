@@ -189,7 +189,7 @@ server. Then ask it a question as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 48 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 51 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. FastAPI's `TestClient` sends their

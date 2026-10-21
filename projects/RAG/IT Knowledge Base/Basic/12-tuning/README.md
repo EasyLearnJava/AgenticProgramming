@@ -193,7 +193,7 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 The tests don't need Docker:
 
 ```bash
-python -m pytest                     # 61 passed, 8 skipped     (add -v for one line per test)
+python -m pytest                     # 64 passed, 8 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the tuning, they check that the

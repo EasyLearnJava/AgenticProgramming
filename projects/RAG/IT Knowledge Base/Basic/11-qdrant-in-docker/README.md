@@ -200,13 +200,15 @@ Then open http://127.0.0.1:8000 for the chat page. For `python rag_engine.py`, u
 The tests don't need Docker:
 
 ```bash
-python -m pytest                     # 55 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 58 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the stored chunks, they check
 that each chunk gets its own id, always the same one; that adding the same chunks again replaces them instead of
 adding copies; that the first build embeds and stores the 28 chunks, and a later build finds them and embeds nothing;
-that other chunk sizes replace the stored chunks; and that without Qdrant the server stops with what to do.
+that other chunk sizes replace the stored chunks, while an engine with a collection of its own keeps its chunks;
+that another data file can be read; that every setting is passed by name; and that without Qdrant the server
+stops with what to do.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -254,6 +256,10 @@ engine can check whether the server holds exactly these chunks by their ids.
 - all of them stored, and nothing else: reuse them, no call to Gemini;
 - anything else (an edited article, other chunk sizes): empty the collection, then store the chunks anew;
 - no collection yet (the first run): store them.
+
+Only the engine's own collection is checked or emptied: `it_knowledge_base`, unless it's given another. So an
+engine with other chunk sizes can share the server without replacing these chunks, in a collection of its own:
+`RAGEngine(collection="it_kb_1000", chunk_size=1000)`.
 
 ### 4. Configuration in `.env`
 

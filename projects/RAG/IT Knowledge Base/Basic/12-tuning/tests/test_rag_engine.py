@@ -1,16 +1,19 @@
 """
 Tests for rag_engine.py: nothing happens before build(), answers with up to 3 different sources, and a Qdrant store
-that keeps its points: a second build on the same chunks reuses them without embedding again. The plain tests use
-stand-ins for Gemini (tests/fakes.py) and Qdrant inside this process ("local mode": in memory, or saved in a folder,
-which stands in for the server); the live test needs the real Gemini and a running Qdrant server.
+that keeps its points: a second build on the same chunks reuses them without embedding again, and engines in
+collections of their own keep their own chunks. The plain tests use stand-ins for Gemini (tests/fakes.py) and Qdrant
+inside this process ("local mode": in memory, or saved in a folder, which stands in for the server); the live test
+needs the real Gemini and a running Qdrant server.
 """
 import asyncio
+import csv
 
 import pytest
 from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
 from qdrant_client import QdrantClient
 
 import rag_engine
+from knowledge_base import KB_FILE
 from rag_engine import MAX_SOURCES, RAGEngine
 from retriever import QUESTIONS
 from vector_store import COLLECTION, QDRANT_URL
@@ -68,6 +71,36 @@ def test_other_chunk_sizes_replace_the_stored_chunks():
     engine.build()
     assert engine.stats()["reused_stored_chunks"] is False
     assert client.count(COLLECTION).count == 10                # the 1000-character chunks only
+
+
+def test_engines_in_their_own_collections_keep_their_own_chunks():
+    client = QdrantClient(":memory:")
+    stand_in_engine(client).build()                            # 28 chunks of 512, in the default collection
+    large = stand_in_engine(client, collection="it_kb_1000", chunk_size=1000)
+    large.build()
+    assert (client.count(COLLECTION).count, client.count("it_kb_1000").count) == (28, 10)   # both kept
+    again = stand_in_engine(client)
+    again.build()
+    assert again.stats()["reused_stored_chunks"] is True       # the 512 chunks were still there: nothing embedded
+    assert again.embeddings.calls == []
+    assert large.stats()["collection"] == "it_kb_1000"
+
+
+def test_another_knowledge_base_file(tmp_path):
+    with open(KB_FILE, encoding="utf-8", newline="") as file:
+        rows = list(csv.reader(file))
+    two_articles = tmp_path / "two_articles.csv"
+    with open(two_articles, "w", encoding="utf-8", newline="") as file:
+        csv.writer(file).writerows(rows[:3])                    # the header and the first 2 articles
+    engine = stand_in_engine(QdrantClient(":memory:"), data_path=str(two_articles))   # a str works as well as a Path
+    engine.build()
+    assert engine.data_path == two_articles
+    assert engine.stats()["documents"] == 2
+
+
+def test_settings_are_passed_by_name_only():
+    with pytest.raises(TypeError):
+        RAGEngine(KeywordEmbeddings())                         # a setting by position: refused
 
 
 def test_query_gives_the_answer_and_up_to_3_different_sources():

@@ -13,6 +13,7 @@ Usage:
     python rag_engine.py "printer not found"   # the answer to your question
 """
 import sys
+from pathlib import Path
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
@@ -20,7 +21,7 @@ from langchain_core.runnables import Runnable
 from qdrant_client import QdrantClient
 
 from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
-from knowledge_base import load_documents
+from knowledge_base import KB_FILE, load_documents
 from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import QUESTIONS, TOP_K, make_retriever
@@ -39,20 +40,22 @@ class RAGEngine:
     Step 3: Answer: query() or aquery() answers one question with its sources
     """
 
-    # The models, the Qdrant client and the sizes can be swapped: the tests pass stand-ins for Gemini
-    def __init__(self, embeddings: Embeddings = embeddings, model: BaseChatModel = chat_model,
+    # Every setting has a default and is passed by name (the *); the tests pass stand-ins for Gemini
+    def __init__(self, *, embeddings: Embeddings = embeddings, model: BaseChatModel = chat_model,
                  embedding_size: int = EMBEDDING_SIZE, client: QdrantClient | None = None,
+                 data_path: str | Path = KB_FILE, collection: str = COLLECTION,
                  chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, top_k: int = TOP_K):
         self.embeddings, self.model, self.embedding_size, self.client = embeddings, model, embedding_size, client
+        self.data_path, self.collection = Path(data_path), collection
         self.chunk_size, self.chunk_overlap, self.top_k = chunk_size, chunk_overlap, top_k
         self.documents, self.chunks = [], []
         self.chain: Runnable | None = None
 
     def build(self) -> None:
         """Load and split the articles, embed and store the chunks (one call to Gemini), and make the chain."""
-        self.documents = load_documents()
+        self.documents = load_documents(self.data_path)
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
-        store = make_vector_store(self.embeddings, self.embedding_size, self.client)
+        store = make_vector_store(self.embeddings, self.embedding_size, self.client, self.collection)
         store.add_documents(self.chunks)
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
@@ -86,7 +89,7 @@ class RAGEngine:
 
     def stats(self) -> dict:
         """What the engine holds and how it's set up."""
-        return {"documents": len(self.documents), "chunks": len(self.chunks), "collection": COLLECTION,
+        return {"documents": len(self.documents), "chunks": len(self.chunks), "collection": self.collection,
                 "chunk_size": self.chunk_size, "chunk_overlap": self.chunk_overlap, "top_k": self.top_k,
                 "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL}
 

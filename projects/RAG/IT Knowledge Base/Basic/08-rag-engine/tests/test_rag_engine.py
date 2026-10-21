@@ -1,14 +1,19 @@
 """
-Tests for rag_engine.py: nothing happens before build(), then answers with up to 3 different sources. The plain tests
-use stand-ins for Gemini (tests/fakes.py) and Qdrant in memory; the live test asks the real Gemini.
+Tests for rag_engine.py: nothing happens before build(), then answers with up to 3 different sources; the data file,
+the collection and the sizes can be set, by name only. The plain tests use stand-ins for Gemini (tests/fakes.py) and
+Qdrant in memory; the live test asks the real Gemini.
 """
 import asyncio
+import csv
 
 import pytest
 from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
+from qdrant_client import QdrantClient
 
+from knowledge_base import KB_FILE
 from rag_engine import MAX_SOURCES, RAGEngine
 from retriever import QUESTIONS
+from vector_store import COLLECTION
 
 
 def stand_in_engine(**settings):
@@ -56,6 +61,35 @@ def test_other_sizes():
     engine.build()
     assert (engine.stats()["chunks"], engine.stats()["top_k"]) == (10, 2)
     assert len(engine.query("My VPN won't connect")["sources"]) <= 2
+
+
+def test_another_knowledge_base_file(tmp_path):
+    with open(KB_FILE, encoding="utf-8", newline="") as file:
+        rows = list(csv.reader(file))
+    two_articles = tmp_path / "two_articles.csv"
+    with open(two_articles, "w", encoding="utf-8", newline="") as file:
+        csv.writer(file).writerows(rows[:3])                # the header and the first 2 articles
+    engine = stand_in_engine(data_path=str(two_articles))  # a str works as well as a Path
+    engine.build()
+    assert engine.data_path == two_articles
+    assert engine.stats()["documents"] == 2
+    assert {source["title"] for source in engine.query("My VPN won't connect")["sources"]} <= {
+        "VPN Connection Timeout", "MFA Setup Failure"}
+
+
+def test_engines_in_their_own_collections_keep_their_own_chunks():
+    client = QdrantClient(":memory:")
+    default = stand_in_engine(client=client)
+    large = stand_in_engine(client=client, collection="it_kb_1000", chunk_size=1000)
+    default.build()
+    large.build()
+    assert (client.count(COLLECTION).count, client.count("it_kb_1000").count) == (28, 10)
+    assert (default.stats()["collection"], large.stats()["collection"]) == (COLLECTION, "it_kb_1000")
+
+
+def test_settings_are_passed_by_name_only():
+    with pytest.raises(TypeError):
+        RAGEngine(KeywordEmbeddings())                     # a setting by position: refused
 
 
 @pytest.mark.live
