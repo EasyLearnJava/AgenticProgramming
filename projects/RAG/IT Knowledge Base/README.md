@@ -18,8 +18,9 @@ LlamaIndex, Gemini in place of OpenAI, and a plain HTML page served by FastAPI i
 The projects come in two levels:
 
 - **`Basic/`**: the whole app, 01 to 12, one step at a time, each on the happy path: the data is assumed to be good.
-- **`Advanced/`**: a project done again, production grade: it checks its input, handles what goes wrong, and reports
-  it. So far: 01.
+- **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
+  and reports it. 01 is built; 02 to 12 are planned, each with a README giving its plan, and
+  [Advanced/README.md](Advanced/README.md) is the roadmap.
 
 Each folder is a project of its own: it holds the app as built so far plus one new piece, runs on its own, and has
 its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk, embed, store), with
@@ -47,6 +48,7 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 | Project | What it adds to the basic one | Run it |
 |---|---|---|
 | `01-read-the-knowledge-base` | Every row checked; sensitive data (PII, PCI, secrets) redacted; duplicates removed; logging and command-line options; a report of every row skipped, removed, redacted or flagged, and why. `data/sample_it_kb_messy.csv` has a row for each case | `python knowledge_base_loader.py` |
+| `02` to `12` | Planned: each folder's README gives its plan (validated schemas, token-sized chunks, retries and caching, hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
 
 ## What you need
 
