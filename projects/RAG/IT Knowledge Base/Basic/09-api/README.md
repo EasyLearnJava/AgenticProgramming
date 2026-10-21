@@ -162,8 +162,9 @@ server. Then ask it a question as in Step 6.
 
 ```text
 09-api/
+├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, QueryIn/QueryOut, the three routes
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats()
+├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats(); print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_vector_store() (Qdrant, in memory), add_knowledge_base()
@@ -189,14 +190,15 @@ server. Then ask it a question as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 51 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 53 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. FastAPI's `TestClient` sends their
 requests to the app without starting a server. For the API, they check `/api/health`; that the engine is built at
 start-up; that a question gets the answer and its sources; that a bad question gets a 422 and no call; that a failed
 Gemini call gets a 502 without the details; and that without a key the server stops with the message, not a stack
-trace.
+trace. For `pipeline.py`, they check that it builds the engine, then answers each question, or one of your own; and
+that no other file runs anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
