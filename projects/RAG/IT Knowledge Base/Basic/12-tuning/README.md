@@ -26,7 +26,7 @@ The rest of the project (the engine, the API and the chat page) is the same as s
 You need Python 3.11 or newer, and a Gemini API key.
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/12-tuning"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/12-tuning"   # from the repo root; the quotes are for the spaces
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1

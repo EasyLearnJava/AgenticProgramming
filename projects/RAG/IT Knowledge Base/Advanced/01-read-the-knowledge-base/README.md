@@ -84,7 +84,7 @@ data/sample_it_kb.csv                 10 rows × 8 columns
 ### Step 1: Go to This Folder
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/01-read-the-knowledge-base"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Advanced/01-read-the-knowledge-base"   # from the repo root; quotes for the spaces
 ```
 
 ### Step 2: Create and Activate a Virtual Environment
@@ -522,7 +522,7 @@ it's fixed.
 
 ## 📚 Next Steps
 
-**[02 · Documents and Metadata](../02-documents-and-metadata/README.md)**: this project put every column into a
+**[02 · Documents and Metadata](../../Basic/02-documents-and-metadata/README.md)**: this project put every column into a
 Document's text. 02 splits each article into its text (title, problem, resolution, notes) and the labels kept next
 to it (system, category, priority, tags).
 

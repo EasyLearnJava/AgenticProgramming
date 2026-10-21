@@ -27,7 +27,7 @@ Each run makes 3 calls to Gemini: the chunks' embeddings, the question's embeddi
 You need Python 3.11 or newer, and a Gemini API key.
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/07-grounded-answer"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/07-grounded-answer"   # from the repo root; the quotes are for the spaces
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1

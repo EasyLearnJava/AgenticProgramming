@@ -3,8 +3,8 @@ Run one IT Knowledge Base project in one step: create its .venv the first time, 
 run it from its own folder with the venv's Python, so there's nothing to activate.
 
 Usage (from the repo root):
-    python "projects/RAG/IT Knowledge Base/run.py" 01-read-the-knowledge-base
-    python "projects/RAG/IT Knowledge Base/run.py" 01-read-the-knowledge-base --log-level DEBUG   # options go to it
+    python "projects/RAG/IT Knowledge Base/run.py" Basic/01-read-the-knowledge-base
+    python "projects/RAG/IT Knowledge Base/run.py" Advanced/01-read-the-knowledge-base --log-level DEBUG   # options go to it
 """
 import argparse
 import logging
@@ -19,18 +19,19 @@ SERIES = Path(__file__).resolve().parent
 
 # Each project's run command, as its README gives it, without `python`: the project's venv Python runs it
 COMMANDS = {
-    "01-read-the-knowledge-base": ["knowledge_base_loader.py"],
-    "02-documents-and-metadata": ["knowledge_base.py"],
-    "03-chunking": ["chunking.py"],
-    "04-embeddings": ["embed_chunks.py"],
-    "05-vector-store": ["vector_store.py"],
-    "06-retriever": ["retriever.py"],
-    "07-grounded-answer": ["rag_chain.py"],
-    "08-rag-engine": ["rag_engine.py"],
-    "09-api": ["-m", "uvicorn", "main:app", "--reload"],
-    "10-chat-page": ["-m", "uvicorn", "main:app", "--reload"],
-    "11-qdrant-in-docker": ["-m", "uvicorn", "main:app", "--reload"],
-    "12-tuning": ["tuning.py"],
+    "Basic/01-read-the-knowledge-base": ["knowledge_base_loader.py"],
+    "Basic/02-documents-and-metadata": ["knowledge_base.py"],
+    "Basic/03-chunking": ["chunking.py"],
+    "Basic/04-embeddings": ["embed_chunks.py"],
+    "Basic/05-vector-store": ["vector_store.py"],
+    "Basic/06-retriever": ["retriever.py"],
+    "Basic/07-grounded-answer": ["rag_chain.py"],
+    "Basic/08-rag-engine": ["rag_engine.py"],
+    "Basic/09-api": ["-m", "uvicorn", "main:app", "--reload"],
+    "Basic/10-chat-page": ["-m", "uvicorn", "main:app", "--reload"],
+    "Basic/11-qdrant-in-docker": ["-m", "uvicorn", "main:app", "--reload"],
+    "Basic/12-tuning": ["tuning.py"],
+    "Advanced/01-read-the-knowledge-base": ["knowledge_base_loader.py"],
 }
 
 
@@ -42,8 +43,9 @@ def venv_python(project: Path) -> Path:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """The project's folder name, then any options for the project."""
     parser = argparse.ArgumentParser(description="Set up and run one IT Knowledge Base project in one step.")
-    parser.add_argument("project", type=lambda name: name.rstrip("/\\"), choices=COMMANDS, metavar="PROJECT",
-                        help="the project's folder: " + ", ".join(COMMANDS))
+    # Windows tab completion writes Basic\01-...\ : the same project as Basic/01-...
+    parser.add_argument("project", type=lambda name: name.replace("\\", "/").rstrip("/"), choices=COMMANDS,
+                        metavar="PROJECT", help="the project's folder: " + ", ".join(COMMANDS))
     parser.add_argument("options", nargs=argparse.REMAINDER, help="options passed on to the project")
     return parser.parse_args(argv)
 

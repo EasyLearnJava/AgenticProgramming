@@ -23,7 +23,7 @@ a program  ->  POST /api/query  ->  the RAG engine  ->  {"answer": ..., "sources
 You need Python 3.11 or newer, and a Gemini API key.
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/09-api"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/09-api"   # from the repo root; the quotes are for the spaces
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1

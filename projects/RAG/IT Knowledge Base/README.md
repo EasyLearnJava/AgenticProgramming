@@ -15,9 +15,17 @@ LlamaIndex, Gemini in place of OpenAI, and a plain HTML page served by FastAPI i
 
 ## The projects
 
+The projects come in two levels:
+
+- **`Basic/`**: the whole app, 01 to 12, one step at a time, each on the happy path: the data is assumed to be good.
+- **`Advanced/`**: a project done again, production grade: it checks its input, handles what goes wrong, and reports
+  it. So far: 01.
+
 Each folder is a project of its own: it holds the app as built so far plus one new piece, runs on its own, and has
 its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk, embed, store), with
 no question anywhere; the user's question comes in at 06, and 07 onward answer it.
+
+### Basic
 
 | Project | What it adds | Run it |
 |---|---|---|
@@ -34,6 +42,12 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 | `11-qdrant-in-docker` | Qdrant as a server in Docker, which keeps the chunks between runs, so they're embedded only once | `docker compose up -d`, then `uvicorn main:app --reload` |
 | `12-tuning` | The search scored on 10 test questions for three chunk sizes and three values of k; with `--answers`, one question answered from 1 chunk and from 5 | `python tuning.py` |
 
+### Advanced
+
+| Project | What it adds to the basic one | Run it |
+|---|---|---|
+| `01-read-the-knowledge-base` | Every row checked; sensitive data (PII, PCI, secrets) redacted; duplicates removed; logging and command-line options; a report of every row skipped, removed, redacted or flagged, and why. `data/sample_it_kb_messy.csv` has a row for each case | `python knowledge_base_loader.py` |
+
 ## What you need
 
 - **Python 3.11 or newer**, and in each project: `python -m venv .venv`, activate it, then
@@ -49,18 +63,18 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 
 ## Run a project in one step
 
-From the repo root, give `run.py` a project's folder name:
+From the repo root, give `run.py` a project's level and folder name:
 
 ```bash
-python "projects/RAG/IT Knowledge Base/run.py" 01-read-the-knowledge-base
-python "projects/RAG/IT Knowledge Base/run.py" 01-read-the-knowledge-base --log-level DEBUG   # options go to the project
+python "projects/RAG/IT Knowledge Base/run.py" Basic/01-read-the-knowledge-base
+python "projects/RAG/IT Knowledge Base/run.py" Advanced/01-read-the-knowledge-base --log-level DEBUG   # options go to the project
 ```
 
 It does a project's setup steps for you, the same on Windows, macOS, Linux and Codespaces: it creates the project's
 `.venv` the first time (about a minute, with the install), installs its `requirements-dev.txt` into it, then runs the
 project's command from the table above, in the project's folder, with the venv's Python, so there's nothing to
 activate. After the first time it takes a few seconds. It doesn't set up a Gemini key or start Docker: do those first,
-as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists the folder names.
+as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every project's name.
 
 ## Built with
 

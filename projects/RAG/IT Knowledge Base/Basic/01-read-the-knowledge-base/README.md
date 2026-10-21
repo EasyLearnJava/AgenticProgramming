@@ -1,0 +1,248 @@
+# 01 · Read the Knowledge Base
+
+Read the IT knowledge base, a CSV file of 10 IT support articles, into LangChain `Document`s: one per article, each
+with its text and where it came from, and print them. Built with **LangChain** and Python's `csv` module.
+
+> **Needs:** Python 3.11 or newer, and nothing else: this project only reads a local file.
+
+---
+
+## 🎯 What This Project Does
+
+- **Reads** `data/sample_it_kb.csv`, one row at a time
+- **Turns each row into a LangChain `Document`**: its `page_content` has one `column: value` line per column
+- **Records where each one came from** in its `metadata`: the file's name and the row number
+- **Prints** how many there are, each one's title, then every `Document` in full
+
+The happy path only: the file is there, and every row is a good article.
+
+**Try it:** `python knowledge_base_loader.py`, and see the 10 articles the way LangChain holds them.
+
+---
+
+## 🏗️ Architecture
+
+```text
+data/sample_it_kb.csv                 10 rows × 8 columns
+          │
+          ↓
+┌──────────────────────────┐
+│   KBLoader(data_path)    │  ← configure: stores which file to read; reads nothing
+└────────────┬─────────────┘
+             │ load()
+             ↓
+┌──────────────────────────┐
+│       lazy_load()        │  ← reads the file one row at a time:
+│                          │     row → Document(page_content, metadata)
+└────────────┬─────────────┘
+             │ 10 Documents
+             ↓
+┌──────────────────────────┐
+│    print_documents()     │  ← the count, the titles, then every Document
+└──────────────────────────┘
+```
+
+### The Pipeline in This Project
+
+1. **Configure** → `KBLoader(data_path)` stores which file to read
+2. **Read** → `csv.DictReader` gives each row as `{column: value}`
+3. **Convert** → each row becomes a `Document`: its text, and where it came from
+4. **Print** → the count and the titles, then every `Document`
+
+---
+
+## 📋 Prerequisites
+
+- **Python 3.11 or newer**
+- Nothing else: once the packages are installed, it runs without a network
+
+---
+
+## 🚀 Quick Start
+
+### Step 1: Go to This Folder
+
+```bash
+cd "projects/RAG/IT Knowledge Base/Basic/01-read-the-knowledge-base"   # from the repo root; quotes for the spaces
+```
+
+### Step 2: Create and Activate a Virtual Environment
+
+```bash
+python -m venv .venv                 # once: a private folder for this project's packages
+source .venv/bin/activate            # macOS, Linux and Codespaces
+#   Windows PowerShell:      .venv\Scripts\Activate.ps1
+#   Windows Command Prompt:  .venv\Scripts\activate
+#   Windows Git Bash:        source .venv/Scripts/activate
+```
+
+Creating the venv is once only; activate it again in every new terminal.
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements-dev.txt  # once: langchain-core and pytest, into .venv/
+```
+
+### Step 4: Run It
+
+```bash
+python knowledge_base_loader.py
+```
+
+It prints how many documents it read and each one's row and title, then every document in full. The start and the
+end of what you'll see:
+
+```text
+10 documents
+row 0  title: VPN Connection Timeout
+row 1  title: MFA Setup Failure
+row 2  title: Laptop Performance Degradation
+row 3  title: SaaS Access Permission Denied
+row 4  title: WiFi Connectivity Issues Office
+row 5  title: Password Reset Failed
+row 6  title: Printer Not Found
+row 7  title: Email Attachment Size Limit
+row 8  title: Database Connection Timeout
+row 9  title: Microsoft Teams Audio Issues
+
+Document 1 of 10
+Text (page_content):
+title: VPN Connection Timeout
+problem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations
+resolution: 1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.
+system: VPN
+category: Remote Access
+notes: Common issue during peak hours especially for users on home networks. May be related to ISP throttling.
+priority: High
+tags: vpn;timeout;remote;connection
+
+Where it came from (metadata):
+{'source': 'sample_it_kb.csv', 'row': 0}
+
+Document 2 of 10
+Text (page_content):
+title: MFA Setup Failure
+...
+
+Document 10 of 10
+Text (page_content):
+title: Microsoft Teams Audio Issues
+...
+tags: teams;audio;collaboration;windows
+
+Where it came from (metadata):
+{'source': 'sample_it_kb.csv', 'row': 9}
+```
+
+The `...` lines stand for the parts left out here: your terminal shows all 10 documents in full.
+
+---
+
+## 📁 Project Structure
+
+```text
+01-read-the-knowledge-base/
+├── knowledge_base_loader.py              # KBLoader, print_documents(), and the lines that run them
+├── data/
+│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
+├── tests/
+│   └── test_knowledge_base_loader.py     # 9 tests: the Documents, the loader, the script
+├── requirements.txt                      # langchain-core, pinned to an exact version
+├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
+├── pytest.ini                            # lets the tests import knowledge_base_loader, and finds them in tests/
+└── README.md                             # you are here
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+python -m pytest                     # 9 passed     (add -v for one line per test)
+```
+
+The tests read the sample file and run the script as its own process: 10 Documents, every column as a line in
+order, the metadata, the first one is the VPN article, making the loader reads nothing, `load()` and `lazy_load()`
+agree, the printed output, and the same output whichever folder the script is started from.
+
+---
+
+## 📊 Understanding the Output
+
+Each Document has two parts:
+
+```text
+Document 1 of 10
+Text (page_content):                           ← every column, as "column: value" lines
+title: VPN Connection Timeout
+...
+tags: vpn;timeout;remote;connection
+
+Where it came from (metadata):                 ← the file, and the row (0 = the first article)
+{'source': 'sample_it_kb.csv', 'row': 0}
+```
+
+---
+
+## 🎓 Key Concepts Demonstrated
+
+### 1. A Document: Text + Metadata
+
+```python
+Document(page_content="title: VPN Connection Timeout\nproblem: ...", metadata={"source": "sample_it_kb.csv", "row": 0})
+```
+
+`page_content` is the article's text; `metadata` travels with it and says where that text came from: the file, and
+the row.
+
+### 2. Configure First, Load Later
+
+```python
+loader = KBLoader(KB_FILE)   # says what to do: which file. Nothing is read yet.
+docs = loader.load()         # does it: this is the line that reads the file.
+```
+
+The settings go in first, and the work happens only when it's asked for.
+
+### 3. `lazy_load()` and `load()`
+
+`lazy_load()` hands out one Document at a time, so even a very large file never has to be in memory all at once.
+`load()`, from LangChain's `BaseLoader`, just collects them into a list.
+
+### 4. A Path From the Script, Not From Where You Run It
+
+```python
+KB_FILE = Path(__file__).resolve().parent / "data" / "sample_it_kb.csv"
+```
+
+`Path(__file__).resolve().parent` is the folder the script is in, so the file is found whichever folder you start
+it from. A bare `"data/sample_it_kb.csv"` would be looked for in the current folder.
+
+---
+
+## 🛠️ Troubleshooting
+
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
+**Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
+`pip install -r requirements-dev.txt` (Step 3).
+
+**Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
+**Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
+
+---
+
+## 📚 Next Steps
+
+**[02 · Documents and Metadata](../02-documents-and-metadata/README.md)**: this project put every column into a
+Document's text. 02 splits each article into its text (title, problem, resolution, notes) and the labels kept next
+to it (system, category, priority, tags).
+
+**[Advanced · 01 · Read the Knowledge Base](../../Advanced/01-read-the-knowledge-base/README.md)**: this project
+reads the file the way it should be. The advanced one reads it the way it might be: it checks every row, redacts
+sensitive data, removes duplicates, and reports everything it skipped or changed.
+
+### Ideas to Try
+
+- Change `KB_FILE` to read a copy of the sample with fewer rows, and see fewer Documents.
+- Print only the `metadata` of each Document, to see where each one came from.

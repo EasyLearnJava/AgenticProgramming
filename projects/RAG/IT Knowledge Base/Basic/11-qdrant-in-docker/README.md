@@ -26,7 +26,7 @@ You need Python 3.11 or newer, a Gemini API key, and Docker (Docker Desktop on W
 has Docker already).
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/11-qdrant-in-docker"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/11-qdrant-in-docker"   # from the repo root; the quotes are for the spaces
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1

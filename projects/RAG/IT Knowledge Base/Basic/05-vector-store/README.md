@@ -34,7 +34,7 @@ You need Python 3.11 or newer, a Gemini API key, and Docker (Docker Desktop on W
 has Docker already). To run without Docker, see [Run it without Docker](#run-it-without-docker).
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/05-vector-store"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/05-vector-store"   # from the repo root; the quotes are for the spaces
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1
@@ -196,7 +196,7 @@ is answering on port 6333 inside the codespace. Check, in the codespace's termin
 1. **You're in this folder, with the latest code.** `docker-compose.yml` must be here:
 
    ```bash
-   cd "projects/RAG/IT Knowledge Base/05-vector-store"   # from the repo root (/workspaces/AgenticProgramming)
+   cd "projects/RAG/IT Knowledge Base/Basic/05-vector-store"   # from the repo root (/workspaces/AgenticProgramming)
    git pull
    ls docker-compose.yml
    ```

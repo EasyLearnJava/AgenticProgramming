@@ -26,7 +26,7 @@ No model and no API key: it only reads a file.
 You need Python 3.11 or newer.
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/02-documents-and-metadata"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/02-documents-and-metadata"   # from the repo root; the quotes are for the spaces
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1
