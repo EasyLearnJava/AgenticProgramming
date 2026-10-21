@@ -7,12 +7,13 @@ build() embeds the chunks only when the server doesn't already hold exactly thes
   1. Building: load and split the articles, then reuse the stored chunks, or embed and store them (one call)
   2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds, how it's set up, and whether it reused the stored chunks
+  4. Printing an answer with its sources
 
-Usage (the Qdrant server must be running first: docker compose up -d):
-    python rag_engine.py                       # answers to the three sample questions
-    python rag_engine.py "printer not found"   # the answer to your question
+Usage (this file only defines these; pipeline.py runs the steps):
+    engine = RAGEngine()                             ->  settings only: nothing is read and no call is made
+    engine.build()                                   ->  read and chunk; reuse the stored chunks, or embed and store
+    print_result(question, engine.query(question))   ->  the answer and up to 3 sources (two calls)
 """
-import sys
 from pathlib import Path
 
 from langchain_core.embeddings import Embeddings
@@ -24,8 +25,8 @@ from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
 from knowledge_base import KB_FILE, load_documents
 from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
-from retriever import QUESTIONS, TOP_K, make_retriever
-from vector_store import COLLECTION, QDRANT_URL, chunk_id, make_client, make_vector_store
+from retriever import TOP_K, make_retriever
+from vector_store import COLLECTION, chunk_id, make_client, make_vector_store
 
 MAX_SOURCES = 3        # sources per answer: the first 3 different articles among the chunks found
 SNIPPET_LENGTH = 200   # characters of each source's text shown with it
@@ -112,16 +113,9 @@ class RAGEngine:
                 "reused_stored_chunks": self.reused_stored_chunks}
 
 
-if __name__ == "__main__":
-    questions = [" ".join(sys.argv[1:])] if len(sys.argv) > 1 else QUESTIONS
-    engine = RAGEngine()
-    engine.build()
-    stats = engine.stats()
-    how = "already stored, reused" if stats["reused_stored_chunks"] else "embedded and stored"
-    print(f"Built: {stats['documents']} articles, {stats['chunks']} chunks ({how}) in Qdrant at {QDRANT_URL}\n")
-    for question in questions:
-        result = engine.query(question)
-        print(f"Q: {question}\nA: {result['answer']}")
-        for source in result["sources"]:
-            print(f"   source: {source['title']} ({source['system']}, {source['category']})")
-        print()
+def print_result(question: str, result: dict) -> None:
+    """Print one question, its answer and its sources, then a blank line."""
+    print(f"Q: {question}\nA: {result['answer']}")
+    for source in result["sources"]:
+        print(f"   source: {source['title']} ({source['system']}, {source['category']})")
+    print()

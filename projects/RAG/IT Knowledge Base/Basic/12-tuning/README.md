@@ -20,7 +20,7 @@ kept in a Qdrant server in Docker. Built with **LangChain**, **Gemini** (`gemini
 - **Counts the hits**: how many questions found their article among the closest 1, 3 and 5 chunks (k)
 - **With `--answers`**, answers one question twice, from 1 chunk and from 5, to show what the number of chunks does
   to an answer
-- **Keeps the app**: `python rag_engine.py`, the API and the chat page, with the chunks kept in a Qdrant server in
+- **Keeps the app**: `python pipeline.py`, the API and the chat page, with the chunks kept in a Qdrant server in
   Docker
 
 **Try it:** `python tuning.py`, and read which chunk size finds the most articles.
@@ -136,7 +136,7 @@ The engine, the API and the chat page keep their chunks in a Qdrant server, so s
 
 ```bash
 docker compose up -d                 # start the Qdrant server, in the background
-python rag_engine.py                 # the three sample questions
+python pipeline.py                   # the three sample questions
 uvicorn main:app --reload            # or the server: the chat page at http://127.0.0.1:8000; Ctrl+C stops it
 ```
 
@@ -164,8 +164,9 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 ├── tuning.py                             # EVAL_SET, evaluate(), print_table(), compare_top_k()
 ├── docker-compose.yml                    # the Qdrant server: qdrant/qdrant:v1.19.1 on port 6333, data in a volume
 ├── index.html                            # the chat page
+├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine: build() reuses stored chunks; query(), aquery(), stats()
+├── rag_engine.py                         # RAGEngine (build() reuses stored chunks) and print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_client(), make_vector_store(), chunk_id(), add_knowledge_base()
@@ -193,13 +194,15 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 The tests don't need Docker:
 
 ```bash
-python -m pytest                     # 64 passed, 8 skipped     (add -v for one line per test)
+python -m pytest                     # 67 passed, 8 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the tuning, they check that the
 test questions cover every article once; that `evaluate()` scores each chunk size; that the questions are embedded
 once, and each chunk size's chunks once; that the table has a line per chunk size; and that `compare_top_k()` answers
-the question once for each k.
+the question once for each k. For `pipeline.py`, they check that it builds the engine, then answers each question;
+that a second run reuses the stored chunks; that without Qdrant it stops with what to do; and that only it and
+`tuning.py` run anything in the terminal.
 
 The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -267,8 +270,8 @@ kept in the Qdrant server stay as they are.
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
 **Issue**: The server stops at start-up with `RuntimeError: Can't reach Qdrant at http://localhost:6333 (<the connection error>). Start it first, in this folder:   docker compose up -d`
-**Fix**: Qdrant isn't running. Run `docker compose up -d`, then start the server again. `python rag_engine.py` stops
-too, with a long error that ends in `ResponseHandlingException`: the same fix. `tuning.py` doesn't need Qdrant.
+**Fix**: Qdrant isn't running. Run `docker compose up -d`, then start the server again. `python pipeline.py` stops
+too, with `Can't reach Qdrant at ...` and the same advice: the same fix. `tuning.py` doesn't need Qdrant.
 
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
