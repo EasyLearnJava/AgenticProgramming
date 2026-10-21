@@ -9,12 +9,11 @@ It handles:
   2. Making a collection for vectors of EMBEDDING_SIZE numbers, compared by cosine similarity
   3. Giving each chunk an id made from its content, so storing it again replaces it instead of copying it
 
+Usage (this file only defines these; pipeline.py runs the steps):
     make_client()                                           ->  a client for the server at QDRANT_URL
     store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  an empty collection, "it_knowledge_base", in memory
     add_knowledge_base(store)                               ->  the 28 chunks embedded and stored   (one call to Gemini)
-
-Usage:
-    python vector_store.py    # the collection, then every point stored in it (Qdrant in memory)
+    print_points(store)                                     ->  the collection, then every point stored in it
 """
 import os
 import uuid
@@ -29,7 +28,6 @@ from qdrant_client.models import Distance, VectorParams
 from chunking import split_documents
 from config import ENV_FILE
 from knowledge_base import load_documents
-from models import EMBEDDING_SIZE, embeddings
 
 # Not the course app's "it_kb", so the two apps never change each other's points on the same Qdrant server
 COLLECTION = "it_knowledge_base"
@@ -69,14 +67,14 @@ def add_knowledge_base(store: QdrantVectorStore) -> list[Document]:
     return chunks
 
 
-if __name__ == "__main__":
-    store = make_vector_store(embeddings, EMBEDDING_SIZE)
-    add_knowledge_base(store)
+def print_points(store: QdrantVectorStore) -> None:
+    """Print the collection's settings, then every point stored in it, in article and place order."""
+    collection = store.collection_name
+    params = store.client.get_collection(collection).config.params.vectors
     # scroll() returns points in id order, so they're sorted back into article and place order
-    params = store.client.get_collection(COLLECTION).config.params.vectors
-    points, _ = store.client.scroll(COLLECTION, limit=100, with_vectors=True)
+    points, _ = store.client.scroll(collection, limit=100, with_vectors=True)
     points.sort(key=lambda point: (int(point.payload["metadata"]["doc_id"]), point.payload["metadata"]["start_index"]))
-    print(f"Collection {COLLECTION!r}: {len(points)} points, vectors of {params.size} numbers, "
+    print(f"Collection {collection!r}: {len(points)} points, vectors of {params.size} numbers, "
           f"compared by {params.distance.value}")
     print(f"Each point holds an id, a vector and a payload with {', '.join(sorted(points[0].payload))}")
     print()

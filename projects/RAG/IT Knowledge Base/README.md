@@ -58,7 +58,7 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
   `.env.example` to `.env` and put the key after `GOOGLE_API_KEY=`. Every call to Gemini uses your key's quota.
   Without a key, the scripts stop with a message that says what to do.
 - **Docker, for projects 11 and 12**: `docker compose up -d` in the project's folder starts the Qdrant server that
-  their `rag_engine.py` and `main.py` use. (`tuning.py` runs Qdrant in memory and doesn't need it.) Project 05 uses it
+  their `pipeline.py` and `main.py` use. (`tuning.py` runs Qdrant in memory and doesn't need it.) Project 05 uses it
   too, to show the stored points in Qdrant's dashboard; it can also run in memory, without Docker.
 - **Tests**: `python -m pytest` in a project's folder. The plain tests use stand-ins for Gemini, so they need no key;
   the live tests call the real Gemini and run only when a key is set.

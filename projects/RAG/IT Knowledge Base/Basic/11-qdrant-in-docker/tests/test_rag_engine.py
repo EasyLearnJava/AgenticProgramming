@@ -14,7 +14,7 @@ from qdrant_client import QdrantClient
 
 import rag_engine
 from knowledge_base import KB_FILE
-from rag_engine import MAX_SOURCES, RAGEngine
+from rag_engine import MAX_SOURCES, RAGEngine, print_result
 from retriever import QUESTIONS
 from vector_store import COLLECTION, QDRANT_URL
 
@@ -112,6 +112,13 @@ def test_query_gives_the_answer_and_up_to_3_different_sources():
     assert 1 <= len(titles) <= MAX_SOURCES and len(set(titles)) == len(titles)
     assert result["sources"][0]["snippet"].startswith("Title: VPN Connection Timeout")
     assert asyncio.run(engine.aquery("My VPN won't connect")) == result
+
+
+def test_print_result_prints_the_question_the_answer_and_each_source(capsys):
+    source = {"title": "VPN Connection Timeout", "system": "VPN", "category": "Remote Access", "snippet": "Title: VPN"}
+    print_result("My VPN won't connect", {"answer": "An answer.", "sources": [source]})
+    assert capsys.readouterr().out == ("Q: My VPN won't connect\nA: An answer.\n"
+                                       "   source: VPN Connection Timeout (VPN, Remote Access)\n\n")
 
 
 def qdrant_server_answers() -> bool:

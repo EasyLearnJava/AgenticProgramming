@@ -20,11 +20,12 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 - **Reuses what's stored**: when the engine builds, it checks what the server holds. If it's exactly these 28
   chunks, it reuses them, with no call to Gemini; if not (the first run, or after an article changed), it stores them
   anew
-- **Answers questions** with the engine (`python rag_engine.py`), the API and the chat page (`uvicorn main:app`)
-- **Says what to do when Qdrant isn't running**: the server stops at start-up with `docker compose up -d` in its
-  message
+- **Answers questions** with the engine in the terminal (`python pipeline.py`), and with the API and the chat page
+  (`uvicorn main:app`)
+- **Says what to do when Qdrant isn't running**: the server and `pipeline.py` stop with `docker compose up -d` in
+  their message
 
-**Try it:** run `python rag_engine.py` twice, and see the second run reuse the stored chunks.
+**Try it:** run `python pipeline.py` twice, and see the second run reuse the stored chunks.
 
 ---
 
@@ -49,7 +50,7 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 ┌──────────────────────────────────┐
 │  the chain, for each question    │  ← the 5 closest chunks, then Gemini's answer (2 calls)
 └──────────────────────────────────┘
-   used by python rag_engine.py, and by uvicorn main:app (the API and the chat page)
+   used by python pipeline.py, and by uvicorn main:app (the API and the chat page)
 ```
 
 ### The Pipeline in This Project
@@ -122,23 +123,24 @@ deletes them too.
 ### Step 6: Run It
 
 ```bash
-python rag_engine.py                 # the three sample questions
+python pipeline.py                   # the three sample questions
 uvicorn main:app --reload            # or the server and the chat page; Ctrl+C stops it
 ```
 
-The first `python rag_engine.py` embeds the chunks and stores them in the server:
+The first `python pipeline.py` builds the engine, which embeds the chunks and stores them in the server:
 
 ```text
-Built: 10 articles, 28 chunks (embedded and stored) in Qdrant at http://localhost:6333
+Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in Qdrant at http://localhost:6333
 ```
 
 Every run after that finds them there:
 
 ```text
-Built: 10 articles, 28 chunks (already stored, reused) in Qdrant at http://localhost:6333
+Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in Qdrant at http://localhost:6333
 ```
 
-Then come each question (`Q:`), its answer (`A:`) and its sources. The parts in `< >` come from Gemini:
+Then come `Step 2: Answer` and each question (`Q:`), its answer (`A:`) and its sources. The parts in `< >` come from
+Gemini:
 
 ```text
 Q: How do I fix VPN connection timeouts?
@@ -161,7 +163,7 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/11-qdrant-in-docker   # fro
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
 `uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops it.
-Then open http://127.0.0.1:8000 for the chat page. For `python rag_engine.py`, use Step 6.
+Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use Step 6.
 
 ---
 
@@ -171,8 +173,9 @@ Then open http://127.0.0.1:8000 for the chat page. For `python rag_engine.py`, u
 11-qdrant-in-docker/
 ├── docker-compose.yml                    # the Qdrant server: qdrant/qdrant:v1.19.1 on port 6333, data in a volume
 ├── index.html                            # the chat page
+├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine: build() reuses stored chunks; query(), aquery(), stats()
+├── rag_engine.py                         # RAGEngine (build() reuses stored chunks) and print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_client(), make_vector_store(), chunk_id(), add_knowledge_base()
@@ -200,7 +203,7 @@ Then open http://127.0.0.1:8000 for the chat page. For `python rag_engine.py`, u
 The tests don't need Docker:
 
 ```bash
-python -m pytest                     # 58 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 61 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the stored chunks, they check
@@ -208,7 +211,9 @@ that each chunk gets its own id, always the same one; that adding the same chunk
 adding copies; that the first build embeds and stores the 28 chunks, and a later build finds them and embeds nothing;
 that other chunk sizes replace the stored chunks, while an engine with a collection of its own keeps its chunks;
 that another data file can be read; that every setting is passed by name; and that without Qdrant the server
-stops with what to do.
+stops with what to do. For `pipeline.py`, they check that it builds the engine, then answers each question; that a
+second run reuses the stored chunks; that without Qdrant it stops with what to do; and that no other file runs
+anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -218,11 +223,11 @@ no key is set. With your key in `.env`, they run too. To run only the plain ones
 ## 📊 Understanding the Output
 
 ```text
-Built: 10 articles, 28 chunks (embedded and stored) in Qdrant at http://localhost:6333
-                               └─ the server didn't hold exactly these chunks: they were embedded (1 call) and stored
+Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in Qdrant at http://localhost:6333
+  └─ the server didn't hold exactly these chunks: they were embedded (1 call) and stored
 
-Built: 10 articles, 28 chunks (already stored, reused) in Qdrant at http://localhost:6333
-                               └─ the server held exactly these 28 chunks: no call to Gemini for them
+Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in Qdrant at http://localhost:6333
+  └─ the server held exactly these 28 chunks: no call to Gemini for them
 ```
 
 `stats()`, and so `/api/stats`, also says which happened: `"reused_stored_chunks"` is `true` when the stored chunks
@@ -278,10 +283,8 @@ RuntimeError: Can't reach Qdrant at http://localhost:6333 (<the connection error
 
 **Fix**: Qdrant isn't running. Run `docker compose up -d`, then start the server again.
 
-**Issue**: `python rag_engine.py` stops with a long error that ends in `ResponseHandlingException` and the connection
-error
-**Fix**: The same: Qdrant isn't running. Run `docker compose up -d`, then try again. (Unlike the server,
-`rag_engine.py` doesn't turn this error into a short message.)
+**Issue**: `python pipeline.py` stops with `Can't reach Qdrant at http://localhost:6333 (<the connection error>). Start it first, in this folder:   docker compose up -d`
+**Fix**: The same: Qdrant isn't running. Run `docker compose up -d`, then try again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
 **Fix**: There's no `.env` with a key in this folder. Do Step 4.
@@ -301,7 +304,7 @@ production grade. Its README lists what it will add.
 
 ### Ideas to Try
 
-- Run `python rag_engine.py` twice, and compare the first line of each run.
+- Run `python pipeline.py` twice, and compare the first line of each run.
 - Change one word in an article in `data/sample_it_kb.csv`, run it again, and see the chunks embedded and stored
   anew.
 - Open the dashboard at http://localhost:6333/dashboard and find the 28 points of `it_knowledge_base`.
