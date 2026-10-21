@@ -1,72 +1,140 @@
-# 05 · Vector store
+# 05 · Vector Store
 
-## What it does
+Store the IT knowledge base's 28 chunks in Qdrant, a vector database: one point per chunk, with its vector, its text
+and its labels, then look at them in Qdrant's web dashboard. Qdrant runs as a server in Docker, or inside the script
+("in memory") with no Docker at all. Built with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
 
-A vector database stores vectors so that they can be searched later. This step stores the 28 chunks in Qdrant, run
-as a server by Docker (`docker-compose.yml`). The server has a web dashboard where you can see every stored point.
-Qdrant can also run inside the script ("in memory"), with no Docker: then nothing outside the script can see the
-points, and they're gone when it ends. See [Run it without Docker](#run-it-without-docker).
+> **Needs:** Python 3.11 or newer, a Gemini API key, and Docker (or no Docker, with Qdrant in memory). Each run makes
+> 1 call to Gemini, for all 28 chunks.
 
-`vector_store.py`:
+---
 
-- makes a collection, `it_knowledge_base` (Qdrant's word for a table of points), for vectors of 768 numbers compared
-  by cosine similarity: how closely two vectors point the same way;
-- loads the articles, cuts them into step 03's 28 chunks and adds them through LangChain's `QdrantVectorStore`.
-  `add_documents()` embeds them, with the same call as step 04, and stores each chunk as a point: an id, its vector,
-  and a payload with its text (`page_content`) and its labels (`metadata`);
-- reads the points back from Qdrant and prints them, to show what was stored.
+## 🎯 What This Project Does
 
-This is the last step of getting the knowledge base ready to be searched: load, chunk, embed, store. There's still no
-question here: the search starts in step 06.
+- **Makes a collection**, `it_knowledge_base` (Qdrant's word for a table of points), for vectors of 768 numbers
+  compared by cosine similarity: how closely two vectors point the same way
+- **Reads and chunks the knowledge base**: `data/sample_it_kb.csv` into 10 articles, then 28 chunks of at most 512
+  characters
+- **Embeds and stores the chunks** through LangChain's `QdrantVectorStore`: `add_documents()` sends the 28 texts to
+  Gemini in one call, and stores each chunk as a point: an id, its vector, and a payload with its text
+  (`page_content`) and its labels (`metadata`)
+- **Starts fresh on every run**: it deletes the collection on the server and stores the chunks again. The points get
+  random ids, so without that, every run would add 28 more copies
+- **Prints** where Qdrant is, the collection's settings, then every stored point, read back from Qdrant, and where to
+  find the dashboard
+
+**Try it:** run it, then open the dashboard and click through the 28 points.
+
+---
+
+## 🏗️ Architecture
 
 ```text
-28 chunks  ->  Gemini: 768 numbers each  ->  the Qdrant server: 28 points (vector + text + labels)  ->  the dashboard
+data/sample_it_kb.csv                        10 rows × 8 columns
+          │
+          ↓
+┌───────────────────────────────────┐
+│  load_documents()                 │  ← knowledge_base.py: 10 Documents, text + labels
+│  split_documents()                │  ← chunking.py: 28 chunks of at most 512 characters
+└─────────────────┬─────────────────┘
+                  │ 28 chunks
+                  ↓
+┌───────────────────────────────────┐
+│  make_vector_store(embeddings,    │  ← vector_store.py: the it_knowledge_base collection,
+│                    768, client)   │     768 numbers, cosine, wrapped in QdrantVectorStore
+│  add_knowledge_base(store)        │  ← add_documents(): one call to Gemini, then 28 points
+└─────────────────┬─────────────────┘
+                  │ 28 points: id + vector + payload (page_content, metadata)
+        ┌─────────┴──────────┐
+        ↓                    ↓
+┌───────────────────┐ ┌──────────────────────┐
+│  Qdrant server    │ │  Qdrant in memory    │  ← QDRANT_URL in .env: the server (Docker);
+│  (Docker, :6333)  │ │  (inside the script) │     no QDRANT_URL: in memory, gone at the end
+└─────────┬─────────┘ └──────────────────────┘
+          │
+          ↓
+   the dashboard: http://localhost:6333/dashboard
 ```
 
-Each run makes 1 call to Gemini, for all 28 chunks. It embeds them again rather than using step 04's vectors, because
-each project runs on its own, from the CSV. Each run also starts fresh: it deletes the collection and stores the
-chunks again. The points get random ids, so without that, every run would add 28 more copies. Step 11 does better: it
-gives each chunk an id made from its text, and keeps the stored chunks between runs instead of embedding them again.
+### The Pipeline in This Project
 
-## How to run it
+1. **Choose Qdrant** → with `QDRANT_URL` in `.env`, the server; without it, Qdrant in memory
+2. **Start fresh** → on the server, delete the collection if it's there
+3. **Make the collection** → `make_vector_store()`: `it_knowledge_base`, 768 numbers per vector, cosine
+4. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
+5. **Embed and store** → `add_knowledge_base()`: `add_documents()` embeds the 28 texts in one call and stores 28 points
+6. **Read back and print** → the collection's settings, then every point, sorted by article and place
 
-You need Python 3.11 or newer, a Gemini API key, and Docker (Docker Desktop on Windows and macOS; GitHub Codespaces
-has Docker already). To run without Docker, see [Run it without Docker](#run-it-without-docker).
+---
+
+## 📋 Prerequisites
+
+- **Python 3.11 or newer**
+- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. Every call to Gemini
+  uses your key's quota
+- **Docker**: Docker Desktop on Windows and macOS; GitHub Codespaces has Docker already. To run without Docker, see
+  [Or: Run It Without Docker](#or-run-it-without-docker)
+- A network connection, to reach Gemini
+
+---
+
+## 🚀 Quick Start
+
+### Step 1: Go to This Folder
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/Basic/05-vector-store"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/05-vector-store"   # from the repo root; quotes for the spaces
+```
+
+### Step 2: Create and Activate a Virtual Environment
+
+```bash
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1
 #   Windows Command Prompt:  .venv\Scripts\activate
 #   Windows Git Bash:        source .venv/Scripts/activate
+```
+
+Creating the venv is once only; activate it again in every new terminal.
+
+### Step 3: Install Dependencies
+
+```bash
 pip install -r requirements-dev.txt  # once: the packages and pytest, into .venv/
+```
+
+### Step 4: Add Your Gemini Key
+
+```bash
 cp .env.example .env                 # once (Windows PowerShell or Command Prompt: copy .env.example .env)
-docker compose up -d                 # start the Qdrant server, in the background (the first time, Docker downloads it)
+```
+
+Open `.env` in an editor and put your key after `GOOGLE_API_KEY=`. `.env` is in `.gitignore`, so your key never goes
+into git: never commit it, and never put a real key in `.env.example`.
+
+`.env` also has `QDRANT_URL=http://localhost:6333`, from `.env.example`: that's what tells the script to use the
+server. The script runs next to Qdrant, so for it the server is always `localhost`, in Codespaces too.
+
+### Step 5: Start the Qdrant Server
+
+```bash
+docker compose up -d                 # start Qdrant in the background (the first time, Docker downloads it)
 docker compose ps                    # check: the qdrant service is "Up"
+```
+
+The server keeps running in the background until you stop it (see [Stop the Server](#stop-the-server)), so next time
+you only need Step 6.
+
+### Step 6: Run It
+
+```bash
 python vector_store.py               # store the 28 chunks in the server
 ```
 
-Then open the dashboard: http://localhost:6333/dashboard on your own computer, or, in GitHub Codespaces, the address
-the **Ports** tab gives for port 6333 (see [Open the dashboard](#open-the-dashboard), below).
-
-Creating the venv, installing and making `.env` are once only; activate the venv again in every new terminal. The
-Qdrant server keeps running in the background until you stop it (see [Stop the server](#stop-the-server)), so next
-time you only need `python vector_store.py`.
-
-**Your key:** open `.env` in an editor and put your key after `GOOGLE_API_KEY=` (`tutorials/09-gemini-key` shows how
-to make one). `.env` is in `.gitignore`, so your key never goes into git. Without a key, the script stops with:
-
-```text
-Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).
-```
-
-`.env` also has `QDRANT_URL=http://localhost:6333`, from `.env.example`: that's what tells the script to use the
-server. The script itself runs next to Qdrant, so for it the server is always `localhost`, in Codespaces too.
-
-`python vector_store.py` says where Qdrant is, prints the collection's settings, then every stored point, one line
-each: its article, where in the article the chunk starts, its vector's size, its text's length and how many labels it
-has. It ends with where to find the dashboard. Gemini's numbers aren't printed, so this is exactly what you'll see:
+It says where Qdrant is, prints the collection's settings, then every stored point, one line each: its article, where
+in the article the chunk starts, its vector's size, its text's length and how many labels it has. It ends with where
+to find the dashboard. Gemini's numbers aren't printed, so this is exactly what you'll see:
 
 ```text
 Qdrant: the server at http://localhost:6333
@@ -83,10 +151,9 @@ See them in Qdrant's dashboard: http://localhost:6333/dashboard
 In GitHub Codespaces: open the Ports tab, open the address for port 6333, and add /dashboard to it.
 ```
 
-The 7 labels are the article's 6 from step 02 (`doc_id`, title, system, category, priority, tags), plus
-`start_index` from step 03.
+The `...` stands for points 4 to 27: your terminal shows all 28.
 
-### Open the dashboard
+### Step 7: Open the Dashboard
 
 | Where you run it | The dashboard's address |
 |---|---|
@@ -106,12 +173,90 @@ address. The surest way to get it is the **Ports** tab:
 in to GitHub.
 
 In the dashboard, open **Collections**, then `it_knowledge_base`: its 28 points, each with its payload (the chunk's
-text and labels) and its vector. If the dashboard says `No collection is present`, the script hasn't stored anything
-in this server yet: check that the first line `python vector_store.py` prints is `Qdrant: the server at ...`, then
-refresh the page (the ↻ next to **Collections**). If it says `Qdrant: in memory, inside this script`, `.env` has no
-`QDRANT_URL` line, or it has a `#` in front: fix it, and run the script again.
+text and labels) and its vector.
 
-### The Visualize tab: every chunk on one map
+### Or: Run It Without Docker
+
+In `.env`, put a `#` at the start of the `QDRANT_URL` line:
+
+```text
+# QDRANT_URL=http://localhost:6333
+```
+
+Then `python vector_store.py` keeps Qdrant in memory, inside the script. It prints the same collection and points, but
+its first line is `Qdrant: in memory, inside this script`, and there's no dashboard line, because there's no server to
+look at. To go back to the server, remove the `#`.
+
+### Stop the Server
+
+Run `docker compose down` in this folder. Its data stays in a Docker volume for next time (`docker compose down -v`
+deletes it). In Codespaces, the server also stops when the codespace stops: run `docker compose up -d` again next
+time. Only one program can use port 6333 at a time, so stop this server before starting another Qdrant.
+
+---
+
+## 📁 Project Structure
+
+```text
+05-vector-store/
+├── vector_store.py                       # make_vector_store(), add_knowledge_base(), and the lines that store and print
+├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
+├── config.py                             # load_api_key(): the key, checked before anything else runs
+├── chunking.py                           # split_documents(): the 28 chunks of at most 512 characters
+├── knowledge_base.py                     # load_documents(): the 10 articles, text + labels
+├── docker-compose.yml                    # the Qdrant server, qdrant/qdrant:v1.19.1, on port 6333
+├── data/
+│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
+├── images/                               # the pictures in this README
+├── tests/
+│   ├── conftest.py                       # decides once whether the live tests can run
+│   ├── fakes.py                          # stand-ins for Gemini: no key, no network
+│   ├── test_vector_store.py              # the collection, the points, the server and in-memory runs
+│   ├── test_models.py                    # the model's settings, and the no-key message
+│   ├── test_chunking.py                  # the chunks
+│   └── test_knowledge_base.py            # the Documents
+├── .env.example                          # copy it to .env: your key, and QDRANT_URL for the server
+├── requirements.txt                      # the packages, pinned to exact versions
+├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
+├── pytest.ini                            # lets the tests import the scripts, and finds them in tests/
+└── README.md                             # you are here
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+python -m pytest                     # 22 passed, 2 skipped     (add -v for one line per test)
+```
+
+The tests never need Docker: an in-memory Qdrant stands in for the server. Most of them also use `tests/fakes.py`'s
+stand-in for Gemini, so they need no key and no network. They check:
+
+- **The store**: a new collection is empty, cosine, of the right size; adding the knowledge base stores 28 chunks in
+  one embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is kept
+- **The script**: in memory, it stores the chunks and never embeds a question; with `QDRANT_URL` it uses that server
+  and starts fresh on each run; with `QDRANT_URL` but no server, it stops and says what to do
+- **The model, the chunks and the Documents**: the model's settings and the no-key message; 28 chunks with their
+  labels; 10 Documents with their text and labels
+
+The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
+environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
+so it can be built, and skips the live tests.
+
+---
+
+## 📊 Understanding the Output
+
+```text
+Point 1 of 28: VPN Connection Timeout, from character 0: 768 numbers, 457 characters of text, 7 labels
+```
+
+Each point is one chunk: `from character 0` is where in its article the chunk starts, `768 numbers` is its vector,
+`457 characters of text` is its `page_content`, and the 7 labels are its `metadata`: the article's 6 from
+`knowledge_base.py` (`doc_id`, title, system, category, priority, tags), plus `start_index` from `chunking.py`.
+
+### The Visualize Tab: Every Chunk on One Map
 
 In `it_knowledge_base`, the **Visualize** tab draws all 28 points as dots on one map. Its right-hand side holds a
 request, and nothing is drawn until you click the small **RUN** link just above the request's `{`. To color the dots
@@ -139,7 +284,7 @@ Clicking the MFA article's first chunk (its Title and Problem) gives:
 
 ![Qdrant's dashboard, Visualize tab, for it_knowledge_base. On the left, 28 dots: the clicked one circled, its nearest neighbours bright, the others faded. On the right, Data Panel shows the clicked point's payload: page_content "Title: MFA Setup Failure Problem: Employee cannot...", and metadata doc_id 1, title MFA Setup Failure, system MFA, category Security, priority High, tags mfa;authentication;mobile;security, start_index 0. Below it, Similar points lists 12 points with their scores, from 0.8691 down to 0.7558 for the last one, bd4a67d9-f0f7-4e02-bf5e-ea47122b9c8e.](images/dashboard-similar-points.png)
 
-#### What the score means: 0.7558
+### What the Score Means: 0.7558
 
 Each score is the cosine similarity between the clicked point's vector and that point's vector: how closely the two
 point the same way.
@@ -148,15 +293,15 @@ point the same way.
 - **0.7558**, the last one listed, means fairly similar: an angle of about 41° between the two vectors. The top one,
   **0.8691**, is about 30°.
 
-It's the cosine from [How Qdrant measures "close"](#how-qdrant-measures-close-the-distance), below, with 768
-numbers instead of 2:
+It's the cosine from [How Qdrant Measures "Close": the Distance](#4-how-qdrant-measures-close-the-distance), below,
+with 768 numbers instead of 2:
 
 ```text
 cosine(a, b) = (a₁×b₁ + a₂×b₂ + … + a₇₆₈×b₇₆₈) / (length of a × length of b)
 ```
 
 The collection uses cosine, so Qdrant stores every vector at length 1 (see
-[Why Qdrant's stored numbers differ from Gemini's](#why-qdrants-stored-numbers-differ-from-geminis)). Both lengths
+[Why Qdrant's Stored Numbers Differ From Gemini's](#5-why-qdrants-stored-numbers-differ-from-geminis)). Both lengths
 are 1, so the score is just the sum of the 768 products: the two vectors multiplied number by number, then added up.
 With 2 numbers, `[0.6, 0.8]` and `[0.8, 0.6]` give `0.6×0.8 + 0.8×0.6 = 0.96`. The Qdrant server does this sum
 between the clicked point and every other point, and lists the highest first.
@@ -164,11 +309,10 @@ between the clicked point and every other point, and lists the highest first.
 Reading the scores:
 
 - **The order matters more than the values.** All 28 chunks are IT help-desk text, so to Gemini they're all fairly
-  similar, and the scores sit close together: 0.76 to 0.87 here. What decides a search, in step 06, is which chunks
-  score highest.
+  similar, and the scores sit close together: 0.76 to 0.87 here. What decides a search is which chunks score highest.
 - **To see which chunk a score belongs to,** click the eye icon next to it.
 
-#### Check a score yourself
+### Check a Score Yourself
 
 With Qdrant running and the venv active, in this folder, this reads two stored vectors from Qdrant and does the sum
 itself, with no call to Gemini. Put in the id of the clicked point and the id of one point from its list:
@@ -188,79 +332,34 @@ It prints `length of a: 1.0` and the same score as the dashboard: `0.7558` for t
 of `vector_store.py` stores the points again, with new random ids, so copy the ids from the dashboard after your latest
 run.
 
-### If the dashboard says 404 (page can't be found)
+---
 
-In Codespaces, `This ... page can't be found` with `HTTP ERROR 404` comes from Codespaces, not from Qdrant: nothing
-is answering on port 6333 inside the codespace. Check, in the codespace's terminal:
+## 🎓 Key Concepts Demonstrated
 
-1. **You're in this folder, with the latest code.** `docker-compose.yml` must be here:
+### 1. A Vector Database Stores Points
 
-   ```bash
-   cd "projects/RAG/IT Knowledge Base/Basic/05-vector-store"   # from the repo root (/workspaces/AgenticProgramming)
-   git pull
-   ls docker-compose.yml
-   ```
+A collection is a table of points, and each point has three parts: an id, a vector, and a payload. Here the payload
+holds the chunk's text (`page_content`) and its labels (`metadata`), so whatever finds a vector also gets the text and
+labels that go with it. `QdrantVectorStore` is LangChain's wrapper around a collection: give it chunks, and it embeds
+them with the embedding model and stores the points.
 
-   Without it, `docker compose up -d` stops with `no configuration file provided: not found`.
+### 2. A Server or In Memory
 
-2. **Qdrant is running.** Start it, then look:
-
-   ```bash
-   docker compose up -d
-   docker compose ps
-   ```
-
-   `docker compose ps` should list the qdrant service with `Up` in its status. If `up -d` printed an error, or `ps`
-   lists nothing, Qdrant isn't running: the error says why.
-
-3. **Qdrant answers inside the codespace:**
-
-   ```bash
-   curl http://localhost:6333
-   ```
-
-   A short JSON reply from Qdrant means it's working. `Connection refused` means it isn't running yet: go back to 2.
-
-4. **The port is forwarded.** Once `curl` works, open the dashboard from the **Ports** tab, as in
-   [Open the dashboard](#open-the-dashboard): the globe icon on the 6333 row, then `/dashboard`. Typing the address
-   by hand can go wrong; the Ports tab's address can't.
-
-### If Qdrant isn't running
-
-If `QDRANT_URL` is set but no server answers, the script stops before calling Gemini:
-
-```text
-Can't reach Qdrant at http://localhost:6333. Start it first, in this folder: docker compose up -d (or remove QDRANT_URL from .env to run Qdrant in memory).
+```python
+QdrantClient(url="http://localhost:6333")    # the server: points kept between runs, seen in the dashboard
+QdrantClient(":memory:")                     # inside the script: nothing outside can see them, gone at the end
 ```
 
-### Stop the server
+The same code works with either: only the client differs. `QDRANT_URL` in `.env` picks the server; without it, the
+script keeps Qdrant in memory.
 
-Run `docker compose down` in this folder. Its data stays in a Docker volume for next time (`docker compose down -v`
-deletes it). In Codespaces, the server also stops when the codespace stops: run `docker compose up -d` again next
-time. Only one server can use port 6333, so stop this one before starting step 11's.
+### 3. Starting Fresh on Every Run
 
-### Run it without Docker
+`QdrantVectorStore` gives each new point a random id. Storing the same 28 chunks twice would make 56 points, so on the
+server the script deletes the collection first and stores the chunks again. Each run embeds the chunks again too: one
+call to Gemini.
 
-In `.env`, put a `#` at the start of the `QDRANT_URL` line:
-
-```text
-# QDRANT_URL=http://localhost:6333
-```
-
-Then `python vector_store.py` keeps Qdrant in memory, inside the script. It prints the same collection and points, but
-its first line is `Qdrant: in memory, inside this script`, and there's no dashboard line, because there's no server to
-look at. To go back to the server, remove the `#`.
-
-### Run the tests
-
-```bash
-python -m pytest                     # 22 passed, 2 skipped
-```
-
-The 2 skipped tests are live tests: they call the real Gemini, so they run only when your key is set. The tests never
-need Docker: an in-memory Qdrant stands in for the server.
-
-## How Qdrant measures "close": the distance
+### 4. How Qdrant Measures "Close": the Distance
 
 When `make_vector_store()` creates the collection, it also fixes how Qdrant will measure how close two vectors are:
 
@@ -288,7 +387,7 @@ Which is closer to `a`, `b` or `c`? The four distances don't agree:
 Cosine and Dot say `b`, which points exactly the same way as `a`. Euclid and Manhattan say `c`, whose tip is nearer.
 For text, the direction is what carries the meaning, so `b` should win: that's why text embeddings use cosine.
 
-### Cosine: the angle (what this project uses)
+#### Cosine: the angle (what this project uses)
 
 ![Cosine. Three arrows from the origin on a grid: a to [3, 4], b to [6, 8] along the same line as a, and c to [4, 3]. An arc marks the 16 degree angle between a and c; a and b are 0 degrees apart. Cosine of a and b: 50 / (5 x 10) = 1.00. Cosine of a and c: 24 / (5 x 5) = 0.96. Higher is closer, so b is closest: only the direction counts.](images/cosine.svg)
 
@@ -298,7 +397,7 @@ Cosine divides the dot product by both lengths, so only the angle is left: 1 mea
 **Use it for** text embeddings, where the meaning is the direction, and for any vectors that don't already have
 length 1, like Gemini's at 768 numbers. If a model's documentation doesn't say otherwise, cosine is the safe choice.
 
-### Dot: the angle and the lengths
+#### Dot: the angle and the lengths
 
 ![Dot. The same three arrows. A dashed line drops from c's tip onto a's line, and c's shadow along a is 4.8 long. Dot of a and b: 3x6 + 4x8 = 50, that is 5 x 10. Dot of a and c: 3x4 + 4x3 = 24, that is 5 x 4.8. Higher is closer, so b is closest. On vectors of length 1, dot ranks exactly like cosine.](images/dot.svg)
 
@@ -311,7 +410,7 @@ little faster. OpenAI's embeddings, and Gemini's at the full 3072 numbers, come 
 model's documentation says to, or when a longer vector should win on purpose (in some recommendation systems, a longer
 vector means a more popular item).
 
-### Euclid: the straight line between the tips
+#### Euclid: the straight line between the tips
 
 ![Euclid. The same three arrows. A dashed line beside a and b runs from a's tip to b's tip: 5.00 long. Another runs from a's tip to c's tip: 1.41 long. Lower is closer, so c is closest, though b points the same way as a.](images/euclid.svg)
 
@@ -322,7 +421,7 @@ Lower is closer, and 0 means the same point. `b` loses because it's long, even t
 measurements, grouping similar items into clusters. On vectors of length 1 it ranks results in the same order as
 cosine.
 
-### Manhattan: the walk along the grid
+#### Manhattan: the walk along the grid
 
 ![Manhattan. The same three arrows. A dashed path walks from a's tip to b's tip along the grid lines: 4 up and 3 across, 3 + 4 = 7. Another walks from a's tip to c's tip: 1 across and 1 down, 1 + 1 = 2. Lower is closer, so c is closest.](images/manhattan.svg)
 
@@ -332,7 +431,7 @@ Lower is closer.
 **Use it for** text rarely. It shows up with other kinds of number data, where one big difference should count for
 less than it does with Euclid, which squares every difference.
 
-### Why Qdrant's stored numbers differ from Gemini's
+### 5. Why Qdrant's Stored Numbers Differ From Gemini's
 
 With cosine, Qdrant stores each vector at length 1. It divides every number by the vector's length, which keeps the
 direction:
@@ -346,12 +445,87 @@ Qdrant stores:   [0.6, 0.8]    [3/5, 4/5], length 1
 
 The meaning is the direction, and that doesn't change, so every cosine score stays the same. Qdrant does it so that
 each search becomes a simple dot product, which is faster. It does this only with cosine; with Dot, Euclid and
-Manhattan it stores the vectors exactly as they came. So if you compared the first numbers `embed_chunks.py` prints in
-step 04 with the vectors stored here, they'd differ, by the same factor for every number in a vector.
+Manhattan it stores the vectors exactly as they came. So if you compared the numbers Gemini returns for a chunk with
+the vector stored here, they'd differ, by the same factor for every number in the vector.
 
-### Choosing a distance
+### 6. Choosing a Distance
 
 - **Use the distance the embedding model's documentation recommends.** For Gemini's embeddings, that's cosine.
 - **It's fixed when the collection is created.** To change it, make a new collection and store the chunks again.
 - **It decides what the scores mean.** With cosine and dot, higher is closer; with Euclid and Manhattan, lower is
-  closer. The scores step 06 prints read "the closer to 1, the closer the meaning" because this project uses cosine.
+  closer. This project uses cosine, so its scores read "the closer to 1, the closer the meaning".
+
+---
+
+## 🛠️ Troubleshooting
+
+**Issue**: `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
+**Fix**: There's no `.env` in this folder, and no `GOOGLE_API_KEY` in the environment. Do Step 4.
+
+**Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
+**Fix**: `.env` still says `your-key-here`. Put your real key after `GOOGLE_API_KEY=`.
+
+**Issue**: `Can't reach Qdrant at http://localhost:6333. Start it first, in this folder: docker compose up -d (or remove QDRANT_URL from .env to run Qdrant in memory).`
+**Fix**: `QDRANT_URL` is set, but no server answers. The script stops before calling Gemini. Start the server
+(Step 5), or run without Docker ([Or: Run It Without Docker](#or-run-it-without-docker)).
+
+**Issue**: `no configuration file provided: not found`, from `docker compose up -d`
+**Fix**: You're not in this folder: `docker-compose.yml` must be in the folder you run it from. Do Step 1, then
+`ls docker-compose.yml` to check.
+
+**Issue**: The dashboard says `No collection is present`
+**Fix**: The script hasn't stored anything in this server yet. Check that the first line `python vector_store.py`
+prints is `Qdrant: the server at ...`, then refresh the page (the ↻ next to **Collections**). If it says
+`Qdrant: in memory, inside this script`, `.env` has no `QDRANT_URL` line, or it has a `#` in front: fix it, and run
+the script again.
+
+**Issue**: In Codespaces, the dashboard says `This ... page can't be found` with `HTTP ERROR 404`
+**Fix**: That comes from Codespaces, not from Qdrant: nothing is answering on port 6333 inside the codespace. Check,
+in the codespace's terminal:
+
+1. **You're in this folder, with the latest code.** `docker-compose.yml` must be here:
+
+   ```bash
+   cd "projects/RAG/IT Knowledge Base/Basic/05-vector-store"   # from the repo root (/workspaces/AgenticProgramming)
+   git pull
+   ls docker-compose.yml
+   ```
+
+2. **Qdrant is running.** Start it, then look:
+
+   ```bash
+   docker compose up -d
+   docker compose ps
+   ```
+
+   `docker compose ps` should list the qdrant service with `Up` in its status. If `up -d` printed an error, or `ps`
+   lists nothing, Qdrant isn't running: the error says why.
+
+3. **Qdrant answers inside the codespace:**
+
+   ```bash
+   curl http://localhost:6333
+   ```
+
+   A short JSON reply from Qdrant means it's working. `Connection refused` means it isn't running yet: go back to 2.
+
+4. **The port is forwarded.** Once `curl` works, open the dashboard from the **Ports** tab, as in
+   [Step 7: Open the Dashboard](#step-7-open-the-dashboard): the globe icon on the 6333 row, then `/dashboard`.
+   Typing the address by hand can go wrong; the Ports tab's address can't.
+
+---
+
+## 📚 Next Steps
+
+**[06 · Retriever](../06-retriever/README.md)**: this project stored the 28 chunks. 06 takes a question, turns it
+into a vector with the same model, and asks Qdrant for the 5 closest chunks, with their scores.
+
+**[Advanced · 05 · Vector Store](../../Advanced/05-vector-store/README.md)** (planned): the same project, production
+grade. Its README lists what it will add.
+
+### Ideas to Try
+
+- In the Visualize tab, color the dots by `metadata.category` instead of `metadata.title`, and see which categories
+  sit near each other.
+- Click a chunk from another article, and compare its **Similar points** with the MFA one's.
+- Run it twice and look at the ids in the dashboard: the same 28 chunks, with new random ids each time.

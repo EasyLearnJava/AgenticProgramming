@@ -1,15 +1,15 @@
 """
-The knowledge base as LangChain Documents: data/sample_it_kb.csv, one Document per article. Each Document's text is
-what gets searched and what the model reads (title, problem, resolution, notes); its metadata holds labels to show
-with an answer and to filter by (system, category, priority, tags), plus the article's number and title.
-No model, no API key.
+IT Knowledge Base: Documents and Metadata
+=========================================
 
-    load_documents()  ->  10 Documents
-        page_content:  "Title: VPN Connection Timeout\n\nProblem: ...\n\nResolution: ...\n\nNotes: ..."
-        metadata:      {"doc_id": "0", "title": "VPN Connection Timeout", "system": "VPN", "category": "Remote Access",
-                        "priority": "High", "tags": "vpn;timeout;remote;connection"}
+Reads the IT knowledge base CSV file into LangChain Documents, one per article, with the text kept apart from the
+labels. It handles:
+  1. Putting the title, problem, resolution and notes into the Document's text (page_content)
+  2. Putting the article's number, title, system, category, priority and tags into its labels (metadata)
+  3. Printing which columns went where, and every Document
 
-Run it on its own:   python knowledge_base.py   ->   which columns went where, then every Document in full
+Usage:
+    python knowledge_base.py      # which columns went where, then every Document in full
 """
 import csv
 from collections.abc import Iterator
@@ -18,47 +18,49 @@ from pathlib import Path
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 
-# ① The file, next to this script, found by its full path whichever folder you start from.
+# Found next to this script, whichever folder it's run from
 KB_FILE = Path(__file__).resolve().parent / "data" / "sample_it_kb.csv"
 
-# ② Which columns go where. TEXT_COLUMNS become the Document's text: what gets searched, and what the model reads.
-#    METADATA_COLUMNS become labels kept next to the text: shown with an answer as its source, and usable as filters.
-#    The title is in both: it helps the search, and it names the source.
+# The text is what gets searched and read; the labels are shown with an answer. The title is in both.
 TEXT_COLUMNS = ["title", "problem", "resolution", "notes"]
 METADATA_COLUMNS = ["title", "system", "category", "priority", "tags"]
 
 
-# ③ The loader: one Document per line of the file (empty lines are skipped), with the text and the metadata
-#    kept apart.
 class KBLoader(BaseLoader):
+    """
+    A LangChain document loader for the knowledge base CSV file.
+
+    Step 1: Configure: the constructor stores which file to read, and reads nothing
+    Step 2: Load: lazy_load() reads the file, one Document per row (load() collects them into a list)
+    """
+
     def __init__(self, path: Path = KB_FILE):
         self.path = path
 
     def lazy_load(self) -> Iterator[Document]:
+        """Yield one Document per row: "Title: ..." blocks as the text, and the labels as metadata."""
         with open(self.path, encoding="utf-8", newline="") as file:
             for number, row in enumerate(csv.DictReader(file)):
-                # "Title: ...", "Problem: ..." and so on, with an empty line between them: the labels tell the model
-                # which part is the symptom and which is the fix.
+                # Each part keeps its label, so the model can tell the symptom from the fix
                 text = "\n\n".join(f"{column.capitalize()}: {row[column]}" for column in TEXT_COLUMNS)
                 metadata = {"doc_id": str(number), **{column: row[column] for column in METADATA_COLUMNS}}
                 yield Document(page_content=text, metadata=metadata)
 
 
-# ④ Every article, as a list of Documents.
 def load_documents(path: Path = KB_FILE) -> list[Document]:
+    """Every article, as a list of Documents."""
     return KBLoader(path).load()
 
 
 if __name__ == "__main__":
     docs = load_documents()
-    # ⑤ What went where, then every Document in full, with a note before each part.
     print(f"{len(docs)} documents")
     print("text:     " + ", ".join(TEXT_COLUMNS))
     print("metadata: " + ", ".join(["doc_id", *METADATA_COLUMNS]))
     print()
     for number, doc in enumerate(docs):
         if number > 0:
-            print()                                   # a blank line between documents, not before the first one
+            print()
         print(f"Document {number + 1} of {len(docs)}")
         print("Text (page_content):")
         print(doc.page_content)

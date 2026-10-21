@@ -1,17 +1,18 @@
 """
-A grounded answer: the retriever's chunks and the question go into one prompt, and Gemini answers from those chunks
-only. That is RAG: retrieval first, then generation.
+IT Knowledge Base: A Grounded Answer
+====================================
+
+Answers a question from the knowledge base only: the retriever's chunks and the question go into one prompt, and
+Gemini answers from those chunks. That is RAG: retrieval first, then generation. It handles:
+  1. The prompt: the rules and the chunks, then the question
+  2. The chain: retriever, prompt, chat model and parser, keeping the chunks found as the sources
 
     question ──┬──> retriever ─────────────> docs ──┐
                └──> passed through ──────> question ┴─> prompt -> chat model -> parser -> answer
 
-    chain.invoke("How do I fix VPN connection timeouts?")
-        ->  {"docs": [5 chunks], "question": "How do I ...?", "answer": "Check that UDP ports 500 and 4500 ..."}
-            (a made-up answer: Gemini's words change from run to run)
-
-Run it on its own:   python rag_chain.py                          ->   the answer to the VPN question, and its sources
-                     python rag_chain.py "my printer is missing"   ->   the answer to your question
-Each run makes three calls to Gemini: the chunks' embeddings, the question's embedding, and the answer.
+Usage:
+    python rag_chain.py                          # the answer to the VPN question, and its sources
+    python rag_chain.py "my printer is missing"  # the answer to your question (3 calls to Gemini)
 """
 import sys
 
@@ -27,9 +28,7 @@ from vector_store import add_knowledge_base, make_vector_store
 
 QUESTION = "How do I fix VPN connection timeouts?"
 
-# ① The prompt. The system message holds the rules and the chunks ({context}); the human message, the question.
-#    "Only the articles below" keeps the answer grounded: without it, the model answers from what it learned in
-#    training, which isn't this help desk's knowledge base.
+# "Only the articles below" keeps the answer grounded, instead of in what the model learned in training
 prompt = ChatPromptTemplate.from_messages([
     ("system",
      "You are an IT help-desk assistant. Answer the user's question using only the knowledge base articles below. "
@@ -39,16 +38,15 @@ prompt = ChatPromptTemplate.from_messages([
 ])
 
 
-# ② The chain. RunnableParallel runs the retriever on the question and passes the question through, side by side,
-#    giving {"docs": [...], "question": "..."}. .assign() then adds "answer": the chunks become one text for {context},
-#    and the prompt goes to the model, whose reply the parser turns into plain text. Keeping "docs" gives the sources.
 def make_rag_chain(retriever: BaseRetriever, model: BaseChatModel) -> Runnable:
+    """The chain: question -> {"docs": the chunks found, "question": ..., "answer": Gemini's answer}."""
     answer = (
         (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]})
         | prompt
         | model
         | StrOutputParser()
     )
+    # Retrieve and pass the question through side by side, then add the answer, keeping "docs" for the sources
     return RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
 
 
@@ -57,8 +55,7 @@ if __name__ == "__main__":
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
     add_knowledge_base(store)
     chain = make_rag_chain(make_retriever(store), chat_model)
-    # ③ Run it: the retrieval, the prompt and Gemini's answer all happen in this one invoke().
-    result = chain.invoke(question)
+    result = chain.invoke(question)                  # retrieval, prompt and answer, all in this one call
     print(f"Question: {question}\n")
     print("Answer (Gemini's, from the chunks found):")
     print(result["answer"])

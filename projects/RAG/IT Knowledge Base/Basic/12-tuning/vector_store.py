@@ -1,14 +1,20 @@
 """
-The vector database: Qdrant, holding one point per chunk: its vector, its text and its metadata. This is the last step
-of getting the knowledge base ready to be searched (load, chunk, embed, store); the search, from a question, is in
-retriever.py. From step 11 on, Qdrant can also run as a server (in Docker, see docker-compose.yml), which keeps its
-points between runs, so the chunks are embedded only once.
+IT Knowledge Base: The Vector Store
+===================================
+
+Stores the knowledge base's chunks in Qdrant, the vector database: one point per chunk, with its vector, its text and
+its metadata. Qdrant can also run as a server in Docker (docker-compose.yml), which keeps its points between runs.
+It handles:
+  1. Connecting to the Qdrant server at QDRANT_URL
+  2. Making a collection for vectors of EMBEDDING_SIZE numbers, compared by cosine similarity
+  3. Giving each chunk an id made from its content, so storing it again replaces it instead of copying it
 
     make_client()                                           ->  a client for the server at QDRANT_URL
     store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  an empty collection, "it_knowledge_base", in memory
     add_knowledge_base(store)                               ->  the 28 chunks embedded and stored   (one call to Gemini)
 
-Run it on its own:   python vector_store.py   ->   the collection, then every point stored in it (Qdrant in memory)
+Usage:
+    python vector_store.py    # the collection, then every point stored in it (Qdrant in memory)
 """
 import os
 import uuid
@@ -25,48 +31,39 @@ from config import ENV_FILE
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
 
-# The collection's name (Qdrant's word for a table of points). Not the course app's "it_kb", so that the two apps
-# never change each other's points on the same Qdrant server.
+# Not the course app's "it_kb", so the two apps never change each other's points on the same Qdrant server
 COLLECTION = "it_knowledge_base"
 
-# The Qdrant server's address: from .env (or the environment), else the one docker-compose.yml opens on this machine.
+# The Qdrant server's address, from .env or the environment; else the one docker-compose.yml opens on this machine
 load_dotenv(ENV_FILE)
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 
 
-# ① A client for the Qdrant server. Making it sends nothing: the first request does, and fails if no server answers.
-#    check_compatibility=False skips qdrant-client's own check that the server's version matches the client's: it
-#    runs in the background and only warns, and docker-compose.yml already pins the server to the client's version.
 def make_client(url: str = QDRANT_URL) -> QdrantClient:
+    """A client for the Qdrant server; it sends nothing until the first request."""
+    # check_compatibility=False skips a background version check that only warns: docker-compose.yml pins the version
     return QdrantClient(url=url, check_compatibility=False)
 
 
-# ② The store. A Qdrant client; a collection made for vectors of `size` numbers, compared by cosine similarity (how
-#    closely two vectors point the same way, which step 06's search uses); and LangChain's QdrantVectorStore on top,
-#    which embeds texts with `embeddings` for us. Without a client, QdrantClient(":memory:") runs Qdrant inside this
-#    process, and everything in it is gone at the end.
 def make_vector_store(embeddings: Embeddings, size: int, client: QdrantClient | None = None,
                       collection: str = COLLECTION) -> QdrantVectorStore:
+    """A LangChain QdrantVectorStore on a collection of `size`-number vectors; in memory if no client is given."""
     client = client if client is not None else QdrantClient(":memory:")
     if not client.collection_exists(collection):
         client.create_collection(collection, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
-    # QdrantVectorStore would check an existing collection by embedding a sample text: one more call to Gemini
-    # each time a store is made. The collection was made here, with the right size, so that check is skipped.
+    # The check would embed a sample text (one more call to Gemini); the collection was just made with the right size
     return QdrantVectorStore(client=client, collection_name=collection, embedding=embeddings,
                              validate_collection_config=False)
 
 
-# ③ A chunk's id, made from its article, its place and its text. The same chunk always gets the same id, so adding it
-#    again replaces the stored point instead of adding a copy. Qdrant wants ids as UUIDs: uuid5 makes one from a text.
 def chunk_id(chunk: Document) -> str:
+    """The same id every time for the same chunk: a UUID made from its article, place and text."""
     key = f"it-kb/{chunk.metadata['doc_id']}/{chunk.metadata['start_index']}/{chunk.page_content}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
-# ④ Fill it: load the articles (step 02), cut them into chunks (step 03), and add the chunks with their ids.
-#    add_documents() embeds every chunk's text, the same embed_documents() call as step 04 (one call to Gemini for all
-#    of them), and stores each chunk as a point.
 def add_knowledge_base(store: QdrantVectorStore) -> list[Document]:
+    """Load the articles, cut them into chunks, and store them with their ids (one embed_documents() call)."""
     chunks = split_documents(load_documents())
     store.add_documents(chunks, ids=[chunk_id(chunk) for chunk in chunks])
     return chunks
@@ -75,9 +72,7 @@ def add_knowledge_base(store: QdrantVectorStore) -> list[Document]:
 if __name__ == "__main__":
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
     add_knowledge_base(store)
-    # ⑤ What was stored: the collection's settings, then every point, read back from Qdrant. scroll() gives the points
-    #    a page at a time (one page of up to 100 here: all 28), each with its vector and its payload, the chunk's text
-    #    and metadata. They come back in id order, not the chunks' order, so they're sorted by article and place.
+    # scroll() returns points in id order, so they're sorted back into article and place order
     params = store.client.get_collection(COLLECTION).config.params.vectors
     points, _ = store.client.scroll(COLLECTION, limit=100, with_vectors=True)
     points.sort(key=lambda point: (int(point.payload["metadata"]["doc_id"]), point.payload["metadata"]["start_index"]))

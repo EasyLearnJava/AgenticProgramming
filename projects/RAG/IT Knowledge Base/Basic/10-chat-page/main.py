@@ -1,17 +1,20 @@
 """
-The API and the chat page: the RAG engine (step 08) served by FastAPI, plus index.html, a page to ask questions in.
-The engine is built once, when the server starts; each request then answers one question.
+IT Knowledge Base: The API and the Chat Page
+============================================
 
-    GET  / (or /index.html)  ->  the chat page; it sends each question to POST /api/query and shows the answer
-    POST /api/query   {"question": "How do I fix VPN connection timeouts?"}
-                      ->  {"answer": "...", "sources": [{"title", "system", "category", "snippet"}, ...]}
-                      an empty or blank question, or one over 500 characters  ->  422, and no call to Gemini
-                      Gemini doesn't answer  ->  502, and the reason in this terminal
+The RAG engine served by FastAPI, plus index.html, a page to ask questions in. The engine is built once, when the
+server starts, and each request answers one question. It handles:
+  1. Building the engine at start-up
+  2. Serving the chat page
+  3. Checking each question before it costs a call to Gemini, then answering it
+
+    GET  / (or /index.html)  ->  the chat page; it sends each question to POST /api/query
+    POST /api/query   {"question": "..."}  ->  {"answer": "...", "sources": [...]};  bad question 422, Gemini fails 502
     GET  /api/stats   ->  {"documents": 10, "chunks": 28, ...}
     GET  /api/health  ->  {"status": "ok"}
 
-Start it with:   uvicorn main:app --reload   ->   Uvicorn running on http://127.0.0.1:8000
-Then open that address: the chat page.
+Usage:
+    uvicorn main:app --reload      # then open http://127.0.0.1:8000: the chat page
 """
 import logging
 from contextlib import asynccontextmanager
@@ -25,12 +28,10 @@ from rag_engine import RAGEngine
 
 logger = logging.getLogger("uvicorn.error")        # prints in the same terminal as uvicorn's own messages
 
-# ① The engine, with its settings only: importing this file reads nothing and calls nothing.
-engine = RAGEngine()
+engine = RAGEngine()                               # settings only: importing this file reads and calls nothing
 
 
-# ② Start-up and shutdown. FastAPI runs the code before `yield` once, before the server takes any request, and the
-#    code after it when the server stops. Building here embeds the chunks once, not on every request.
+# Runs once before the server takes any request, so the chunks are embedded once, not on every request
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     engine.build()
@@ -40,12 +41,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="IT Knowledge Base", lifespan=lifespan)
 
-# ③ The page, found next to this file whichever folder the server was started from.
+# Found next to this file, whichever folder the server was started from
 PAGE = Path(__file__).resolve().parent / "index.html"
 
 
-# ④ The request's and the answer's shapes. FastAPI checks each request's JSON against QueryIn before the route runs
-#    (a bad question gets a 422 and costs nothing), and shapes each answer as QueryOut.
+# FastAPI checks each request against QueryIn before the route runs: a bad question gets a 422 and costs nothing
 class QueryIn(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)   # "  hi " -> "hi", and "   " -> "" (too short)
     question: str = Field(min_length=1, max_length=500)
@@ -63,13 +63,11 @@ class QueryOut(BaseModel):
     sources: list[Source]
 
 
-# ⑤ The routes.
 @app.get("/")              # two decorators on one function: the page answers at both addresses
 @app.get("/index.html")
 async def page():
     """The chat page. Served by this same server, so its fetch("/api/query") needs no full address."""
-    # no-cache: the browser must ask the server again before reusing its saved copy of this page. Other projects in
-    # this repo use port 8000 too, so without it another project's page could show up here.
+    # no-cache: other projects in this repo use port 8000 too, so a saved copy could be another project's page
     return FileResponse(PAGE, headers={"Cache-Control": "no-cache"})
 
 

@@ -1,17 +1,16 @@
 """
-The RAG engine: steps 02 to 07 in one class, the way a server uses them. build() fills the vector store once, and
-query() then answers each question with its sources.
+IT Knowledge Base: The RAG Engine
+=================================
 
-    engine = RAGEngine()       settings only: nothing read, no call yet
-    engine.build()         ->  10 articles, 28 chunks embedded and stored               (one call to Gemini)
-    engine.query("How do I fix VPN connection timeouts?")
-        ->  {"answer": "...", "sources": [{"title": "VPN Connection Timeout", "system": "VPN",
-                                           "category": "Remote Access", "snippet": "Title: VPN Connection ..."}, ...]}
-                                                                                         (two calls: embedding, answer)
-    engine.stats()         ->  {"documents": 10, "chunks": 28, "chunk_size": 512, ...}
+The whole pipeline in one class, the way a server uses it: build() fills the vector store once, and query() then
+answers each question with its sources. It handles:
+  1. Building: load and split the articles, embed and store the chunks, make the chain (one call to Gemini)
+  2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
+  3. Stats: what the engine holds and how it's set up
 
-Run it on its own:   python rag_engine.py                       ->   answers to the three sample questions
-                     python rag_engine.py "printer not found"   ->   the answer to your question
+Usage:
+    python rag_engine.py                       # answers to the three sample questions
+    python rag_engine.py "printer not found"   # the answer to your question
 """
 import sys
 
@@ -32,8 +31,15 @@ SNIPPET_LENGTH = 200   # characters of each source's text shown with it
 
 
 class RAGEngine:
-    # ① Settings only: no file is read and no call is made until build(). The models, the Qdrant client and the
-    #    sizes can be swapped, as the tests do (with stand-ins for Gemini) and step 12 does (other sizes).
+    """
+    The RAG pipeline as one object.
+
+    Step 1: Configure: the constructor stores the settings; nothing is read and no call is made
+    Step 2: Build: build() loads, splits, embeds and stores the articles, and makes the chain
+    Step 3: Answer: query() or aquery() answers one question with its sources
+    """
+
+    # The models, the Qdrant client and the sizes can be swapped: the tests pass stand-ins for Gemini
     def __init__(self, embeddings: Embeddings = embeddings, model: BaseChatModel = chat_model,
                  embedding_size: int = EMBEDDING_SIZE, client: QdrantClient | None = None,
                  chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, top_k: int = TOP_K):
@@ -42,21 +48,20 @@ class RAGEngine:
         self.documents, self.chunks = [], []
         self.chain: Runnable | None = None
 
-    # ② Build once: load and split the articles (steps 02 and 03), embed and store the chunks (04 and 05), and make
-    #    the chain (06 and 07). This is where the chunks' embeddings are made: one call to Gemini.
     def build(self) -> None:
+        """Load and split the articles, embed and store the chunks (one call to Gemini), and make the chain."""
         self.documents = load_documents()
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
         store = make_vector_store(self.embeddings, self.embedding_size, self.client)
         store.add_documents(self.chunks)
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
-    # ③ One question: run the chain, then keep the answer and turn the chunks it found into sources.
     def query(self, question: str) -> dict:
+        """Answer one question: {"answer": ..., "sources": [...]}."""
         return self._with_sources(self._built_chain().invoke(question))
 
-    # ④ The same for async code, such as a FastAPI route (step 09): while Gemini works, the server can do other work.
     async def aquery(self, question: str) -> dict:
+        """The same, for async code such as a FastAPI route: the server can do other work while Gemini answers."""
         return self._with_sources(await self._built_chain().ainvoke(question))
 
     def _built_chain(self) -> Runnable:
@@ -64,13 +69,12 @@ class RAGEngine:
             raise RuntimeError("The engine isn't built yet: call build() first.")
         return self.chain
 
-    # ⑤ The sources: the first MAX_SOURCES different articles among the chunks, closest first, each with the start of
-    #    the chunk's text. Two chunks of one article give one source.
     @staticmethod
     def _with_sources(result: dict) -> dict:
+        """The answer, and the first MAX_SOURCES different articles among the chunks, each with a snippet."""
         sources, seen = [], set()
         for doc in result["docs"]:
-            if doc.metadata["doc_id"] in seen:
+            if doc.metadata["doc_id"] in seen:     # two chunks of one article give one source
                 continue
             seen.add(doc.metadata["doc_id"])
             text = doc.page_content
@@ -80,8 +84,8 @@ class RAGEngine:
                 break
         return {"answer": result["answer"], "sources": sources}
 
-    # ⑥ What the engine holds and how it's set up: the API shows it at /api/stats (step 09).
     def stats(self) -> dict:
+        """What the engine holds and how it's set up."""
         return {"documents": len(self.documents), "chunks": len(self.chunks), "collection": COLLECTION,
                 "chunk_size": self.chunk_size, "chunk_overlap": self.chunk_overlap, "top_k": self.top_k,
                 "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL}

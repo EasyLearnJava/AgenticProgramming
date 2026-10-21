@@ -1,20 +1,16 @@
 """
-The RAG engine: steps 02 to 07 in one class, the way a server uses them. build() fills the vector store, and query()
-then answers each question with its sources. From step 11 on, the vector store is a Qdrant server that keeps its
-points between runs: build() embeds the chunks only when the server doesn't already hold exactly these chunks.
+IT Knowledge Base: The RAG Engine
+=================================
 
-    engine = RAGEngine()       settings only: nothing read, no call yet; the Qdrant server at QDRANT_URL
-    engine.build()         ->  10 articles, 28 chunks: embedded and stored the first time (one call to Gemini),
-                               found already stored after that (no call)
-    engine.query("How do I fix VPN connection timeouts?")
-        ->  {"answer": "...", "sources": [{"title": "VPN Connection Timeout", "system": "VPN",
-                                           "category": "Remote Access", "snippet": "Title: VPN Connection ..."}, ...]}
-                                                                                         (two calls: embedding, answer)
-    engine.stats()         ->  {"documents": 10, "chunks": 28, "reused_stored_chunks": True, ...}
+The whole pipeline in one class, the way a server uses it, with the chunks kept in a Qdrant server between runs.
+build() embeds the chunks only when the server doesn't already hold exactly these chunks. It handles:
+  1. Building: load and split the articles, then reuse the stored chunks, or embed and store them (one call)
+  2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
+  3. Stats: what the engine holds, how it's set up, and whether it reused the stored chunks
 
-Run it on its own:   python rag_engine.py                       ->   answers to the three sample questions
-                     python rag_engine.py "printer not found"   ->   the answer to your question
-The Qdrant server must be running first:   docker compose up -d
+Usage (the Qdrant server must be running first: docker compose up -d):
+    python rag_engine.py                       # answers to the three sample questions
+    python rag_engine.py "printer not found"   # the answer to your question
 """
 import sys
 
@@ -35,8 +31,15 @@ SNIPPET_LENGTH = 200   # characters of each source's text shown with it
 
 
 class RAGEngine:
-    # ① Settings only: no file is read and no call is made until build(). Without a client, build() connects to the
-    #    Qdrant server at QDRANT_URL. The models, the client and the sizes can be swapped, as the tests do.
+    """
+    The RAG pipeline as one object.
+
+    Step 1: Configure: the constructor stores the settings; nothing is read and no call is made
+    Step 2: Build: build() loads and splits the articles, makes sure Qdrant holds their chunks, and makes the chain
+    Step 3: Answer: query() or aquery() answers one question with its sources
+    """
+
+    # Without a client, build() connects to the Qdrant server at QDRANT_URL; the tests pass stand-ins for Gemini
     def __init__(self, embeddings: Embeddings = embeddings, model: BaseChatModel = chat_model,
                  embedding_size: int = EMBEDDING_SIZE, client: QdrantClient | None = None,
                  chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, top_k: int = TOP_K):
@@ -47,16 +50,14 @@ class RAGEngine:
         self.reused_stored_chunks = False
         self.chain: Runnable | None = None
 
-    # ② Build: load and split the articles, and make sure the server holds exactly these chunks, then make the chain.
-    #    Each chunk's id is made from its text (step 11's chunk_id), so "these chunks" can be checked by id:
-    #    - all of them stored, and nothing else:  reuse them, no call to Gemini;
-    #    - anything else (an edited article, other sizes):  empty the collection, then store them anew;
-    #    - no collection yet (the first run):  store them.
     def build(self) -> None:
+        """Load and split the articles, make sure the server holds exactly these chunks, and make the chain."""
         if self.client is None:
             self.client = make_client()
         self.documents = load_documents()
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
+        # Each chunk's id comes from its text, so "the server already holds these chunks" can be checked by id:
+        # all stored and nothing else -> reuse them, no call to Gemini; anything else -> empty and store them anew
         ids = [chunk_id(chunk) for chunk in self.chunks]
         self.reused_stored_chunks = False
         if self.client.collection_exists(COLLECTION):
@@ -70,12 +71,12 @@ class RAGEngine:
             store.add_documents(self.chunks, ids=ids)          # one call to Gemini: every chunk's embedding
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
-    # ③ One question: run the chain, then keep the answer and turn the chunks it found into sources.
     def query(self, question: str) -> dict:
+        """Answer one question: {"answer": ..., "sources": [...]}."""
         return self._with_sources(self._built_chain().invoke(question))
 
-    # ④ The same for async code, such as a FastAPI route: while Gemini works, the server can do other work.
     async def aquery(self, question: str) -> dict:
+        """The same, for async code such as a FastAPI route: the server can do other work while Gemini answers."""
         return self._with_sources(await self._built_chain().ainvoke(question))
 
     def _built_chain(self) -> Runnable:
@@ -83,13 +84,12 @@ class RAGEngine:
             raise RuntimeError("The engine isn't built yet: call build() first.")
         return self.chain
 
-    # ⑤ The sources: the first MAX_SOURCES different articles among the chunks, closest first, each with the start of
-    #    the chunk's text. Two chunks of one article give one source.
     @staticmethod
     def _with_sources(result: dict) -> dict:
+        """The answer, and the first MAX_SOURCES different articles among the chunks, each with a snippet."""
         sources, seen = [], set()
         for doc in result["docs"]:
-            if doc.metadata["doc_id"] in seen:
+            if doc.metadata["doc_id"] in seen:     # two chunks of one article give one source
                 continue
             seen.add(doc.metadata["doc_id"])
             text = doc.page_content
@@ -99,8 +99,8 @@ class RAGEngine:
                 break
         return {"answer": result["answer"], "sources": sources}
 
-    # ⑥ What the engine holds and how it's set up, including whether build() found the chunks already stored.
     def stats(self) -> dict:
+        """What the engine holds and how it's set up, including whether build() reused the stored chunks."""
         return {"documents": len(self.documents), "chunks": len(self.chunks), "collection": COLLECTION,
                 "chunk_size": self.chunk_size, "chunk_overlap": self.chunk_overlap, "top_k": self.top_k,
                 "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL,

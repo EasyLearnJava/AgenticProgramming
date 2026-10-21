@@ -1,13 +1,16 @@
 """
-Embeddings: the knowledge base's 28 chunks turned into vectors by Gemini. A vector is a list of numbers that stands for
-a text's meaning: texts with close meanings get vectors that point in close directions. This is the third step of
-getting the knowledge base ready to be searched (load, chunk, embed); step 05 stores the vectors, and from step 06 on
-a user's question is embedded too and compared with them. There's no question here: only the chunks are embedded.
+IT Knowledge Base: Embeddings
+=============================
 
-    embed_chunks(split_documents(load_documents()), embeddings)
-        ->  28 vectors of 768 numbers, one per chunk, in the chunks' order   (one call to Gemini for all 28)
+Turns the knowledge base's 28 chunks into vectors with Gemini: lists of numbers that stand for each chunk's meaning,
+so texts with close meanings get vectors that point in close directions. It handles:
+  1. Embedding every chunk's text in one call to Gemini
+  2. Printing every chunk with its vector's size and first numbers
 
-Run it on its own:   python embed_chunks.py   ->   every chunk with its vector's size and first numbers
+    embed_chunks(split_documents(load_documents()), embeddings)  ->  28 vectors of 768 numbers, in the chunks' order
+
+Usage:
+    python embed_chunks.py    # every chunk with its vector's size and first 5 numbers (one call to Gemini)
 """
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -17,18 +20,14 @@ from knowledge_base import load_documents
 from models import EMBEDDING_MODEL, embeddings
 
 
-# ① Embed every chunk's text in one call. embed_documents() tells Gemini the texts are documents to be found
-#    (RETRIEVAL_DOCUMENT). Only the text (page_content) is sent: the labels in metadata aren't embedded.
 def embed_chunks(chunks: list[Document], embeddings: Embeddings) -> list[list[float]]:
+    """One vector per chunk, from one embed_documents() call. Only the text is embedded, not the metadata."""
     return embeddings.embed_documents([chunk.page_content for chunk in chunks])
 
 
 if __name__ == "__main__":
     chunks = split_documents(load_documents())
-    # ② The one call to Gemini: 28 texts in, 28 vectors out, in the same order as the chunks.
     vectors = embed_chunks(chunks, embeddings)
-    # ③ Every chunk with its vector: its article and which characters of the article's text it holds (from start_index
-    #    to start_index + its length), then how many numbers it was converted to, and the first 5 of them.
     print(f"{len(chunks)} chunks -> {len(vectors)} vectors ({EMBEDDING_MODEL})")
     print()
     for number, (chunk, vector) in enumerate(zip(chunks, vectors), 1):

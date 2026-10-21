@@ -1,54 +1,115 @@
-# 07 · Grounded answer
+# 07 · Grounded Answer
 
-## What it does
+Answer a question from the IT knowledge base: find the 5 chunks closest to the question, put them and the question
+into one prompt, and let Gemini write the answer from those chunks only, with the articles they came from. That's
+RAG: retrieval first, then generation. Built with **LangChain**, **Gemini** (`gemini-embedding-001` and
+`gemini-3.5-flash-lite`) and **Qdrant**, running in memory.
 
-This step answers questions. It's RAG: retrieval first, then generation.
+> **Needs:** Python 3.11 or newer, and a Gemini API key. Each run makes 3 calls to Gemini.
 
-1. The retriever (step 06) finds the 5 chunks closest to the question.
-2. The chunks and the question go into one prompt. Its rules tell Gemini to answer using only these articles, and to
-   say so when they don't cover the question.
-3. Gemini's chat model, `gemini-3.5-flash-lite`, writes the answer.
+---
 
-"Grounded" means the answer comes from the knowledge base, not from what the model learned in training. The chain
-also keeps the chunks it found, so the script can show the answer's sources.
+## 🎯 What This Project Does
 
-- `models.py` now makes the chat model too.
-- `rag_chain.py` builds the chain and runs it.
+- **Gets the knowledge base ready**: reads the 10 articles, cuts them into 28 chunks, embeds them with Gemini and
+  stores them in Qdrant, in memory
+- **Finds the 5 chunks closest to the question** with a retriever
+- **Puts them into one prompt** with the question: its rules tell Gemini to answer using only these articles, and to
+  say so when they don't cover the question
+- **Has Gemini write the answer** with its chat model, `gemini-3.5-flash-lite`
+- **Keeps the chunks it found**, so the answer comes with its sources: the articles the chunks came from
+
+"Grounded" means the answer comes from the knowledge base, not from what the model learned in training.
+
+**Try it:** `python rag_chain.py "my printer is missing"`, and read the answer and the articles it came from.
+
+---
+
+## 🏗️ Architecture
 
 ```text
-question ──┬──> retriever ───> 5 chunks ──┐
-           └──> passed through ───────────┴──> prompt  ->  Gemini  ->  answer + sources
+data/sample_it_kb.csv                 10 articles
+          │ load_documents(), split_documents()
+          ↓
+┌──────────────────────────────┐
+│  Qdrant, in memory           │  ← add_knowledge_base(): the 28 chunks, embedded by Gemini (1 call)
+└──────────────┬───────────────┘
+               │
+  question ────┤
+               ↓
+┌──────────────────────────────┐
+│  make_rag_chain()            │
+│  ├─ docs: the retriever      │  ← embeds the question (1 call), finds the 5 closest chunks
+│  ├─ question: passed through │
+│  └─ answer: prompt → Gemini  │  ← the 5 chunks and the question in one prompt (1 call)
+└──────────────┬───────────────┘
+               │ {"docs", "question", "answer"}
+               ↓
+      the answer, then its sources
 ```
 
-Each run makes 3 calls to Gemini: the chunks' embeddings, the question's embedding, and the answer.
+### The Pipeline in This Project
 
-## How to run it
+1. **Load** → `load_documents()` reads the 10 articles: their text and their labels
+2. **Chunk** → `split_documents()` cuts them into 28 chunks of at most 512 characters
+3. **Embed and store** → `add_knowledge_base()` embeds the chunks in one call to Gemini and stores them in Qdrant
+4. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
+5. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
+6. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
+7. **Print** → the question, the answer, then the articles the chunks came from, each once
 
-You need Python 3.11 or newer, and a Gemini API key.
+---
+
+## 📋 Prerequisites
+
+- **Python 3.11 or newer**
+- **A Gemini API key**: every call to Gemini uses your key's quota
+
+---
+
+## 🚀 Quick Start
+
+### Step 1: Go to This Folder
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/Basic/07-grounded-answer"   # from the repo root; the quotes are for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/07-grounded-answer"   # from the repo root; quotes for the spaces
+```
+
+### Step 2: Create and Activate a Virtual Environment
+
+```bash
 python -m venv .venv                 # once: a private folder for this project's packages
 source .venv/bin/activate            # macOS, Linux and Codespaces
 #   Windows PowerShell:      .venv\Scripts\Activate.ps1
 #   Windows Command Prompt:  .venv\Scripts\activate
 #   Windows Git Bash:        source .venv/Scripts/activate
+```
+
+Creating the venv is once only; activate it again in every new terminal.
+
+### Step 3: Install Dependencies
+
+```bash
 pip install -r requirements-dev.txt  # once: the packages and pytest, into .venv/
+```
+
+### Step 4: Add Your Gemini Key
+
+```bash
 cp .env.example .env                 # once (Windows PowerShell or Command Prompt: copy .env.example .env)
+```
+
+Open `.env` in an editor and put your key after `GOOGLE_API_KEY=`. You make a key in the Google Cloud console, under
+APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`, so your key never goes into git.
+
+### Step 5: Run It
+
+```bash
 python rag_chain.py
 ```
 
-Creating the venv, installing and making `.env` are once only; activate the venv again in every new terminal.
-
-**Your key:** open `.env` in an editor and put your key after `GOOGLE_API_KEY=` (`tutorials/09-gemini-key` shows how
-to make one). `.env` is in `.gitignore`, so your key never goes into git. Without a key, the script stops with:
-
-```text
-Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).
-```
-
-`python rag_chain.py` prints the question, Gemini's answer, then the articles the chunks came from, each once. The
-parts in `< >` come from Gemini:
+It prints the question, Gemini's answer, then the articles the chunks came from, each once. The parts in `< >` come
+from Gemini, so they change from run to run:
 
 ```text
 Question: How do I fix VPN connection timeouts?
@@ -67,10 +128,136 @@ To ask your own question, put it after the script's name:
 python rag_chain.py "my printer is missing"
 ```
 
-To run the tests:
+---
 
-```bash
-python -m pytest                     # 33 passed, 5 skipped
+## 📁 Project Structure
+
+```text
+07-grounded-answer/
+├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
+├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
+├── vector_store.py                       # make_vector_store() (Qdrant, in memory), add_knowledge_base()
+├── models.py                             # the Gemini models: the embedding model and the chat model
+├── config.py                             # load_api_key(): the key from .env, checked before anything else
+├── chunking.py                           # split_documents(): chunks of at most 512 characters
+├── knowledge_base.py                     # load_documents(): the 10 articles as Documents
+├── data/
+│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
+├── tests/
+│   ├── conftest.py                       # skips the live tests when there's no key
+│   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
+│   └── test_*.py                         # one test file per module
+├── .env.example                          # copy it to .env and put your key in it
+├── requirements.txt                      # the packages, pinned to exact versions
+├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
+├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
+└── README.md                             # you are here
 ```
 
-The 5 skipped tests are live tests: they call the real Gemini, so they run only when your key is set.
+---
+
+## 🧪 Testing
+
+```bash
+python -m pytest                     # 33 passed, 5 skipped     (add -v for one line per test)
+```
+
+The plain tests use stand-ins for Gemini (`KeywordEmbeddings` for the embeddings, LangChain's `FakeListChatModel`
+for the answers), so they need no key and make no calls. For the chain, they check that the prompt holds the rules
+and the articles, then the question; that the chain gives back the chunks, the question and the answer; and that the
+model gets the chunks it found as the articles.
+
+The 5 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
+
+---
+
+## 📊 Understanding the Output
+
+```text
+Question: How do I fix VPN connection timeouts?          ← the question: the default, or the one you gave
+
+Answer (Gemini's, from the chunks found):                ← Gemini's words, written from the 5 chunks only
+<Gemini's answer>
+
+Sources (the articles of the chunks found, closest first):
+  <article title>                                        ← each article once, even when 2 of its chunks were found
+  ...
+```
+
+The chain gives back one dictionary: `{"docs": [the 5 chunks], "question": "...", "answer": "..."}`. The answer is
+printed from `"answer"`, and the sources from the titles in `"docs"`.
+
+Each run makes 3 calls to Gemini: the chunks' embeddings, the question's embedding, and the answer.
+
+---
+
+## 🎓 Key Concepts Demonstrated
+
+### 1. RAG: Retrieval First, Then Generation
+
+The model doesn't answer from memory. First the retriever finds the chunks that match the question; then the model
+writes the answer from those chunks. What the model knows about this help desk is only what the chunks say.
+
+### 2. A Prompt That Keeps the Answer Grounded
+
+```python
+("system", "You are an IT help-desk assistant. Answer the user's question using only the knowledge base articles "
+           "below. If they don't cover the question, say that the knowledge base doesn't cover it. ..."),
+("human", "{question}"),
+```
+
+The system message holds the rules and the articles (`{context}`); the human message holds the question. "Using only
+the knowledge base articles below" is what keeps the answer grounded: without it, the model answers from what it
+learned in training.
+
+### 3. One Chain That Keeps the Chunks
+
+```python
+RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
+```
+
+`RunnableParallel` runs the retriever on the question and passes the question through, side by side. `.assign()`
+then adds the answer. Because `"docs"` stays in the result, the script can show which articles the answer came
+from.
+
+### 4. Runnables Joined With `|`
+
+```python
+answer = (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]}) | prompt | model | StrOutputParser()
+```
+
+Each part is a Runnable, and `|` passes one part's output to the next: the chunks become one text for the prompt, the
+prompt goes to the model, and the parser turns the model's reply into plain text. One `invoke()` runs it all.
+
+---
+
+## 🛠️ Troubleshooting
+
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
+**Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
+`pip install -r requirements-dev.txt` (Step 3).
+
+**Issue**: `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
+**Fix**: There's no `.env` with a key in this folder. Do Step 4.
+
+**Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
+**Fix**: `.env` still says `your-key-here`. Replace it with your key.
+
+---
+
+## 📚 Next Steps
+
+**[08 · RAG Engine](../08-rag-engine/README.md)**: this project answers one question per run, from a chain built for
+it. 08 puts the whole pipeline in one class: built once, then answering each question with up to 3 sources.
+
+**[Advanced · 07 · Grounded Answer](../../Advanced/07-grounded-answer/README.md)** (planned): the same project,
+production grade. Its README lists what it will add.
+
+### Ideas to Try
+
+- Ask something the knowledge base doesn't cover, like `python rag_chain.py "how do I bake bread"`, and see whether
+  the answer says the knowledge base doesn't cover it, as the prompt's rules ask.
+- Remove "using only the knowledge base articles below" from the prompt, ask the same question, and compare the
+  answers.
+- Change `TOP_K` in `retriever.py` from 5 to 1, and see how the answer and its sources change.
