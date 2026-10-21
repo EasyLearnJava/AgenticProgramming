@@ -1,22 +1,16 @@
 """
 Tests for embed_chunks.py: the 28 chunks embedded in one call, one vector each, in order, from their text only, and
-no question embedded. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py); the live test
-asks the real Gemini.
+what print_vectors() prints. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py); the live
+test asks the real Gemini.
 """
-import runpy
-import sys
-from pathlib import Path
-
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 
-import models
 from chunking import split_documents
-from embed_chunks import embed_chunks
+from embed_chunks import embed_chunks, print_vectors
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
 
-FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 CHUNKS = split_documents(load_documents())
 
 
@@ -43,13 +37,9 @@ def test_only_the_chunks_text_is_sent_in_the_chunks_order():
     assert vectors == [KeywordEmbeddings().embed_documents([chunk.page_content])[0] for chunk in CHUNKS]
 
 
-def test_running_it_embeds_the_chunks_and_never_a_question(monkeypatch, capsys):
-    stand_in = KeywordEmbeddings()
-    monkeypatch.setattr(models, "embeddings", stand_in)       # the script's `from models import embeddings` gets this
-    monkeypatch.setattr(sys, "argv", ["embed_chunks.py"])
-    runpy.run_path(str(FOLDER / "embed_chunks.py"), run_name="__main__")
+def test_print_vectors_prints_each_chunk_with_its_vectors_size_and_first_numbers(capsys):
+    print_vectors(CHUNKS, embed_chunks(CHUNKS, KeywordEmbeddings()))
     lines = capsys.readouterr().out.splitlines()
-    assert stand_in.calls == [("documents", 28)]              # one call for the chunks, and no embed_query: no question
     assert lines[0] == "28 chunks -> 28 vectors (gemini-embedding-001)"
     assert lines[2].startswith(
         f"Chunk 1 of 28: VPN Connection Timeout, from character 0 to 457 -> converted to {SIZE} numbers: [")

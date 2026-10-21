@@ -22,7 +22,7 @@ COMMANDS = {
     "Basic/01-read-the-knowledge-base": ["pipeline.py"],
     "Basic/02-documents-and-metadata": ["pipeline.py"],
     "Basic/03-chunking": ["pipeline.py"],
-    "Basic/04-embeddings": ["embed_chunks.py"],
+    "Basic/04-embeddings": ["pipeline.py"],
     "Basic/05-vector-store": ["vector_store.py"],
     "Basic/06-retriever": ["retriever.py"],
     "Basic/07-grounded-answer": ["rag_chain.py"],

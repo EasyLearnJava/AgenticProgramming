@@ -16,25 +16,28 @@ numbers for each chunk, all in one call. Built with **LangChain** (`langchain-go
   not its labels (`metadata`)
 - **Prints** how many vectors came back, then every chunk, one line each: its article, which characters it holds,
   and the first 5 of its 768 numbers
+- **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
 An embedding is a vector, a list of numbers that stands for a text's meaning: texts with close meanings get vectors
 that point in close directions.
 
-**Try it:** `python embed_chunks.py`, and see each chunk become 768 numbers.
+**Try it:** `python pipeline.py`, and see each chunk become 768 numbers.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-data/sample_it_kb.csv                       10 rows × 8 columns
-          │
-          ↓
 ┌──────────────────────────────────┐
-│  load_documents()                │  ← knowledge_base.py: 10 Documents, text + labels
+│  pipeline.py: main()             │  ← the one file to run: calls each step in order
+└────────────────┬─────────────────┘
+                 │ Steps 1 and 2: Read the knowledge base, then chunk it
+                 ↓
+┌──────────────────────────────────┐
+│  load_documents()                │  ← knowledge_base.py: data/sample_it_kb.csv → 10 Documents, text + labels
 │  split_documents()               │  ← chunking.py: 28 chunks of at most 512 characters
 └────────────────┬─────────────────┘
-                 │ 28 chunks
+                 │ 28 chunks; Step 3: Embed
                  ↓
 ┌──────────────────────────────────┐
 │  embed_chunks(chunks, embeddings)│  ← embed_chunks.py: one embed_documents() call, text only
@@ -47,17 +50,18 @@ data/sample_it_kb.csv                       10 rows × 8 columns
                  │
                  ↓
 ┌──────────────────────────────────┐
-│  python embed_chunks.py          │  ← every chunk, with its vector's size and first 5 numbers
+│  print_vectors(chunks, vectors)  │  ← every chunk, with its vector's size and first 5 numbers
 └──────────────────────────────────┘
 ```
 
 ### The Pipeline in This Project
 
-1. **Check the key** → `config.py` reads `GOOGLE_API_KEY` from `.env` or the environment, and stops if it's missing
-2. **Build the model** → `models.py` makes `GoogleGenerativeAIEmbeddings`, 768 numbers per text. No call yet
-3. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
-4. **Embed** → `embed_chunks()` sends the 28 chunks' texts to Gemini in one `embed_documents()` call
-5. **Print** → every chunk, with the characters it holds and the start of its vector
+1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
+2. **Check the key** → `config.py` reads `GOOGLE_API_KEY` from `.env` or the environment, and stops if it's missing
+3. **Build the model** → `models.py` makes `GoogleGenerativeAIEmbeddings`, 768 numbers per text. No call yet
+4. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
+5. **Embed** → `embed_chunks()` sends the 28 chunks' texts to Gemini in one `embed_documents()` call
+6. **Print** → `print_vectors()`: every chunk, with the characters it holds and the start of its vector
 
 ---
 
@@ -108,14 +112,17 @@ into git: never commit it, and never put a real key in `.env.example`.
 ### Step 5: Run It
 
 ```bash
-python embed_chunks.py
+python pipeline.py
 ```
 
-It prints how many vectors came back, then every chunk, one line each: its article, which characters of the
-article's text it holds, how many numbers it was converted to, and the first 5 of them. The numbers in `< >` come
-from Gemini:
+It prints Steps 1 and 2 in one line each, then Step 3 in full: how many vectors came back, then every chunk, one line
+each: its article, which characters of the article's text it holds, how many numbers it was converted to, and the
+first 5 of them. The numbers in `< >` come from Gemini:
 
 ```text
+Step 1: Read the knowledge base: 10 documents
+Step 2: Chunk: 28 chunks of at most 512 characters
+Step 3: Embed
 28 chunks -> 28 vectors (gemini-embedding-001)
 
 Chunk 1 of 28: VPN Connection Timeout, from character 0 to 457 -> converted to 768 numbers: [<the first 5 numbers>, ...]
@@ -136,8 +143,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/04-embeddings   # from the 
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python embed_chunks.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same
-as in Step 5.
+`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 5.
 
 ---
 
@@ -145,46 +152,47 @@ as in Step 5.
 
 ```text
 04-embeddings/
-├── embed_chunks.py                       # embed_chunks(), and the lines that print every chunk's vector
+├── pipeline.py                           # the one file to run: main() calls each step in order
+├── embed_chunks.py                       # embed_chunks() and print_vectors(): Step 3
 ├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
 ├── config.py                             # load_api_key(): the key, checked before anything else runs
-├── chunking.py                           # split_documents(): the 28 chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles, text + labels
+├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
+├── knowledge_base.py                     # load_documents(): Step 1, the 10 articles, text + labels
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
 │   ├── conftest.py                       # decides once whether the live tests can run
 │   ├── fakes.py                          # stand-ins for Gemini: no key, no network
-│   ├── test_embed_chunks.py              # the call to Gemini, what's sent, the script
+│   ├── test_pipeline.py                  # the steps and what they print; nothing else runs
+│   ├── test_embed_chunks.py              # the call to Gemini, what's sent, what's printed
 │   ├── test_models.py                    # the model's settings, and the no-key message
 │   ├── test_chunking.py                  # the chunks
 │   └── test_knowledge_base.py            # the Documents
 ├── .env.example                          # copy it to .env and put your key in .env
 ├── requirements.txt                      # the packages, pinned to exact versions
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the scripts, and finds them in tests/
+├── pytest.ini                            # lets the tests import the files, and finds them in tests/
 └── README.md                             # you are here
 ```
-
-`python chunking.py` and `python knowledge_base.py` also run on their own, with no key: they print the chunks and
-the articles.
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 18 passed, 2 skipped     (add -v for one line per test)
+python -m pytest                     # 20 passed, 2 skipped     (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
 into a few numbers counted from its words, the same every time. They check:
 
+- **The pipeline**: its steps and what they print; it embeds the chunks in one call and never a question; and no
+  other file runs anything
 - **The embedding**: the 28 chunks go to the model in one call, one vector each; only the chunks' texts are sent, in
-  the chunks' order; and the script embeds the chunks and never a question
-- **The model**: its name and vector size; and without a key, each script stops with the message, not a stack trace
+  the chunks' order; and what `print_vectors()` prints
+- **The model**: its name and vector size; and without a key, `pipeline.py` stops with the message, not a stack trace
 - **The chunks and the Documents**: 28 chunks of at most 512 characters, each with its article's labels; 10
-  Documents with their text and labels; and what `chunking.py` and `knowledge_base.py` print on their own
+  Documents with their text and labels; and what `print_chunks()` and `print_documents()` print
 
 The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
@@ -193,6 +201,9 @@ so it can be built, and skips the live tests.
 ---
 
 ## 📊 Understanding the Output
+
+The output starts with one line each for Steps 1 and 2, then `Step 3: Embed`, how many vectors came back, and one
+line per chunk:
 
 ```text
 Chunk 1 of 28: VPN Connection Timeout, from character 0 to 457 -> converted to 768 numbers: [<the first 5 numbers>, ...]
@@ -243,9 +254,26 @@ Gemini; each `embed_...()` call does, and uses your key's quota.
 ### 5. The Key Is Checked First
 
 `config.py`'s `load_api_key()` reads `GOOGLE_API_KEY` from the environment or from `.env`, and `models.py` calls it
-before building the model. A missing key, the placeholder from `.env.example`, or a `.env` that isn't UTF-8 stops the
-script at once with a message saying what to do, rather than with a confusing error from the first call to Gemini.
-A key set in the environment (a Codespaces secret, say) wins over the one in `.env`.
+before building the model. A missing key, the placeholder from `.env.example`, or a `.env` that isn't UTF-8 stops
+`pipeline.py` at once with a message saying what to do, rather than with a confusing error from the first call to
+Gemini. A key set in the environment (a Codespaces secret, say) wins over the one in `.env`.
+
+### 6. One File Runs the Steps
+
+```python
+def main(embeddings: Embeddings = embeddings) -> None:
+    docs = load_documents()
+    print(f"Step 1: Read the knowledge base: {len(docs)} documents")
+    chunks = split_documents(docs)
+    print(f"Step 2: Chunk: {len(chunks)} chunks of at most {CHUNK_SIZE} characters")
+    print("Step 3: Embed")
+    vectors = embed_chunks(chunks, embeddings)
+    print_vectors(chunks, vectors)
+```
+
+`pipeline.py` is the only file that runs anything: `main()` runs the steps in order, the earlier ones in a line each
+and this project's own in full. The other files only define the steps, so importing them makes no call. The model is
+a parameter of `main()`, so the tests pass their stand-in for Gemini.
 
 ---
 
@@ -265,6 +293,9 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
+**Issue**: `python embed_chunks.py` prints nothing
+**Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
+
 ---
 
 ## 📚 Next Steps
@@ -278,5 +309,7 @@ grade. Its README lists what it will add.
 
 ### Ideas to Try
 
-- Print the length of `vectors[0]` and `vectors[1]`: both 768, though chunk 1 is 457 characters and chunk 2 is 110.
-- In `models.py`, change `EMBEDDING_SIZE` to `256`, run it again, and see each chunk converted to 256 numbers.
+- In `pipeline.py`, print the length of `vectors[0]` and `vectors[1]`: both 768, though chunk 1 is 457 characters
+  and chunk 2 is 110.
+- In `models.py`, change `EMBEDDING_SIZE` to `256`, run `python pipeline.py` again, and see each chunk converted to
+  256 numbers.

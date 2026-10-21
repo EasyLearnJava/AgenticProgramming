@@ -7,17 +7,14 @@ so texts with close meanings get vectors that point in close directions. It hand
   1. Embedding every chunk's text in one call to Gemini
   2. Printing every chunk with its vector's size and first numbers
 
-    embed_chunks(split_documents(load_documents()), embeddings)  ->  28 vectors of 768 numbers, in the chunks' order
-
-Usage:
-    python embed_chunks.py    # every chunk with its vector's size and first 5 numbers (one call to Gemini)
+Usage (this file only defines these; pipeline.py runs the steps):
+    vectors = embed_chunks(chunks, embeddings)   ->  28 vectors of 768 numbers, in order (one call to Gemini)
+    print_vectors(chunks, vectors)               ->  every chunk with its vector's size and first 5 numbers
 """
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from chunking import split_documents
-from knowledge_base import load_documents
-from models import EMBEDDING_MODEL, embeddings
+from models import EMBEDDING_MODEL
 
 
 def embed_chunks(chunks: list[Document], embeddings: Embeddings) -> list[list[float]]:
@@ -25,9 +22,8 @@ def embed_chunks(chunks: list[Document], embeddings: Embeddings) -> list[list[fl
     return embeddings.embed_documents([chunk.page_content for chunk in chunks])
 
 
-if __name__ == "__main__":
-    chunks = split_documents(load_documents())
-    vectors = embed_chunks(chunks, embeddings)
+def print_vectors(chunks: list[Document], vectors: list[list[float]]) -> None:
+    """Print how many vectors came back, then every chunk: where it is in its article, and its first numbers."""
     print(f"{len(chunks)} chunks -> {len(vectors)} vectors ({EMBEDDING_MODEL})")
     print()
     for number, (chunk, vector) in enumerate(zip(chunks, vectors), 1):
