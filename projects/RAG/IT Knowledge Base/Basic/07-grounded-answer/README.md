@@ -18,24 +18,26 @@ RAG: retrieval first, then generation. Built with **LangChain**, **Gemini** (`ge
   say so when they don't cover the question
 - **Has Gemini write the answer** with its chat model, `gemini-3.5-flash-lite`
 - **Keeps the chunks it found**, so the answer comes with its sources: the articles the chunks came from
+- **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
 "Grounded" means the answer comes from the knowledge base, not from what the model learned in training.
 
-**Try it:** `python rag_chain.py "my printer is missing"`, and read the answer and the articles it came from.
+**Try it:** `python pipeline.py "my printer is missing"`, and read the answer and the articles it came from.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
+pipeline.py: main(), the one file to run, calls each step in order:
 data/sample_it_kb.csv                 10 articles
-          │ load_documents(), split_documents()
+          │ Steps 1 and 2: load_documents(), split_documents()
           ↓
 ┌──────────────────────────────┐
-│  Qdrant, in memory           │  ← add_knowledge_base(): the 28 chunks, embedded by Gemini (1 call)
+│  Qdrant, in memory           │  ← Step 3, store.add_documents(): the 28 chunks, embedded by Gemini (1 call)
 └──────────────┬───────────────┘
                │
-  question ────┤
+  question ────┤ Step 4: Retrieve and answer
                ↓
 ┌──────────────────────────────┐
 │  make_rag_chain()            │
@@ -45,18 +47,19 @@ data/sample_it_kb.csv                 10 articles
 └──────────────┬───────────────┘
                │ {"docs", "question", "answer"}
                ↓
-      the answer, then its sources
+      print_answer(): the answer, then its sources
 ```
 
 ### The Pipeline in This Project
 
-1. **Load** → `load_documents()` reads the 10 articles: their text and their labels
-2. **Chunk** → `split_documents()` cuts them into 28 chunks of at most 512 characters
-3. **Embed and store** → `add_knowledge_base()` embeds the chunks in one call to Gemini and stores them in Qdrant
-4. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
-5. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
-6. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
-7. **Print** → the question, the answer, then the articles the chunks came from, each once
+1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
+2. **Load** → `load_documents()` reads the 10 articles: their text and their labels
+3. **Chunk** → `split_documents()` cuts them into 28 chunks of at most 512 characters
+4. **Embed and store** → `store.add_documents()` embeds the chunks in one call to Gemini and stores them in Qdrant
+5. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
+6. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
+7. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
+8. **Print** → `print_answer()`: the question, the answer, then the articles the chunks came from, each once
 
 ---
 
@@ -105,13 +108,17 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 ### Step 5: Run It
 
 ```bash
-python rag_chain.py
+python pipeline.py
 ```
 
-It prints the question, Gemini's answer, then the articles the chunks came from, each once. The parts in `< >` come
-from Gemini, so they change from run to run:
+It prints Steps 1 to 3 in one line each, then Step 4 in full: the question, Gemini's answer, then the articles the
+chunks came from, each once. The parts in `< >` come from Gemini, so they change from run to run:
 
 ```text
+Step 1: Read the knowledge base: 10 documents
+Step 2: Chunk: 28 chunks of at most 512 characters
+Step 3: Embed and store: 28 points, in Qdrant in memory
+Step 4: Retrieve and answer
 Question: How do I fix VPN connection timeouts?
 
 Answer (Gemini's, from the chunks found):
@@ -122,10 +129,10 @@ Sources (the articles of the chunks found, closest first):
   ...
 ```
 
-To ask your own question, put it after the script's name:
+To ask your own question, put it after `pipeline.py`:
 
 ```bash
-python rag_chain.py "my printer is missing"
+python pipeline.py "my printer is missing"
 ```
 
 ### Or: Run It in One Command
@@ -137,8 +144,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/07-grounded-answer   # from
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python rag_chain.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 5.
+`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 5. A question at the end of the command goes to `pipeline.py`.
 
 ---
 
@@ -146,7 +153,8 @@ in Step 5.
 
 ```text
 07-grounded-answer/
-├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
+├── pipeline.py                           # the one file to run: main() calls each step in order
+├── rag_chain.py                          # the prompt, make_rag_chain() and print_answer(): Step 4
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_vector_store() (Qdrant, in memory), add_knowledge_base()
 ├── models.py                             # the Gemini models: the embedding model and the chat model
@@ -171,13 +179,15 @@ in Step 5.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 33 passed, 5 skipped     (add -v for one line per test)
+python -m pytest                     # 35 passed, 5 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini (`KeywordEmbeddings` for the embeddings, LangChain's `FakeListChatModel`
 for the answers), so they need no key and make no calls. For the chain, they check that the prompt holds the rules
-and the articles, then the question; that the chain gives back the chunks, the question and the answer; and that the
-model gets the chunks it found as the articles.
+and the articles, then the question; that the chain gives back the chunks, the question and the answer; that the
+model gets the chunks it found as the articles; and what `print_answer()` prints. For the pipeline, they check that
+it embeds the chunks, then the question, once each, and prints the steps, the answer and its sources; that it takes
+a question of your own; and that no other file runs anything.
 
 The 5 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -185,6 +195,8 @@ no key is set. With your key in `.env`, they run too. To run only the plain ones
 ---
 
 ## 📊 Understanding the Output
+
+After one line each for Steps 1 to 3, and `Step 4: Retrieve and answer`, the output is:
 
 ```text
 Question: How do I fix VPN connection timeouts?          ← the question: the default, or the one you gave
@@ -230,8 +242,8 @@ RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=a
 ```
 
 `RunnableParallel` runs the retriever on the question and passes the question through, side by side. `.assign()`
-then adds the answer. Because `"docs"` stays in the result, the script can show which articles the answer came
-from.
+then adds the answer. Because `"docs"` stays in the result, `print_answer()` can show which articles the answer
+came from.
 
 ### 4. Runnables Joined With `|`
 
@@ -241,6 +253,12 @@ answer = (lambda x: {"context": format_docs(x["docs"]), "question": x["question"
 
 Each part is a Runnable, and `|` passes one part's output to the next: the chunks become one text for the prompt, the
 prompt goes to the model, and the parser turns the model's reply into plain text. One `invoke()` runs it all.
+
+### 5. One File Runs the Steps
+
+`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4,
+the chain, and `print_answer()` prints its result. The other files only define the steps, so importing them makes no
+call. The question and the two models are parameters of `main()`, so the tests pass stand-ins for Gemini.
 
 ---
 
@@ -256,6 +274,9 @@ prompt goes to the model, and the parser turns the model's reply into plain text
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
+**Issue**: `python rag_chain.py` prints nothing
+**Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
+
 ---
 
 ## 📚 Next Steps
@@ -268,7 +289,7 @@ production grade. Its README lists what it will add.
 
 ### Ideas to Try
 
-- Ask something the knowledge base doesn't cover, like `python rag_chain.py "how do I bake bread"`, and see whether
+- Ask something the knowledge base doesn't cover, like `python pipeline.py "how do I bake bread"`, and see whether
   the answer says the knowledge base doesn't cover it, as the prompt's rules ask.
 - Remove "using only the knowledge base articles below" from the prompt, ask the same question, and compare the
   answers.

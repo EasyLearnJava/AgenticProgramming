@@ -6,25 +6,22 @@ Answers a question from the knowledge base only: the retriever's chunks and the 
 Gemini answers from those chunks. That is RAG: retrieval first, then generation. It handles:
   1. The prompt: the rules and the chunks, then the question
   2. The chain: retriever, prompt, chat model and parser, keeping the chunks found as the sources
+  3. Printing the answer, then the articles it came from
 
     question ──┬──> retriever ─────────────> docs ──┐
                └──> passed through ──────> question ┴─> prompt -> chat model -> parser -> answer
 
-Usage:
-    python rag_chain.py                          # the answer to the VPN question, and its sources
-    python rag_chain.py "my printer is missing"  # the answer to your question (3 calls to Gemini)
+Usage (this file only defines these; pipeline.py runs the steps):
+    chain = make_rag_chain(make_retriever(store), chat_model)   ->  question in, {"docs", "question", "answer"} out
+    print_answer(question, chain.invoke(question))              ->  the answer, then the articles it came from
 """
-import sys
-
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthrough
 
-from models import EMBEDDING_SIZE, chat_model, embeddings
-from retriever import format_docs, make_retriever
-from vector_store import add_knowledge_base, make_vector_store
+from retriever import format_docs
 
 QUESTION = "How do I fix VPN connection timeouts?"
 
@@ -50,12 +47,8 @@ def make_rag_chain(retriever: BaseRetriever, model: BaseChatModel) -> Runnable:
     return RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
 
 
-if __name__ == "__main__":
-    question = " ".join(sys.argv[1:]) or QUESTION
-    store = make_vector_store(embeddings, EMBEDDING_SIZE)
-    add_knowledge_base(store)
-    chain = make_rag_chain(make_retriever(store), chat_model)
-    result = chain.invoke(question)                  # retrieval, prompt and answer, all in this one call
+def print_answer(question: str, result: dict) -> None:
+    """Print the question, Gemini's answer, then the articles of the chunks found, each once, closest first."""
     print(f"Question: {question}\n")
     print("Answer (Gemini's, from the chunks found):")
     print(result["answer"])
