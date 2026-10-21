@@ -51,6 +51,29 @@ question + session ──→ cache? ──hit──→ answer
 
 ---
 
+## 🧱 Planned Design
+
+```python
+class Settings(BaseSettings):            # pydantic-settings: from the environment and .env, checked at start-up
+    data_path: Path = KB_FILE
+    collection: str = "it_knowledge_base"
+    chunk_size: int = 512
+    chunk_overlap: int = 50
+    top_k: int = 5
+    google_api_key: SecretStr            # a secret value: never printed or logged
+
+class RAGEngine:
+    def __init__(self, settings: Settings, *, embeddings: Embeddings, model: BaseChatModel,
+                 splitter: TextSplitter, client: QdrantClient): ...
+```
+
+- **The engine is the one class with every setting**, and it hands each part only its own: the path to the loader,
+  the sizes to the splitter, the collection to the store.
+- **Two engines to compare**, such as a baseline and a tuned one, are this one class with two `Settings` objects.
+- **`stats()` reads every value from the settings and the parts**, never from a literal.
+
+---
+
 ## ✅ Done When
 
 - Tests with stand-ins for a slow model, a failing store, a cache hit and a follow-up question

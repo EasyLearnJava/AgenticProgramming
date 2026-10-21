@@ -47,6 +47,16 @@ question ──→ clean / rewrite ──→ filters? ──┬──→ dense s
 
 ---
 
+## 🧱 Planned Design
+
+- **A subclass of LangChain's `BaseRetriever`**: the hybrid retriever plugs into the chain wherever a retriever does.
+- **The parts are passed in**: the dense search, the sparse search and the re-ranker, each one switched on or off by
+  a setting, so the retriever with and without each part is one class to compare, not several copies.
+- **Models load in `build()`, not in the constructor**: making the retriever costs nothing, and a re-ranker model
+  that can't be downloaded fails at start-up with a clear message.
+
+---
+
 ## ✅ Done When
 
 - A labeled set of at least 50 questions, each with the article that answers it, including off-topic ones that

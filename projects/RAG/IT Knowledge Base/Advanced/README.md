@@ -45,6 +45,22 @@ Each Advanced project picks up the themes that matter at its step:
 
 ---
 
+## 🧱 Design Rules
+
+Every class in the Advanced projects follows these rules:
+
+| Rule | What it means | Why |
+|---|---|---|
+| **Configure, then work** | A constructor only stores its settings and parts; reading files, calling services and loading models happen in `load()` or `build()` | Making an object costs nothing and can't fail halfway |
+| **Each class gets only what it uses** | The loader gets the path, the splitter the sizes, the store its client and collection; only the engine, which wires the parts together, gets them all | Each part can be reused with other sources and tested on its own |
+| **Parts are passed in as objects** | Models, clients and splitters are passed in, not the strings used to build them | Tests pass stand-ins; a provider can be swapped without changing the class |
+| **Secrets are never constructor parameters** | Keys come from the environment as secret values, and are never stored on an object as plain text | A key can't leak through a printed object, a log line or a traceback |
+| **Settings by name, each default in one place** | Settings are passed by name only (`*`); each default is defined once, and reports read it rather than repeat it | No value lands in the wrong setting, and what's reported is what runs |
+| **Extend the framework where it's meant to be extended** | Subclass LangChain's `BaseLoader`, `TextSplitter` and `BaseRetriever` | The parts plug into any LangChain chain and keep its methods |
+| **Variants by composition, not copies** | A baseline and an optimized engine are one class with different settings or parts | A fix is made once, and the two can't drift apart |
+
+---
+
 ## 🚦 Suggested Order
 
 1. **01 → 02 → 03**: get the data right first; every later step depends on it.

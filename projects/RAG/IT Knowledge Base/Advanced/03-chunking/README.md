@@ -48,6 +48,29 @@ Document ──→ split by section ──→ size in tokens ──→ add title
 
 ---
 
+## 🧱 Planned Design
+
+```python
+class KBTextSplitter(TextSplitter):
+    """Splits an article on its sections (Problem, Resolution, Notes) first, then by size."""
+
+    def __init__(self, chunk_size: int = 512, chunk_overlap: int = 50,
+                 length_function: Callable[[str], int] = len, **kwargs):
+        super().__init__(chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+                         length_function=length_function, add_start_index=True, **kwargs)
+
+    def split_text(self, text: str) -> list[str]:
+        ...
+```
+
+- **A subclass of LangChain's `TextSplitter`**: it writes only `split_text()` and inherits `split_documents()`, so
+  any code that splits Documents uses it as it would any LangChain splitter.
+- **The constructor takes the sizes and how to measure them**: a token counter as `length_function` sizes chunks
+  in tokens. It takes no data path: the splitter cuts Documents from any source, such as only the articles that
+  changed.
+
+---
+
 ## ✅ Done When
 
 - Articles with clear sections, a very long fix, a one-line note and a duplicated paragraph, each in a test file
