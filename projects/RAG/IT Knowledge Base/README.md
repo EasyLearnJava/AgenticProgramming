@@ -47,6 +47,21 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 - **Tests**: `python -m pytest` in a project's folder. The plain tests use stand-ins for Gemini, so they need no key;
   the live tests call the real Gemini and run only when a key is set.
 
+## Run a project in one step
+
+From the repo root, give `run.py` a project's folder name:
+
+```bash
+python "projects/RAG/IT Knowledge Base/run.py" 01-read-the-knowledge-base
+python "projects/RAG/IT Knowledge Base/run.py" 01-read-the-knowledge-base --log-level DEBUG   # options go to the project
+```
+
+It does a project's setup steps for you, the same on Windows, macOS, Linux and Codespaces: it creates the project's
+`.venv` the first time (about a minute, with the install), installs its `requirements-dev.txt` into it, then runs the
+project's command from the table above, in the project's folder, with the venv's Python, so there's nothing to
+activate. After the first time it takes a few seconds. It doesn't set up a Gemini key or start Docker: do those first,
+as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists the folder names.
+
 ## Built with
 
 LangChain (`langchain-core`, `langchain-text-splitters`, `langchain-google-genai`, `langchain-qdrant`), Gemini,
