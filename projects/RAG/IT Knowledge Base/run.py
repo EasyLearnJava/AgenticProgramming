@@ -20,7 +20,7 @@ SERIES = Path(__file__).resolve().parent
 # Each project's run command, as its README gives it, without `python`: the project's venv Python runs it
 COMMANDS = {
     "Basic/01-read-the-knowledge-base": ["pipeline.py"],
-    "Basic/02-documents-and-metadata": ["knowledge_base.py"],
+    "Basic/02-documents-and-metadata": ["pipeline.py"],
     "Basic/03-chunking": ["chunking.py"],
     "Basic/04-embeddings": ["embed_chunks.py"],
     "Basic/05-vector-store": ["vector_store.py"],
