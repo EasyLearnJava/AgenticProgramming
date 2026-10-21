@@ -141,8 +141,9 @@ server. Then open the page as in Step 6.
 ```text
 10-chat-page/
 ├── index.html                            # the chat page: the stats line, the question box, the answers
+├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats()
+├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats(); print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_vector_store() (Qdrant, in memory), add_knowledge_base()
@@ -168,13 +169,15 @@ server. Then open the page as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 54 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 56 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the page, they check that it's
 served at `/` and `/index.html` as HTML, with `Cache-Control: no-cache`, and that it calls `/api/query` and
 `/api/stats`; and that it handles an unexpected status and never puts the server's text in as HTML. For the API, they
 check each route, the 422 for a bad question, the 502 for a failed Gemini call, and the message when there's no key.
+For `pipeline.py`, they check that it builds the engine, then answers each question, or one of your own; and that no
+other file runs anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.

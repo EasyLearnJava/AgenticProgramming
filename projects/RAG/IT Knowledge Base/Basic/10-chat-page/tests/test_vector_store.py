@@ -1,22 +1,15 @@
 """
-Tests for vector_store.py: the collection, filling it with the 28 chunks, what each stored point holds, and that the
-script stores without ever embedding a question. The plain tests use KeywordEmbeddings, a stand-in for Gemini
-(tests/fakes.py), and Qdrant in memory; the live test asks the real Gemini.
+Tests for vector_store.py: the collection, filling it with the 28 chunks, what each stored point holds, and what
+print_points() prints. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in
+memory; the live test asks the real Gemini.
 """
-import runpy
-import sys
-from pathlib import Path
-
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance
 
-import models
 from models import EMBEDDING_SIZE, embeddings
-from vector_store import COLLECTION, add_knowledge_base, make_vector_store
-
-FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
+from vector_store import COLLECTION, add_knowledge_base, make_vector_store, print_points
 
 
 def test_a_new_store_has_an_empty_cosine_collection_of_the_right_size():
@@ -52,14 +45,11 @@ def test_an_existing_collection_is_kept():
     assert client.count(COLLECTION).count == 28
 
 
-def test_running_it_stores_the_chunks_and_never_embeds_a_question(monkeypatch, capsys):
-    stand_in = KeywordEmbeddings()
-    monkeypatch.setattr(models, "embeddings", stand_in)       # the script's `from models import ...` gets these
-    monkeypatch.setattr(models, "EMBEDDING_SIZE", SIZE)
-    monkeypatch.setattr(sys, "argv", ["vector_store.py"])
-    runpy.run_path(str(FOLDER / "vector_store.py"), run_name="__main__")
+def test_print_points_prints_the_collection_then_every_point(capsys):
+    store = make_vector_store(KeywordEmbeddings(), SIZE)
+    add_knowledge_base(store)
+    print_points(store)
     lines = capsys.readouterr().out.splitlines()
-    assert stand_in.calls == [("documents", 28)]              # one call for the chunks, and no embed_query: no question
     assert lines[0] == f"Collection 'it_knowledge_base': 28 points, vectors of {SIZE} numbers, compared by Cosine"
     assert lines[1] == "Each point holds an id, a vector and a payload with metadata, page_content"
     assert lines[3] == (f"Point 1 of 28: VPN Connection Timeout, from character 0: {SIZE} numbers, "
