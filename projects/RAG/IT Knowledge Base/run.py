@@ -21,7 +21,7 @@ SERIES = Path(__file__).resolve().parent
 COMMANDS = {
     "Basic/01-read-the-knowledge-base": ["pipeline.py"],
     "Basic/02-documents-and-metadata": ["pipeline.py"],
-    "Basic/03-chunking": ["chunking.py"],
+    "Basic/03-chunking": ["pipeline.py"],
     "Basic/04-embeddings": ["embed_chunks.py"],
     "Basic/05-vector-store": ["vector_store.py"],
     "Basic/06-retriever": ["retriever.py"],

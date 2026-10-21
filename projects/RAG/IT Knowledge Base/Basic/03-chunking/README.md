@@ -21,21 +21,24 @@ chunks, of at most 512 characters: 28 in all. Built with **LangChain** (`langcha
 - **Keeps each chunk's labels**: every chunk is a `Document` of its own, with its article's labels plus
   `start_index`, where in the article's text the chunk starts
 - **Prints** how many chunks each article made, then every chunk, with where it starts and how long it is
+- **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
-**Try it:** `python chunking.py`, then `python chunking.py 200`, and compare the two.
+**Try it:** `python pipeline.py`, then `python pipeline.py 200`, and compare the two.
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-data/sample_it_kb.csv                       10 rows × 8 columns
-          │
-          ↓
 ┌──────────────────────────────────┐
-│  load_documents()                │  ← knowledge_base.py: 10 Documents, text + labels
+│  pipeline.py: main(chunk_size)   │  ← the one file to run: calls each step in order
 └────────────────┬─────────────────┘
-                 │ 10 Documents
+                 │ Step 1: Read the knowledge base
+                 ↓
+┌──────────────────────────────────┐
+│  load_documents()                │  ← knowledge_base.py: data/sample_it_kb.csv → 10 Documents, text + labels
+└────────────────┬─────────────────┘
+                 │ 10 Documents; Step 2: Chunk
                  ↓
 ┌──────────────────────────────────┐
 │  split_documents(docs)           │  ← chunking.py
@@ -45,17 +48,18 @@ data/sample_it_kb.csv                       10 rows × 8 columns
                  │ 28 chunks: Documents with their article's labels + start_index
                  ↓
 ┌──────────────────────────────────┐
-│  python chunking.py [size]       │  ← how many chunks each article made, then every chunk
+│  print_chunks(docs, chunks)      │  ← how many chunks each article made, then every chunk
 └──────────────────────────────────┘
 ```
 
 ### The Pipeline in This Project
 
-1. **Load** → `load_documents()` reads the CSV into 10 `Document`s, text kept apart from labels
-2. **Make the splitter** → `make_splitter()`: chunks of at most 512 characters, up to 50 repeated, `start_index` on
-3. **Split** → `split_documents(docs)` cuts every article at the biggest breaks that keep each chunk within 512
-4. **Label** → each chunk gets a copy of its article's labels, plus `start_index`
-5. **Print** → the chunks per article, then every chunk in full
+1. **Run** → `python pipeline.py [size]`: `main()` runs each step in order, and prints each one's name
+2. **Load** → `load_documents()` reads the CSV into 10 `Document`s, text kept apart from labels
+3. **Make the splitter** → `make_splitter()`: chunks of at most 512 characters, up to 50 repeated, `start_index` on
+4. **Split** → `split_documents(docs)` cuts every article at the biggest breaks that keep each chunk within 512
+5. **Label** → each chunk gets a copy of its article's labels, plus `start_index`
+6. **Print** → `print_chunks()`: the chunks per article, then every chunk in full
 
 ---
 
@@ -95,13 +99,16 @@ pip install -r requirements-dev.txt  # once: LangChain's core and text splitters
 ### Step 4: Run It
 
 ```bash
-python chunking.py
+python pipeline.py
 ```
 
-It prints how many chunks each article made. Then it prints every article's chunks: a heading for each article, then
-each chunk with where in the article it starts and how long it is. The start of what you'll see:
+It prints Step 1 in one line, then Step 2 in full: how many chunks each article made, then every article's chunks, a
+heading for each article, then each chunk with where in the article it starts and how long it is. The start of what
+you'll see:
 
 ```text
+Step 1: Read the knowledge base: 10 documents
+Step 2: Chunk
 10 articles -> 28 chunks of at most 512 characters
   2 from VPN Connection Timeout (569 characters)
   2 from MFA Setup Failure (653 characters)
@@ -132,15 +139,12 @@ Article 2 of 10: MFA Setup Failure, cut into 2 chunks
 
 The `...` stands for the rest: your terminal shows all 10 articles and their 28 chunks.
 
-Try other chunk sizes by giving one after the script's name:
+Try other chunk sizes by giving one after `pipeline.py`:
 
 ```bash
-python chunking.py 200               # 49 chunks
-python chunking.py 1000              # 10 chunks: every article whole
+python pipeline.py 200               # 49 chunks
+python pipeline.py 1000              # 10 chunks: every article whole
 ```
-
-`python knowledge_base.py` on its own prints the 10 articles before they're cut: which columns went into the text
-and which into the labels, then every Document.
 
 ### Or: Run It in One Command
 
@@ -151,8 +155,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/03-chunking   # from the re
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python chunking.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 4.
+`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
+in Step 4. A chunk size at the end of the command goes to `pipeline.py`: `... Basic/03-chunking 200`.
 
 ---
 
@@ -160,16 +164,18 @@ in Step 4.
 
 ```text
 03-chunking/
-├── chunking.py                           # make_splitter(), split_documents(), and the lines that print the chunks
-├── knowledge_base.py                     # KBLoader and load_documents(): the 10 articles, text + labels
+├── pipeline.py                           # the one file to run: main() calls each step in order
+├── chunking.py                           # make_splitter(), split_documents() and print_chunks(): Step 2
+├── knowledge_base.py                     # KBLoader, load_documents() and print_documents(): Step 1
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
-│   ├── test_chunking.py                  # 8 tests: the chunks, their sizes, labels and breaks, the script
-│   └── test_knowledge_base.py            # 5 tests: the Documents, their text and labels, the script
+│   ├── test_chunking.py                  # 8 tests: the chunks, their sizes, labels and breaks, what's printed
+│   ├── test_knowledge_base.py            # 5 tests: the Documents, their text and labels, what's printed
+│   └── test_pipeline.py                  # 4 tests: the output, a chunk size, any folder; nothing else runs
 ├── requirements.txt                      # langchain-core and langchain-text-splitters, pinned
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the scripts, and finds them in tests/
+├── pytest.ini                            # lets the tests import the files, and finds them in tests/
 └── README.md                             # you are here
 ```
 
@@ -183,20 +189,26 @@ in Step 4.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 13 passed     (add -v for one line per test)
+python -m pytest                     # 17 passed     (add -v for one line per test)
 ```
 
-The tests read the sample file and run the scripts as their own processes:
+The tests read the sample file and run `pipeline.py` as its own process:
 
 - **The chunks**: 512 characters cut each article into 2 or 3 chunks; no chunk is longer than the chunk size (checked
   at 200, 512 and 1000); each chunk keeps its article's labels and where it starts; chunks break between sections
-  first; 1000 characters keep every article whole; and the exact printed output
+  first; 1000 characters keep every article whole; and the exact output of `print_chunks()`
 - **The Documents**: 10 of them; each text has the title, problem, resolution and notes in order; the labels are in
-  the metadata, not the text; making the loader reads nothing until `load()`; and the exact printed output
+  the metadata, not the text; making the loader reads nothing until `load()`; and the exact output of
+  `print_documents()`
+- **The pipeline**: its exact output, with the default chunk size and with 200; the same whichever folder it's
+  started from; and no other file runs anything
 
 ---
 
 ## 📊 Understanding the Output
+
+The output starts with Step 1's line, `Step 1: Read the knowledge base: 10 documents`, then `Step 2: Chunk` and the
+chunks. Each chunk's heading says where it is:
 
 ```text
 Chunk 1 of 2, from character 0 (457 characters):        ← this chunk is characters 0 to 456 of the article's text
@@ -285,7 +297,7 @@ the Notes would make 457 + 2 + 110 = 569, over 512, so the Notes (110 characters
 The overlap repeats up to 50 characters of whole pieces from the end of one chunk at the start of the next, so a
 sentence cut at the edge can still be whole in one of them. With 512, every cut falls between sections, so nothing is
 repeated: in the MFA article, the piece before the cut, the Problem, is 118 characters, more than 50. With
-`python chunking.py 200`, sections are too long to fit and get cut at spaces, and the overlap shows:
+`python pipeline.py 200`, sections are too long to fit and get cut at spaces, and the overlap shows:
 
 ```text
 Chunk 2 of 4, from character 143 (198 characters):
@@ -306,6 +318,21 @@ RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50, add_start_index
 `split_documents()` gives each chunk a copy of its article's labels, and `add_start_index=True` adds `start_index`.
 So every chunk can be traced back to its article and to its place in the article's text.
 
+### 6. One File Runs the Steps
+
+```python
+def main(chunk_size: int = CHUNK_SIZE) -> None:
+    docs = load_documents()
+    print(f"Step 1: Read the knowledge base: {len(docs)} documents")
+    print("Step 2: Chunk")
+    chunks = split_documents(docs, chunk_size=chunk_size)
+    print_chunks(docs, chunks, chunk_size)
+```
+
+`pipeline.py` is the only file that runs anything: `main()` runs the steps in order, the earlier one in a line and
+this project's own in full. `chunking.py` and `knowledge_base.py` only define the steps, so importing them reads and
+prints nothing.
+
 ---
 
 ## 🛠️ Troubleshooting
@@ -315,13 +342,16 @@ So every chunk can be traced back to its article and to its place in the article
 `pip install -r requirements-dev.txt` (Step 3).
 
 **Issue**: `ValueError: invalid literal for int() with base 10: 'abc'`
-**Fix**: The chunk size after `python chunking.py` must be a whole number, like `python chunking.py 200`.
+**Fix**: The chunk size after `python pipeline.py` must be a whole number, like `python pipeline.py 200`.
 
 **Issue**: `ValueError: Got a larger chunk overlap (50) than chunk size (40), should be smaller.`
 **Fix**: The chunk size must be bigger than the overlap, 50. Use a size of 51 or more.
 
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
+
+**Issue**: `python chunking.py` prints nothing
+**Fix**: That file only defines the step. Run `python pipeline.py` (Step 4), which runs it.
 
 ---
 
@@ -335,6 +365,6 @@ Its README lists what it will add.
 
 ### Ideas to Try
 
-- Run `python chunking.py 1000`: every article fits in one chunk, so you get 10.
-- Run `python chunking.py 200` and find the other places where the overlap repeats the end of a chunk.
-- In `chunking.py`, change `CHUNK_OVERLAP` to `0`, run `python chunking.py 200` again, and see the repeats disappear.
+- Run `python pipeline.py 1000`: every article fits in one chunk, so you get 10.
+- Run `python pipeline.py 200` and find the other places where the overlap repeats the end of a chunk.
+- In `chunking.py`, change `CHUNK_OVERLAP` to `0`, run `python pipeline.py 200` again, and see the repeats disappear.
