@@ -63,13 +63,27 @@ data/sample_it_kb.csv                 10 rows × 8 columns
 
 ## 🚀 Quick Start
 
-### Step 1: Go to This Folder
+### One Step
+
+```bash
+python "projects/RAG/IT Knowledge Base/01-read-the-knowledge-base/run.py"   # from the repo root
+python run.py                                                               # from this folder
+```
+
+`run.py` does Steps 2 to 4 below for you, the same on Windows, macOS, Linux and Codespaces: it creates `.venv` the
+first time (about a minute, with the install), installs the packages into it, and runs `knowledge_base_loader.py`
+with `.venv`'s Python, so there's nothing to activate. After the first time it takes a few seconds. Options go
+through to the loader: `python run.py --log-level DEBUG`.
+
+### Or Step by Step
+
+#### Step 1: Go to This Folder
 
 ```bash
 cd "projects/RAG/IT Knowledge Base/01-read-the-knowledge-base"   # from the repo root; the quotes are for the spaces
 ```
 
-### Step 2: Create and Activate a Virtual Environment
+#### Step 2: Create and Activate a Virtual Environment
 
 ```bash
 python -m venv .venv                 # once: a private folder for this project's packages
@@ -81,13 +95,13 @@ source .venv/bin/activate            # macOS, Linux and Codespaces
 
 Creating the venv is once only; activate it again in every new terminal.
 
-### Step 3: Install Dependencies
+#### Step 3: Install Dependencies
 
 ```bash
 pip install -r requirements-dev.txt  # once: langchain-core and pytest, into .venv/
 ```
 
-### Step 4: Run It
+#### Step 4: Run It
 
 ```bash
 python knowledge_base_loader.py
@@ -150,6 +164,7 @@ The `...` lines stand for the parts left out here: your terminal shows all 10 do
 ```text
 01-read-the-knowledge-base/
 ├── knowledge_base_loader.py              # the whole project: KBLoader, print_documents() and main()
+├── run.py                                # one step: creates .venv, installs the packages, runs the loader
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
