@@ -3,11 +3,12 @@
 The smallest version of the idea, in one Jupyter notebook: four sentences become vectors, the vectors go into a
 vector database, and a question finds the closest sentences. Built with **sentence-transformers** (the library that
 runs a small embedding model, `all-MiniLM-L6-v2`, on the CPU) and **Chroma** (a vector database, here in memory), in
-five short code cells.
+five short code cells. Four more then look inside the vectors: their numbers, how alike they are, and two graphs of
+them, in 2D and in 3D.
 
-> **Needs:** a GitHub Codespace, or Linux or a Mac with Apple silicon, with Python 3.11 or newer. The model runs
-> inside the notebook. On Windows with long paths off, the packages may not install this deep in your folders: see
-> [Troubleshooting](#️-troubleshooting).
+> **Needs:** a GitHub Codespace, or Linux or a Mac with Apple silicon, with Python 3.12 or newer (the NumPy it pins
+> needs 3.12). The model runs inside the notebook. On Windows with long paths off, the packages may not install this
+> deep in your folders: see [Troubleshooting](#️-troubleshooting).
 
 ---
 
@@ -19,8 +20,13 @@ five short code cells.
 - **Answers a query**, "Where is the Eiffel Tower located?", with the 2 closest sentences
 - **Tries a hybrid search**: it keeps only the sentences with "Eiffel" or "Paris" in them, then scores each one by how
   close its meaning is to the query
+- **Looks inside the vectors**: the shape of the 4 × 384 matrix they make, and the first 10 numbers of each
+- **Compares them**: the cosine similarity of every sentence with every other, and of the query with each sentence
+- **Draws them**: PCA takes the 4 vectors and the query's from 384 numbers down to 2, for a graph of arrows, and
+  to 3, for a graph you can turn with the mouse
 
-It finds the closest sentences and prints them.
+It finds the closest sentences, prints them, then shows why: the query's vector points the same way as the Eiffel
+Tower sentence's.
 
 **Try it:** open `rag_basics.ipynb` and click **Run All**.
 
@@ -38,6 +44,14 @@ Cell 4   the query ──> model.encode() ──> 1 vector ──> collection.qu
                                                        ──> the 2 closest sentences
               │
 Cell 5   sentences with "Eiffel" or "Paris" ──> util.cos_sim(query, sentence) ──> sorted by score
+              │
+Cell 6   the 4 vectors as one matrix ──> its shape (4, 384), and each vector's first 10 numbers
+              │
+Cell 7   cosine_similarity() ──> every sentence against every other, then the query against each
+              │
+Cell 8   the 4 vectors + the query's ──> PCA, 2 numbers each ──> a graph of 5 arrows (matplotlib)
+              │
+Cell 9   the same 5 vectors ──> PCA, 3 numbers each ──> a 3D graph you can turn (plotly)
 ```
 
 ### The Steps in This Notebook
@@ -48,12 +62,19 @@ Cell 5   sentences with "Eiffel" or "Paris" ──> util.cos_sim(query, sentence
    `"0"` to `"3"`
 4. **Query** → the question embedded the same way, then the 2 closest sentences from the collection
 5. **Hybrid search and re-ranking** → a keyword filter first, then a cosine similarity score for each match
+6. **Inside the embeddings** → the vectors from cells 3 and 4 as NumPy arrays; their shape, and each one's first 10
+   numbers
+7. **Cosine similarity** → scikit-learn's `cosine_similarity()`: every sentence against every other, then the query
+   against each
+8. **2D graph** → PCA keeps the 2 directions in which the 5 vectors differ most; an arrow for each, from the origin
+9. **Interactive 3D graph** → the same with 3 directions, drawn by plotly: drag to turn it, hover over a point
+   to read its sentence
 
 ---
 
 ## 📋 Prerequisites
 
-- **A GitHub Codespace** on this repo, or Linux or a Mac with Apple silicon, with **Python 3.11 or newer**
+- **A GitHub Codespace** on this repo, or Linux or a Mac with Apple silicon, with **Python 3.12 or newer**
 - **The internet, the first time**: the model (about 90 MB) downloads from Hugging Face on the first run, then it's
   read from the disk
 
@@ -82,11 +103,12 @@ source .venv/bin/activate
 ### Step 4: Install Dependencies
 
 ```bash
-pip install -r requirements-dev.txt  # once: sentence-transformers, PyTorch (CPU only), Chroma, the kernel, pytest
+pip install -r requirements-dev.txt  # once: the notebook's packages, then pytest and nbclient for the tests
 ```
 
-`requirements.txt` gets PyTorch from PyTorch's own CPU-only index, so the install skips NVIDIA's GPU libraries, which
-the model doesn't need.
+The notebook's packages, in `requirements.txt`: sentence-transformers, PyTorch, Chroma, NumPy, scikit-learn,
+matplotlib, plotly (with pandas and nbformat, which it needs to draw in a notebook) and the kernel. PyTorch comes from
+PyTorch's own CPU-only index, so the install skips NVIDIA's GPU libraries, which the model doesn't need.
 
 ### Step 5: Open the Notebook and Run All
 
@@ -99,7 +121,7 @@ the model doesn't need.
 3. Click **Run All**.
 
 The cells run top to bottom, and each one's output appears under it. The first run takes longer: cell 2 downloads the
-model. What the last three cells print:
+model. What cells 3 to 5 print:
 
 ```text
 Indexed documents: ['The Eiffel Tower is in Paris.', 'The Colosseum is in Rome.', 'The Statue of Liberty is in New York.', 'The Burj Khalifa is in Dubai.']
@@ -111,8 +133,10 @@ The Eiffel Tower is in Paris. (score=0.8500)
 ```
 
 Cells 1 and 2 print no results of their own, but they can show a loading bar and a warning or two from the model's
-download (about `HF_TOKEN`, or `IProgress`); they're harmless. The notebook is saved with the results above, so
-GitHub shows them without running anything.
+download (about `HF_TOKEN`, or `IProgress`); they're harmless. Cells 6 to 9 print the vectors' numbers and draw the
+two graphs: see [Understanding the Output](#-understanding-the-output). The notebook is saved with the results of a
+run, so GitHub shows them without running anything, all but the 3D graph: GitHub doesn't draw plotly's graphs, so it
+shows only cell 9's coordinates. VS Code and Jupyter draw it.
 
 You can also run one cell at a time: click a cell, then **Shift+Enter**. Run them in order: each cell uses what the
 cells before it made.
@@ -123,11 +147,11 @@ cells before it made.
 
 ```text
 V1/
-├── rag_basics.ipynb                      # the notebook: 5 code cells, saved with their results
+├── rag_basics.ipynb                      # the notebook: 9 code cells, saved with their results
 ├── tests/
-│   └── test_notebook.py                  # 5 tests: runs every cell, then checks what each one printed
-├── requirements.txt                      # sentence-transformers, PyTorch (CPU), Chroma and the kernel, pinned
-├── requirements-dev.txt                  # requirements.txt plus pytest, nbclient and nbformat, for the tests
+│   └── test_notebook.py                  # 9 tests: runs every cell, then checks what each one shows
+├── requirements.txt                      # the notebook's packages and the kernel, pinned
+├── requirements-dev.txt                  # requirements.txt plus pytest and nbclient, for the tests
 ├── pytest.ini                            # finds the tests in tests/
 └── README.md                             # you are here
 ```
@@ -137,12 +161,14 @@ V1/
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 5 passed     (add -v for one line per test)
+python -m pytest                     # 9 passed     (add -v for one line per test)
 ```
 
 The tests run the whole notebook in a new kernel, as **Run All** does, with `nbclient`, then check what each cell
-printed: no cell fails; the four sentences are indexed; the query's 2 closest sentences, the Eiffel Tower first; the
-hybrid search's one keyword match, with its score; and that the results saved in the notebook are the ones a run
+printed or drew: no cell fails; the four sentences are indexed; the query's 2 closest sentences, the Eiffel Tower
+first; the hybrid search's one keyword match, with its score; 384 numbers for each sentence; the query most like the
+Eiffel Tower sentence; the 2D graph drawn, with the query's point closest to the Eiffel Tower's; the 3D graph's 5
+points, whose first 2 numbers are the 2D graph's; and that the results saved in the notebook are the ones a run
 prints. They take a minute or two: the notebook runs once, in a new kernel.
 
 ---
@@ -172,6 +198,54 @@ The Eiffel Tower is in Paris. (score=0.8500)
 Only one sentence has "Eiffel" or "Paris" in it, so the keyword filter keeps one, and the re-ranking has one score to
 sort: 0.85, on a scale where 1 means the same meaning. The scores are rounded to 4 decimals, so on another computer
 the last digit can come out one off.
+
+```text
+Documents vs documents:
+[[1.    0.2   0.217 0.425]
+ [0.2   1.    0.309 0.144]
+ [0.217 0.309 1.    0.228]
+ [0.425 0.144 0.228 1.   ]]
+
+Query vs documents:
+D1: 0.850  The Eiffel Tower is in Paris.
+D2: 0.234  The Colosseum is in Rome.
+D3: 0.264  The Statue of Liberty is in New York.
+D4: 0.490  The Burj Khalifa is in Dubai.
+```
+
+Row 1 is the Eiffel Tower sentence (D1) against each of the four, in order, and so on down. The diagonal is 1: each
+sentence against itself. The most alike pair is D1 and D4, the Eiffel Tower and the Burj Khalifa, at 0.425. The
+query's scores are the table's above, rounded to 3 decimals: scikit-learn's `cosine_similarity()` measures what
+`util.cos_sim()` does.
+
+```text
+2D coordinates:
+D1: (-0.471, -0.216)  The Eiffel Tower is in Paris.
+D2: (0.626, -0.506)  The Colosseum is in Rome.
+D3: (0.535, 0.464)  The Statue of Liberty is in New York.
+D4: (-0.249, 0.418)  The Burj Khalifa is in Dubai.
+Q: (-0.441, -0.160)  Where is the Eiffel Tower located?
+```
+
+384 numbers can't be drawn, so PCA (principal component analysis) finds the 2 directions in which the 5 vectors
+differ most, and gives each vector its position along them. PCA first takes away the average of the 5 vectors, so the
+graph's origin is that average, and each arrow shows how one vector differs from it. Q's arrow lies along D1's: the
+query and the Eiffel Tower sentence point the same way, which is why the search finds that sentence first. The 2
+directions keep 71% of how the 5 vectors differ, so the graph is a picture of the distances, not the measure: cell 7's
+similarities are.
+
+```text
+3D coordinates:
+D1: (-0.471, -0.216, 0.238)
+D2: (0.626, -0.506, -0.258)
+D3: (0.535, 0.464, 0.400)
+D4: (-0.249, 0.418, -0.563)
+Q: (-0.441, -0.160, 0.183)
+```
+
+The first 2 numbers of each point are the 2D graph's: a third direction doesn't move the first two. With it, the
+graph keeps 94% of how the vectors differ. Drag the graph to turn it, scroll to zoom, and hover over a point to read
+its sentence.
 
 ---
 
@@ -232,6 +306,11 @@ use **Run All**. After the kernel restarts, run them all again: a restart forget
 **Fix**: The notebook is running on a Python without the packages. Pick the `.venv` kernel (Step 5), or install the
 packages into it (Step 4).
 
+**Issue**: Cells 1 to 5 run, then cell 6, 7, 8 or 9 stops with `ModuleNotFoundError: No module named 'sklearn'`, or
+`'matplotlib'`, or `'plotly'`, or cell 9 with `ValueError: Mime type rendering requires nbformat>=4.2.0 but it is not installed`
+**Fix**: The kernel's `.venv` has the search packages but not the graphs'. Install `requirements.txt` into it again
+(Step 4), then click **Restart** at the top of the notebook, and **Run All**.
+
 ---
 
 ## 📚 Next Steps
@@ -243,5 +322,5 @@ V2 searches four longer documents two ways, whole and cut into sentences, and tr
 
 - Ask another question in cell 4, such as `"Which landmark is in Italy?"`, and see which sentences come back
 - Set `n_results=1` in cell 4, so only the closest sentence returns
-- Add a sentence to `documents` in cell 3, then run cells 3 to 5 again
+- Add a sentence to `documents` in cell 3, then **Run All**: it gets its own arrow in the graphs
 - Change the keywords in cell 5 to match your new question

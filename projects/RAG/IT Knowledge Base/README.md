@@ -36,7 +36,7 @@ Models and Embeddings in RAGs.
 
 | Project | What it does | Run it |
 |---|---|---|
-| `V1` | Four sentences embedded by `all-MiniLM-L6-v2` on the CPU and stored in Chroma, in memory; a question finds the 2 closest; then a keyword filter with re-ranking. Retrieval only: nothing writes an answer | In a Codespace: open `Entry/V1/rag_basics.ipynb`, then **Run All** |
+| `V1` | Four sentences embedded by `all-MiniLM-L6-v2` on the CPU and stored in Chroma, in memory; a question finds the 2 closest; then a keyword filter with re-ranking. Then inside the vectors: their numbers, their cosine similarities, and 2D and 3D graphs of them (PCA). Retrieval only: nothing writes an answer | In a Codespace: open `Entry/V1/rag_basics.ipynb`, then **Run All** |
 | `V2` | Four longer documents stored twice, whole and cut into sentences ("windows"); the question searched whole, then reworded by hand and searched both ways | In a Codespace: open `Entry/V2/rag_basics.ipynb`, then **Run All** |
 | `V3` | Eight one-line documents; `all-MiniLM-L6-v2` finds the 3 closest, a cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) scores each with the question and sorts them by that score, and precision@1 compares the two lists | In a Codespace: open `Entry/V3/rag_basics.ipynb`, then **Run All** |
 
@@ -66,9 +66,9 @@ Models and Embeddings in RAGs.
 
 ## What you need
 
-- **Python 3.11 or newer** (3.12 or newer for `Entry/V3` and `RAG series`, for the NumPy they pin), and in each
-  project: `python -m venv .venv`, activate it, then `pip install -r requirements-dev.txt`. Each project pins its
-  packages to exact versions.
+- **Python 3.11 or newer** (3.12 or newer for `Entry/V1`, `Entry/V3` and `RAG series`, for the NumPy they pin), and
+  in each project: `python -m venv .venv`, activate it, then `pip install -r requirements-dev.txt`. Each project pins
+  its packages to exact versions.
 - **For `Entry`, a GitHub Codespace**: on Windows with long paths off, its Jupyter packages can fail to install when
   the repo sits deep in your folders (a path over 260 characters; each version's README has the details). It needs
   no key and no Docker.

@@ -2,4 +2,3 @@
 -r requirements.txt
 pytest==9.1.1          # runs the tests in tests/
 nbclient==0.11.0       # runs the notebook's cells from the tests, as Jupyter does
-nbformat==5.11.1       # reads the notebook file

@@ -3,4 +3,10 @@
 sentence-transformers==6.2.0   # SentenceTransformer, the embedding model, and util.cos_sim
 torch==2.14.1                  # what sentence-transformers runs the model with
 chromadb==1.5.9                # Chroma, the vector database, here in memory
+numpy==2.5.4                   # imported by the notebook, as np
+scikit-learn==1.9.1            # cosine_similarity and PCA
+matplotlib==3.11.2             # the 2D graph
+plotly==7.1.0                  # the interactive 3D graph
+pandas==3.0.6                  # what plotly.express builds the 3D graph's table with
+nbformat==5.11.1               # what plotly needs to show a graph in a notebook; the tests read the notebook with it
 ipykernel==7.4.0               # the Python kernel that runs the notebook's cells, in VS Code or Jupyter
