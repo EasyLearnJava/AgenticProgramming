@@ -167,7 +167,7 @@ server. Then ask it a question as in Step 6.
 ├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats(); print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_vector_store() (Qdrant, in memory), add_knowledge_base()
+├── vector_store.py                       # make_vector_store(): Qdrant, in memory
 ├── models.py                             # the Gemini models: the embedding model and the chat model
 ├── config.py                             # load_api_key(): the key from .env, checked before anything else
 ├── chunking.py                           # split_documents(): chunks of at most 512 characters
@@ -262,7 +262,8 @@ nothing. `QueryOut` shapes each answer the same way on the way out.
 return await engine.aquery(body.question)
 ```
 
-While Gemini works on one question, the server can take other requests.
+`aquery()` does what `query()` does, with `await`: while Gemini works on one question, the server can take
+other requests.
 
 ### 4. Errors: the Detail for the Terminal, a Short Message for the Caller
 
