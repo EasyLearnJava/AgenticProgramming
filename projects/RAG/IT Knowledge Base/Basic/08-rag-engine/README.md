@@ -190,7 +190,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 44 passed, 6 skipped     (add -v for one line per test)
+python -m pytest                     # 39 passed, 6 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the engine, they check that

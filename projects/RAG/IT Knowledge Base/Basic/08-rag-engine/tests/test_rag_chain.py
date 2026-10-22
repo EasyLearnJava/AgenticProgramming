@@ -1,6 +1,6 @@
 """
-Tests for rag_chain.py: the prompt, the chain's three results (the chunks, the question, the answer), and what
-print_answer() prints. The plain tests use stand-ins for Gemini (tests/fakes.py); the live test asks the real Gemini.
+Tests for rag_chain.py: the prompt, and the chain's three results (the chunks, the question, the answer). The plain
+tests use stand-ins for Gemini (tests/fakes.py); the live test asks the real Gemini.
 """
 import pytest
 from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
 from models import EMBEDDING_SIZE, chat_model, embeddings
-from rag_chain import QUESTION, make_rag_chain, print_answer, prompt
+from rag_chain import QUESTION, make_rag_chain, prompt
 from retriever import make_retriever
 from vector_store import add_knowledge_base, make_vector_store
 
@@ -47,15 +47,6 @@ def test_the_model_gets_the_chunks_it_found_as_the_articles():
     system, human = seen[0]
     assert "Articles:\n[1] VPN Connection Timeout\nTitle: VPN Connection Timeout" in system.content
     assert human.content == "My VPN won't connect"
-
-
-def test_print_answer_prints_the_question_the_answer_then_each_article_once(capsys):
-    docs = stand_in_retriever().invoke(QUESTION)
-    print_answer(QUESTION, {"docs": docs, "question": QUESTION, "answer": "An answer."})
-    titles = dict.fromkeys(doc.metadata["title"] for doc in docs)          # each title once, closest first
-    assert capsys.readouterr().out == (f"Question: {QUESTION}\n\nAnswer (Gemini's, from the chunks found):\n"
-                                       "An answer.\n\nSources (the articles of the chunks found, closest first):\n"
-                                       + "".join(f"  {title}\n" for title in titles))
 
 
 @pytest.mark.live

@@ -6,14 +6,12 @@ Answers a question from the knowledge base only: the retriever's chunks and the 
 Gemini answers from those chunks. That is RAG: retrieval first, then generation. It handles:
   1. The prompt: the rules and the chunks, then the question
   2. The chain: retriever, prompt, chat model and parser, keeping the chunks found as the sources
-  3. Printing the answer, then the articles it came from
 
     question ──┬──> retriever ─────────────> docs ──┐
                └──> passed through ──────> question ┴─> prompt -> chat model -> parser -> answer
 
 Usage (this file only defines these; pipeline.py runs the steps):
     chain = make_rag_chain(make_retriever(store), chat_model)   ->  question in, {"docs", "question", "answer"} out
-    print_answer(question, chain.invoke(question))              ->  the answer, then the articles it came from
 """
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
@@ -45,13 +43,3 @@ def make_rag_chain(retriever: BaseRetriever, model: BaseChatModel) -> Runnable:
     )
     # Retrieve and pass the question through side by side, then add the answer, keeping "docs" for the sources
     return RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
-
-
-def print_answer(question: str, result: dict) -> None:
-    """Print the question, Gemini's answer, then the articles of the chunks found, each once, closest first."""
-    print(f"Question: {question}\n")
-    print("Answer (Gemini's, from the chunks found):")
-    print(result["answer"])
-    print("\nSources (the articles of the chunks found, closest first):")
-    for title in dict.fromkeys(doc.metadata["title"] for doc in result["docs"]):   # each title once, in order
-        print(f"  {title}")
