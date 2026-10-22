@@ -1,6 +1,6 @@
 """
-Tests for vector_store.py: the collection, filling it with the 28 chunks under ids made from their text, what each
-stored point holds, and the client for a Qdrant server.
+Tests for vector_store.py: a new collection each time, or one opened with its points; filling it with the 28
+chunks under ids made from their text; what each stored point holds; and the client for a Qdrant server.
 The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in memory: no server
 needed. The live test asks the real Gemini.
 """
@@ -12,7 +12,7 @@ from qdrant_client.models import Distance
 from chunking import split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from vector_store import COLLECTION, QDRANT_URL, chunk_id, make_client, make_vector_store
+from vector_store import COLLECTION, QDRANT_URL, chunk_id, make_client, make_vector_store, open_vector_store
 
 CHUNKS = split_documents(load_documents())
 
@@ -40,6 +40,22 @@ def test_each_point_holds_a_vector_the_chunks_text_and_its_labels():
     assert all(len(point.vector) == SIZE for point in points)
     assert sorted(point.payload["page_content"] for point in points) == sorted(chunk.page_content for chunk in CHUNKS)
     assert {"doc_id", "title", "system", "category", "start_index"} <= set(points[0].payload["metadata"])
+
+
+def test_an_existing_collection_is_deleted_and_made_new():
+    client = QdrantClient(":memory:")
+    make_vector_store(KeywordEmbeddings(), SIZE, client).add_documents(CHUNKS)
+    make_vector_store(KeywordEmbeddings(), 5, client)             # the same name again, with another vector size
+    assert client.count(COLLECTION).count == 0                    # none of the old points are left
+    assert client.get_collection(COLLECTION).config.params.vectors.size == 5      # and it has the new settings
+
+
+def test_opening_a_collection_keeps_its_points():
+    client = QdrantClient(":memory:")
+    make_vector_store(KeywordEmbeddings(), SIZE, client).add_documents(CHUNKS)
+    store = open_vector_store(KeywordEmbeddings(), client)
+    assert store.client.count(COLLECTION).count == 28
+    assert store.similarity_search("printer not found", k=1)[0].metadata["title"] == "Printer Not Found"
 
 
 def test_each_chunk_gets_its_own_id_and_always_the_same_one():

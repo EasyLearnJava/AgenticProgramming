@@ -169,7 +169,7 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 ├── rag_engine.py                         # RAGEngine (build() reuses stored chunks) and print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_client(), make_vector_store(), chunk_id()
+├── vector_store.py                       # make_client(), make_vector_store(), open_vector_store(), chunk_id()
 ├── models.py                             # the Gemini models: the embedding model and the chat model
 ├── config.py                             # load_api_key(): the key from .env, checked before anything else
 ├── chunking.py                           # split_documents(): chunks of at most 512 characters, by default
@@ -194,7 +194,7 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 The tests don't need Docker:
 
 ```bash
-python -m pytest                     # 62 passed, 8 skipped     (add -v for one line per test)
+python -m pytest                     # 64 passed, 8 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the tuning, they check that the
