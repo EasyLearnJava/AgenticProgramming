@@ -6,11 +6,9 @@ Reads the IT knowledge base CSV file into LangChain Documents, one per article, 
 labels. It handles:
   1. Putting the title, problem, resolution and notes into the Document's text (page_content)
   2. Putting the article's number, title, system, category, priority and tags into its labels (metadata)
-  3. Printing which columns went where, and every Document
 
 Usage (this file only defines these; pipeline.py runs the steps):
     docs = load_documents()   ->  10 Documents: the text in page_content, the labels in metadata
-    print_documents(docs)     ->  which columns went where, then every Document in full
 """
 import csv
 from collections.abc import Iterator
@@ -51,20 +49,3 @@ class KBLoader(BaseLoader):
 def load_documents(path: Path = KB_FILE) -> list[Document]:
     """Every article, as a list of Documents."""
     return KBLoader(path).load()
-
-
-def print_documents(docs: list[Document]) -> None:
-    """Print which columns went where, then every Document in full: its text, then its labels."""
-    print(f"{len(docs)} documents")
-    print("text:     " + ", ".join(TEXT_COLUMNS))
-    print("metadata: " + ", ".join(["doc_id", *METADATA_COLUMNS]))
-    print()
-    for number, doc in enumerate(docs):
-        if number > 0:
-            print()
-        print(f"Document {number + 1} of {len(docs)}")
-        print("Text (page_content):")
-        print(doc.page_content)
-        print()
-        print("Labels (metadata):")
-        print(doc.metadata)
