@@ -6,12 +6,10 @@ Stores the knowledge base's chunks in Qdrant, the vector database, running in me
 per chunk, with its vector, its text and its metadata. It handles:
   1. Making a collection for vectors of EMBEDDING_SIZE numbers, compared by cosine similarity
   2. Embedding and storing the 28 chunks (one call to Gemini)
-  3. Printing the collection, then every point stored in it
 
 Usage (this file only defines these; pipeline.py runs the steps):
     store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  an empty collection, "it_knowledge_base"
     add_knowledge_base(store)                               ->  the 28 chunks embedded and stored
-    print_points(store)                                     ->  the collection, then every point stored in it
 """
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -42,21 +40,3 @@ def add_knowledge_base(store: QdrantVectorStore) -> list[Document]:
     chunks = split_documents(load_documents())
     store.add_documents(chunks)
     return chunks
-
-
-def print_points(store: QdrantVectorStore) -> None:
-    """Print the collection's settings, then every point stored in it, in article and place order."""
-    collection = store.collection_name
-    params = store.client.get_collection(collection).config.params.vectors
-    # scroll() returns points in id order, so they're sorted back into article and place order
-    points, _ = store.client.scroll(collection, limit=100, with_vectors=True)
-    points.sort(key=lambda point: (int(point.payload["metadata"]["doc_id"]), point.payload["metadata"]["start_index"]))
-    print(f"Collection {collection!r}: {len(points)} points, vectors of {params.size} numbers, "
-          f"compared by {params.distance.value}")
-    print(f"Each point holds an id, a vector and a payload with {', '.join(sorted(points[0].payload))}")
-    print()
-    for number, point in enumerate(points, 1):
-        metadata = point.payload["metadata"]
-        print(f"Point {number} of {len(points)}: {metadata['title']}, from character {metadata['start_index']}: "
-              f"{len(point.vector)} numbers, {len(point.payload['page_content'])} characters of text, "
-              f"{len(metadata)} labels")

@@ -1,13 +1,13 @@
 """
 Tests for retriever.py: the question's vector searched in the store, the retriever as a Runnable (invoke, batch, k),
-the chunks formatted for a prompt, and what print_retrieval() prints. The plain tests use KeywordEmbeddings, a
-stand-in for Gemini (tests/fakes.py); the live test asks the real Gemini.
+and the chunks formatted for a prompt. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py);
+the live test asks the real Gemini.
 """
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 
 from models import EMBEDDING_SIZE, embeddings
-from retriever import QUESTIONS, TOP_K, format_docs, make_retriever, print_retrieval
+from retriever import QUESTIONS, TOP_K, format_docs, make_retriever
 from vector_store import add_knowledge_base, make_vector_store
 
 
@@ -61,19 +61,6 @@ def test_format_docs_numbers_and_titles_each_chunk():
     text = format_docs(chunks)
     assert text.startswith("[1] VPN Connection Timeout\n" + chunks[0].page_content)
     assert f"\n\n[2] {chunks[1].metadata['title']}\n{chunks[1].page_content}" in text
-
-
-def test_print_retrieval_prints_the_vector_the_scores_the_retrievers_chunks_and_the_prompt(capsys):
-    store = filled_store()
-    question = QUESTIONS[0]
-    vector = KeywordEmbeddings().embed_query(question)
-    scored = store.similarity_search_with_score_by_vector(vector, k=TOP_K)
-    print_retrieval(question, vector, scored, make_retriever(store).invoke(question))
-    printed = capsys.readouterr().out
-    assert printed.startswith(f"Question: {question}\nThe question became {SIZE} numbers: [")
-    assert "\n\nThe 5 closest chunks, with their scores, closest first:\n" in printed
-    assert "\n\nThe retriever, embedding and searching in one call, found:\n" in printed
-    assert "\n\nWhat a prompt gets, the 2 closest chunks as one text (format_docs):\n[1] " in printed
 
 
 @pytest.mark.live
