@@ -6,14 +6,18 @@ stand-in for Gemini (tests/fakes.py); the live test asks the real Gemini.
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 
+from chunking import split_documents
+from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
 from retriever import QUESTIONS, TOP_K, format_docs, make_retriever, print_retrieval
-from vector_store import add_knowledge_base, make_vector_store
+from vector_store import make_vector_store
+
+CHUNKS = split_documents(load_documents())
 
 
 def filled_store(stand_in=None):
     store = make_vector_store(stand_in or KeywordEmbeddings(), SIZE)
-    add_knowledge_base(store)
+    store.add_documents(CHUNKS)
     return store
 
 
@@ -79,7 +83,7 @@ def test_print_retrieval_prints_the_vector_the_scores_the_retrievers_chunks_and_
 @pytest.mark.live
 def test_live_the_sample_questions_find_their_articles():
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
-    add_knowledge_base(store)
+    store.add_documents(CHUNKS)
     results = make_retriever(store).batch(QUESTIONS)
     assert [chunks[0].metadata["title"] for chunks in results] == [
         "VPN Connection Timeout", "MFA Setup Failure", "Laptop Performance Degradation"]
