@@ -17,8 +17,8 @@ LlamaIndex, Gemini in place of OpenAI, and a plain HTML page served by FastAPI i
 
 The projects come in three levels:
 
-- **`Entry/`**: the idea in two short Jupyter notebooks, before any of the app, with a small embedding model that runs
-  on the CPU and Chroma. No API key.
+- **`Entry/`**: the idea in three short Jupyter notebooks, before any of the app, with small models that run on the
+  CPU, and Chroma. No API key.
 - **`Basic/`**: the whole app, 01 to 12, one step at a time, each on the happy path: the data is assumed to be good.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
   and reports it. 01 is built; 02 to 12 are planned, each with a README giving its plan, and
@@ -34,6 +34,7 @@ embed, store), with no question anywhere; the user's question comes in at 06, an
 |---|---|---|
 | `V1` | Four sentences embedded by `all-MiniLM-L6-v2` on the CPU and stored in Chroma, in memory; a question finds the 2 closest; then a keyword filter with re-ranking. Retrieval only: nothing writes an answer | In a Codespace: open `Entry/V1/rag_basics.ipynb`, then **Run All** |
 | `V2` | Four longer documents stored twice, whole and cut into sentences ("windows"); the question searched whole, then reworded by hand and searched both ways | In a Codespace: open `Entry/V2/rag_basics.ipynb`, then **Run All** |
+| `V3` | Eight one-line documents; `all-MiniLM-L6-v2` finds the 3 closest, a cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) scores each with the question and sorts them by that score, and precision@1 compares the two lists | In a Codespace: open `Entry/V3/rag_basics.ipynb`, then **Run All** |
 
 ### Basic
 
@@ -61,8 +62,9 @@ embed, store), with no question anywhere; the user's question comes in at 06, an
 
 ## What you need
 
-- **Python 3.11 or newer**, and in each project: `python -m venv .venv`, activate it, then
-  `pip install -r requirements-dev.txt`. Each project pins its packages to exact versions.
+- **Python 3.11 or newer** (3.12 or newer for `Entry/V3`, for the NumPy it pins), and in each project:
+  `python -m venv .venv`, activate it, then `pip install -r requirements-dev.txt`. Each project pins its packages to
+  exact versions.
 - **For `Entry`, a GitHub Codespace**: on Windows with long paths off, its Jupyter packages can fail to install when
   the repo sits deep in your folders (a path over 260 characters; each version's README has the details). It needs
   no key and no Docker.

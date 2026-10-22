@@ -236,9 +236,9 @@ packages into it (Step 4).
 
 ## 📚 Next Steps
 
-**[Basic · 01 · Read the Knowledge Base](../../Basic/01-read-the-knowledge-base/README.md)**: this notebook indexed
-four documents written in its code. 01 reads a real knowledge base, a CSV file of 10 IT support articles, into
-LangChain Documents.
+**[Entry · V3 · Cross-Encoder Reranking](../V3/README.md)**: this notebook searched whole documents and sentences.
+V3 finds 3 candidates with the embedding model, scores each one again with a second model, a cross-encoder, and
+checks whether the first result is the right one.
 
 ### Ideas to Try
 
