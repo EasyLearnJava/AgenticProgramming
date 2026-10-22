@@ -41,11 +41,12 @@ def test_each_point_holds_a_vector_the_chunks_text_and_its_labels():
     assert {"doc_id", "title", "system", "category", "start_index"} <= set(points[0].payload["metadata"])
 
 
-def test_an_existing_collection_is_kept():
+def test_an_existing_collection_is_deleted_and_made_new():
     client = QdrantClient(":memory:")
     make_vector_store(KeywordEmbeddings(), SIZE, client).add_documents(CHUNKS)
-    make_vector_store(KeywordEmbeddings(), SIZE, client)          # the same client again: the points are still there
-    assert client.count(COLLECTION).count == 28
+    make_vector_store(KeywordEmbeddings(), 5, client)             # the same name again, with another vector size
+    assert client.count(COLLECTION).count == 0                    # none of the old points are left
+    assert client.get_collection(COLLECTION).config.params.vectors.size == 5      # and it has the new settings
 
 
 def test_print_points_prints_the_collection_then_every_point(capsys):

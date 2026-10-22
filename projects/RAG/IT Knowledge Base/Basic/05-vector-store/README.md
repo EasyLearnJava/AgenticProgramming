@@ -64,8 +64,8 @@ and its labels, then look at them in Qdrant's web dashboard. Qdrant runs as a se
 1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
 2. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
 3. **Choose Qdrant** → with `QDRANT_URL` in `.env`, the server; without it, Qdrant in memory
-4. **Start fresh** → on the server, delete the collection if it's there
-5. **Make the collection** → `make_vector_store()`: `it_knowledge_base`, 768 numbers per vector, cosine
+4. **Start fresh** → `make_vector_store()` deletes the collection if it's there (on the server, the last run's)
+5. **Make the collection** → then it makes it new: `it_knowledge_base`, 768 numbers per vector, cosine
 6. **Embed and store** → `store.add_documents(chunks)` embeds the 28 texts in one call and stores 28 points
 7. **Read back and print** → `print_points()`: the collection's settings, then every point, by article and place
 
@@ -257,8 +257,8 @@ The tests never need Docker: an in-memory Qdrant stands in for the server. Most 
 stand-in for Gemini, so they need no key and no network. They check:
 
 - **The store**: a new collection is empty, cosine, of the right size; storing the chunks makes 28 points in one
-  embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is kept;
-  and what `print_points()` prints
+  embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is deleted
+  and made new; and what `print_points()` prints
 - **The pipeline**: in memory, it stores the chunks and never embeds a question; with a server's address it uses that
   server and starts fresh on each run; with an address but no server, it stops and says what to do; and no other
   file runs anything
@@ -380,9 +380,9 @@ The same code works with either: only the client differs. `QDRANT_URL` in `.env`
 
 ### 3. Starting Fresh on Every Run
 
-`QdrantVectorStore` gives each new point a random id. Storing the same 28 chunks twice would make 56 points, so on the
-server `pipeline.py` deletes the collection first and stores the chunks again. Each run embeds the chunks again too:
-one call to Gemini.
+`QdrantVectorStore` gives each new point a random id. Storing the same 28 chunks twice would make 56 points, so
+`make_vector_store()` deletes the collection first, if it's there, then makes it new. On the server, that's the
+last run's collection. Each run embeds the chunks again too: one call to Gemini.
 
 ### 4. How Qdrant Measures "Close": the Distance
 

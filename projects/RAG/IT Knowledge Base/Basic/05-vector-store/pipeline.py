@@ -20,20 +20,18 @@ from qdrant_client.http.exceptions import ResponseHandlingException
 from chunking import CHUNK_SIZE, split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from vector_store import COLLECTION, QDRANT_URL, make_vector_store, print_points
+from vector_store import QDRANT_URL, make_vector_store, print_points
 
 
 def connect(qdrant_url: str) -> QdrantClient:
-    """The Qdrant server at qdrant_url, without this collection; or Qdrant in memory when there's no address."""
+    """The Qdrant server at qdrant_url, checked to be there; or Qdrant in memory when there's no address."""
     if not qdrant_url:
         print("Qdrant: in memory, inside this script")
         return QdrantClient(":memory:")
-    # A server keeps its points between runs, and these get random ids, so the collection is deleted first.
     # check_compatibility=False skips qdrant-client's background version check, which only warns.
     client = QdrantClient(url=qdrant_url, check_compatibility=False)
     try:
-        if client.collection_exists(COLLECTION):
-            client.delete_collection(COLLECTION)
+        client.get_collections()                   # a first request, before any call to Gemini: is it there?
     except ResponseHandlingException:
         sys.exit(f"Can't reach Qdrant at {qdrant_url}. Start it first, in this folder: docker compose up -d "
                  "(or remove QDRANT_URL from .env to run Qdrant in memory).")
@@ -49,7 +47,7 @@ def main(embeddings: Embeddings = embeddings, size: int = EMBEDDING_SIZE, qdrant
     chunks = split_documents(docs)
     print(f"Step 2: Chunk: {len(chunks)} chunks of at most {CHUNK_SIZE} characters")
     print("Step 3: Embed and store")
-    store = make_vector_store(embeddings, size, connect(qdrant_url))
+    store = make_vector_store(embeddings, size, connect(qdrant_url))   # a new collection: any old one is deleted
     store.add_documents(chunks)                    # one call to Gemini: every chunk's embedding
     print_points(store)
     if qdrant_url:
