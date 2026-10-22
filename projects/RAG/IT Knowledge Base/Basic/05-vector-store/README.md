@@ -250,7 +250,7 @@ time. Only one program can use port 6333 at a time, so stop this server before s
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 24 passed, 2 skipped     (add -v for one line per test)
+python -m pytest                     # 22 passed, 2 skipped     (add -v for one line per test)
 ```
 
 The tests never need Docker: an in-memory Qdrant stands in for the server. Most of them also use `tests/fakes.py`'s
