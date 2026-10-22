@@ -15,7 +15,6 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
   the chain
 - **`query(question)`, for each question**: the answer, plus up to 3 sources; each source is a different article,
   with its title, system, category and the start of the chunk's text
-- **`aquery(question)`**: the same as `query()`, for async code
 - **`stats()`**: what the engine holds (10 articles, 28 chunks) and how it's set up
 - **`pipeline.py`**, the one file to run, builds the engine, then answers the three sample questions, or the one you
   give it, naming each step first
@@ -164,10 +163,10 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ```text
 08-rag-engine/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats(); print_result()
+├── rag_engine.py                         # RAGEngine: build(), query(), stats(); print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_vector_store() (Qdrant, in memory), add_knowledge_base()
+├── vector_store.py                       # make_vector_store(): Qdrant, in memory
 ├── models.py                             # the Gemini models: the embedding model and the chat model
 ├── config.py                             # load_api_key(): the key from .env, checked before anything else
 ├── chunking.py                           # split_documents(): chunks of at most 512 characters
@@ -190,16 +189,15 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 39 passed, 6 skipped     (add -v for one line per test)
+python -m pytest                     # 38 passed, 6 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the engine, they check that
 nothing is read or called before `build()`; that `build()` embeds the 28 chunks in one call; that `query()` gives the
-answer and up to 3 different sources; that `aquery()` gives the same; that other chunk sizes and numbers of chunks,
-another data file and another collection can be set, and engines in collections of their own keep their own
-chunks; that every setting is passed by name; and what `print_result()` prints. For the pipeline, they check that
-it builds the engine, then answers each question, or one of your own, after the steps' names; and that no other file
-runs anything.
+answer and up to 3 different sources; that other chunk sizes and numbers of chunks, another data file and another
+collection can be set, and engines in collections of their own keep their own chunks; that every setting is passed
+by name; and what `print_result()` prints. For the pipeline, they check that it builds the engine, then answers each
+question, or one of your own, after the steps' names; and that no other file runs anything.
 
 The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -263,12 +261,7 @@ in the wrong setting.
 Two of the 5 chunks found can come from one article. `_with_sources()` keeps the first chunk of each article, closest
 first, and stops at 3, so every source names a different article.
 
-### 4. `query()` and `aquery()`
-
-`aquery()` does what `query()` does, with `await`: while Gemini works, a program that runs many requests at once can
-get on with the others.
-
-### 5. One File Runs the Steps
+### 4. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` builds the engine (Step 1, in one line, from `stats()`),
 then answers each question (Step 2), and `print_result()` prints each answer. `rag_engine.py` and the other files

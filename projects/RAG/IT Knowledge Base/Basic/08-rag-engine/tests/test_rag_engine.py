@@ -3,7 +3,6 @@ Tests for rag_engine.py: nothing happens before build(), then answers with up to
 the collection and the sizes can be set, by name only. The plain tests use stand-ins for Gemini (tests/fakes.py) and
 Qdrant in memory; the live test asks the real Gemini.
 """
-import asyncio
 import csv
 
 import pytest
@@ -48,12 +47,6 @@ def test_query_gives_the_answer_and_up_to_3_different_sources():
     assert (first["title"], first["system"], first["category"]) == ("VPN Connection Timeout", "VPN", "Remote Access")
     assert first["snippet"].startswith("Title: VPN Connection Timeout")
     assert len(first["snippet"]) <= 203                    # 200 characters, plus "..." when the text is longer
-
-
-def test_aquery_gives_the_same_as_query():
-    engine = stand_in_engine()
-    engine.build()
-    assert asyncio.run(engine.aquery("My VPN won't connect")) == engine.query("My VPN won't connect")
 
 
 def test_other_sizes():

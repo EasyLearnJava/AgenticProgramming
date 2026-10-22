@@ -5,7 +5,7 @@ IT Knowledge Base: The RAG Engine
 The whole pipeline in one class, the way a server uses it: build() fills the vector store once, and query() then
 answers each question with its sources. It handles:
   1. Building: load and split the articles, embed and store the chunks, make the chain (one call to Gemini)
-  2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
+  2. Answering: one question, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds and how it's set up
   4. Printing an answer with its sources
 
@@ -38,7 +38,7 @@ class RAGEngine:
 
     Step 1: Configure: the constructor stores the settings; nothing is read and no call is made
     Step 2: Build: build() loads, splits, embeds and stores the articles, and makes the chain
-    Step 3: Answer: query() or aquery() answers one question with its sources
+    Step 3: Answer: query() answers one question with its sources
     """
 
     # Every setting has a default and is passed by name (the *); the tests pass stand-ins for Gemini
@@ -63,10 +63,6 @@ class RAGEngine:
     def query(self, question: str) -> dict:
         """Answer one question: {"answer": ..., "sources": [...]}."""
         return self._with_sources(self._built_chain().invoke(question))
-
-    async def aquery(self, question: str) -> dict:
-        """The same, for async code such as a FastAPI route: the server can do other work while Gemini answers."""
-        return self._with_sources(await self._built_chain().ainvoke(question))
 
     def _built_chain(self) -> Runnable:
         if self.chain is None:
