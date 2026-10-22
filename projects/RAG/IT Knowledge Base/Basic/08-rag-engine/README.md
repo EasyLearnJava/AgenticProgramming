@@ -189,15 +189,16 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 38 passed, 6 skipped     (add -v for one line per test)
+python -m pytest                     # 39 passed, 6 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the engine, they check that
 nothing is read or called before `build()`; that `build()` embeds the 28 chunks in one call; that `query()` gives the
 answer and up to 3 different sources; that other chunk sizes and numbers of chunks, another data file and another
-collection can be set, and engines in collections of their own keep their own chunks; that every setting is passed
-by name; and what `print_result()` prints. For the pipeline, they check that it builds the engine, then answers each
-question, or one of your own, after the steps' names; and that no other file runs anything.
+collection can be set, and engines in collections of their own keep their own chunks; that building again starts
+with a new collection; that every setting is passed by name; and what `print_result()` prints. For the pipeline,
+they check that it builds the engine, then answers each question, or one of your own, after the steps' names; and
+that no other file runs anything.
 
 The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
