@@ -7,15 +7,19 @@ from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
+from chunking import split_documents
+from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import QUESTION, make_rag_chain, print_answer, prompt
 from retriever import make_retriever
-from vector_store import add_knowledge_base, make_vector_store
+from vector_store import make_vector_store
+
+CHUNKS = split_documents(load_documents())
 
 
 def stand_in_retriever():
     store = make_vector_store(KeywordEmbeddings(), SIZE)
-    add_knowledge_base(store)
+    store.add_documents(CHUNKS)
     return make_retriever(store)
 
 
@@ -61,7 +65,7 @@ def test_print_answer_prints_the_question_the_answer_then_each_article_once(caps
 @pytest.mark.live
 def test_live_the_vpn_answer_comes_from_the_vpn_article():
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
-    add_knowledge_base(store)
+    store.add_documents(CHUNKS)
     result = make_rag_chain(make_retriever(store), chat_model).invoke(QUESTION)
     assert result["answer"].strip()
     assert result["docs"][0].metadata["title"] == "VPN Connection Timeout"
