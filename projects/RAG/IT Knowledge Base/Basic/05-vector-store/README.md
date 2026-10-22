@@ -221,7 +221,7 @@ time. Only one program can use port 6333 at a time, so stop this server before s
 ```text
 05-vector-store/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── vector_store.py                       # make_vector_store(), add_knowledge_base() and print_points(): Step 3
+├── vector_store.py                       # make_vector_store() and print_points(): Step 3
 ├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
 ├── config.py                             # load_api_key(): the key, checked before anything else runs
 ├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
@@ -256,8 +256,8 @@ python -m pytest                     # 22 passed, 2 skipped     (add -v for one 
 The tests never need Docker: an in-memory Qdrant stands in for the server. Most of them also use `tests/fakes.py`'s
 stand-in for Gemini, so they need no key and no network. They check:
 
-- **The store**: a new collection is empty, cosine, of the right size; adding the knowledge base stores 28 chunks in
-  one embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is kept;
+- **The store**: a new collection is empty, cosine, of the right size; storing the chunks makes 28 points in one
+  embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is kept;
   and what `print_points()` prints
 - **The pipeline**: in memory, it stores the chunks and never embeds a question; with a server's address it uses that
   server and starts fresh on each run; with an address but no server, it stops and says what to do; and no other
