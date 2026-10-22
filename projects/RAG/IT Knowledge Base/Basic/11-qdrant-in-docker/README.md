@@ -178,7 +178,7 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 ├── rag_engine.py                         # RAGEngine (build() reuses stored chunks) and print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_client(), make_vector_store(), chunk_id(), add_knowledge_base()
+├── vector_store.py                       # make_client(), make_vector_store(), chunk_id()
 ├── models.py                             # the Gemini models: the embedding model and the chat model
 ├── config.py                             # load_api_key(): the key from .env, checked before anything else
 ├── chunking.py                           # split_documents(): chunks of at most 512 characters

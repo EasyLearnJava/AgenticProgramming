@@ -21,8 +21,6 @@ from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthr
 
 from retriever import format_docs
 
-QUESTION = "How do I fix VPN connection timeouts?"
-
 # "Only the articles below" keeps the answer grounded, instead of in what the model learned in training
 prompt = ChatPromptTemplate.from_messages([
     ("system",
