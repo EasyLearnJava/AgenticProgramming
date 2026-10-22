@@ -12,7 +12,7 @@ It handles:
 Usage (this file only defines these; pipeline.py runs the steps):
     make_client()                                           ->  a client for the server at QDRANT_URL
     store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  an empty collection, "it_knowledge_base", in memory
-    add_knowledge_base(store)                               ->  the 28 chunks embedded and stored   (one call to Gemini)
+    chunk_id(chunk)                                         ->  the chunk's id, the same on every run
 """
 import os
 import uuid
@@ -24,9 +24,7 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-from chunking import split_documents
 from config import ENV_FILE
-from knowledge_base import load_documents
 
 # Not the course app's "it_kb", so the two apps never change each other's points on the same Qdrant server
 COLLECTION = "it_knowledge_base"
@@ -57,10 +55,3 @@ def chunk_id(chunk: Document) -> str:
     """The same id every time for the same chunk: a UUID made from its article, place and text."""
     key = f"it-kb/{chunk.metadata['doc_id']}/{chunk.metadata['start_index']}/{chunk.page_content}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
-
-
-def add_knowledge_base(store: QdrantVectorStore) -> list[Document]:
-    """Load the articles, cut them into chunks, and store them with their ids (one embed_documents() call)."""
-    chunks = split_documents(load_documents())
-    store.add_documents(chunks, ids=[chunk_id(chunk) for chunk in chunks])
-    return chunks
