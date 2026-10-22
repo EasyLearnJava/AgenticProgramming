@@ -6,12 +6,14 @@ Stores the knowledge base's chunks in Qdrant, the vector database: one point per
 its metadata. Qdrant can also run as a server in Docker (docker-compose.yml), which keeps its points between runs.
 It handles:
   1. Connecting to the Qdrant server at QDRANT_URL
-  2. Making a collection for vectors of EMBEDDING_SIZE numbers, compared by cosine similarity
-  3. Giving each chunk an id made from its content, so storing it again replaces it instead of copying it
+  2. Making a new collection for EMBEDDING_SIZE-number vectors, compared by cosine; any old one is deleted first
+  3. Opening a collection that's already there, to reuse its points
+  4. Giving each chunk an id made from its content, so storing it again replaces it instead of copying it
 
 Usage (this file only defines these; pipeline.py runs the steps):
     make_client()                                           ->  a client for the server at QDRANT_URL
-    store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  an empty collection, "it_knowledge_base", in memory
+    store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  a new, empty collection "it_knowledge_base", in memory
+    store = open_vector_store(embeddings, client)           ->  the collection already there, with its points
     chunk_id(chunk)                                         ->  the chunk's id, the same on every run
 """
 import os
@@ -42,11 +44,19 @@ def make_client(url: str = QDRANT_URL) -> QdrantClient:
 
 def make_vector_store(embeddings: Embeddings, size: int, client: QdrantClient | None = None,
                       collection: str = COLLECTION) -> QdrantVectorStore:
-    """A LangChain QdrantVectorStore on a collection of `size`-number vectors; in memory if no client is given."""
+    """A LangChain QdrantVectorStore on a new, empty collection of `size`-number vectors; in memory if no client."""
     client = client if client is not None else QdrantClient(":memory:")
-    if not client.collection_exists(collection):
-        client.create_collection(collection, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
-    # The check would embed a sample text (one more call to Gemini); the collection was just made with the right size
+    # Always fresh: a collection already there by this name is deleted, so nothing from before is left in it
+    if client.collection_exists(collection):
+        client.delete_collection(collection)
+    client.create_collection(collection, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
+    return open_vector_store(embeddings, client, collection)
+
+
+def open_vector_store(embeddings: Embeddings, client: QdrantClient,
+                      collection: str = COLLECTION) -> QdrantVectorStore:
+    """A LangChain QdrantVectorStore on a collection that's already there, with the points it holds."""
+    # The check would embed a sample text (one more call to Gemini); make_vector_store() made it with the right size
     return QdrantVectorStore(client=client, collection_name=collection, embedding=embeddings,
                              validate_collection_config=False)
 

@@ -19,7 +19,7 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 - **Gives each chunk an id made from its text**, so the same chunk always gets the same id
 - **Reuses what's stored**: when the engine builds, it checks what the server holds. If it's exactly these 28
   chunks, it reuses them, with no call to Gemini; if not (the first run, or after an article changed), it stores them
-  anew
+  in a new collection
 - **Answers questions** with the engine in the terminal (`python pipeline.py`), and with the API and the chat page
   (`uvicorn main:app`)
 - **Says what to do when Qdrant isn't running**: the server and `pipeline.py` stop with `docker compose up -d` in
@@ -59,7 +59,7 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 2. **Connect** → `make_client()` makes a client for the server at `QDRANT_URL`
 3. **Load and chunk** → the 10 articles become 28 chunks, each with an id made from its text
 4. **Check what's stored** → if the collection holds exactly these ids, nothing more is done
-5. **Store if needed** → otherwise the collection is emptied, and the chunks are embedded (one call) and stored
+5. **Store if needed** → otherwise the old collection is deleted, and the chunks are stored in a new one (one call)
 6. **Answer** → each question: the 5 closest chunks from the server, then Gemini's answer (2 calls)
 
 ---
@@ -178,7 +178,7 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 ├── rag_engine.py                         # RAGEngine (build() reuses stored chunks) and print_result()
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_client(), make_vector_store(), chunk_id()
+├── vector_store.py                       # make_client(), make_vector_store(), open_vector_store(), chunk_id()
 ├── models.py                             # the Gemini models: the embedding model and the chat model
 ├── config.py                             # load_api_key(): the key from .env, checked before anything else
 ├── chunking.py                           # split_documents(): chunks of at most 512 characters
@@ -203,17 +203,17 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 The tests don't need Docker:
 
 ```bash
-python -m pytest                     # 56 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 58 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the stored chunks, they check
-that each chunk gets its own id, always the same one; that adding the same chunks again replaces them instead of
-adding copies; that the first build embeds and stores the 28 chunks, and a later build finds them and embeds nothing;
-that other chunk sizes replace the stored chunks, while an engine with a collection of its own keeps its chunks;
-that another data file can be read; that every setting is passed by name; and that without Qdrant the server
-stops with what to do. For `pipeline.py`, they check that it builds the engine, then answers each question; that a
-second run reuses the stored chunks; that without Qdrant it stops with what to do; and that no other file runs
-anything in the terminal.
+that an existing collection is deleted and made new, while one that's opened keeps its points; that each chunk gets
+its own id, always the same one; that adding the same chunks again replaces them instead of adding copies; that the
+first build embeds and stores the 28 chunks, and a later build finds them and embeds nothing; that other chunk sizes
+replace the stored chunks, while an engine with a collection of its own keeps its chunks; that another data file can
+be read; that every setting is passed by name; and that without Qdrant the server stops with what to do. For
+`pipeline.py`, they check that it builds the engine, then answers each question; that a second run reuses the stored
+chunks; that without Qdrant it stops with what to do; and that no other file runs anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -258,11 +258,12 @@ engine can check whether the server holds exactly these chunks by their ids.
 
 `build()` counts the points in the collection and looks up the 28 ids:
 
-- all of them stored, and nothing else: reuse them, no call to Gemini;
-- anything else (an edited article, other chunk sizes): empty the collection, then store the chunks anew;
-- no collection yet (the first run): store them.
+- all of them stored, and nothing else: reuse them, through `open_vector_store()`, with no call to Gemini;
+- anything else (an edited article, other chunk sizes): store the chunks through `make_vector_store()`, which
+  deletes the old collection and makes a new one;
+- no collection yet (the first run): make it, and store them.
 
-Only the engine's own collection is checked or emptied: `it_knowledge_base`, unless it's given another. So an
+Only the engine's own collection is checked or deleted: `it_knowledge_base`, unless it's given another. So an
 engine with other chunk sizes can share the server without replacing these chunks, in a collection of its own:
 `RAGEngine(collection="it_kb_1000", chunk_size=1000)`.
 

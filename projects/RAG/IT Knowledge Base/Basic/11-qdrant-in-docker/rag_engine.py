@@ -4,7 +4,7 @@ IT Knowledge Base: The RAG Engine
 
 The whole pipeline in one class, the way a server uses it, with the chunks kept in a Qdrant server between runs.
 build() embeds the chunks only when the server doesn't already hold exactly these chunks. It handles:
-  1. Building: load and split the articles, then reuse the stored chunks, or embed and store them (one call)
+  1. Building: load and split the articles; reuse the stored chunks, or store them in a new collection (one call)
   2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds, how it's set up, and whether it reused the stored chunks
   4. Printing an answer with its sources
@@ -26,7 +26,7 @@ from knowledge_base import KB_FILE, load_documents
 from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import TOP_K, make_retriever
-from vector_store import COLLECTION, chunk_id, make_client, make_vector_store
+from vector_store import COLLECTION, chunk_id, make_client, make_vector_store, open_vector_store
 
 MAX_SOURCES = 3        # sources per answer: the first 3 different articles among the chunks found
 SNIPPET_LENGTH = 200   # characters of each source's text shown with it
@@ -62,18 +62,19 @@ class RAGEngine:
         self.documents = load_documents(self.data_path)
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
         # Each chunk's id comes from its text, so "the server already holds these chunks" can be checked by id:
-        # all stored and nothing else -> reuse them, no call to Gemini; anything else -> empty and store them anew.
-        # Only this engine's collection is checked or emptied: engines with collections of their own keep theirs.
+        # all stored and nothing else -> reuse them, no call to Gemini; anything else -> store them in a new
+        # collection (make_vector_store() deletes the old one first). Only this engine's collection is checked or
+        # deleted: engines with collections of their own keep theirs.
         ids = [chunk_id(chunk) for chunk in self.chunks]
         self.reused_stored_chunks = False
         if self.client.collection_exists(self.collection):
             stored = self.client.count(self.collection).count
             found = len(self.client.retrieve(self.collection, ids=ids, with_payload=False, with_vectors=False))
             self.reused_stored_chunks = stored == found == len(ids)
-            if not self.reused_stored_chunks:
-                self.client.delete_collection(self.collection)
-        store = make_vector_store(self.embeddings, self.embedding_size, self.client, self.collection)
-        if not self.reused_stored_chunks:
+        if self.reused_stored_chunks:
+            store = open_vector_store(self.embeddings, self.client, self.collection)
+        else:
+            store = make_vector_store(self.embeddings, self.embedding_size, self.client, self.collection)
             store.add_documents(self.chunks, ids=ids)          # one call to Gemini: every chunk's embedding
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
