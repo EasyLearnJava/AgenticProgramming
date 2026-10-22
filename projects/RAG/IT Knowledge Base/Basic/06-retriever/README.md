@@ -198,7 +198,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basi
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 30 passed, 3 skipped     (add -v for one line per test)
+python -m pytest                     # 27 passed, 3 skipped     (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
