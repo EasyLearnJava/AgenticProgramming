@@ -1,0 +1,6 @@
+# The packages the notebook uses, pinned to exact versions. `pip install -r requirements.txt` installs them.
+--extra-index-url https://download.pytorch.org/whl/cpu   # PyTorch without its GPU parts: the model runs on the CPU
+sentence-transformers==6.2.0   # SentenceTransformer, the embedding model
+torch==2.14.1                  # what sentence-transformers runs the model with
+chromadb==1.5.9                # Chroma, the vector database, here in memory
+ipykernel==7.4.0               # the Python kernel that runs the notebook's cells, in VS Code or Jupyter

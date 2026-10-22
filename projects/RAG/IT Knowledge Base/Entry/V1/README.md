@@ -1,4 +1,4 @@
-# Entry · RAG in a Notebook
+# Entry · V1 · RAG in a Notebook
 
 The smallest version of the idea, in one Jupyter notebook: four sentences become vectors, the vectors go into a
 vector database, and a question finds the closest sentences. Built with **sentence-transformers** (the library that
@@ -69,7 +69,7 @@ with a terminal at the bottom.
 ### Step 2: Go to This Folder
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/Entry"   # from the repo root; quotes for the spaces
+cd "projects/RAG/IT Knowledge Base/Entry/V1"   # from the repo root; quotes for the spaces
 ```
 
 ### Step 3: Create and Activate a Virtual Environment
@@ -93,9 +93,9 @@ the model doesn't need.
 1. Open `rag_basics.ipynb` from the Explorer on the left. If VS Code offers to install the Jupyter extension,
    install it.
 2. Click **Select Kernel** (top right) → **Python Environments...** → the one whose path ends in
-   `Entry/.venv/bin/python`. If it isn't in the list: open the Command Palette (`Ctrl+Shift+P`), run
+   `Entry/V1/.venv/bin/python`. If it isn't in the list: open the Command Palette (`Ctrl+Shift+P`), run
    **Python: Select Interpreter** → **Enter interpreter path...**, and give
-   `projects/RAG/IT Knowledge Base/Entry/.venv/bin/python`.
+   `projects/RAG/IT Knowledge Base/Entry/V1/.venv/bin/python`.
 3. Click **Run All**.
 
 The cells run top to bottom, and each one's output appears under it. The first run takes longer: cell 2 downloads the
@@ -122,7 +122,7 @@ cells before it made.
 ## 📁 Project Structure
 
 ```text
-Entry/
+V1/
 ├── rag_basics.ipynb                      # the notebook: 5 code cells, saved with their results
 ├── tests/
 │   └── test_notebook.py                  # 5 tests: runs every cell, then checks what each one printed
@@ -236,9 +236,8 @@ packages into it (Step 4).
 
 ## 📚 Next Steps
 
-**[Basic · 01 · Read the Knowledge Base](../Basic/01-read-the-knowledge-base/README.md)**: this notebook indexed four
-sentences written in its code. 01 reads a real knowledge base, a CSV file of 10 IT support articles, into LangChain
-Documents.
+**[Entry · V2 · Parent-Doc and Window Retrieval](../V2/README.md)**: this notebook searched four one-line sentences.
+V2 searches four longer documents two ways, whole and cut into sentences, and tries the question reworded.
 
 ### Ideas to Try
 
