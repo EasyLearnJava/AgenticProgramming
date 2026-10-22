@@ -87,6 +87,14 @@ def test_engines_in_their_own_collections_keep_their_own_chunks():
     assert (default.stats()["collection"], large.stats()["collection"]) == (COLLECTION, "it_kb_1000")
 
 
+def test_building_again_starts_with_a_new_collection():
+    client = QdrantClient(":memory:")
+    engine = stand_in_engine(client=client)
+    engine.build()
+    engine.build()                                         # the first build's collection is deleted, not added to
+    assert client.count(COLLECTION).count == 28
+
+
 def test_settings_are_passed_by_name_only():
     with pytest.raises(TypeError):
         RAGEngine(KeywordEmbeddings())                     # a setting by position: refused
