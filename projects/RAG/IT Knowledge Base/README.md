@@ -15,16 +15,24 @@ LlamaIndex, Gemini in place of OpenAI, and a plain HTML page served by FastAPI i
 
 ## The projects
 
-The projects come in two levels:
+The projects come in three levels:
 
+- **`Entry/`**: the idea in one Jupyter notebook, before any of the app: four sentences, a small embedding model that
+  runs on the CPU, and Chroma, in five short code cells. No API key.
 - **`Basic/`**: the whole app, 01 to 12, one step at a time, each on the happy path: the data is assumed to be good.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
   and reports it. 01 is built; 02 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
 
-Each folder is a project of its own: it holds the app as built so far plus one new piece, runs on its own, and has
-its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk, embed, store), with
-no question anywhere; the user's question comes in at 06, and 07 onward answer it.
+Each Basic and Advanced folder is a project of its own: it holds the app as built so far plus one new piece, runs on
+its own, and has its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk,
+embed, store), with no question anywhere; the user's question comes in at 06, and 07 onward answer it.
+
+### Entry
+
+| Project | What it does | Run it |
+|---|---|---|
+| `Entry` | Four sentences embedded by `all-MiniLM-L6-v2` on the CPU and stored in Chroma, in memory; a question finds the 2 closest; then a keyword filter with re-ranking. Retrieval only: nothing writes an answer | In a Codespace: open `rag_basics.ipynb`, then **Run All** |
 
 ### Basic
 
@@ -54,6 +62,9 @@ no question anywhere; the user's question comes in at 06, and 07 onward answer i
 
 - **Python 3.11 or newer**, and in each project: `python -m venv .venv`, activate it, then
   `pip install -r requirements-dev.txt`. Each project pins its packages to exact versions.
+- **For `Entry`, a GitHub Codespace**: on Windows with long paths off, its Jupyter packages can fail to install when
+  the repo sits deep in your folders (a path over 260 characters; its README has the details). It needs no key and
+  no Docker.
 - **A Gemini API key, from project 04 on**, set up as in the tutorials (`tutorials/09-gemini-key`): copy the project's
   `.env.example` to `.env` and put the key after `GOOGLE_API_KEY=`. Every call to Gemini uses your key's quota.
   Without a key, the scripts stop with a message that says what to do.
@@ -76,16 +87,18 @@ It does a project's setup steps for you, the same on Windows, macOS, Linux and C
 `.venv` the first time (about a minute, with the install), installs its `requirements-dev.txt` into it, then runs the
 project's command from the table above, in the project's folder, with the venv's Python, so there's nothing to
 activate. After the first time it takes a few seconds. It doesn't set up a Gemini key or start Docker: do those first,
-as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every project's name.
+as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every project's name. `Entry` isn't one of
+them: it's a notebook, run in VS Code, as its README says.
 
 ## Built with
 
 LangChain (`langchain-core`, `langchain-text-splitters`, `langchain-google-genai`, `langchain-qdrant`), Gemini,
-Qdrant, FastAPI and pytest.
+Qdrant, FastAPI and pytest. `Entry` uses sentence-transformers, Chroma and Jupyter in place of LangChain, Gemini,
+Qdrant and FastAPI.
 
 ## The data
 
-Every project uses the same knowledge base, `data/sample_it_kb.csv`: 10 made-up IT support articles (VPN, MFA,
-Wi-Fi, printers and more) with no real people's details. It comes unchanged from the course repo,
+Every Basic and Advanced project uses the same knowledge base, `data/sample_it_kb.csv`: 10 made-up IT support
+articles (VPN, MFA, Wi-Fi, printers and more) with no real people's details. It comes unchanged from the course repo,
 [Brianletort/KBs-For-RAGs](https://github.com/Brianletort/KBs-For-RAGs/tree/main/Clip1-v2/data), whose README marks
-its contents for educational use.
+its contents for educational use. `Entry` has four sentences of its own, about landmarks, written in its notebook.
