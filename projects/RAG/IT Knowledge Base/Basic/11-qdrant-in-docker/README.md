@@ -203,7 +203,7 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 The tests don't need Docker:
 
 ```bash
-python -m pytest                     # 61 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 56 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the stored chunks, they check
