@@ -169,7 +169,7 @@ server. Then open the page as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 56 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 51 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the page, they check that it's
