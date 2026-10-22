@@ -166,12 +166,12 @@ in Step 4. A chunk size at the end of the command goes to `pipeline.py`: `... Ba
 03-chunking/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
 ├── chunking.py                           # make_splitter(), split_documents() and print_chunks(): Step 2
-├── knowledge_base.py                     # KBLoader, load_documents() and print_documents(): Step 1
+├── knowledge_base.py                     # KBLoader and load_documents(): Step 1
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
 │   ├── test_chunking.py                  # 8 tests: the chunks, their sizes, labels and breaks, what's printed
-│   ├── test_knowledge_base.py            # 5 tests: the Documents, their text and labels, what's printed
+│   ├── test_knowledge_base.py            # 4 tests: the Documents, their text and labels
 │   └── test_pipeline.py                  # 4 tests: the output, a chunk size, any folder; nothing else runs
 ├── requirements.txt                      # langchain-core and langchain-text-splitters, pinned
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
@@ -189,7 +189,7 @@ in Step 4. A chunk size at the end of the command goes to `pipeline.py`: `... Ba
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 17 passed     (add -v for one line per test)
+python -m pytest                     # 16 passed     (add -v for one line per test)
 ```
 
 The tests read the sample file and run `pipeline.py` as its own process:
@@ -198,8 +198,7 @@ The tests read the sample file and run `pipeline.py` as its own process:
   at 200, 512 and 1000); each chunk keeps its article's labels and where it starts; chunks break between sections
   first; 1000 characters keep every article whole; and the exact output of `print_chunks()`
 - **The Documents**: 10 of them; each text has the title, problem, resolution and notes in order; the labels are in
-  the metadata, not the text; making the loader reads nothing until `load()`; and the exact output of
-  `print_documents()`
+  the metadata, not the text; and making the loader reads nothing until `load()`
 - **The pipeline**: its exact output, with the default chunk size and with 200; the same whichever folder it's
   started from; and no other file runs anything
 
