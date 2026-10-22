@@ -180,7 +180,7 @@ in Step 5.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 20 passed, 2 skipped     (add -v for one line per test)
+python -m pytest                     # 18 passed, 2 skipped     (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
@@ -191,8 +191,8 @@ into a few numbers counted from its words, the same every time. They check:
 - **The embedding**: the 28 chunks go to the model in one call, one vector each; only the chunks' texts are sent, in
   the chunks' order; and what `print_vectors()` prints
 - **The model**: its name and vector size; and without a key, `pipeline.py` stops with the message, not a stack trace
-- **The chunks and the Documents**: 28 chunks of at most 512 characters, each with its article's labels; 10
-  Documents with their text and labels; and what `print_chunks()` and `print_documents()` print
+- **The chunks and the Documents**: 28 chunks of at most 512 characters, each with its article's labels; and
+  10 Documents with their text and labels
 
 The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
