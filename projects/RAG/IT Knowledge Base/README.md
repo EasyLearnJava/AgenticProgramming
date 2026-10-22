@@ -28,6 +28,10 @@ Each Basic and Advanced folder is a project of its own: it holds the app as buil
 its own, and has its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk,
 embed, store), with no question anywhere; the user's question comes in at 06, and 07 onward answer it.
 
+Beside them, [`RAG series/`](RAG%20series/README.md) will hold a notebook for each course of the Pluralsight path
+*Retrieval Augmented Generation (RAG) for Developers*, each runnable in Google Colab; so far, course 1, Vector Space
+Models and Embeddings in RAGs.
+
 ### Entry
 
 | Project | What it does | Run it |
@@ -62,12 +66,14 @@ embed, store), with no question anywhere; the user's question comes in at 06, an
 
 ## What you need
 
-- **Python 3.11 or newer** (3.12 or newer for `Entry/V3`, for the NumPy it pins), and in each project:
-  `python -m venv .venv`, activate it, then `pip install -r requirements-dev.txt`. Each project pins its packages to
-  exact versions.
+- **Python 3.11 or newer** (3.12 or newer for `Entry/V3` and `RAG series`, for the NumPy they pin), and in each
+  project: `python -m venv .venv`, activate it, then `pip install -r requirements-dev.txt`. Each project pins its
+  packages to exact versions.
 - **For `Entry`, a GitHub Codespace**: on Windows with long paths off, its Jupyter packages can fail to install when
   the repo sits deep in your folders (a path over 260 characters; each version's README has the details). It needs
   no key and no Docker.
+- **For `RAG series`, a browser and a Google account**: its notebooks open in Google Colab from their README's
+  **Open in Colab** button.
 - **A Gemini API key, from project 04 on**, set up as in the tutorials (`tutorials/09-gemini-key`): copy the project's
   `.env.example` to `.env` and put the key after `GOOGLE_API_KEY=`. Every call to Gemini uses your key's quota.
   Without a key, the scripts stop with a message that says what to do.
@@ -90,19 +96,19 @@ It does a project's setup steps for you, the same on Windows, macOS, Linux and C
 `.venv` the first time (about a minute, with the install), installs its `requirements-dev.txt` into it, then runs the
 project's command from the table above, in the project's folder, with the venv's Python, so there's nothing to
 activate. After the first time it takes a few seconds. It doesn't set up a Gemini key or start Docker: do those first,
-as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every project's name. `Entry` isn't in it:
-its projects are notebooks, run in VS Code, as their READMEs say.
+as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every project's name. `Entry` and
+`RAG series` aren't in it: their projects are notebooks, run in VS Code or Colab, as their READMEs say.
 
 ## Built with
 
 LangChain (`langchain-core`, `langchain-text-splitters`, `langchain-google-genai`, `langchain-qdrant`), Gemini,
 Qdrant, FastAPI and pytest. `Entry` uses sentence-transformers, Chroma and Jupyter in place of LangChain, Gemini,
-Qdrant and FastAPI.
+Qdrant and FastAPI. `RAG series` uses sentence-transformers and scikit-learn.
 
 ## The data
 
 Every Basic and Advanced project uses the same knowledge base, `data/sample_it_kb.csv`: 10 made-up IT support
 articles (VPN, MFA, Wi-Fi, printers and more) with no real people's details. It comes unchanged from the course repo,
 [Brianletort/KBs-For-RAGs](https://github.com/Brianletort/KBs-For-RAGs/tree/main/Clip1-v2/data), whose README marks
-its contents for educational use. `Entry`'s notebooks have a few sentences of their own, about landmarks, written in
-their code.
+its contents for educational use. The `Entry` and `RAG series` notebooks use a few sentences of their own, written
+in their code.

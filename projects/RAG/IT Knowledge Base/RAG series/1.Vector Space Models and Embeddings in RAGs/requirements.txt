@@ -1,0 +1,8 @@
+# The packages the notebook uses, pinned to exact versions. `pip install -r requirements.txt` installs them.
+# Google Colab doesn't need this file: the notebook's first cell installs what Colab doesn't have.
+--extra-index-url https://download.pytorch.org/whl/cpu   # PyTorch without its GPU parts: the model runs on the CPU
+sentence-transformers==6.2.0   # SentenceTransformer, the embedding model, and util.cos_sim
+torch==2.14.1                  # what sentence-transformers runs the model with
+scikit-learn==1.9.1            # TfidfVectorizer, cosine_similarity and PCA
+numpy==2.5.4                   # imported by the notebook, as np
+ipykernel==7.4.0               # the Python kernel that runs the notebook's cells, in VS Code or Jupyter
