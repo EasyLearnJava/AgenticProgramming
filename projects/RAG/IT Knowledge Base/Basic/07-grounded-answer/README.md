@@ -47,7 +47,7 @@ data/sample_it_kb.csv                 10 articles
 └──────────────┬───────────────┘
                │ {"docs", "question", "answer"}
                ↓
-      print_answer(): the answer, then its sources
+      print_answer(), in utils.py: the answer, then its sources
 ```
 
 ### The Pipeline in This Project
@@ -59,7 +59,8 @@ data/sample_it_kb.csv                 10 articles
 5. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
 6. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
 7. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
-8. **Print** → `print_answer()`: the question, the answer, then the articles the chunks came from, each once
+8. **Print** → `print_answer()`, from `utils.py`: the question, the answer, then the articles the chunks came from,
+   each once
 
 ---
 
@@ -154,7 +155,8 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ```text
 07-grounded-answer/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── rag_chain.py                          # the prompt, make_rag_chain() and print_answer(): Step 4
+├── rag_chain.py                          # the prompt and make_rag_chain(): Step 4
+├── utils.py                              # print_answer(): the helper that prints an answer and its sources
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs()
 ├── vector_store.py                       # make_vector_store(): Qdrant, in memory
 ├── models.py                             # the Gemini models: the embedding model and the chat model
@@ -257,8 +259,9 @@ prompt goes to the model, and the parser turns the model's reply into plain text
 ### 5. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4,
-the chain, and `print_answer()` prints its result. The other files only define the steps, so importing them makes no
-call. The question and the two models are parameters of `main()`, so the tests pass stand-ins for Gemini.
+the chain, and `print_answer()`, from `utils.py`, prints its result. The other files only define the steps and that
+helper, so importing them makes no call. The question and the two models are parameters of `main()`, so the tests
+pass stand-ins for Gemini.
 
 ---
 

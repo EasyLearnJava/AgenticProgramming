@@ -20,8 +20,9 @@ from langchain_core.language_models import BaseChatModel
 from chunking import CHUNK_SIZE, split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, chat_model, embeddings
-from rag_chain import QUESTION, make_rag_chain, print_answer
+from rag_chain import QUESTION, make_rag_chain
 from retriever import make_retriever
+from utils import print_answer
 from vector_store import make_vector_store
 
 

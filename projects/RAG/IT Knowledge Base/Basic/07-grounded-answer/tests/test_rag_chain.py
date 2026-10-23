@@ -1,6 +1,7 @@
 """
 Tests for rag_chain.py: the prompt, the chain's three results (the chunks, the question, the answer), and what
-print_answer() prints. The plain tests use stand-ins for Gemini (tests/fakes.py); the live test asks the real Gemini.
+print_answer(), in utils.py, prints. The plain tests use stand-ins for Gemini (tests/fakes.py); the live test asks
+the real Gemini.
 """
 import pytest
 from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
@@ -10,8 +11,9 @@ from langchain_core.runnables import RunnableLambda
 from chunking import split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, chat_model, embeddings
-from rag_chain import QUESTION, make_rag_chain, print_answer, prompt
+from rag_chain import QUESTION, make_rag_chain, prompt
 from retriever import make_retriever
+from utils import print_answer
 from vector_store import make_vector_store
 
 CHUNKS = split_documents(load_documents())
