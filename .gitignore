@@ -6,6 +6,9 @@ node_modules/
 __pycache__/
 .pytest_cache/
 
+# Qdrant's local mode: the points the scripts store on disk
+qdrant_data/
+
 # never commit secrets
 .env
 .env.*

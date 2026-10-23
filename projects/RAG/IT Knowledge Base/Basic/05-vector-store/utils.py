@@ -3,34 +3,12 @@ IT Knowledge Base: Utilities
 ============================
 
 Helpers the pipeline uses that aren't a step of their own. It handles:
-  1. Connecting: the Qdrant server at an address, checked to be there, or Qdrant in memory
-  2. Printing the collection, then every point stored in it
+  1. Printing the collection, then every point stored in it
 
-Usage (pipeline.py calls them; this file only defines them):
-    client = connect(QDRANT_URL)   ->  the server, checked to be there; Qdrant in memory with no address
-    print_points(store)            ->  the collection, then every point stored in it
+Usage (pipeline.py calls it; this file only defines it):
+    print_points(store)   ->  the collection, then every point stored in it
 """
-import sys
-
 from langchain_qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
-from qdrant_client.http.exceptions import ResponseHandlingException
-
-
-def connect(qdrant_url: str) -> QdrantClient:
-    """The Qdrant server at qdrant_url, checked to be there; or Qdrant in memory when there's no address."""
-    if not qdrant_url:
-        print("Qdrant: in memory, inside this script")
-        return QdrantClient(":memory:")
-    # check_compatibility=False skips qdrant-client's background version check, which only warns.
-    client = QdrantClient(url=qdrant_url, check_compatibility=False)
-    try:
-        client.get_collections()                   # a first request, before any call to Gemini: is it there?
-    except ResponseHandlingException:
-        sys.exit(f"Can't reach Qdrant at {qdrant_url}. Start it first, in this folder: docker compose up -d "
-                 "(or remove QDRANT_URL from .env to run Qdrant in memory).")
-    print(f"Qdrant: the server at {qdrant_url}")
-    return client
 
 
 def print_points(store: QdrantVectorStore) -> None:
