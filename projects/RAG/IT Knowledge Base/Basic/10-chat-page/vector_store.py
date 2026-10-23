@@ -16,7 +16,7 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-# Not the course app's "it_kb", so the two apps never change each other's points on the same Qdrant server
+# Qdrant's word for a table of points; not the course app's "it_kb", so the two apps' points never mix
 COLLECTION = "it_knowledge_base"
 
 

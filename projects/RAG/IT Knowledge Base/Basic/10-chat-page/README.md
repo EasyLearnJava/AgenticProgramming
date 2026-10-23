@@ -273,8 +273,8 @@ A 422 shows which field is wrong and why, a 502 shows the server's short message
 
 ## 📚 Next Steps
 
-**[11 · Qdrant in Docker](../11-qdrant-in-docker/README.md)**: this project keeps the chunks in memory, so every
-start embeds them again. 11 keeps them in a Qdrant server, in Docker, between runs.
+**[11 · Qdrant on Disk](../11-qdrant-on-disk/README.md)**: this project keeps the chunks in memory, so every start
+embeds them again. 11 keeps them on disk between runs, in a folder, and reuses them.
 
 **[Advanced · 10 · Chat Page](../../Advanced/10-chat-page/README.md)** (planned): the same project, production
 grade. Its README lists what it will add.
