@@ -32,13 +32,18 @@ def main(question: str = QUESTIONS[0], embeddings: Embeddings = embeddings, size
     chunks = split_documents(docs)
     print(f"Step 2: Chunk: {len(chunks)} chunks of at most {CHUNK_SIZE} characters")
     store = make_vector_store(embeddings, size)
+    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
     store.add_documents(chunks)                    # one call to Gemini: every chunk's embedding
+    # count() comes from qdrant_client's QdrantClient: how many points the collection holds
     print(f"Step 3: Embed and store: {store.client.count(store.collection_name).count} points, in Qdrant in memory")
     print("Step 4: Retrieve")
     # The question becomes a vector from the same model as the chunks, so the two can be compared (one call)
+    # embed_query() comes from LangChain's Embeddings (Gemini's, here): one text in, one vector out
     question_vector = embeddings.embed_query(question)
+    # similarity_search_with_score_by_vector() comes from langchain_qdrant's QdrantVectorStore: k closest, scored
     scored = store.similarity_search_with_score_by_vector(question_vector, k=TOP_K)
     # The retriever does both in one call (one more call to Gemini), without the scores
+    # invoke() comes from LangChain's Runnable: the retriever embeds the question and searches, in one call
     found = make_retriever(store).invoke(question)
     print_retrieval(question, question_vector, scored, found)
 
