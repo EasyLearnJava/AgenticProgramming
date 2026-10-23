@@ -104,19 +104,7 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 uvicorn main:app --reload            # the server; Ctrl+C stops it
 ```
 
-It prints these lines, then waits for requests (the numbers in `[ ]` change each time):
-
-```text
-INFO:     Will watch for changes in these directories: ['...09-api']
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [16924] using StatReload
-INFO:     Started server process [19312]
-INFO:     Waiting for application startup.
-INFO:     RAG engine built: 10 articles, 28 chunks
-INFO:     Application startup complete.
-```
-
-`RAG engine built` means the chunks are embedded and stored: the server is ready.
+When it prints `RAG engine built`, the chunks are embedded and stored: the server is ready.
 
 ### Step 6: Ask It a Question
 
@@ -130,14 +118,6 @@ Codespaces and Git Bash.
 curl http://127.0.0.1:8000/api/health
 curl http://127.0.0.1:8000/api/stats
 curl -X POST http://127.0.0.1:8000/api/query -H "Content-Type: application/json" -d '{"question": "How do I fix VPN connection timeouts?"}'
-```
-
-Their answers, one per line. The parts in `< >` come from Gemini:
-
-```text
-{"status":"ok"}
-{"documents":10,"chunks":28,"collection":"it_knowledge_base","chunk_size":512,"chunk_overlap":50,"top_k":5,"embedding_model":"gemini-embedding-001","chat_model":"gemini-3.5-flash-lite"}
-{"answer":"<Gemini's answer>","sources":[{"title":"<article title>","system":"<system>","category":"<category>","snippet":"<the start of the chunk's text>"},...]}
 ```
 
 In GitHub Codespaces, the curl commands work as they are, in the codespace's terminal. In the browser, `127.0.0.1` is
@@ -158,36 +138,6 @@ server. Then ask it a question as in Step 6.
 
 ---
 
-## 📁 Project Structure
-
-```text
-09-api/
-├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
-├── main.py                               # the FastAPI app: start-up, QueryIn/QueryOut, the three routes
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats()
-├── utils.py                              # print_result(): the helper that prints an answer and its sources
-├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
-├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_vector_store(): Qdrant, in memory
-├── models.py                             # the Gemini models: the embedding model and the chat model
-├── config.py                             # load_api_key(): the key from .env, checked before anything else
-├── chunking.py                           # split_documents(): chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles as Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # skips the live tests when there's no key
-│   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
-│   └── test_*.py                         # one test file per module
-├── .env.example                          # copy it to .env and put your key in it
-├── requirements.txt                      # the packages, pinned to exact versions, FastAPI and uvicorn included
-├── requirements-dev.txt                  # requirements.txt plus pytest and httpx2, for the tests
-├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
-└── README.md                             # you are here
-```
-
----
-
 ## 🧪 Testing
 
 ```bash
@@ -203,31 +153,6 @@ that no other file runs anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
-
----
-
-## 📊 Understanding the Output
-
-| Request | Status | What comes back |
-|---|---|---|
-| `GET /api/health` | 200 | `{"status":"ok"}` |
-| `GET /api/stats` | 200 | what the engine holds and how it's set up |
-| `POST /api/query`, a good question | 200 | `{"answer": "...", "sources": [up to 3]}` |
-| `POST /api/query`, an empty, blank or too-long question | 422 | what's wrong with it, and no call to Gemini |
-| `POST /api/query`, Gemini doesn't answer | 502 | `{"detail":"Gemini didn't answer (<the error's type>)."}`; the full reason is in the server's terminal |
-
-A bad question gets FastAPI's own description of the problem. For `{"question": ""}`:
-
-```text
-{"detail":[{"type":"string_too_short","loc":["body","question"],"msg":"String should have at least 1 character","input":"","ctx":{"min_length":1}}]}
-```
-
-Spaces around a question are removed first, so `"   "` gets the same `string_too_short` error. A question over 500
-characters gets
-`"type":"string_too_long"`, `"msg":"String should have at most 500 characters"`.
-
-Each source has the article's `title`, `system` and `category`, and a `snippet`: the first 200 characters of its
-chunk, with `...` when the chunk is longer.
 
 ---
 
@@ -291,15 +216,7 @@ ask again.
 
 ---
 
-## 📚 Next Steps
-
-**[10 · Chat Page](../10-chat-page/README.md)**: this project answers programs over HTTP. 10 adds a web page, served
-by the same server, to ask questions in.
-
-**[Advanced · 09 · API](../../Advanced/09-api/README.md)** (planned): the same project, production grade. Its README
-lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Send `{"question": ""}` from the `/docs` page and read the 422 it gets back.
 - Ask the same question twice, and compare the two answers and their sources.
