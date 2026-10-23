@@ -303,8 +303,7 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 ## 📚 Next Steps
 
 **[05 · Vector Store](../05-vector-store/README.md)**: this project turned the 28 chunks into vectors. 05 stores
-them in Qdrant, a vector database, one point per chunk with its vector, text and labels, and shows them in Qdrant's
-dashboard.
+them in Qdrant, a vector database, one point per chunk with its vector, text and labels, saved on disk.
 
 **[Advanced · 04 · Embeddings](../../Advanced/04-embeddings/README.md)** (planned): the same project, production
 grade. Its README lists what it will add.
