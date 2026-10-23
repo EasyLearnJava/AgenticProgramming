@@ -159,8 +159,9 @@ in Step 4.
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
-│   ├── test_knowledge_base.py            # 5 tests: the Documents, their text and labels, what's printed
-│   └── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
+│   ├── test_knowledge_base.py            # 4 tests: the Documents, their text and labels
+│   ├── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
+│   └── test_utils.py                     # 1 test: what print_documents() prints
 ├── requirements.txt                      # langchain-core, pinned to an exact version
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
 ├── pytest.ini                            # lets the tests import the files, and finds them in tests/
