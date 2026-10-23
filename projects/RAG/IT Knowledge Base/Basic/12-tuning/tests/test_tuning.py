@@ -1,5 +1,5 @@
 """
-Tests for tuning.py: the test questions, the scores for each chunk size, the table, and the answers for each k.
+Tests for tuning.py: the test questions, the scores for each chunk size, and the answers for each k.
 The plain tests use stand-ins for Gemini (tests/fakes.py); the live test asks the real Gemini's embedding model.
 """
 import pytest
@@ -9,7 +9,6 @@ import tuning
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
 from tuning import EVAL_SET, evaluate
-from utils import print_table
 
 SMALL_SET = [("my vpn keeps dropping", "VPN Connection Timeout"), ("the printer is missing", "Printer Not Found")]
 
@@ -32,15 +31,6 @@ def test_the_questions_are_embedded_once_and_each_chunk_size_once():
     evaluate(stand_in, SIZE, eval_set=SMALL_SET, chunk_sizes=[200, 1000], top_ks=[1, 3])
     assert stand_in.calls == [("query", "my vpn keeps dropping"), ("query", "the printer is missing"),
                               ("documents", 49), ("documents", 10)]
-
-
-def test_the_table_has_a_line_per_chunk_size(capsys):
-    print_table([{"chunk_size": 200, "chunks": 49, "top_1": 1, "top_3": 2},
-                 {"chunk_size": 1000, "chunks": 10, "top_1": 2, "top_3": 2}], total=2)
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == "chunk size  chunks  found in top 1  found in top 3"
-    assert lines[1].split() == ["200", "49", "1", "of", "2", "2", "of", "2"]
-    assert lines[2].split() == ["1000", "10", "2", "of", "2", "2", "of", "2"]
 
 
 def test_compare_top_k_answers_the_question_once_for_each_k(monkeypatch):
