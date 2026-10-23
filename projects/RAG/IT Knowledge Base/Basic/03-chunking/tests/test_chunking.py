@@ -1,11 +1,13 @@
 """
 Tests for chunking.py: the 10 articles cut into chunks, each no longer than the chunk size, each keeping its
-article's metadata and where in the article it starts, and what print_chunks() prints. No key, no network.
+article's metadata and where in the article it starts, and what print_chunks(), in utils.py, prints. No key, no
+network.
 """
 import pytest
 
-from chunking import CHUNK_OVERLAP, CHUNK_SIZE, print_chunks, split_documents
+from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
 from knowledge_base import load_documents
+from utils import print_chunks
 
 DOCS = load_documents()
 

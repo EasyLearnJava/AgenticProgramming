@@ -8,8 +8,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from chunking import print_chunks, split_documents
+from chunking import split_documents
 from knowledge_base import load_documents
+from utils import print_chunks
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 STEPS = "Step 1: Read the knowledge base: 10 documents\nStep 2: Chunk\n"

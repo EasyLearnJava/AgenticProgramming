@@ -12,8 +12,9 @@ Usage:
 """
 import sys
 
-from chunking import CHUNK_SIZE, print_chunks, split_documents
+from chunking import CHUNK_SIZE, split_documents
 from knowledge_base import load_documents
+from utils import print_chunks
 
 
 def main(chunk_size: int = CHUNK_SIZE) -> None:

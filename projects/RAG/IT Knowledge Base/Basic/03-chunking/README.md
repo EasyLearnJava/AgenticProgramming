@@ -59,7 +59,7 @@ chunks, of at most 512 characters: 28 in all. Built with **LangChain** (`langcha
 3. **Make the splitter** → `make_splitter()`: chunks of at most 512 characters, up to 50 repeated, `start_index` on
 4. **Split** → `split_documents(docs)` cuts every article at the biggest breaks that keep each chunk within 512
 5. **Label** → each chunk gets a copy of its article's labels, plus `start_index`
-6. **Print** → `print_chunks()`: the chunks per article, then every chunk in full
+6. **Print** → `print_chunks()`, from `utils.py`: the chunks per article, then every chunk in full
 
 ---
 
@@ -165,7 +165,8 @@ in Step 4. A chunk size at the end of the command goes to `pipeline.py`: `... Ba
 ```text
 03-chunking/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── chunking.py                           # make_splitter(), split_documents() and print_chunks(): Step 2
+├── chunking.py                           # make_splitter() and split_documents(): Step 2
+├── utils.py                              # print_chunks(): the helper that prints the chunks
 ├── knowledge_base.py                     # KBLoader and load_documents(): Step 1
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
@@ -329,8 +330,8 @@ def main(chunk_size: int = CHUNK_SIZE) -> None:
 ```
 
 `pipeline.py` is the only file that runs anything: `main()` runs the steps in order, the earlier one in a line and
-this project's own in full. `chunking.py` and `knowledge_base.py` only define the steps, so importing them reads and
-prints nothing.
+this project's own in full. `chunking.py` and `knowledge_base.py` only define the steps, and `utils.py` the helper
+that prints the chunks, so importing them reads and prints nothing.
 
 ---
 
