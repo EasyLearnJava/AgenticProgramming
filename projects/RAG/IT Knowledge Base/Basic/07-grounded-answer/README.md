@@ -112,24 +112,6 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 python pipeline.py
 ```
 
-It prints Steps 1 to 3 in one line each, then Step 4 in full: the question, Gemini's answer, then the articles the
-chunks came from, each once. The parts in `< >` come from Gemini, so they change from run to run:
-
-```text
-Step 1: Read the knowledge base: 10 documents
-Step 2: Chunk: 28 chunks of at most 512 characters
-Step 3: Embed and store: 28 points, in Qdrant in memory
-Step 4: Retrieve and answer
-Question: How do I fix VPN connection timeouts?
-
-Answer (Gemini's, from the chunks found):
-<Gemini's answer>
-
-Sources (the articles of the chunks found, closest first):
-  <article title>
-  ...
-```
-
 To ask your own question, put it after `pipeline.py`:
 
 ```bash
@@ -150,34 +132,6 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 
 ---
 
-## 📁 Project Structure
-
-```text
-07-grounded-answer/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── rag_chain.py                          # the prompt and make_rag_chain(): Step 4
-├── utils.py                              # print_answer(): the helper that prints an answer and its sources
-├── retriever.py                          # make_retriever() (5 chunks per question), format_docs()
-├── vector_store.py                       # make_vector_store(): Qdrant, in memory
-├── models.py                             # the Gemini models: the embedding model and the chat model
-├── config.py                             # load_api_key(): the key from .env, checked before anything else
-├── chunking.py                           # split_documents(): chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles as Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # skips the live tests when there's no key
-│   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
-│   └── test_*.py                         # one test file per module
-├── .env.example                          # copy it to .env and put your key in it
-├── requirements.txt                      # the packages, pinned to exact versions
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
-└── README.md                             # you are here
-```
-
----
-
 ## 🧪 Testing
 
 ```bash
@@ -193,28 +147,6 @@ a question of your own; and that no other file runs anything.
 
 The 5 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
-
----
-
-## 📊 Understanding the Output
-
-After one line each for Steps 1 to 3, and `Step 4: Retrieve and answer`, the output is:
-
-```text
-Question: How do I fix VPN connection timeouts?          ← the question: the default, or the one you gave
-
-Answer (Gemini's, from the chunks found):                ← Gemini's words, written from the 5 chunks only
-<Gemini's answer>
-
-Sources (the articles of the chunks found, closest first):
-  <article title>                                        ← each article once, even when 2 of its chunks were found
-  ...
-```
-
-The chain gives back one dictionary: `{"docs": [the 5 chunks], "question": "...", "answer": "..."}`. The answer is
-printed from `"answer"`, and the sources from the titles in `"docs"`.
-
-Each run makes 3 calls to Gemini: the chunks' embeddings, the question's embedding, and the answer.
 
 ---
 
@@ -282,15 +214,7 @@ pass stand-ins for Gemini.
 
 ---
 
-## 📚 Next Steps
-
-**[08 · RAG Engine](../08-rag-engine/README.md)**: this project answers one question per run, from a chain built for
-it. 08 puts the whole pipeline in one class: built once, then answering each question with up to 3 sources.
-
-**[Advanced · 07 · Grounded Answer](../../Advanced/07-grounded-answer/README.md)** (planned): the same project,
-production grade. Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Ask something the knowledge base doesn't cover, like `python pipeline.py "how do I bake bread"`, and see whether
   the answer says the knowledge base doesn't cover it, as the prompt's rules ask.
