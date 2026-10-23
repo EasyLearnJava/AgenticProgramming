@@ -15,4 +15,5 @@ from langchain_core.embeddings import Embeddings
 
 def embed_chunks(chunks: list[Document], embeddings: Embeddings) -> list[list[float]]:
     """One vector per chunk, from one embed_documents() call. Only the text is embedded, not the metadata."""
+    # embed_documents() comes from LangChain's Embeddings (Gemini's, here): a list of texts in, a vector each out
     return embeddings.embed_documents([chunk.page_content for chunk in chunks])
