@@ -102,43 +102,6 @@ pip install -r requirements-dev.txt  # once: LangChain's core and text splitters
 python pipeline.py
 ```
 
-It prints Step 1 in one line, then Step 2 in full: how many chunks each article made, then every article's chunks, a
-heading for each article, then each chunk with where in the article it starts and how long it is. The start of what
-you'll see:
-
-```text
-Step 1: Read the knowledge base: 10 documents
-Step 2: Chunk
-10 articles -> 28 chunks of at most 512 characters
-  2 from VPN Connection Timeout (569 characters)
-  2 from MFA Setup Failure (653 characters)
-  3 from Laptop Performance Degradation (668 characters)
-  3 from SaaS Access Permission Denied (672 characters)
-  3 from WiFi Connectivity Issues Office (668 characters)
-  3 from Password Reset Failed (716 characters)
-  3 from Printer Not Found (627 characters)
-  3 from Email Attachment Size Limit (660 characters)
-  3 from Database Connection Timeout (689 characters)
-  3 from Microsoft Teams Audio Issues (699 characters)
-
-Article 1 of 10: VPN Connection Timeout, cut into 2 chunks
-
-Chunk 1 of 2, from character 0 (457 characters):
-Title: VPN Connection Timeout
-
-Problem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations
-
-Resolution: 1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.
-
-Chunk 2 of 2, from character 459 (110 characters):
-Notes: Common issue during peak hours especially for users on home networks. May be related to ISP throttling.
-
-Article 2 of 10: MFA Setup Failure, cut into 2 chunks
-...
-```
-
-The `...` stands for the rest: your terminal shows all 10 articles and their 28 chunks.
-
 Try other chunk sizes by giving one after `pipeline.py`:
 
 ```bash
@@ -160,34 +123,6 @@ in Step 4. A chunk size at the end of the command goes to `pipeline.py`: `... Ba
 
 ---
 
-## 📁 Project Structure
-
-```text
-03-chunking/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── chunking.py                           # make_splitter() and split_documents(): Step 2
-├── utils.py                              # print_chunks(): the helper that prints the chunks
-├── knowledge_base.py                     # KBLoader and load_documents(): Step 1
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── test_chunking.py                  # 7 tests: the chunks, their sizes, labels and breaks
-│   ├── test_knowledge_base.py            # 4 tests: the Documents, their text and labels
-│   ├── test_pipeline.py                  # 4 tests: the output, a chunk size, any folder; nothing else runs
-│   └── test_utils.py                     # 1 test: what print_chunks() prints
-├── requirements.txt                      # langchain-core and langchain-text-splitters, pinned
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the files, and finds them in tests/
-└── README.md                             # you are here
-```
-
-| Setting in `chunking.py` | Value | What it does |
-|---|---|---|
-| `CHUNK_SIZE` | 512 | the most characters a chunk can have |
-| `CHUNK_OVERLAP` | 50 | the most characters repeated from the end of one chunk at the start of the next |
-
----
-
 ## 🧪 Testing
 
 ```bash
@@ -203,30 +138,6 @@ The tests read the sample file and run `pipeline.py` as its own process:
   the metadata, not the text; and making the loader reads nothing until `load()`
 - **The pipeline**: its exact output, with the default chunk size and with 200; the same whichever folder it's
   started from; and no other file runs anything
-
----
-
-## 📊 Understanding the Output
-
-The output starts with Step 1's line, `Step 1: Read the knowledge base: 10 documents`, then `Step 2: Chunk` and the
-chunks. Each chunk's heading says where it is:
-
-```text
-Chunk 1 of 2, from character 0 (457 characters):        ← this chunk is characters 0 to 456 of the article's text
-...
-Chunk 2 of 2, from character 459 (110 characters):      ← this one starts at character 459
-```
-
-`from character` is the chunk's `start_index`: where in the article's text it starts. Chunk 1 holds characters 0 to
-456, and chunk 2 starts at 459: characters 457 and 458 are the blank line (`\n\n`) at the cut, which goes in neither
-chunk.
-
-Each chunk's labels are its article's, plus `start_index`:
-
-```python
-chunk.metadata  ->  {'doc_id': '0', 'title': 'VPN Connection Timeout', 'system': 'VPN', 'category': 'Remote Access',
-                     'priority': 'High', 'tags': 'vpn;timeout;remote;connection', 'start_index': 459}
-```
 
 ---
 
@@ -356,15 +267,7 @@ that prints the chunks, so importing them reads and prints nothing.
 
 ---
 
-## 📚 Next Steps
-
-**[04 · Embeddings](../04-embeddings/README.md)**: this project cut the articles into 28 chunks. 04 turns each
-chunk's text into a vector, a list of numbers that stands for its meaning, with Gemini's embedding model.
-
-**[Advanced · 03 · Chunking](../../Advanced/03-chunking/README.md)** (planned): the same project, production grade.
-Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Run `python pipeline.py 1000`: every article fits in one chunk, so you get 10.
 - Run `python pipeline.py 200` and find the other places where the overlap repeats the end of a chunk.
