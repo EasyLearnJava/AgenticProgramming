@@ -35,10 +35,13 @@ def main(question: str = QUESTION, embeddings: Embeddings = embeddings, model: B
     chunks = split_documents(docs)
     print(f"Step 2: Chunk: {len(chunks)} chunks of at most {CHUNK_SIZE} characters")
     store = make_vector_store(embeddings, size)
+    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
     store.add_documents(chunks)                    # one call to Gemini: every chunk's embedding
+    # count() comes from qdrant_client's QdrantClient: how many points the collection holds
     print(f"Step 3: Embed and store: {store.client.count(store.collection_name).count} points, in Qdrant in memory")
     print("Step 4: Retrieve and answer")
     chain = make_rag_chain(make_retriever(store), model)
+    # invoke() comes from LangChain's Runnable: it runs the whole chain on one input
     result = chain.invoke(question)                # retrieval, prompt and answer, all in this one call
     print_answer(question, result)
 
