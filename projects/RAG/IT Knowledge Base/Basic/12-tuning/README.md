@@ -36,7 +36,8 @@ EVAL_SET: 10 (question, the article that answers it)
 ┌────────────────────────────────────────┐
 │  for each chunk size: 200, 512, 1000   │
 │  ├─ split_documents()                  │  ← 49, 28 or 10 chunks
-│  ├─ a new Qdrant store, in memory      │  ← the chunks embedded (1 call per size)
+│  ├─ embed_chunks()                     │  ← the chunks embedded (1 call per size)
+│  ├─ a new Qdrant store, in memory      │  ← store_vectors(): one point per chunk
 │  └─ each question: the 5 closest       │  ← is its article in the first 1, 3, 5?
 └───────────────────┬────────────────────┘
                     ↓
@@ -48,8 +49,8 @@ with --answers:  compare_top_k()  ← one question answered from 1 chunk, then f
 ### The Pipeline in This Project
 
 1. **Embed the questions** → each of the 10 questions once: 10 calls to Gemini, reused for every chunk size
-2. **For each chunk size** → cut the articles into chunks of that size, and store them in a new in-memory Qdrant
-   store: one call to Gemini per size
+2. **For each chunk size** → cut the articles into chunks of that size, embed them (one call to Gemini per size),
+   and store them in a new in-memory Qdrant store
 3. **Search** → each question finds its 5 closest chunks, once per chunk size
 4. **Score** → for k = 1, 3 and 5, count the questions whose article is among the first k chunks' articles
 5. **Print** → the table: one line per chunk size
@@ -137,7 +138,7 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 The tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
 
 ```bash
-python -m pytest                     # 65 passed, 8 skipped     (add -v for one line per test)
+python -m pytest                     # 71 passed, 9 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the tuning, they check that the
@@ -147,7 +148,7 @@ the question once for each k. For `pipeline.py`, they check that it builds the e
 that a second run reuses the stored chunks, in memory and on disk; and that only it and `tuning.py` run anything in
 the terminal.
 
-The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+The 9 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
 
 ---

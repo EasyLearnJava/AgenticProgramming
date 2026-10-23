@@ -73,6 +73,20 @@ def test_other_chunk_sizes_replace_the_stored_chunks():
     assert client.count(COLLECTION).count == 10                # the 1000-character chunks only
 
 
+def test_a_failed_embedding_leaves_the_stored_chunks_as_they_were():
+    client = QdrantClient(":memory:")
+    stand_in_engine(client).build()                            # 28 chunks of 512
+    engine = stand_in_engine(client, chunk_size=1000)
+
+    def gemini_fails(texts):
+        raise RuntimeError("Gemini is down")
+
+    engine.embeddings.embed_documents = gemini_fails
+    with pytest.raises(RuntimeError, match="Gemini is down"):
+        engine.build()
+    assert client.count(COLLECTION).count == 28                # embedded first: the old collection was never deleted
+
+
 def test_engines_in_their_own_collections_keep_their_own_chunks():
     client = QdrantClient(":memory:")
     stand_in_engine(client).build()                            # 28 chunks of 512, in the default collection

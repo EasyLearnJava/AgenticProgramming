@@ -5,7 +5,7 @@ IT Knowledge Base: The RAG Engine
 The whole pipeline in one class, the way a server uses it, with the chunks kept on disk between runs, in
 qdrant_data/ (Qdrant's local mode). build() embeds the chunks only when Qdrant doesn't already hold exactly these
 chunks. It handles:
-  1. Building: load and split the articles; reuse the stored chunks, or store them in a new collection (one call)
+  1. Building: load and split the articles; reuse the stored chunks, or embed them (one call) into a new collection
   2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds, how it's set up, and whether it reused the stored chunks
 
@@ -22,11 +22,12 @@ from langchain_core.runnables import Runnable
 from qdrant_client import QdrantClient
 
 from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
+from embed_chunks import embed_chunks
 from knowledge_base import KB_FILE, load_documents
 from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import TOP_K, make_retriever
-from vector_store import COLLECTION, chunk_id, make_client, make_vector_store, open_vector_store
+from vector_store import COLLECTION, chunk_id, make_client, make_vector_store, open_vector_store, store_vectors
 
 MAX_SOURCES = 3        # sources per answer: the first 3 different articles among the chunks found
 SNIPPET_LENGTH = 200   # characters of each source's text shown with it
@@ -63,9 +64,9 @@ class RAGEngine:
         self.documents = load_documents(self.data_path)
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
         # Each chunk's id comes from its text, so "Qdrant already holds these chunks" can be checked by id:
-        # all stored and nothing else -> reuse them, no call to Gemini; anything else -> store them in a new
-        # collection (make_vector_store() deletes the old one first). Only this engine's collection is checked or
-        # deleted: engines with collections of their own keep theirs.
+        # all stored and nothing else -> reuse them, no call to Gemini; anything else -> embed them, then store
+        # them in a new collection (make_vector_store() deletes the old one first). Only this engine's collection
+        # is checked or deleted: engines with collections of their own keep theirs.
         ids = [chunk_id(chunk) for chunk in self.chunks]
         self.reused_stored_chunks = False
         # collection_exists() comes from qdrant_client's QdrantClient: whether a collection by this name is there
@@ -78,9 +79,9 @@ class RAGEngine:
         if self.reused_stored_chunks:
             store = open_vector_store(self.embeddings, self.client, self.collection)
         else:
+            vectors = embed_chunks(self.chunks, self.embeddings)   # one call to Gemini: every chunk's embedding
             store = make_vector_store(self.embeddings, self.embedding_size, self.client, self.collection)
-            # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
-            store.add_documents(self.chunks, ids=ids)          # one call to Gemini: every chunk's embedding
+            store_vectors(store, self.chunks, vectors)             # each point under its chunk_id(): the ids above
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
     def query(self, question: str) -> dict:

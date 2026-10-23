@@ -20,12 +20,13 @@ from langchain_core.embeddings import Embeddings
 from qdrant_client import QdrantClient
 
 from chunking import CHUNK_OVERLAP, split_documents
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import make_retriever
 from utils import print_table
-from vector_store import make_vector_store
+from vector_store import make_vector_store, store_vectors
 
 # Each question with the title of the article that answers it, avoiding the articles' own words where they can
 # ("sluggish", not "slow"), so a good score means the search matched meanings, not words
@@ -54,10 +55,10 @@ def evaluate(embeddings: Embeddings, size: int, eval_set=EVAL_SET, chunk_sizes=C
     rows = []
     for chunk_size in chunk_sizes:
         chunks = split_documents(load_documents(), chunk_size, min(CHUNK_OVERLAP, chunk_size // 4))
+        vectors = embed_chunks(chunks, embeddings)                # one call to Gemini: every chunk's embedding
         # QdrantClient comes from qdrant_client: ":memory:" runs Qdrant inside this program, in memory
         store = make_vector_store(embeddings, size, QdrantClient(":memory:"))
-        # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
-        store.add_documents(chunks)
+        store_vectors(store, chunks, vectors)
         # One search per question for the most chunks needed; its first 1, 3 and 5 are checked
         # similarity_search_by_vector() comes from langchain_qdrant's QdrantVectorStore: the k closest chunks
         found = [[doc.metadata["title"] for doc in store.similarity_search_by_vector(vector, k=max(top_ks))]
@@ -71,10 +72,11 @@ def evaluate(embeddings: Embeddings, size: int, eval_set=EVAL_SET, chunk_sizes=C
 
 def compare_top_k(question: str, top_ks=(1, 5)) -> dict[int, str]:
     """The same question answered once for each k: with 1 chunk the model may miss part of the fix."""
+    chunks = split_documents(load_documents())
+    vectors = embed_chunks(chunks, embeddings)                    # one call to Gemini: every chunk's embedding
     # QdrantClient comes from qdrant_client: ":memory:" runs Qdrant inside this program, in memory
     store = make_vector_store(embeddings, EMBEDDING_SIZE, QdrantClient(":memory:"))
-    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
-    store.add_documents(split_documents(load_documents()))
+    store_vectors(store, chunks, vectors)
     # invoke() comes from LangChain's Runnable: it runs the whole chain on one input
     return {k: make_rag_chain(make_retriever(store, k), chat_model).invoke(question)["answer"] for k in top_ks}
 
