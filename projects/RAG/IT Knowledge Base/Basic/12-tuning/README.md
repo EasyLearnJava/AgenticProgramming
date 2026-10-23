@@ -3,11 +3,11 @@
 Measure how well the search finds the right article, to help choose the settings. `tuning.py` asks 10 test
 questions, each with the article that should answer it, for three chunk sizes, and counts how many find their article
 among the closest 1, 3 and 5 chunks. The engine, the API and the chat page answer questions as before, from chunks
-kept in a Qdrant server in Docker. Built with **LangChain**, **Gemini** (`gemini-embedding-001` and
-`gemini-3.5-flash-lite`), **Qdrant**, **FastAPI** and **Docker**.
+kept on disk in `qdrant_data/` (Qdrant's local mode). Built with **LangChain**, **Gemini** (`gemini-embedding-001` and
+`gemini-3.5-flash-lite`), **Qdrant** and **FastAPI**.
 
-> **Needs:** Python 3.11 or newer, and a Gemini API key. `tuning.py` makes 13 calls to Gemini and runs in memory, with
-> no Docker; the engine, the API and the chat page need Docker too.
+> **Needs:** Python 3.11 or newer, and a Gemini API key. `tuning.py` makes 13 calls to Gemini and runs in memory; the
+> engine, the API and the chat page keep their chunks in `qdrant_data/`.
 
 ---
 
@@ -20,8 +20,8 @@ kept in a Qdrant server in Docker. Built with **LangChain**, **Gemini** (`gemini
 - **Counts the hits**: how many questions found their article among the closest 1, 3 and 5 chunks (k)
 - **With `--answers`**, answers one question twice, from 1 chunk and from 5, to show what the number of chunks does
   to an answer
-- **Keeps the app**: `python pipeline.py`, the API and the chat page, with the chunks kept in a Qdrant server in
-  Docker
+- **Keeps the app**: `python pipeline.py`, the API and the chat page, with the chunks kept on disk in
+  `qdrant_data/`
 
 **Try it:** `python tuning.py`, and read which chunk size finds the most articles.
 
@@ -61,7 +61,6 @@ with --answers:  compare_top_k()  ← one question answered from 1 chunk, then f
 
 - **Python 3.11 or newer**
 - **A Gemini API key**: every call to Gemini uses your key's quota
-- **Docker**, only for the engine, the API and the chat page: `tuning.py` doesn't need it
 
 ---
 
@@ -98,8 +97,7 @@ cp .env.example .env                 # once (Windows PowerShell or Command Promp
 ```
 
 Open `.env` in an editor and put your key after `GOOGLE_API_KEY=`. You make a key in the Google Cloud console, under
-APIs & Services > Credentials, as `.env.example` says. Leave the `QDRANT_URL` line as it is. `.env` is in
-`.gitignore`, so your key never goes into git.
+APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`, so your key never goes into git.
 
 ### Step 5: Run It
 
@@ -132,16 +130,15 @@ With `--answers`, the two answers follow the table. The parts in `< >` come from
 
 ### Step 6: Run the App (Optional)
 
-The engine, the API and the chat page keep their chunks in a Qdrant server, so start it first:
+The engine, the API and the chat page keep their chunks in `qdrant_data/`:
 
 ```bash
-docker compose up -d                 # start the Qdrant server, in the background
 python pipeline.py                   # the three sample questions
 uvicorn main:app --reload            # or the server: the chat page at http://127.0.0.1:8000; Ctrl+C stops it
 ```
 
-The first run embeds and stores the chunks in the server; every run after that reuses them. `docker compose down`
-stops the server and keeps the chunks; `docker compose down -v` deletes them too.
+The first run embeds and stores the chunks there; every run after that reuses them. Only one program at a time can
+open `qdrant_data/`, so stop the server (Ctrl+C) before running `python pipeline.py`. Delete the folder to start over.
 
 ### Or: Run It in One Command
 
@@ -162,7 +159,6 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 ```text
 12-tuning/
 ├── tuning.py                             # EVAL_SET, evaluate(), compare_top_k()
-├── docker-compose.yml                    # the Qdrant server: qdrant/qdrant:v1.19.1 on port 6333, data in a volume
 ├── index.html                            # the chat page
 ├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
@@ -181,7 +177,8 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 │   ├── conftest.py                       # skips the live tests when there's no key
 │   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
 │   └── test_*.py                         # one test file per module
-├── .env.example                          # copy it to .env: your key, and QDRANT_URL
+├── qdrant_data/                          # made by the first run: the stored chunks, on disk (in .gitignore)
+├── .env.example                          # copy it to .env: your key
 ├── requirements.txt                      # the packages, pinned to exact versions
 ├── requirements-dev.txt                  # requirements.txt plus pytest and httpx2, for the tests
 ├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
@@ -192,18 +189,18 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 
 ## 🧪 Testing
 
-The tests don't need Docker:
+The tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
 
 ```bash
-python -m pytest                     # 64 passed, 8 skipped     (add -v for one line per test)
+python -m pytest                     # 65 passed, 8 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the tuning, they check that the
 test questions cover every article once; that `evaluate()` scores each chunk size; that the questions are embedded
 once, and each chunk size's chunks once; that the table has a line per chunk size; and that `compare_top_k()` answers
 the question once for each k. For `pipeline.py`, they check that it builds the engine, then answers each question;
-that a second run reuses the stored chunks; that without Qdrant it stops with what to do; and that only it and
-`tuning.py` run anything in the terminal.
+that a second run reuses the stored chunks, in memory and on disk; and that only it and `tuning.py` run anything in
+the terminal.
 
 The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -231,7 +228,7 @@ and more to sort through.
 
 `tuning.py` makes 13 calls to Gemini: one for each question and one for each chunk size. `--answers` adds 5 more: 3
 embeddings (the chunks once, the question for each answer) and 2 answers. Everything in `tuning.py` runs in memory:
-it doesn't touch the chunks stored in the Qdrant server.
+it doesn't touch the chunks stored in `qdrant_data/`.
 
 ---
 
@@ -258,7 +255,7 @@ question for the most chunks needed (5) and checks the first 1, 3 and 5. Fewer c
 ### 4. A Fresh Store for Each Setting
 
 Each chunk size gets its own in-memory Qdrant store, so one setting's chunks never mix with another's, and the chunks
-kept in the Qdrant server stay as they are.
+kept in `qdrant_data/` stay as they are.
 
 ---
 
@@ -270,9 +267,10 @@ kept in the Qdrant server stay as they are.
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
-**Issue**: The server stops at start-up with `RuntimeError: Can't reach Qdrant at http://localhost:6333 (<the connection error>). Start it first, in this folder:   docker compose up -d`
-**Fix**: Qdrant isn't running. Run `docker compose up -d`, then start the server again. `python pipeline.py` stops
-too, with `Can't reach Qdrant at ...` and the same advice: the same fix. `tuning.py` doesn't need Qdrant.
+**Issue**: `python pipeline.py`, or the server's start-up, stops with `RuntimeError: Storage folder .../qdrant_data is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.`
+**Fix**: Another program has `qdrant_data/` open: usually the server (`uvicorn main:app`) while you run
+`python pipeline.py`, or the other way round. Only one program at a time can open the folder. Stop the other one
+(Ctrl+C), then try again. `tuning.py` never opens it.
 
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then

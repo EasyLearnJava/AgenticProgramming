@@ -2,9 +2,9 @@
 IT Knowledge Base: The API and the Chat Page
 ============================================
 
-The RAG engine served by FastAPI, plus index.html, a page to ask questions in, with the chunks kept in a Qdrant
-server. The engine is built once, when the server starts, and each request answers one question. It handles:
-  1. Building the engine at start-up, or stopping with what to do if Qdrant isn't running
+The RAG engine served by FastAPI, plus index.html, a page to ask questions in, with the chunks kept on disk in
+qdrant_data/. The engine is built once, when the server starts, and each request answers one question. It handles:
+  1. Building the engine at start-up, and closing Qdrant's folder when the server stops
   2. Serving the chat page
   3. Checking each question before it costs a call to Gemini, then answering it
 
@@ -13,7 +13,7 @@ server. The engine is built once, when the server starts, and each request answe
     GET  /api/stats   ->  {"documents": 10, "chunks": 28, ...}
     GET  /api/health  ->  {"status": "ok"}
 
-Usage (the Qdrant server must be running first: docker compose up -d):
+Usage:
     uvicorn main:app --reload      # then open http://127.0.0.1:8000: the chat page
 """
 import logging
@@ -24,27 +24,21 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from qdrant_client.http.exceptions import ResponseHandlingException
-
 from rag_engine import RAGEngine
-from vector_store import QDRANT_URL
 
 logger = logging.getLogger("uvicorn.error")        # prints in the same terminal as uvicorn's own messages
 
 engine = RAGEngine()                               # settings only: importing this file reads and calls nothing
 
 
-# Runs once before the server takes any request, so Qdrant is checked once, not on every request
+# Runs once before the server takes any request, so the stored chunks are checked once, not on every request
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        engine.build()
-    except ResponseHandlingException as err:
-        # No Qdrant server answered at QDRANT_URL: the server can't start, so say what to do.
-        raise RuntimeError(f"Can't reach Qdrant at {QDRANT_URL} ({err}). "
-                           "Start it first, in this folder:   docker compose up -d") from None
+    engine.build()
     logger.info("RAG engine built: %(documents)s articles, %(chunks)s chunks", engine.stats())
     yield
+    # The server is stopping (Ctrl+C, or --reload restarting it): free qdrant_data/ for the next start
+    engine.client.close()
 
 
 app = FastAPI(title="IT Knowledge Base", lifespan=lifespan)

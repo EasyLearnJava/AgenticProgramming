@@ -2,7 +2,7 @@
 Tests for main.py: the chat page and the API's routes, with the engine built at start-up. The plain tests
 swap the engine for one with stand-ins for Gemini (tests/fakes.py); FastAPI's TestClient calls the app
 directly, so no server is started. The stand-in engine keeps its chunks
-in memory, so no Qdrant server is needed either.
+in memory, so nothing is saved in qdrant_data/.
 The live test builds the real engine and asks the real Gemini.
 """
 import os
@@ -17,7 +17,7 @@ from qdrant_client import QdrantClient
 
 import main
 from rag_engine import RAGEngine
-from vector_store import QDRANT_URL, make_client
+from vector_store import COLLECTION, make_client
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 
@@ -92,15 +92,15 @@ def test_a_failed_gemini_call_gets_a_502_without_the_details(client, monkeypatch
     assert "quota exceeded for project 1234" in caplog.text     # the full reason is in the server's log
 
 
-def test_without_qdrant_the_server_stops_with_what_to_do(monkeypatch):
-    # Nothing answers on port 6399, so the start-up's engine.build() can't reach Qdrant, and the server doesn't start.
+def test_when_the_server_stops_it_frees_the_folder_for_the_next_start(monkeypatch, tmp_path):
     engine = RAGEngine(embeddings=KeywordEmbeddings(), model=FakeListChatModel(responses=["x"]), embedding_size=SIZE,
-                       client=make_client("http://localhost:6399"))
+                       client=make_client(tmp_path))
     monkeypatch.setattr(main, "engine", engine)
-    with pytest.raises(RuntimeError, match=r"Can't reach Qdrant at .*docker compose up -d"):
-        with TestClient(main.app):
-            pass
-    assert engine.embeddings.calls == []                         # nothing was embedded
+    with TestClient(main.app):
+        pass                                                     # the start-up builds the engine; leaving stops it
+    next_start = make_client(tmp_path)                           # would fail if the folder were still open
+    assert next_start.count(COLLECTION).count == 28              # and the chunks are still there
+    next_start.close()
 
 
 def test_without_a_key_the_server_stops_with_the_message_not_a_stack_trace():
@@ -111,16 +111,7 @@ def test_without_a_key_the_server_stops_with_the_message_not_a_stack_trace():
     assert "Can't build the models: GOOGLE_API_KEY is not set" in result.stderr
 
 
-def qdrant_server_answers() -> bool:
-    try:
-        QdrantClient(url=QDRANT_URL, check_compatibility=False, timeout=2).get_collections()
-        return True
-    except Exception:
-        return False
-
-
 @pytest.mark.live
-@pytest.mark.skipif(not qdrant_server_answers(), reason="needs the Qdrant server: docker compose up -d")
 def test_live_a_question_through_the_api():
     with TestClient(main.app) as live_client:
         response = live_client.post("/api/query", json={"question": "How do I fix VPN connection timeouts?"})

@@ -8,7 +8,7 @@ find the article that answers it? It handles:
   2. The table of those scores, printed by print_table() (utils.py)
   3. With --answers, one question answered from 1 chunk and from 5, to compare the answers
 
-Everything runs in memory apart from the calls to Gemini: the Qdrant server isn't used or changed.
+Everything runs in memory apart from the calls to Gemini: the chunks in qdrant_data/ aren't used or changed.
 
 Usage:
     python tuning.py              # the table (13 calls to Gemini's embedding model)

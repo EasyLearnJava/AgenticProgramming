@@ -1,9 +1,11 @@
 """
 Tests for vector_store.py: a new collection each time, or one opened with its points; filling it with the 28
-chunks under ids made from their text; what each stored point holds; and the client for a Qdrant server.
-The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in memory: no server
-needed. The live test asks the real Gemini.
+chunks under ids made from their text; what each stored point holds; and Qdrant on disk, which keeps its points.
+The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in memory or in a folder
+of the test's own. The live test asks the real Gemini.
 """
+from pathlib import Path
+
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 from qdrant_client import QdrantClient
@@ -12,7 +14,7 @@ from qdrant_client.models import Distance
 from chunking import split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from vector_store import COLLECTION, QDRANT_URL, chunk_id, make_client, make_vector_store, open_vector_store
+from vector_store import COLLECTION, QDRANT_PATH, chunk_id, make_client, make_vector_store, open_vector_store
 
 CHUNKS = split_documents(load_documents())
 
@@ -72,10 +74,24 @@ def test_adding_the_same_chunks_again_replaces_them_instead_of_adding_copies():
     assert store.client.count(COLLECTION).count == 28
 
 
-def test_the_server_address_and_a_client_for_it_without_a_request():
-    assert QDRANT_URL == "http://localhost:6333"      # nothing in .env or the environment changes it in the tests
-    client = make_client("http://localhost:6399")     # no server there: making the client sends nothing yet
-    assert isinstance(client, QdrantClient)
+def test_qdrant_on_disk_keeps_the_points_in_its_folder(tmp_path):
+    assert QDRANT_PATH == Path(__file__).resolve().parent.parent / "qdrant_data"   # next to vector_store.py
+    client = make_client(tmp_path)
+    make_vector_store(KeywordEmbeddings(), SIZE, client).add_documents(CHUNKS, ids=[chunk_id(c) for c in CHUNKS])
+    client.close()                                    # as when the program ends
+    reopened = make_client(tmp_path)
+    assert reopened.count(COLLECTION).count == 28     # still there
+    reopened.close()
+
+
+def test_on_disk_a_new_run_starts_with_none_of_the_old_points(tmp_path):
+    client = make_client(tmp_path)
+    make_vector_store(KeywordEmbeddings(), SIZE, client).add_documents(CHUNKS)
+    client.close()
+    client = make_client(tmp_path)                    # a new run, opening the same folder
+    make_vector_store(KeywordEmbeddings(), SIZE, client)
+    assert client.count(COLLECTION).count == 0        # deleting only the collection left the 28 old points (Windows)
+    client.close()
 
 
 @pytest.mark.live
