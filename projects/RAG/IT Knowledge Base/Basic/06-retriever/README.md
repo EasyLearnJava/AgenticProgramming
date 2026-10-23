@@ -182,7 +182,8 @@ in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basi
 │   ├── conftest.py                       # decides once whether the live tests can run
 │   ├── fakes.py                          # stand-ins for Gemini: no key, no network
 │   ├── test_pipeline.py                  # the steps and what they print; nothing else runs
-│   ├── test_retriever.py                 # the search, the retriever, format_docs(), what's printed
+│   ├── test_retriever.py                 # the search, the retriever, format_docs()
+│   ├── test_utils.py                     # what print_retrieval() prints
 │   ├── test_vector_store.py              # the collection and the stored points
 │   ├── test_models.py                    # the model's settings, and the no-key message
 │   ├── test_chunking.py                  # the chunks
