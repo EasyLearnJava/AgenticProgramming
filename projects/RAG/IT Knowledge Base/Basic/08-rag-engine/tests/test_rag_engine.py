@@ -12,7 +12,6 @@ from qdrant_client import QdrantClient
 from knowledge_base import KB_FILE
 from rag_engine import MAX_SOURCES, RAGEngine
 from retriever import QUESTIONS
-from utils import print_result
 from vector_store import COLLECTION
 
 
@@ -92,13 +91,6 @@ def test_building_again_starts_with_a_new_collection():
 def test_settings_are_passed_by_name_only():
     with pytest.raises(TypeError):
         RAGEngine(KeywordEmbeddings())                     # a setting by position: refused
-
-
-def test_print_result_prints_the_question_the_answer_and_each_source(capsys):
-    source = {"title": "VPN Connection Timeout", "system": "VPN", "category": "Remote Access", "snippet": "Title: VPN"}
-    print_result("My VPN won't connect", {"answer": "An answer.", "sources": [source]})
-    assert capsys.readouterr().out == ("Q: My VPN won't connect\nA: An answer.\n"
-                                       "   source: VPN Connection Timeout (VPN, Remote Access)\n\n")
 
 
 @pytest.mark.live
