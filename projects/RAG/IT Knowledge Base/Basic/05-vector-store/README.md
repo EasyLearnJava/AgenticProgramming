@@ -118,28 +118,6 @@ into git: never commit it, and never put a real key in `.env.example`.
 python pipeline.py                   # store the 28 chunks in qdrant_data/
 ```
 
-It prints Steps 1 and 2 in one line each, then Step 3 in full: where Qdrant keeps the points, the collection's
-settings, then every stored point, one line each: its article, where in the article the chunk starts, its vector's
-size, its text's length and how many labels it has. Gemini's numbers aren't printed, so this is exactly what you'll
-see:
-
-```text
-Step 1: Read the knowledge base: 10 documents
-Step 2: Chunk: 28 chunks of at most 512 characters
-Step 3: Embed and store
-Qdrant: local mode, inside this script, saving its points in qdrant_data/
-Collection 'it_knowledge_base': 28 points, vectors of 768 numbers, compared by Cosine
-Each point holds an id, a vector and a payload with metadata, page_content
-
-Point 1 of 28: VPN Connection Timeout, from character 0: 768 numbers, 457 characters of text, 7 labels
-Point 2 of 28: VPN Connection Timeout, from character 459: 768 numbers, 110 characters of text, 7 labels
-Point 3 of 28: MFA Setup Failure, from character 0: 768 numbers, 144 characters of text, 7 labels
-...
-Point 28 of 28: Microsoft Teams Audio Issues, from character 581: 768 numbers, 118 characters of text, 7 labels
-```
-
-The `...` stands for points 4 to 27: your terminal shows all 28.
-
 ### Or: Run It in One Command
 
 With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
@@ -155,41 +133,8 @@ in Step 5.
 ### Where the Points Are Kept
 
 `qdrant_data/` is made next to `pipeline.py` on the first run, and it stays after the script ends: open it with Qdrant
-again, as in [Check a Score Yourself](#check-a-score-yourself), and the points are there. It's in `.gitignore`, so
+again, as in [Check a Score Yourself](#9-check-a-score-yourself), and the points are there. It's in `.gitignore`, so
 it's never committed. Delete it to start over: the next run makes it again. Only one program at a time can open it.
-
----
-
-## 📁 Project Structure
-
-```text
-05-vector-store/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── vector_store.py                       # make_client() and make_vector_store(): Step 3
-├── utils.py                              # print_points(): the helper that prints the points
-├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
-├── config.py                             # load_api_key(): the key, checked before anything else runs
-├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): Step 1, the 10 articles, text + labels
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── images/                               # the pictures in this README
-├── tests/
-│   ├── conftest.py                       # decides once whether the live tests can run
-│   ├── fakes.py                          # stand-ins for Gemini: no key, no network
-│   ├── test_pipeline.py                  # the steps, with the points on disk; nothing else runs
-│   ├── test_vector_store.py              # the collection, the points, on disk too
-│   ├── test_utils.py                     # what print_points() prints
-│   ├── test_models.py                    # the model's settings, and the no-key message
-│   ├── test_chunking.py                  # the chunks
-│   └── test_knowledge_base.py            # the Documents
-├── qdrant_data/                          # made by the first run: the points, on disk (in .gitignore)
-├── .env.example                          # copy it to .env: your key
-├── requirements.txt                      # the packages, pinned to exact versions
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the files, and finds them in tests/
-└── README.md                             # you are here
-```
 
 ---
 
@@ -214,67 +159,6 @@ The tests keep Qdrant in memory, or in a folder of each test's own, never in `qd
 The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
 so it can be built, and skips the live tests.
-
----
-
-## 📊 Understanding the Output
-
-```text
-Point 1 of 28: VPN Connection Timeout, from character 0: 768 numbers, 457 characters of text, 7 labels
-```
-
-Each point is one chunk: `from character 0` is where in its article the chunk starts, `768 numbers` is its vector,
-`457 characters of text` is its `page_content`, and the 7 labels are its `metadata`: the article's 6 from
-`knowledge_base.py` (`doc_id`, title, system, category, priority, tags), plus `start_index` from `chunking.py`.
-
-### What a Score Means
-
-A search in Qdrant gives each point it finds a score: the cosine similarity between the searched vector and the
-point's vector, how closely the two point the same way.
-
-- **1.0** means the same direction, the same meaning; **0** means unrelated.
-- **0.76** means fairly similar: an angle of about 40° between the two vectors; **0.87** is about 30°.
-
-It's the cosine from [How Qdrant Measures "Close": the Distance](#4-how-qdrant-measures-close-the-distance), below,
-with 768 numbers instead of 2:
-
-```text
-cosine(a, b) = (a₁×b₁ + a₂×b₂ + … + a₇₆₈×b₇₆₈) / (length of a × length of b)
-```
-
-The collection uses cosine, so Qdrant works with every vector at length 1 (see
-[Why Qdrant Works With Vectors of Length 1](#5-why-qdrant-works-with-vectors-of-length-1)). Both lengths are 1, so
-the score is just the sum of the 768 products: the two vectors multiplied number by number, then added up.
-With 2 numbers, `[0.6, 0.8]` and `[0.8, 0.6]` give `0.6×0.8 + 0.8×0.6 = 0.96`. A search in Qdrant does this sum
-between the searched vector and every stored point, and lists the highest first.
-
-Reading the scores:
-
-- **The order matters more than the values.** All 28 chunks are IT help-desk text, so to Gemini they're all fairly
-  similar, and the scores sit close together. What decides a search is which chunks score highest.
-
-### Check a Score Yourself
-
-After `python pipeline.py`, with the venv active, in this folder, this reads two stored points from `qdrant_data/` and
-works out their cosine itself, with no call to Gemini:
-
-```bash
-python - <<'EOF'
-from qdrant_client import QdrantClient
-client = QdrantClient(path="qdrant_data")
-(a, b), _ = client.scroll("it_knowledge_base", limit=2, with_vectors=True)
-length_a, length_b = (sum(x * x for x in point.vector) ** 0.5 for point in (a, b))
-print("lengths:", round(length_a, 4), round(length_b, 4))   # as Gemini returned them
-print("cosine:", round(sum(x * y for x, y in zip(a.vector, b.vector)) / (length_a * length_b), 4))
-client.close()
-EOF
-```
-
-It prints the two vectors' lengths, then their cosine score: the formula above, the sum of the products divided by
-both lengths. The lengths aren't 1: local mode saves the vectors as Gemini returned them (see
-[Why Qdrant Works With Vectors of Length 1](#5-why-qdrant-works-with-vectors-of-length-1)). `scroll()` gives the
-points in id order, and each run of `pipeline.py` stores them with new random ids, so which two chunks you get changes
-from run to run.
 
 ---
 
@@ -395,7 +279,7 @@ Manhattan it uses the vectors exactly as they came.
 
 A Qdrant server keeps the vectors at length 1. Local mode, as here, does too while the script runs, but it saves them
 in `qdrant_data/` as Gemini returned them: a program that opens the folder later, like the one in
-[Check a Score Yourself](#check-a-score-yourself), reads Gemini's own numbers back. The scores are the same either
+[Check a Score Yourself](#9-check-a-score-yourself), reads Gemini's own numbers back. The scores are the same either
 way.
 
 ### 6. Choosing a Distance
@@ -413,6 +297,55 @@ from `utils.py`, prints them, and `client.close()` frees the folder. The other f
 helper, so importing them makes no call. The model, its vector size and the folder are parameters of `main()`, so the
 tests pass a stand-in for Gemini and a folder of their own.
 
+### 8. What a Score Means
+
+A search in Qdrant gives each point it finds a score: the cosine similarity between the searched vector and the
+point's vector, how closely the two point the same way.
+
+- **1.0** means the same direction, the same meaning; **0** means unrelated.
+- **0.76** means fairly similar: an angle of about 40° between the two vectors; **0.87** is about 30°.
+
+It's the cosine from [How Qdrant Measures "Close": the Distance](#4-how-qdrant-measures-close-the-distance), above,
+with 768 numbers instead of 2:
+
+```text
+cosine(a, b) = (a₁×b₁ + a₂×b₂ + … + a₇₆₈×b₇₆₈) / (length of a × length of b)
+```
+
+The collection uses cosine, so Qdrant works with every vector at length 1 (see
+[Why Qdrant Works With Vectors of Length 1](#5-why-qdrant-works-with-vectors-of-length-1)). Both lengths are 1, so
+the score is just the sum of the 768 products: the two vectors multiplied number by number, then added up.
+With 2 numbers, `[0.6, 0.8]` and `[0.8, 0.6]` give `0.6×0.8 + 0.8×0.6 = 0.96`. A search in Qdrant does this sum
+between the searched vector and every stored point, and lists the highest first.
+
+Reading the scores:
+
+- **The order matters more than the values.** All 28 chunks are IT help-desk text, so to Gemini they're all fairly
+  similar, and the scores sit close together. What decides a search is which chunks score highest.
+
+### 9. Check a Score Yourself
+
+After `python pipeline.py`, with the venv active, in this folder, this reads two stored points from `qdrant_data/` and
+works out their cosine itself, with no call to Gemini:
+
+```bash
+python - <<'EOF'
+from qdrant_client import QdrantClient
+client = QdrantClient(path="qdrant_data")
+(a, b), _ = client.scroll("it_knowledge_base", limit=2, with_vectors=True)
+length_a, length_b = (sum(x * x for x in point.vector) ** 0.5 for point in (a, b))
+print("lengths:", round(length_a, 4), round(length_b, 4))   # as Gemini returned them
+print("cosine:", round(sum(x * y for x, y in zip(a.vector, b.vector)) / (length_a * length_b), 4))
+client.close()
+EOF
+```
+
+It prints the two vectors' lengths, then their cosine score: the formula above, the sum of the products divided by
+both lengths. The lengths aren't 1: local mode saves the vectors as Gemini returned them (see
+[Why Qdrant Works With Vectors of Length 1](#5-why-qdrant-works-with-vectors-of-length-1)). `scroll()` gives the
+points in id order, and each run of `pipeline.py` stores them with new random ids, so which two chunks you get changes
+from run to run.
+
 ---
 
 ## 🛠️ Troubleshooting
@@ -425,7 +358,7 @@ tests pass a stand-in for Gemini and a folder of their own.
 
 **Issue**: `RuntimeError: Storage folder .../qdrant_data is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.`
 **Fix**: Another program has `qdrant_data/` open, such as a Python session from
-[Check a Score Yourself](#check-a-score-yourself) that hasn't ended. Only one program at a time can open the folder:
+[Check a Score Yourself](#9-check-a-score-yourself) that hasn't ended. Only one program at a time can open the folder:
 close the other one, then run again.
 
 **Issue**: `python vector_store.py` prints nothing
@@ -433,17 +366,9 @@ close the other one, then run again.
 
 ---
 
-## 📚 Next Steps
+## 💡 Ideas to Try
 
-**[06 · Retriever](../06-retriever/README.md)**: this project stored the 28 chunks. 06 takes a question, turns it
-into a vector with the same model, and asks Qdrant for the 5 closest chunks, with their scores.
-
-**[Advanced · 05 · Vector Store](../../Advanced/05-vector-store/README.md)** (planned): the same project, production
-grade. Its README lists what it will add.
-
-### Ideas to Try
-
-- In [Check a Score Yourself](#check-a-score-yourself), set `limit=28` and print the cosine of the first point with
+- In [Check a Score Yourself](#9-check-a-score-yourself), set `limit=28` and print the cosine of the first point with
   each of the others, to see which chunks score highest.
 - Run `python pipeline.py` twice and print the points' ids with `scroll()`: the same 28 chunks, with new random ids
   each time.
