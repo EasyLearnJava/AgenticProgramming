@@ -117,27 +117,6 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 python pipeline.py
 ```
 
-It prints Step 1, what it built, in one line, then Step 2: each question (`Q:`), its answer (`A:`) and its sources.
-The parts in `< >` come from Gemini, so they change from run to run:
-
-```text
-Step 1: Build the engine: 10 articles, 28 chunks
-Step 2: Answer
-
-Q: How do I fix VPN connection timeouts?
-A: <Gemini's answer>
-   source: <article title> (<system>, <category>)
-   ...
-
-Q: I can't set up MFA on my mobile device
-A: <Gemini's answer>
-   ...
-
-Q: My laptop is running very slow
-A: <Gemini's answer>
-   ...
-```
-
 To ask your own question, put it after `pipeline.py`:
 
 ```bash
@@ -158,35 +137,6 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 
 ---
 
-## 📁 Project Structure
-
-```text
-08-rag-engine/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── rag_engine.py                         # RAGEngine: build(), query(), stats()
-├── utils.py                              # print_result(): the helper that prints an answer and its sources
-├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
-├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_vector_store(): Qdrant, in memory
-├── models.py                             # the Gemini models: the embedding model and the chat model
-├── config.py                             # load_api_key(): the key from .env, checked before anything else
-├── chunking.py                           # split_documents(): chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles as Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # skips the live tests when there's no key
-│   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
-│   └── test_*.py                         # one test file per module
-├── .env.example                          # copy it to .env and put your key in it
-├── requirements.txt                      # the packages, pinned to exact versions
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
-└── README.md                             # you are here
-```
-
----
-
 ## 🧪 Testing
 
 ```bash
@@ -203,32 +153,6 @@ that no other file runs anything.
 
 The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
-
----
-
-## 📊 Understanding the Output
-
-```text
-Step 1: Build the engine: 10 articles, 28 chunks  ← build() is done: the chunks are embedded and stored
-Step 2: Answer
-
-Q: How do I fix VPN connection timeouts?         ← the question
-A: <Gemini's answer>                              ← written from the 5 closest chunks only
-   source: <article title> (<system>, <category>) ← up to 3 sources, each a different article, closest first
-```
-
-`query()` gives back a dictionary, and `print_result()` prints it:
-
-```python
-{"answer": "...", "sources": [{"title": "...", "system": "...", "category": "...", "snippet": "..."}, ...]}
-```
-
-Each source's `snippet` is the first 200 characters of its chunk, with `...` when the chunk is longer. `stats()`
-gives `{"documents": 10, "chunks": 28, "collection": "it_knowledge_base", "chunk_size": 512, "chunk_overlap": 50,
-"top_k": 5, "embedding_model": "gemini-embedding-001", "chat_model": "gemini-3.5-flash-lite"}`.
-
-The chunks are embedded once, in `build()`: one call to Gemini. Each question then makes two: its embedding and its
-answer. So the three sample questions make 7 calls in all.
 
 ---
 
@@ -289,15 +213,7 @@ of `main()`, so the tests pass one with stand-ins for Gemini.
 
 ---
 
-## 📚 Next Steps
-
-**[09 · API](../09-api/README.md)**: this project answers questions from the command line. 09 puts the engine behind
-a web server, so any program can ask it questions over HTTP.
-
-**[Advanced · 08 · RAG Engine](../../Advanced/08-rag-engine/README.md)** (planned): the same project, production
-grade. Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Ask a question of your own with `python pipeline.py "..."`, and check that each source is a different article.
 - Change `MAX_SOURCES` in `rag_engine.py` from 3 to 1, and see one source per answer.
