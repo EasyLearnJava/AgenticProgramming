@@ -5,17 +5,20 @@ IT Knowledge Base: The Vector Store
 Stores the knowledge base's chunks in Qdrant, the vector database, running in memory inside this process: one point
 per chunk, with its vector, its text and its metadata. It handles:
   1. Making a new collection for EMBEDDING_SIZE-number vectors, compared by cosine; any old one is deleted first
-  2. Making the LangChain store on it, whose add_documents() embeds and stores chunks (one call to Gemini)
+  2. Making the LangChain store on it, which keeps the embedding model for searches
+  3. Storing the chunks with the vectors embed_chunks() made for them: no call to Gemini here
 
 Usage (this file only defines these; pipeline.py runs the steps):
     store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  a new, empty collection, "it_knowledge_base"
-    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
-    store.add_documents(chunks)                             ->  the chunks embedded and stored (one call to Gemini)
+    store_vectors(store, chunks, vectors)                   ->  one point per chunk: its vector, text and labels
 """
+import uuid
+
+from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, Filter, FilterSelector, VectorParams
+from qdrant_client.models import Distance, Filter, FilterSelector, PointStruct, VectorParams
 
 # Qdrant's word for a table of points; not the course app's "it_kb", so the two apps' points never mix
 COLLECTION = "it_knowledge_base"
@@ -41,3 +44,15 @@ def make_vector_store(embeddings: Embeddings, size: int, client: QdrantClient | 
     # QdrantVectorStore comes from langchain_qdrant: LangChain's vector store on a Qdrant collection
     return QdrantVectorStore(client=client, collection_name=collection, embedding=embeddings,
                              validate_collection_config=False)
+
+
+def store_vectors(store: QdrantVectorStore, chunks: list[Document], vectors: list[list[float]]) -> None:
+    """Store each chunk as one point: the vector embed_chunks() made for it, its text and its labels; nothing is
+    embedded here. A chunk without a vector, or a vector without a chunk, stops it: no chunk is left out."""
+    # The text and labels go under "page_content" and "metadata", the names LangChain's store reads them from
+    # PointStruct comes from qdrant_client, uuid4() from Python's uuid module: one point, with a new random id
+    points = [PointStruct(id=str(uuid.uuid4()), vector=vector,
+                          payload={"page_content": chunk.page_content, "metadata": chunk.metadata})
+              for chunk, vector in zip(chunks, vectors, strict=True)]     # strict: the two lists, the same length
+    # upsert() comes from qdrant_client's QdrantClient: it writes the points into the collection
+    store.client.upsert(store.collection_name, points=points)

@@ -130,7 +130,7 @@ server. Then open the page as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 52 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 56 passed, 8 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the page, they check that it's
@@ -140,7 +140,7 @@ check each route, the 422 for a bad question, the 502 for a failed Gemini call, 
 For `pipeline.py`, they check that it builds the engine, then answers each question, or one of your own; and that no
 other file runs anything in the terminal.
 
-The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
 
 ---
