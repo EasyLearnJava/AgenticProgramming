@@ -30,13 +30,9 @@ The happy path only: the file is there, and every row is a good article.
              │ Step 1: Read the knowledge base
              ↓
 ┌──────────────────────────┐
-│   KBLoader(data_path)    │  ← configure: stores which file to read; reads nothing
-└────────────┬─────────────┘
-             │ load()
-             ↓
-┌──────────────────────────┐
-│       lazy_load()        │  ← reads data/sample_it_kb.csv (10 rows × 8 columns) one row at a time:
-│                          │     row → Document(page_content, metadata)
+│   load_documents()       │  ← KBLoader(path).load(): configure with the file, then load it
+│   └─ KBLoader.lazy_load()│     reads data/sample_it_kb.csv (10 rows × 8 columns) one row at a time:
+│                          │       row → Document(page_content, metadata)
 └────────────┬─────────────┘
              │ 10 Documents
              ↓
@@ -48,7 +44,7 @@ The happy path only: the file is there, and every row is a good article.
 ### The Pipeline in This Project
 
 1. **Run** → `python pipeline.py`: `main()` prints each step's name, then runs it
-2. **Configure** → `KBLoader(data_path)` stores which file to read
+2. **Load** → `load_documents()` makes a `KBLoader` that stores which file to read, then calls its `load()`
 3. **Read** → `csv.DictReader` gives each row as `{column: value}`
 4. **Convert** → each row becomes a `Document`: its text, and where it came from
 5. **Print** → `print_documents()`, from `utils.py`: the count and the titles, then every `Document`
@@ -161,12 +157,12 @@ in Step 4.
 ```text
 01-read-the-knowledge-base/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── knowledge_base_loader.py              # KBLoader: Step 1, which pipeline.py runs
+├── knowledge_base.py                     # KBLoader and load_documents(): Step 1, which pipeline.py runs
 ├── utils.py                              # print_documents(): the helper that prints the Documents
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
-│   ├── test_knowledge_base_loader.py     # 7 tests: the Documents and the loader
+│   ├── test_knowledge_base.py            # 7 tests: the Documents and the loader
 │   ├── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
 │   └── test_utils.py                     # 2 tests: what print_documents() prints
 ├── requirements.txt                      # langchain-core, pinned to an exact version
@@ -185,7 +181,7 @@ python -m pytest                     # 12 passed     (add -v for one line per te
 
 The tests read the sample file and run `pipeline.py` as its own process: 10 Documents, every column as a line in
 order, the metadata, the first one is the VPN article, making the loader reads nothing, `load()` and `lazy_load()`
-agree, the printed output, the same output whichever folder it's started from, that `knowledge_base_loader.py` and
+agree, the printed output, the same output whichever folder it's started from, that `knowledge_base.py` and
 `utils.py` run on their own print nothing, and what `print_documents()` prints for two Documents, and for none.
 
 ---
@@ -226,7 +222,8 @@ loader = KBLoader(KB_FILE)   # says what to do: which file. Nothing is read yet.
 docs = loader.load()         # does it: this is the line that reads the file.
 ```
 
-The settings go in first, and the work happens only when it's asked for.
+The settings go in first, and the work happens only when it's asked for. `load_documents()` does both, as
+`KBLoader(path).load()`, so the pipeline needs one line: `docs = load_documents()`.
 
 ### 3. `lazy_load()` and `load()`
 
@@ -239,7 +236,7 @@ The settings go in first, and the work happens only when it's asked for.
 KB_FILE = Path(__file__).resolve().parent / "data" / "sample_it_kb.csv"
 ```
 
-`Path(__file__).resolve().parent` is the folder `knowledge_base_loader.py` is in, so the data file is found whichever
+`Path(__file__).resolve().parent` is the folder `knowledge_base.py` is in, so the data file is found whichever
 folder you start `pipeline.py` from. A bare `"data/sample_it_kb.csv"` would be looked for in the current folder.
 
 ### 5. One File Runs the Steps
@@ -247,7 +244,7 @@ folder you start `pipeline.py` from. A bare `"data/sample_it_kb.csv"` would be l
 ```python
 def main() -> None:
     print("Step 1: Read the knowledge base")
-    docs = KBLoader(KB_FILE).load()
+    docs = load_documents()
     print_documents(docs)
 
 
@@ -256,18 +253,18 @@ if __name__ == "__main__":
 ```
 
 `pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order.
-`knowledge_base_loader.py` only defines the step, and `utils.py` the helper that prints its result, so importing
+`knowledge_base.py` only defines the step, and `utils.py` the helper that prints its result, so importing
 them, as the tests do, reads and prints nothing. A new step is one more part of `main()`. `if __name__ == "__main__":`
 is true only in the file you run, so `main()` runs from `python pipeline.py`, and not when the file is imported.
 
 ### 6. The Step Apart From the Helpers
 
 ```python
-from knowledge_base_loader import KB_FILE, KBLoader   # the step: reading the knowledge base
-from utils import print_documents                     # a helper: showing what was read
+from knowledge_base import load_documents   # the step: reading the knowledge base
+from utils import print_documents           # a helper: showing what was read
 ```
 
-`knowledge_base_loader.py` holds only what reading the knowledge base needs. Printing the Documents is something the
+`knowledge_base.py` holds only what reading the knowledge base needs. Printing the Documents is something the
 pipeline does with them, not part of reading them, so it lives in `utils.py`. Each file then has one job.
 
 ---
@@ -281,7 +278,7 @@ pipeline does with them, not part of reading them, so it lives in `utils.py`. Ea
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
 
-**Issue**: `python knowledge_base_loader.py` or `python utils.py` prints nothing
+**Issue**: `python knowledge_base.py` or `python utils.py` prints nothing
 **Fix**: Those files only define the step and its helper. Run `python pipeline.py` (Step 4), which runs them.
 
 ---

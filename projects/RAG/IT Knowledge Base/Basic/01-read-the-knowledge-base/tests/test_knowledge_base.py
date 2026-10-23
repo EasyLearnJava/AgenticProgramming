@@ -1,8 +1,8 @@
 """
-Tests for knowledge_base_loader.py: the LangChain Documents it reads from data/sample_it_kb.csv.
+Tests for knowledge_base.py: the LangChain Documents it reads from data/sample_it_kb.csv.
 
-    KBLoader(KB_FILE).load()  ->  10 Documents, one per article;
-                                  page_content "title: ...\nproblem: ...\n...", metadata {"source", "row"}
+    load_documents()  ->  10 Documents, one per article;
+                          page_content "title: ...\nproblem: ...\n...", metadata {"source", "row"}
 
 No key, no network: the tests only read the CSV file.
 """
@@ -10,12 +10,12 @@ from pathlib import Path
 
 from langchain_core.documents import Document
 
-from knowledge_base_loader import KB_FILE, KBLoader
+from knowledge_base import KB_FILE, KBLoader, load_documents
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 COLUMNS = ["title", "problem", "resolution", "system", "category", "notes", "priority", "tags"]
 
-docs = KBLoader(KB_FILE).load()
+docs = load_documents()
 
 
 def test_the_path_points_at_the_csv_next_to_the_script():
