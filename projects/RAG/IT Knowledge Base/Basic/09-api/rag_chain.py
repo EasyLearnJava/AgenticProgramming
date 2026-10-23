@@ -22,6 +22,7 @@ from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthr
 from retriever import format_docs
 
 # "Only the articles below" keeps the answer grounded, instead of in what the model learned in training
+# from_messages() comes from LangChain's ChatPromptTemplate: a prompt made of these messages
 prompt = ChatPromptTemplate.from_messages([
     ("system",
      "You are an IT help-desk assistant. Answer the user's question using only the knowledge base articles below. "
@@ -37,7 +38,9 @@ def make_rag_chain(retriever: BaseRetriever, model: BaseChatModel) -> Runnable:
         (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]})
         | prompt
         | model
+        # StrOutputParser comes from langchain_core: it turns the model's reply into plain text
         | StrOutputParser()
     )
     # Retrieve and pass the question through side by side, then add the answer, keeping "docs" for the sources
+    # RunnableParallel, RunnablePassthrough and assign() come from LangChain (langchain_core.runnables)
     return RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
