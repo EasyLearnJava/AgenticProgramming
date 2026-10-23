@@ -166,7 +166,8 @@ in Step 5.
 │   ├── conftest.py                       # decides once whether the live tests can run
 │   ├── fakes.py                          # stand-ins for Gemini: no key, no network
 │   ├── test_pipeline.py                  # the steps and what they print; nothing else runs
-│   ├── test_embed_chunks.py              # the call to Gemini, what's sent, what's printed
+│   ├── test_embed_chunks.py              # the call to Gemini, and what's sent
+│   ├── test_utils.py                     # what print_vectors() prints
 │   ├── test_models.py                    # the model's settings, and the no-key message
 │   ├── test_chunking.py                  # the chunks
 │   └── test_knowledge_base.py            # the Documents
