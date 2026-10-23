@@ -19,7 +19,8 @@ from langchain_core.embeddings import Embeddings
 from chunking import CHUNK_SIZE, split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from retriever import QUESTIONS, TOP_K, make_retriever, print_retrieval
+from retriever import QUESTIONS, TOP_K, make_retriever
+from utils import print_retrieval
 from vector_store import make_vector_store
 
 

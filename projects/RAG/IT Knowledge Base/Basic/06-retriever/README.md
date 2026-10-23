@@ -60,7 +60,7 @@ a question ──────────────┤ Step 4: Retrieve
 4. **Search** → Qdrant compares the question's vector with every stored one and keeps the 5 closest, with scores
 5. **Retrieve** → `make_retriever(store).invoke(question)` does steps 3 and 4 in one call
 6. **Format** → `format_docs()` joins chunks into one numbered, titled text
-7. **Print** → `print_retrieval()`: each step's result
+7. **Print** → `print_retrieval()`, from `utils.py`: each step's result
 
 ---
 
@@ -169,7 +169,8 @@ in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basi
 ```text
 06-retriever/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── retriever.py                          # make_retriever(), format_docs() and print_retrieval(): Step 4
+├── retriever.py                          # make_retriever() and format_docs(): Step 4
+├── utils.py                              # print_retrieval(): the helper that prints a search
 ├── vector_store.py                       # make_vector_store(): Step 3, Qdrant in memory
 ├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
 ├── config.py                             # load_api_key(): the key, checked before anything else runs
@@ -291,9 +292,9 @@ article's title, so the source of every part stays visible.
 ### 5. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4,
-the search by hand and with the retriever, and `print_retrieval()` prints it. The other files only define the steps,
-so importing them makes no call. The question, the model and its vector size are parameters of `main()`, so the
-tests pass a stand-in for Gemini.
+the search by hand and with the retriever, and `print_retrieval()`, from `utils.py`, prints it. The other files
+only define the steps and that helper, so importing them makes no call. The question, the model and its vector size
+are parameters of `main()`, so the tests pass a stand-in for Gemini.
 
 ---
 

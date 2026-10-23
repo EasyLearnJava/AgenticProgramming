@@ -1,7 +1,7 @@
 """
 Tests for retriever.py: the question's vector searched in the store, the retriever as a Runnable (invoke, batch, k),
-the chunks formatted for a prompt, and what print_retrieval() prints. The plain tests use KeywordEmbeddings, a
-stand-in for Gemini (tests/fakes.py); the live test asks the real Gemini.
+the chunks formatted for a prompt, and what print_retrieval(), in utils.py, prints. The plain tests use
+KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py); the live test asks the real Gemini.
 """
 import pytest
 from fakes import SIZE, KeywordEmbeddings
@@ -9,7 +9,8 @@ from fakes import SIZE, KeywordEmbeddings
 from chunking import split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from retriever import QUESTIONS, TOP_K, format_docs, make_retriever, print_retrieval
+from retriever import QUESTIONS, TOP_K, format_docs, make_retriever
+from utils import print_retrieval
 from vector_store import make_vector_store
 
 CHUNKS = split_documents(load_documents())
