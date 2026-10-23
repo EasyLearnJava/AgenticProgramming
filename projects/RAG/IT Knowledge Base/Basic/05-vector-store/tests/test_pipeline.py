@@ -11,6 +11,7 @@ from fakes import SIZE, KeywordEmbeddings
 from qdrant_client import QdrantClient
 
 import pipeline
+import utils
 from vector_store import COLLECTION
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
@@ -43,12 +44,12 @@ def test_with_qdrant_url_it_uses_that_server_and_starts_fresh_on_each_run(monkey
     server = QdrantClient(":memory:")                         # stands in for the server: the same one on every run
 
     class TheServer(QdrantClient):
-        """What the pipeline gets for QdrantClient(url=...): always the same in-memory client, `server`."""
+        """What connect() gets for QdrantClient(url=...): always the same in-memory client, `server`."""
 
         def __new__(cls, *args, **kwargs):
             return server
 
-    monkeypatch.setattr(pipeline, "QdrantClient", TheServer)
+    monkeypatch.setattr(utils, "QdrantClient", TheServer)
     run(capsys, "http://localhost:6333")
     _, printed = run(capsys, "http://localhost:6333")
     assert server.count(COLLECTION).count == 28               # the second run replaced the first run's points

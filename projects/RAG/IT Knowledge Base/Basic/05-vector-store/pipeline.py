@@ -11,32 +11,13 @@ Usage:
     python pipeline.py    # with QDRANT_URL in .env: in the Qdrant server (docker compose up -d), shown in its
                           # dashboard; without it: Qdrant in memory, inside this script
 """
-import sys
-
 from langchain_core.embeddings import Embeddings
-from qdrant_client import QdrantClient
-from qdrant_client.http.exceptions import ResponseHandlingException
 
 from chunking import CHUNK_SIZE, split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from vector_store import QDRANT_URL, make_vector_store, print_points
-
-
-def connect(qdrant_url: str) -> QdrantClient:
-    """The Qdrant server at qdrant_url, checked to be there; or Qdrant in memory when there's no address."""
-    if not qdrant_url:
-        print("Qdrant: in memory, inside this script")
-        return QdrantClient(":memory:")
-    # check_compatibility=False skips qdrant-client's background version check, which only warns.
-    client = QdrantClient(url=qdrant_url, check_compatibility=False)
-    try:
-        client.get_collections()                   # a first request, before any call to Gemini: is it there?
-    except ResponseHandlingException:
-        sys.exit(f"Can't reach Qdrant at {qdrant_url}. Start it first, in this folder: docker compose up -d "
-                 "(or remove QDRANT_URL from .env to run Qdrant in memory).")
-    print(f"Qdrant: the server at {qdrant_url}")
-    return client
+from utils import connect, print_points
+from vector_store import QDRANT_URL, make_vector_store
 
 
 # The tests pass a stand-in for Gemini as `embeddings`, with its vector size

@@ -1,7 +1,7 @@
 """
 Tests for vector_store.py: the collection, filling it with the 28 chunks, what each stored point holds, and what
-print_points() prints. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in
-memory; the live test asks the real Gemini.
+print_points(), in utils.py, prints. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py),
+and Qdrant in memory; the live test asks the real Gemini.
 """
 import pytest
 from fakes import SIZE, KeywordEmbeddings
@@ -11,7 +11,8 @@ from qdrant_client.models import Distance
 from chunking import split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from vector_store import COLLECTION, make_vector_store, print_points
+from utils import print_points
+from vector_store import COLLECTION, make_vector_store
 
 CHUNKS = split_documents(load_documents())
 

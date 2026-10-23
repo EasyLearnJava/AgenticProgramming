@@ -67,7 +67,8 @@ and its labels, then look at them in Qdrant's web dashboard. Qdrant runs as a se
 4. **Start fresh** → `make_vector_store()` deletes the collection if it's there (on the server, the last run's)
 5. **Make the collection** → then it makes it new: `it_knowledge_base`, 768 numbers per vector, cosine
 6. **Embed and store** → `store.add_documents(chunks)` embeds the 28 texts in one call and stores 28 points
-7. **Read back and print** → `print_points()`: the collection's settings, then every point, by article and place
+7. **Read back and print** → `print_points()`, from `utils.py`: the collection's settings, then every point, by
+   article and place
 
 ---
 
@@ -221,7 +222,8 @@ time. Only one program can use port 6333 at a time, so stop this server before s
 ```text
 05-vector-store/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── vector_store.py                       # make_vector_store() and print_points(): Step 3
+├── vector_store.py                       # make_vector_store(): Step 3
+├── utils.py                              # connect() and print_points(): the helpers that connect and print
 ├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
 ├── config.py                             # load_api_key(): the key, checked before anything else runs
 ├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
@@ -484,9 +486,9 @@ the vector stored here, they'd differ, by the same factor for every number in th
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 and 2, printing a line each, then Step 3:
 `connect()` picks the server or memory, `make_vector_store()` and `add_documents()` store the chunks, and
-`print_points()` prints them. The other files only define the steps, so importing them makes no call. The model, its
-vector size and the server's address are parameters of `main()`, so the tests pass a stand-in for Gemini and an
-in-memory Qdrant.
+`print_points()` prints them; those two helpers are in `utils.py`. The other files only define the steps and the
+helpers, so importing them makes no call. The model, its vector size and the server's address are parameters of
+`main()`, so the tests pass a stand-in for Gemini and an in-memory Qdrant.
 
 ---
 
