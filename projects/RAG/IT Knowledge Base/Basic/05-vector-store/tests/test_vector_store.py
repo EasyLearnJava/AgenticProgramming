@@ -1,7 +1,7 @@
 """
-Tests for vector_store.py: the collection, filling it with the 28 chunks, what each stored point holds, and what
-print_points(), in utils.py, prints. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py),
-and Qdrant in memory or in a folder of the test's own; the live test asks the real Gemini.
+Tests for vector_store.py: the collection, filling it with the 28 chunks, what each stored point holds, and Qdrant
+on disk. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in memory or in a
+folder of the test's own; the live test asks the real Gemini.
 """
 from pathlib import Path
 
@@ -13,7 +13,6 @@ from qdrant_client.models import Distance
 from chunking import split_documents
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from utils import print_points
 from vector_store import COLLECTION, QDRANT_PATH, make_client, make_vector_store
 
 CHUNKS = split_documents(load_documents())
@@ -50,18 +49,6 @@ def test_an_existing_collection_is_deleted_and_made_new():
     make_vector_store(KeywordEmbeddings(), 5, client)             # the same name again, with another vector size
     assert client.count(COLLECTION).count == 0                    # none of the old points are left
     assert client.get_collection(COLLECTION).config.params.vectors.size == 5      # and it has the new settings
-
-
-def test_print_points_prints_the_collection_then_every_point(capsys):
-    store = make_vector_store(KeywordEmbeddings(), SIZE)
-    store.add_documents(CHUNKS)
-    print_points(store)
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == f"Collection 'it_knowledge_base': 28 points, vectors of {SIZE} numbers, compared by Cosine"
-    assert lines[1] == "Each point holds an id, a vector and a payload with metadata, page_content"
-    assert lines[3] == (f"Point 1 of 28: VPN Connection Timeout, from character 0: {SIZE} numbers, "
-                        "457 characters of text, 7 labels")
-    assert sum(line.startswith("Point ") for line in lines) == 28
 
 
 def test_qdrant_on_disk_keeps_the_points_in_its_folder(tmp_path):

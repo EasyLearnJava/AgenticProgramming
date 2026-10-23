@@ -178,7 +178,8 @@ it's never committed. Delete it to start over: the next run makes it again. Only
 │   ├── conftest.py                       # decides once whether the live tests can run
 │   ├── fakes.py                          # stand-ins for Gemini: no key, no network
 │   ├── test_pipeline.py                  # the steps, with the points on disk; nothing else runs
-│   ├── test_vector_store.py              # the collection, the points, on disk too, what's printed
+│   ├── test_vector_store.py              # the collection, the points, on disk too
+│   ├── test_utils.py                     # what print_points() prints
 │   ├── test_models.py                    # the model's settings, and the no-key message
 │   ├── test_chunking.py                  # the chunks
 │   └── test_knowledge_base.py            # the Documents
