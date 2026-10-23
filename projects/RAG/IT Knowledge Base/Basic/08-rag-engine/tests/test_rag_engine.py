@@ -10,8 +10,9 @@ from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
 from qdrant_client import QdrantClient
 
 from knowledge_base import KB_FILE
-from rag_engine import MAX_SOURCES, RAGEngine, print_result
+from rag_engine import MAX_SOURCES, RAGEngine
 from retriever import QUESTIONS
+from utils import print_result
 from vector_store import COLLECTION
 
 

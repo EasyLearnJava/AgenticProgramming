@@ -52,7 +52,7 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
    {"answer": "...", "sources": [{"title", "system", "category", "snippet"}, ...]}
                  │
                  ↓
-   print_result(): the question, the answer, then each source
+   print_result(), in utils.py: the question, the answer, then each source
 ```
 
 ### The Pipeline in This Project
@@ -64,7 +64,7 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
 4. **Ask** → `query(question)` runs the chain: the 5 closest chunks, then Gemini's answer from them
 5. **Name the sources** → the first 3 different articles among those chunks, closest first, each with the first 200
    characters of its chunk
-6. **Print** → `print_result()`: the question, the answer, then each source
+6. **Print** → `print_result()`, from `utils.py`: the question, the answer, then each source
 7. **Report** → `stats()` gives what the engine holds and how it's set up
 
 ---
@@ -163,7 +163,8 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ```text
 08-rag-engine/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── rag_engine.py                         # RAGEngine: build(), query(), stats(); print_result()
+├── rag_engine.py                         # RAGEngine: build(), query(), stats()
+├── utils.py                              # print_result(): the helper that prints an answer and its sources
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_vector_store(): Qdrant, in memory
@@ -265,9 +266,9 @@ first, and stops at 3, so every source names a different article.
 ### 4. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` builds the engine (Step 1, in one line, from `stats()`),
-then answers each question (Step 2), and `print_result()` prints each answer. `rag_engine.py` and the other files
-only define the parts, so importing them reads nothing and makes no call. The engine is a parameter of `main()`, so
-the tests pass one with stand-ins for Gemini.
+then answers each question (Step 2), and `print_result()`, from `utils.py`, prints each answer. `rag_engine.py` and
+the other files only define the parts, so importing them reads nothing and makes no call. The engine is a parameter
+of `main()`, so the tests pass one with stand-ins for Gemini.
 
 ---
 
