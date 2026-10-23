@@ -164,7 +164,8 @@ server. Then ask it a question as in Step 6.
 09-api/
 ├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, QueryIn/QueryOut, the three routes
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats(); print_result()
+├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats()
+├── utils.py                              # print_result(): the helper that prints an answer and its sources
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_vector_store(): Qdrant, in memory
