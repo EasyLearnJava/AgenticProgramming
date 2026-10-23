@@ -175,7 +175,8 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 ├── index.html                            # the chat page
 ├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine (build() reuses stored chunks) and print_result()
+├── rag_engine.py                         # RAGEngine: build() reuses stored chunks
+├── utils.py                              # print_result(): the helper that prints an answer and its sources
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_client(), make_vector_store(), open_vector_store(), chunk_id()
