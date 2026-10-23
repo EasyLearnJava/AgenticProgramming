@@ -32,12 +32,13 @@ RAG: retrieval first, then generation. Built with **LangChain**, **Gemini** (`ge
 pipeline.py: main(), the one file to run, calls each step in order:
 data/sample_it_kb.csv                 10 articles
           │ Steps 1 and 2: load_documents(), split_documents()
+          │ Step 3: embed_chunks(): the 28 chunks, embedded by Gemini (1 call)
           ↓
 ┌──────────────────────────────┐
-│  Qdrant, in memory           │  ← Step 3, store.add_documents(): the 28 chunks, embedded by Gemini (1 call)
+│  Qdrant, in memory           │  ← Step 4, store_vectors(): 28 points, each chunk with its vector
 └──────────────┬───────────────┘
                │
-  question ────┤ Step 4: Retrieve and answer
+  question ────┤ Step 5: Retrieve and answer
                ↓
 ┌──────────────────────────────┐
 │  make_rag_chain()            │
@@ -55,11 +56,12 @@ data/sample_it_kb.csv                 10 articles
 1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
 2. **Load** → `load_documents()` reads the 10 articles: their text and their labels
 3. **Chunk** → `split_documents()` cuts them into 28 chunks of at most 512 characters
-4. **Embed and store** → `store.add_documents()` embeds the chunks in one call to Gemini and stores them in Qdrant
-5. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
-6. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
-7. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
-8. **Print** → `print_answer()`, from `utils.py`: the question, the answer, then the articles the chunks came from,
+4. **Embed** → `embed_chunks()` embeds the 28 chunks in one call to Gemini
+5. **Store** → `store_vectors()` stores them in Qdrant, each with its vector
+6. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
+7. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
+8. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
+9. **Print** → `print_answer()`, from `utils.py`: the question, the answer, then the articles the chunks came from,
    each once
 
 ---
@@ -135,7 +137,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 31 passed, 5 skipped     (add -v for one line per test)
+python -m pytest                     # 35 passed, 6 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini (`KeywordEmbeddings` for the embeddings, LangChain's `FakeListChatModel`
@@ -145,7 +147,7 @@ model gets the chunks it found as the articles; and what `print_answer()` prints
 it embeds the chunks, then the question, once each, and prints the steps, the answer and its sources; that it takes
 a question of your own; and that no other file runs anything.
 
-The 5 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
 
 ---
@@ -190,7 +192,7 @@ prompt goes to the model, and the parser turns the model's reply into plain text
 
 ### 5. One File Runs the Steps
 
-`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4,
+`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 4, printing a line each, then Step 5,
 the chain, and `print_answer()`, from `utils.py`, prints its result. The other files only define the steps and that
 helper, so importing them makes no call. The question and the two models are parameters of `main()`, so the tests
 pass stand-ins for Gemini.

@@ -7,17 +7,19 @@ import pytest
 from fakes import SIZE, KeywordEmbeddings
 
 from chunking import split_documents
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
 from retriever import TOP_K, format_docs, make_retriever
-from vector_store import make_vector_store
+from vector_store import make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
+VECTORS = embed_chunks(CHUNKS, KeywordEmbeddings())     # a stand-in vector for each chunk, in order
 
 
 def filled_store(stand_in=None):
     store = make_vector_store(stand_in or KeywordEmbeddings(), SIZE)
-    store.add_documents(CHUNKS)
+    store_vectors(store, CHUNKS, VECTORS)
     return store
 
 
@@ -70,7 +72,7 @@ def test_format_docs_numbers_and_titles_each_chunk():
 @pytest.mark.live
 def test_live_the_sample_questions_find_their_articles():
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
-    store.add_documents(CHUNKS)
+    store_vectors(store, CHUNKS, embed_chunks(CHUNKS, embeddings))
     # The course app's sample questions, each with the article it should find first
     articles = {"How do I fix VPN connection timeouts?": "VPN Connection Timeout",
                 "I can't set up MFA on my mobile device": "MFA Setup Failure",

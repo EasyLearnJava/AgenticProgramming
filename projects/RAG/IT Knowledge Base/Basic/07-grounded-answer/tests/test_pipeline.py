@@ -19,8 +19,9 @@ def test_the_pipeline_retrieves_then_answers_from_the_chunks_found(capsys):
     assert stand_in.calls == [("documents", 28), ("query", QUESTION)]    # the chunks, then the question, once each
     assert printed.startswith("Step 1: Read the knowledge base: 10 documents\n"
                               "Step 2: Chunk: 28 chunks of at most 512 characters\n"
-                              "Step 3: Embed and store: 28 points, in Qdrant in memory\n"
-                              "Step 4: Retrieve and answer\n"
+                              f"Step 3: Embed: 28 vectors of {SIZE} numbers\n"
+                              "Step 4: Store: 28 points, in Qdrant in memory\n"
+                              "Step 5: Retrieve and answer\n"
                               f"Question: {QUESTION}\n\n"
                               "Answer (Gemini's, from the chunks found):\nOpen UDP ports 500 and 4500.\n\n"
                               "Sources (the articles of the chunks found, closest first):\n  VPN Connection Timeout\n")
