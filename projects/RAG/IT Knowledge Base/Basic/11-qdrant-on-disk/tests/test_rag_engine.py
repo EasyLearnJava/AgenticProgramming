@@ -2,8 +2,8 @@
 Tests for rag_engine.py: nothing happens before build(), answers with up to 3 different sources, and a Qdrant store
 that keeps its points: a second build on the same chunks reuses them without embedding again, and engines in
 collections of their own keep their own chunks. The plain tests use stand-ins for Gemini (tests/fakes.py) and Qdrant
-inside this process ("local mode": in memory, or saved in a folder, which stands in for the server); the live test
-needs the real Gemini and a running Qdrant server.
+in memory, or in a folder of the test's own; the live test needs the real Gemini, and saves its chunks in
+qdrant_data/.
 """
 import asyncio
 import csv
@@ -17,7 +17,7 @@ from knowledge_base import KB_FILE
 from rag_engine import MAX_SOURCES, RAGEngine
 from retriever import QUESTIONS
 from utils import print_result
-from vector_store import COLLECTION, QDRANT_URL
+from vector_store import COLLECTION
 
 
 def stand_in_engine(client, **settings):
@@ -25,13 +25,13 @@ def stand_in_engine(client, **settings):
                      embedding_size=SIZE, client=client, **settings)
 
 
-def test_without_a_client_build_connects_to_the_qdrant_server(monkeypatch):
-    stands_in_for_the_server = QdrantClient(":memory:")
-    monkeypatch.setattr(rag_engine, "make_client", lambda: stands_in_for_the_server)
+def test_without_a_client_build_opens_qdrant_on_disk(monkeypatch):
+    stands_in_for_the_folder = QdrantClient(":memory:")
+    monkeypatch.setattr(rag_engine, "make_client", lambda: stands_in_for_the_folder)
     engine = RAGEngine(embeddings=KeywordEmbeddings(), model=FakeListChatModel(responses=["x"]), embedding_size=SIZE)
     assert engine.client is None                    # making the engine connects to nothing
     engine.build()
-    assert engine.client is stands_in_for_the_server
+    assert engine.client is stands_in_for_the_folder
 
 
 def test_nothing_is_read_or_called_before_build():
@@ -50,7 +50,7 @@ def test_the_first_build_embeds_and_stores_the_28_chunks():
 
 
 def test_a_later_build_finds_the_same_chunks_stored_and_embeds_nothing(tmp_path):
-    # QdrantClient(path=...) saves the points in a folder, like the server keeps them: close it and open it again,
+    # QdrantClient(path=...) saves the points in a folder, as make_client() does: close it and open it again,
     # as a new run of the app would.
     first_run = QdrantClient(path=str(tmp_path))
     stand_in_engine(first_run).build()
@@ -122,19 +122,11 @@ def test_print_result_prints_the_question_the_answer_and_each_source(capsys):
                                        "   source: VPN Connection Timeout (VPN, Remote Access)\n\n")
 
 
-def qdrant_server_answers() -> bool:
-    try:
-        QdrantClient(url=QDRANT_URL, check_compatibility=False, timeout=2).get_collections()
-        return True
-    except Exception:
-        return False
-
-
 @pytest.mark.live
-@pytest.mark.skipif(not qdrant_server_answers(), reason="needs the Qdrant server: docker compose up -d")
 def test_live_a_sample_question_is_answered_from_its_article():
     engine = RAGEngine()
     engine.build()
     result = engine.query(QUESTIONS[0])
     assert result["answer"].strip()
     assert result["sources"][0]["title"] == "VPN Connection Timeout"
+    engine.client.close()                                      # frees qdrant_data/ for the other tests

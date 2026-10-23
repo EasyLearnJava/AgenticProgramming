@@ -2,8 +2,9 @@
 IT Knowledge Base: The RAG Engine
 =================================
 
-The whole pipeline in one class, the way a server uses it, with the chunks kept in a Qdrant server between runs.
-build() embeds the chunks only when the server doesn't already hold exactly these chunks. It handles:
+The whole pipeline in one class, the way a server uses it, with the chunks kept on disk between runs, in
+qdrant_data/ (Qdrant's local mode). build() embeds the chunks only when Qdrant doesn't already hold exactly these
+chunks. It handles:
   1. Building: load and split the articles; reuse the stored chunks, or store them in a new collection (one call)
   2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds, how it's set up, and whether it reused the stored chunks
@@ -40,8 +41,8 @@ class RAGEngine:
     Step 3: Answer: query() or aquery() answers one question with its sources
     """
 
-    # Every setting has a default and is passed by name (the *). Without a client, build() connects to the Qdrant
-    # server at QDRANT_URL; the tests pass stand-ins for Gemini
+    # Every setting has a default and is passed by name (the *). Without a client, build() opens Qdrant on disk,
+    # in qdrant_data/; the tests pass stand-ins for Gemini
     def __init__(self, *, embeddings: Embeddings = embeddings, model: BaseChatModel = chat_model,
                  embedding_size: int = EMBEDDING_SIZE, client: QdrantClient | None = None,
                  data_path: str | Path = KB_FILE, collection: str = COLLECTION,
@@ -55,12 +56,12 @@ class RAGEngine:
         self.chain: Runnable | None = None
 
     def build(self) -> None:
-        """Load and split the articles, make sure the server holds exactly these chunks, and make the chain."""
+        """Load and split the articles, make sure Qdrant holds exactly these chunks, and make the chain."""
         if self.client is None:
             self.client = make_client()
         self.documents = load_documents(self.data_path)
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
-        # Each chunk's id comes from its text, so "the server already holds these chunks" can be checked by id:
+        # Each chunk's id comes from its text, so "Qdrant already holds these chunks" can be checked by id:
         # all stored and nothing else -> reuse them, no call to Gemini; anything else -> store them in a new
         # collection (make_vector_store() deletes the old one first). Only this engine's collection is checked or
         # deleted: engines with collections of their own keep theirs.

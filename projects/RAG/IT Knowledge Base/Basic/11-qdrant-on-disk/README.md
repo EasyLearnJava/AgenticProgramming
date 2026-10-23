@@ -1,29 +1,27 @@
-# 11 · Qdrant in Docker
+# 11 · Qdrant on Disk
 
-The IT knowledge base app, with its chunks kept in a Qdrant server that runs in Docker and keeps them on disk between
-runs. The first run embeds and stores the 28 chunks; every run after that finds them there and reuses them, with no
-call to Gemini for the chunks. The engine, the API and the chat page answer questions from them. Built with
-**Qdrant** in **Docker**, **FastAPI**, **LangChain** and **Gemini** (`gemini-embedding-001` and
-`gemini-3.5-flash-lite`).
+The IT knowledge base app, with its chunks kept on disk between runs: Qdrant runs inside the app, in local mode, and
+saves them in the folder `qdrant_data/`. The first run embeds and stores the 28 chunks; every run after that finds
+them there and reuses them, with no call to Gemini for the chunks. The engine, the API and the chat page answer
+questions from them. Built with **Qdrant** (local mode), **FastAPI**, **LangChain** and **Gemini**
+(`gemini-embedding-001` and `gemini-3.5-flash-lite`).
 
-> **Needs:** Python 3.11 or newer, a Gemini API key, and Docker (Docker Desktop on Windows and macOS; GitHub
-> Codespaces has Docker already).
+> **Needs:** Python 3.11 or newer, and a Gemini API key. Qdrant runs inside the app, so there's no server to start.
 
 ---
 
 ## 🎯 What This Project Does
 
-- **Runs Qdrant as a server**, in Docker: `docker-compose.yml` starts `qdrant/qdrant:v1.19.1` on port 6333, with its
-  data in a Docker volume
-- **Finds the server** at the address in `.env`: `QDRANT_URL=http://localhost:6333`
+- **Runs Qdrant inside the app**, in local mode: `make_client()` opens the folder `qdrant_data/`, next to the code,
+  which keeps the points between runs
 - **Gives each chunk an id made from its text**, so the same chunk always gets the same id
-- **Reuses what's stored**: when the engine builds, it checks what the server holds. If it's exactly these 28
+- **Reuses what's stored**: when the engine builds, it checks what `qdrant_data/` holds. If it's exactly these 28
   chunks, it reuses them, with no call to Gemini; if not (the first run, or after an article changed), it stores them
   in a new collection
 - **Answers questions** with the engine in the terminal (`python pipeline.py`), and with the API and the chat page
   (`uvicorn main:app`)
-- **Says what to do when Qdrant isn't running**: the server and `pipeline.py` stop with `docker compose up -d` in
-  their message
+- **Frees the folder when the server stops**: only one program at a time can open `qdrant_data/`, so the API closes
+  it on the way out, for its next start or for `python pipeline.py`
 
 **Try it:** run `python pipeline.py` twice, and see the second run reuse the stored chunks.
 
@@ -38,10 +36,10 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 │  ├─ split_documents()            │  ← 28 chunks
 │  └─ chunk_id() for each chunk    │  ← an id made from the chunk's article, place and text
 └────────────────┬─────────────────┘
-                 │ make_client(): QDRANT_URL
+                 │ make_client(): qdrant_data/
                  ↓
 ┌──────────────────────────────────┐
-│  Qdrant server, in Docker        │  ← collection "it_knowledge_base", kept on disk
+│  Qdrant, local mode, on disk     │  ← collection "it_knowledge_base", in qdrant_data/
 │  holds exactly these 28 ids?     │
 │  ├─ yes → reuse them             │     no call to Gemini
 │  └─ no  → empty it, store anew   │     1 call to Gemini: the 28 embeddings
@@ -55,12 +53,12 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 
 ### The Pipeline in This Project
 
-1. **Start Qdrant** → `docker compose up -d` runs the server, which keeps its data in a Docker volume
-2. **Connect** → `make_client()` makes a client for the server at `QDRANT_URL`
-3. **Load and chunk** → the 10 articles become 28 chunks, each with an id made from its text
-4. **Check what's stored** → if the collection holds exactly these ids, nothing more is done
-5. **Store if needed** → otherwise the old collection is deleted, and the chunks are stored in a new one (one call)
-6. **Answer** → each question: the 5 closest chunks from the server, then Gemini's answer (2 calls)
+1. **Open Qdrant** → `make_client()`: local mode, inside the app, with its points in `qdrant_data/`
+2. **Load and chunk** → the 10 articles become 28 chunks, each with an id made from its text
+3. **Check what's stored** → if the collection holds exactly these ids, nothing more is done
+4. **Store if needed** → otherwise the old collection is deleted, and the chunks are stored in a new one (one call)
+5. **Answer** → each question: the 5 closest chunks from Qdrant, then Gemini's answer (2 calls)
+6. **Free the folder** → the API closes Qdrant when the server stops
 
 ---
 
@@ -68,7 +66,6 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 
 - **Python 3.11 or newer**
 - **A Gemini API key**: every call to Gemini uses your key's quota
-- **Docker**: Docker Desktop on Windows and macOS; GitHub Codespaces has Docker already
 
 ---
 
@@ -77,7 +74,7 @@ call to Gemini for the chunks. The engine, the API and the chat page answer ques
 ### Step 1: Go to This Folder
 
 ```bash
-cd "projects/RAG/IT Knowledge Base/Basic/11-qdrant-in-docker"   # from the repo root; quotes for the spaces
+cd "projects/RAG/IT Knowledge Base/Basic/11-qdrant-on-disk"    # from the repo root; quotes for the spaces
 ```
 
 ### Step 2: Create and Activate a Virtual Environment
@@ -105,38 +102,25 @@ cp .env.example .env                 # once (Windows PowerShell or Command Promp
 ```
 
 Open `.env` in an editor and put your key after `GOOGLE_API_KEY=`. You make a key in the Google Cloud console, under
-APIs & Services > Credentials, as `.env.example` says. Leave the `QDRANT_URL` line as it is. `.env` is in
-`.gitignore`, so your key never goes into git.
+APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`, so your key never goes into git.
 
-### Step 5: Start Qdrant
-
-```bash
-docker compose up -d                 # start the Qdrant server, in the background
-```
-
-It starts the server and leaves it running, even after you close the terminal. The first time, Docker downloads the
-Qdrant image. Qdrant's own dashboard is at http://localhost:6333/dashboard.
-
-To stop it, run `docker compose down` in this folder: the stored chunks stay for next time. `docker compose down -v`
-deletes them too.
-
-### Step 6: Run It
+### Step 5: Run It
 
 ```bash
 python pipeline.py                   # the three sample questions
 uvicorn main:app --reload            # or the server and the chat page; Ctrl+C stops it
 ```
 
-The first `python pipeline.py` builds the engine, which embeds the chunks and stores them in the server:
+The first `python pipeline.py` builds the engine, which embeds the chunks and stores them in `qdrant_data/`:
 
 ```text
-Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in Qdrant at http://localhost:6333
+Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in qdrant_data/
 ```
 
 Every run after that finds them there:
 
 ```text
-Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in Qdrant at http://localhost:6333
+Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in qdrant_data/
 ```
 
 Then come `Step 2: Answer` and each question (`Q:`), its answer (`A:`) and its sources. The parts in `< >` come from
@@ -150,28 +134,27 @@ A: <Gemini's answer>
 ```
 
 `uvicorn main:app --reload` builds the engine the same way. Then open http://127.0.0.1:8000 for the chat page; the
-API answers at `/docs`, `/api/query`, `/api/stats` and `/api/health`.
+API answers at `/docs`, `/api/query`, `/api/stats` and `/api/health`. Only one program at a time can open
+`qdrant_data/`, so stop the server (Ctrl+C) before running `python pipeline.py`.
 
 ### Or: Run It in One Command
 
-With your key in `.env` (Step 4) and Qdrant started (Step 5), this one command does Steps 2 and 3, then starts the
-server from Step 6:
+With your key in `.env` (Step 4), this one command does Steps 2 and 3, then starts the server from Step 5:
 
 ```bash
-python "projects/RAG/IT Knowledge Base/run.py" Basic/11-qdrant-in-docker   # from the repo root
+python "projects/RAG/IT Knowledge Base/run.py" Basic/11-qdrant-on-disk    # from the repo root
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
 `uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops it.
-Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use Step 6.
+Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use Step 5.
 
 ---
 
 ## 📁 Project Structure
 
 ```text
-11-qdrant-in-docker/
-├── docker-compose.yml                    # the Qdrant server: qdrant/qdrant:v1.19.1 on port 6333, data in a volume
+11-qdrant-on-disk/
 ├── index.html                            # the chat page
 ├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
@@ -190,7 +173,8 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 │   ├── conftest.py                       # skips the live tests when there's no key
 │   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
 │   └── test_*.py                         # one test file per module
-├── .env.example                          # copy it to .env: your key, and QDRANT_URL
+├── qdrant_data/                          # made by the first run: the stored chunks, on disk (in .gitignore)
+├── .env.example                          # copy it to .env: your key
 ├── requirements.txt                      # the packages, pinned to exact versions
 ├── requirements-dev.txt                  # requirements.txt plus pytest and httpx2, for the tests
 ├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
@@ -201,20 +185,21 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 
 ## 🧪 Testing
 
-The tests don't need Docker:
+The tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
 
 ```bash
-python -m pytest                     # 58 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 59 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the stored chunks, they check
-that an existing collection is deleted and made new, while one that's opened keeps its points; that each chunk gets
-its own id, always the same one; that adding the same chunks again replaces them instead of adding copies; that the
-first build embeds and stores the 28 chunks, and a later build finds them and embeds nothing; that other chunk sizes
-replace the stored chunks, while an engine with a collection of its own keeps its chunks; that another data file can
-be read; that every setting is passed by name; and that without Qdrant the server stops with what to do. For
-`pipeline.py`, they check that it builds the engine, then answers each question; that a second run reuses the stored
-chunks; that without Qdrant it stops with what to do; and that no other file runs anything in the terminal.
+that an existing collection is deleted and made new, with none of its old points, on disk too, while one that's
+opened keeps its points; that each chunk gets its own id, always the same one; that adding the same chunks again
+replaces them instead of adding copies; that the first build embeds and stores the 28 chunks, and a later build
+finds them and embeds nothing; that other chunk sizes replace the stored chunks, while an engine with a collection of
+its own keeps its chunks; that another data file can be read; that every setting is passed by name; that the points
+stay on disk; and that the server frees `qdrant_data/` when it stops. For `pipeline.py`, they check that it builds
+the engine, then answers each question; that a second run reuses the stored chunks, in memory and on disk; and that
+no other file runs anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
@@ -224,26 +209,25 @@ no key is set. With your key in `.env`, they run too. To run only the plain ones
 ## 📊 Understanding the Output
 
 ```text
-Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in Qdrant at http://localhost:6333
-  └─ the server didn't hold exactly these chunks: they were embedded (1 call) and stored
+Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in qdrant_data/
+  └─ qdrant_data/ didn't hold exactly these chunks: they were embedded (1 call) and stored
 
-Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in Qdrant at http://localhost:6333
-  └─ the server held exactly these 28 chunks: no call to Gemini for them
+Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in qdrant_data/
+  └─ qdrant_data/ held exactly these 28 chunks: no call to Gemini for them
 ```
 
 `stats()`, and so `/api/stats`, also says which happened: `"reused_stored_chunks"` is `true` when the stored chunks
 were reused.
 
-Qdrant's dashboard, at http://localhost:6333/dashboard, shows the `it_knowledge_base` collection and its 28 points.
-
 ---
 
 ## 🎓 Key Concepts Demonstrated
 
-### 1. A Server That Keeps the Data
+### 1. Qdrant on Disk Keeps the Data
 
-Qdrant inside a Python program loses everything when the program ends. As a server in Docker, it keeps its data in a
-Docker volume, `qdrant_storage`, so the chunks outlive each run of the app, and even `docker compose down`.
+Qdrant in memory loses everything when the program ends. In local mode, `QdrantClient(path="qdrant_data")`, it saves
+its points in that folder, so the chunks outlive each run of the app. It still runs inside the program, so only one
+program at a time can open the folder; for several at once, Qdrant also runs as a server, with the same code.
 
 ### 2. An Id Made From the Chunk's Text
 
@@ -253,7 +237,7 @@ return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 ```
 
 The same chunk always gets the same id. Adding it again replaces the stored point instead of adding a copy, and the
-engine can check whether the server holds exactly these chunks by their ids.
+engine can check whether Qdrant holds exactly these chunks by their ids.
 
 ### 3. Reuse What's Already There
 
@@ -265,28 +249,28 @@ engine can check whether the server holds exactly these chunks by their ids.
 - no collection yet (the first run): make it, and store them.
 
 Only the engine's own collection is checked or deleted: `it_knowledge_base`, unless it's given another. So an
-engine with other chunk sizes can share the server without replacing these chunks, in a collection of its own:
+engine with other chunk sizes can share `qdrant_data/` without replacing these chunks, in a collection of its own:
 `RAGEngine(collection="it_kb_1000", chunk_size=1000)`.
 
-### 4. Configuration in `.env`
+### 4. Closing the Folder
 
-`QDRANT_URL` says where the server is, next to the key. To use a Qdrant server somewhere else, you change `.env`,
-not the code.
+```python
+    yield
+    engine.client.close()          # the server is stopping: free qdrant_data/ for the next start
+```
+
+Local mode locks `qdrant_data/` while it's open, so a second program can't open it. The API's start-up code closes
+it when the server stops, so `uvicorn --reload` can start again after each change, and `python pipeline.py` can run
+once the server has stopped.
 
 ---
 
 ## 🛠️ Troubleshooting
 
-**Issue**: The server stops at start-up with:
-
-```text
-RuntimeError: Can't reach Qdrant at http://localhost:6333 (<the connection error>). Start it first, in this folder:   docker compose up -d
-```
-
-**Fix**: Qdrant isn't running. Run `docker compose up -d`, then start the server again.
-
-**Issue**: `python pipeline.py` stops with `Can't reach Qdrant at http://localhost:6333 (<the connection error>). Start it first, in this folder:   docker compose up -d`
-**Fix**: The same: Qdrant isn't running. Run `docker compose up -d`, then try again.
+**Issue**: `python pipeline.py`, or the server's start-up, stops with `RuntimeError: Storage folder .../qdrant_data is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.`
+**Fix**: Another program has `qdrant_data/` open: usually the server (`uvicorn main:app`) while you run
+`python pipeline.py`, or the other way round. Only one program at a time can open the folder. Stop the other one
+(Ctrl+C), then try again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
 **Fix**: There's no `.env` with a key in this folder. Do Step 4.
@@ -302,11 +286,11 @@ RuntimeError: Can't reach Qdrant at http://localhost:6333 (<the connection error
 question. 12 measures how well the search finds the right article for other chunk sizes and numbers of chunks.
 
 **[Advanced · 11 · Qdrant in Docker](../../Advanced/11-qdrant-in-docker/README.md)** (planned): the same project,
-production grade. Its README lists what it will add.
+production grade: the app and a Qdrant server in containers. Its README lists what it will add.
 
 ### Ideas to Try
 
 - Run `python pipeline.py` twice, and compare the first line of each run.
 - Change one word in an article in `data/sample_it_kb.csv`, run it again, and see the chunks embedded and stored
   anew.
-- Open the dashboard at http://localhost:6333/dashboard and find the 28 points of `it_knowledge_base`.
+- Delete `qdrant_data/` and run `python pipeline.py` again: the first line says the chunks were embedded and stored.
