@@ -49,6 +49,7 @@ class RAGEngine:
                  chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, top_k: int = TOP_K):
         self.embeddings, self.model, self.embedding_size = embeddings, model, embedding_size
         self.client = client
+        # Path comes from Python's pathlib: a file path that works the same on every system
         self.data_path, self.collection = Path(data_path), collection
         self.chunk_size, self.chunk_overlap, self.top_k = chunk_size, chunk_overlap, top_k
         self.documents, self.chunks = [], []
@@ -67,23 +68,29 @@ class RAGEngine:
         # deleted: engines with collections of their own keep theirs.
         ids = [chunk_id(chunk) for chunk in self.chunks]
         self.reused_stored_chunks = False
+        # collection_exists() comes from qdrant_client's QdrantClient: whether a collection by this name is there
         if self.client.collection_exists(self.collection):
+            # count() comes from qdrant_client's QdrantClient: how many points the collection holds
             stored = self.client.count(self.collection).count
+            # retrieve() comes from qdrant_client's QdrantClient: the stored points with these ids
             found = len(self.client.retrieve(self.collection, ids=ids, with_payload=False, with_vectors=False))
             self.reused_stored_chunks = stored == found == len(ids)
         if self.reused_stored_chunks:
             store = open_vector_store(self.embeddings, self.client, self.collection)
         else:
             store = make_vector_store(self.embeddings, self.embedding_size, self.client, self.collection)
+            # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
             store.add_documents(self.chunks, ids=ids)          # one call to Gemini: every chunk's embedding
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
     def query(self, question: str) -> dict:
         """Answer one question: {"answer": ..., "sources": [...]}."""
+        # invoke() comes from LangChain's Runnable: it runs the whole chain on one input
         return self._with_sources(self._built_chain().invoke(question))
 
     async def aquery(self, question: str) -> dict:
         """The same, for async code such as a FastAPI route: the server can do other work while Gemini answers."""
+        # ainvoke() comes from LangChain's Runnable: invoke(), for async code
         return self._with_sources(await self._built_chain().ainvoke(question))
 
     def _built_chain(self) -> Runnable:
