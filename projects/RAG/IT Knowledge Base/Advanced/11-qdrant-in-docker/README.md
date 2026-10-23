@@ -1,11 +1,12 @@
 # 11 · Qdrant in Docker (Advanced)
 
 > **Status:** 📝 Planned: this README is the plan; there's no code yet.
-> **Production version of:** [Basic · 11 · Qdrant in Docker](../../Basic/11-qdrant-in-docker/README.md)
+> **Production version of:** [Basic · 11 · Qdrant on Disk](../../Basic/11-qdrant-on-disk/README.md)
 
-The basic version runs Qdrant in Docker so the chunks are kept between runs and embedded only once. This version
-runs the whole app the way it would run on a server: the app in its own container, Qdrant secured and backed up,
-secrets kept out of images and code, health checks for both, and a pipeline that tests and builds every change.
+The basic version keeps the chunks on disk with Qdrant's local mode, so they're kept between runs and embedded only
+once. This version runs the whole app the way it would run on a server: the app in its own container, Qdrant as a
+secured and backed-up server, secrets kept out of images and code, health checks for both, and a pipeline that tests
+and builds every change.
 
 ---
 
