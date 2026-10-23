@@ -42,7 +42,7 @@ questions from them. Built with **Qdrant** (local mode), **FastAPI**, **LangChai
 │  Qdrant, local mode, on disk     │  ← collection "it_knowledge_base", in qdrant_data/
 │  holds exactly these 28 ids?     │
 │  ├─ yes → reuse them             │     no call to Gemini
-│  └─ no  → empty it, store anew   │     1 call to Gemini: the 28 embeddings
+│  └─ no  → embed, then store anew │     embed_chunks() (1 call to Gemini), then store_vectors()
 └────────────────┬─────────────────┘
                  ↓
 ┌──────────────────────────────────┐
@@ -56,7 +56,8 @@ questions from them. Built with **Qdrant** (local mode), **FastAPI**, **LangChai
 1. **Open Qdrant** → `make_client()`: local mode, inside the app, with its points in `qdrant_data/`
 2. **Load and chunk** → the 10 articles become 28 chunks, each with an id made from its text
 3. **Check what's stored** → if the collection holds exactly these ids, nothing more is done
-4. **Store if needed** → otherwise the old collection is deleted, and the chunks are stored in a new one (one call)
+4. **Embed and store if needed** → otherwise `embed_chunks()` embeds the chunks (one call), then the old collection
+   is deleted, and `store_vectors()` stores them in a new one, each under its id
 5. **Answer** → each question: the 5 closest chunks from Qdrant, then Gemini's answer (2 calls)
 6. **Free the folder** → the API closes Qdrant when the server stops
 
@@ -134,20 +135,21 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 The tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
 
 ```bash
-python -m pytest                     # 59 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 65 passed, 8 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the stored chunks, they check
-that an existing collection is deleted and made new, with none of its old points, on disk too, while one that's
-opened keeps its points; that each chunk gets its own id, always the same one; that adding the same chunks again
-replaces them instead of adding copies; that the first build embeds and stores the 28 chunks, and a later build
-finds them and embeds nothing; that other chunk sizes replace the stored chunks, while an engine with a collection of
-its own keeps its chunks; that another data file can be read; that every setting is passed by name; that the points
-stay on disk; and that the server frees `qdrant_data/` when it stops. For `pipeline.py`, they check that it builds
-the engine, then answers each question; that a second run reuses the stored chunks, in memory and on disk; and that
-no other file runs anything in the terminal.
+that an existing collection is deleted and made new, with none of its old points, on disk too, while one that's opened
+keeps its points; that each chunk gets its own id, always the same one, and is stored under it; that storing the same
+chunks again replaces them instead of adding copies; that the 28 chunks are embedded in one call, and a chunk without
+a vector stops the store; that the first build embeds and stores the 28 chunks, and a later build finds them and
+embeds nothing; that other chunk sizes replace the stored chunks, while an engine with a collection of its own keeps
+its chunks; that a failed embedding leaves the stored chunks as they were; that another data file can be read; that
+every setting is passed by name; that the points stay on disk; and that the server frees `qdrant_data/` when it stops.
+For `pipeline.py`, they check that it builds the engine, then answers each question; that a second run reuses the
+stored chunks, in memory and on disk; and that no other file runs anything in the terminal.
 
-The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
 
 ---
@@ -167,17 +169,21 @@ key = f"it-kb/{chunk.metadata['doc_id']}/{chunk.metadata['start_index']}/{chunk.
 return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 ```
 
-The same chunk always gets the same id. Adding it again replaces the stored point instead of adding a copy, and the
-engine can check whether Qdrant holds exactly these chunks by their ids.
+The same chunk always gets the same id, and `store_vectors()` stores each chunk under it. Storing it again replaces
+the stored point instead of adding a copy, and the engine can check whether Qdrant holds exactly these chunks by
+their ids.
 
 ### 3. Reuse What's Already There
 
 `build()` counts the points in the collection and looks up the 28 ids:
 
 - all of them stored, and nothing else: reuse them, through `open_vector_store()`, with no call to Gemini;
-- anything else (an edited article, other chunk sizes): store the chunks through `make_vector_store()`, which
-  deletes the old collection and makes a new one;
-- no collection yet (the first run): make it, and store them.
+- anything else (an edited article, other chunk sizes): embed the chunks with `embed_chunks()`, then store them
+  with `store_vectors()` in a new collection from `make_vector_store()`, which deletes the old one first;
+- no collection yet (the first run): make it, then embed and store them.
+
+The chunks are embedded before the old collection is deleted, so if the call to Gemini fails, the stored chunks are
+still there.
 
 Only the engine's own collection is checked or deleted: `it_knowledge_base`, unless it's given another. So an
 engine with other chunk sizes can share `qdrant_data/` without replacing these chunks, in a collection of its own:
