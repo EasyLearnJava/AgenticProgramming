@@ -14,8 +14,10 @@ from langchain_qdrant import QdrantVectorStore
 def print_points(store: QdrantVectorStore) -> None:
     """Print the collection's settings, then every point stored in it, in article and place order."""
     collection = store.collection_name
+    # get_collection() comes from qdrant_client's QdrantClient: the collection's settings, such as its vector size
     params = store.client.get_collection(collection).config.params.vectors
     # scroll() returns points in id order, so they're sorted back into article and place order
+    # scroll() comes from qdrant_client's QdrantClient: the stored points, with their vectors if asked
     points, _ = store.client.scroll(collection, limit=100, with_vectors=True)
     points.sort(key=lambda point: (int(point.payload["metadata"]["doc_id"]), point.payload["metadata"]["start_index"]))
     print(f"Collection {collection!r}: {len(points)} points, vectors of {params.size} numbers, "

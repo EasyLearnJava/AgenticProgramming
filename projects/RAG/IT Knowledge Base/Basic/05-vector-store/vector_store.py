@@ -12,6 +12,7 @@ handles:
 Usage (this file only defines these; pipeline.py runs the steps):
     client = make_client()                                ->  Qdrant in local mode, its points in qdrant_data/
     store = make_vector_store(embeddings, size, client)   ->  a new, empty collection, "it_knowledge_base"
+    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
     store.add_documents(chunks)                           ->  the chunks embedded and stored (one call to Gemini)
 """
 from pathlib import Path
@@ -25,26 +26,34 @@ from qdrant_client.models import Distance, Filter, FilterSelector, VectorParams
 COLLECTION = "it_knowledge_base"
 
 # Where Qdrant's local mode saves the points: next to this file, whichever folder the script is run from
+# Path comes from Python's pathlib: resolve() gives this file's full path, and .parent its folder
 QDRANT_PATH = Path(__file__).resolve().parent / "qdrant_data"
 
 
 def make_client(path: str | Path = QDRANT_PATH) -> QdrantClient:
     """Qdrant in local mode: it runs inside this program and saves its points in the folder `path`, made if it's not
     there. Only one program at a time can open the folder."""
+    # QdrantClient comes from qdrant_client: path= runs Qdrant inside this program, its points in that folder
     return QdrantClient(path=str(path))
 
 
 def make_vector_store(embeddings: Embeddings, size: int, client: QdrantClient | None = None,
                       collection: str = COLLECTION) -> QdrantVectorStore:
     """A LangChain QdrantVectorStore on a new, empty collection of `size`-number vectors; in memory if no client."""
+    # QdrantClient comes from qdrant_client: ":memory:" runs Qdrant inside this program, in memory
     client = client if client is not None else QdrantClient(":memory:")
     # Always fresh: a collection already there by this name is deleted, so nothing from before is left in it. Its
     # points go first: on Windows, Qdrant's local mode can't remove the files of a collection it has open, and a new
     # collection by the same name would find the old points in them.
+    # collection_exists() comes from qdrant_client's QdrantClient: whether a collection by this name is there
     if client.collection_exists(collection):
+        # delete(), FilterSelector and Filter come from qdrant_client: delete the points the filter matches
         client.delete(collection, points_selector=FilterSelector(filter=Filter()))   # no rules: every point
+        # delete_collection() comes from qdrant_client's QdrantClient: it removes the collection
         client.delete_collection(collection)
+    # create_collection() and VectorParams come from qdrant_client: a new collection, its vector size and distance
     client.create_collection(collection, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
     # The check would embed a sample text (one more call to Gemini); the collection was just made with the right size
+    # QdrantVectorStore comes from langchain_qdrant: LangChain's vector store on a Qdrant collection
     return QdrantVectorStore(client=client, collection_name=collection, embedding=embeddings,
                              validate_collection_config=False)

@@ -30,10 +30,13 @@ def main(embeddings: Embeddings = embeddings, size: int = EMBEDDING_SIZE, qdrant
     print(f"Step 2: Chunk: {len(chunks)} chunks of at most {CHUNK_SIZE} characters")
     print("Step 3: Embed and store")
     client = make_client(qdrant_path)
+    # Path comes from Python's pathlib: .name is the folder's own name, without the rest of its path
     print(f"Qdrant: local mode, inside this script, saving its points in {Path(qdrant_path).name}/")
     store = make_vector_store(embeddings, size, client)   # a new collection: any old one is deleted
+    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
     store.add_documents(chunks)                    # one call to Gemini: every chunk's embedding
     print_points(store)
+    # close() comes from qdrant_client's QdrantClient: it frees the folder, so another program can open it
     client.close()                                 # the points stay in the folder, and another program can open it
 
 
