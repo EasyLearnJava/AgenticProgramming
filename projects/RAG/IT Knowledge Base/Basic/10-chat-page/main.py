@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from rag_engine import RAGEngine
 
+# getLogger() comes from Python's logging module: the logger by that name
 logger = logging.getLogger("uvicorn.error")        # prints in the same terminal as uvicorn's own messages
 
 engine = RAGEngine()                               # settings only: importing this file reads and calls nothing
@@ -35,19 +36,24 @@ engine = RAGEngine()                               # settings only: importing th
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     engine.build()
+    # info() comes from Python's logging module: a line in the server's log
     logger.info("RAG engine built: %(documents)s articles, %(chunks)s chunks", engine.stats())
     yield
 
 
+# FastAPI() comes from fastapi: the web app; lifespan is our code that runs at start-up
 app = FastAPI(title="IT Knowledge Base", lifespan=lifespan)
 
 # Found next to this file, whichever folder the server was started from
+# Path comes from Python's pathlib: resolve() gives this file's full path, and .parent its folder
 PAGE = Path(__file__).resolve().parent / "index.html"
 
 
 # FastAPI checks each request against QueryIn before the route runs: a bad question gets a 422 and costs nothing
 class QueryIn(BaseModel):
+    # ConfigDict comes from pydantic: settings for this model; here, spaces trimmed from every string
     model_config = ConfigDict(str_strip_whitespace=True)   # "  hi " -> "hi", and "   " -> "" (too short)
+    # Field comes from pydantic: the checks FastAPI makes on each question before the route runs
     question: str = Field(min_length=1, max_length=500)
 
 
@@ -63,26 +69,31 @@ class QueryOut(BaseModel):
     sources: list[Source]
 
 
+# app.get() comes from FastAPI: the function below answers GET requests at this address
 @app.get("/")              # two decorators on one function: the page answers at both addresses
 @app.get("/index.html")
 async def page():
     """The chat page. Served by this same server, so its fetch("/api/query") needs no full address."""
     # no-cache: other projects in this repo use port 8000 too, so a saved copy could be another project's page
+    # FileResponse comes from fastapi: it sends this file as the answer
     return FileResponse(PAGE, headers={"Cache-Control": "no-cache"})
 
 
+# app.get() comes from FastAPI: the function below answers GET requests at this address
 @app.get("/api/health")
 async def health():
     """Answers as soon as the server is up: a quick check that it runs."""
     return {"status": "ok"}
 
 
+# app.get() comes from FastAPI: the function below answers GET requests at this address
 @app.get("/api/stats")
 async def stats():
     """What the engine holds and how it's set up."""
     return engine.stats()
 
 
+# app.post() comes from FastAPI: the function below answers POST requests at this address
 @app.post("/api/query", response_model=QueryOut)
 async def query(body: QueryIn):
     """One question, answered from the knowledge base, with its sources. Two calls to Gemini."""
@@ -90,5 +101,7 @@ async def query(body: QueryIn):
         return await engine.aquery(body.question)
     except Exception as err:
         # The full reason goes to this terminal; the page only learns that Gemini didn't answer.
+        # warning() comes from Python's logging module: a warning line in the server's log
         logger.warning("Gemini call failed: %s", err)
+        # HTTPException comes from fastapi: FastAPI answers with this status code and detail
         raise HTTPException(status_code=502, detail=f"Gemini didn't answer ({type(err).__name__}).") from None

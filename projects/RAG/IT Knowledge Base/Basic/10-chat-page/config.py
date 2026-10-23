@@ -15,6 +15,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # .env is in .gitignore, so the real key never goes into git
+# Path comes from Python's pathlib: with_name() swaps this file's name for .env, in the same folder
 ENV_FILE = Path(__file__).with_name(".env")
 PLACEHOLDER = "your-key-here"            # what .env.example says, before you put your real key in
 
@@ -27,6 +28,7 @@ def load_api_key(env_file: Path = ENV_FILE) -> str:
     """The key, from the environment or the .env file; MissingKeyError if it's missing or still the placeholder."""
     # load_dotenv() doesn't overwrite a variable that's already set, so a key set outside the file wins
     try:
+        # load_dotenv() comes from python-dotenv: it puts the .env file's settings in the environment
         load_dotenv(env_file)
     except UnicodeDecodeError:
         # PowerShell 5's `echo ... > .env` saves the file as UTF-16, which can't be read
@@ -34,6 +36,7 @@ def load_api_key(env_file: Path = ENV_FILE) -> str:
             f"{env_file.name} isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding."
         ) from None
 
+    # getenv() comes from Python's os module: an environment variable's value, or "" when it isn't set
     key = os.getenv("GOOGLE_API_KEY", "").strip()
 
     # Fail fast, with a clear message, rather than later with a confusing error from the first model call

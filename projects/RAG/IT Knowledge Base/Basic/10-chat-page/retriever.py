@@ -25,6 +25,7 @@ QUESTIONS = [  # the course app's sample questions
 
 def make_retriever(store: QdrantVectorStore, k: int = TOP_K) -> VectorStoreRetriever:
     """A retriever whose every invoke() returns the k closest chunks."""
+    # as_retriever() comes from LangChain's VectorStore: a retriever that searches this store
     return store.as_retriever(search_kwargs={"k": k})
 
 
