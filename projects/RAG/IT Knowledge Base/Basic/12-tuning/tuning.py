@@ -49,13 +49,17 @@ def evaluate(embeddings: Embeddings, size: int, eval_set=EVAL_SET, chunk_sizes=C
              top_ks=TOP_KS) -> list[dict]:
     """One row of scores per chunk size, e.g. {"chunk_size": 200, "chunks": 49, "top_1": 8, "top_3": 10, ...}."""
     # The questions are embedded once and reused; each chunk size gets its own in-memory store (one call each)
+    # embed_query() comes from LangChain's Embeddings (Gemini's, here): one text in, one vector out
     question_vectors = [embeddings.embed_query(question) for question, _ in eval_set]
     rows = []
     for chunk_size in chunk_sizes:
         chunks = split_documents(load_documents(), chunk_size, min(CHUNK_OVERLAP, chunk_size // 4))
+        # QdrantClient comes from qdrant_client: ":memory:" runs Qdrant inside this program, in memory
         store = make_vector_store(embeddings, size, QdrantClient(":memory:"))
+        # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
         store.add_documents(chunks)
         # One search per question for the most chunks needed; its first 1, 3 and 5 are checked
+        # similarity_search_by_vector() comes from langchain_qdrant's QdrantVectorStore: the k closest chunks
         found = [[doc.metadata["title"] for doc in store.similarity_search_by_vector(vector, k=max(top_ks))]
                  for vector in question_vectors]
         row = {"chunk_size": chunk_size, "chunks": len(chunks)}
@@ -67,8 +71,11 @@ def evaluate(embeddings: Embeddings, size: int, eval_set=EVAL_SET, chunk_sizes=C
 
 def compare_top_k(question: str, top_ks=(1, 5)) -> dict[int, str]:
     """The same question answered once for each k: with 1 chunk the model may miss part of the fix."""
+    # QdrantClient comes from qdrant_client: ":memory:" runs Qdrant inside this program, in memory
     store = make_vector_store(embeddings, EMBEDDING_SIZE, QdrantClient(":memory:"))
+    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
     store.add_documents(split_documents(load_documents()))
+    # invoke() comes from LangChain's Runnable: it runs the whole chain on one input
     return {k: make_rag_chain(make_retriever(store, k), chat_model).invoke(question)["answer"] for k in top_ks}
 
 
