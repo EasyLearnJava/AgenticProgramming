@@ -116,25 +116,6 @@ into git: never commit it, and never put a real key in `.env.example`.
 python pipeline.py
 ```
 
-It prints Steps 1 and 2 in one line each, then Step 3 in full: how many vectors came back, then every chunk, one line
-each: its article, which characters of the article's text it holds, how many numbers it was converted to, and the
-first 5 of them. The numbers in `< >` come from Gemini:
-
-```text
-Step 1: Read the knowledge base: 10 documents
-Step 2: Chunk: 28 chunks of at most 512 characters
-Step 3: Embed
-28 chunks -> 28 vectors (gemini-embedding-001)
-
-Chunk 1 of 28: VPN Connection Timeout, from character 0 to 457 -> converted to 768 numbers: [<the first 5 numbers>, ...]
-Chunk 2 of 28: VPN Connection Timeout, from character 459 to 569 -> converted to 768 numbers: [<the first 5 numbers>, ...]
-Chunk 3 of 28: MFA Setup Failure, from character 0 to 144 -> converted to 768 numbers: [<the first 5 numbers>, ...]
-...
-Chunk 28 of 28: Microsoft Teams Audio Issues, from character 581 to 699 -> converted to 768 numbers: [<the first 5 numbers>, ...]
-```
-
-The `...` stands for chunks 4 to 27: your terminal shows all 28.
-
 ### Or: Run It in One Command
 
 With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
@@ -146,37 +127,6 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/04-embeddings   # from the 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
 `python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
 in Step 5.
-
----
-
-## 📁 Project Structure
-
-```text
-04-embeddings/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── embed_chunks.py                       # embed_chunks(): Step 3
-├── utils.py                              # print_vectors(): the helper that prints the vectors
-├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
-├── config.py                             # load_api_key(): the key, checked before anything else runs
-├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): Step 1, the 10 articles, text + labels
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # decides once whether the live tests can run
-│   ├── fakes.py                          # stand-ins for Gemini: no key, no network
-│   ├── test_pipeline.py                  # the steps and what they print; nothing else runs
-│   ├── test_embed_chunks.py              # the call to Gemini, and what's sent
-│   ├── test_utils.py                     # what print_vectors() prints
-│   ├── test_models.py                    # the model's settings, and the no-key message
-│   ├── test_chunking.py                  # the chunks
-│   └── test_knowledge_base.py            # the Documents
-├── .env.example                          # copy it to .env and put your key in .env
-├── requirements.txt                      # the packages, pinned to exact versions
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the files, and finds them in tests/
-└── README.md                             # you are here
-```
 
 ---
 
@@ -200,25 +150,6 @@ into a few numbers counted from its words, the same every time. They check:
 The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
 so it can be built, and skips the live tests.
-
----
-
-## 📊 Understanding the Output
-
-The output starts with one line each for Steps 1 and 2, then `Step 3: Embed`, how many vectors came back, and one
-line per chunk:
-
-```text
-Chunk 1 of 28: VPN Connection Timeout, from character 0 to 457 -> converted to 768 numbers: [<the first 5 numbers>, ...]
-```
-
-`from character 0 to 457` is the part of the article's text the chunk holds: it starts at character 0 and ends just
-before character 457, so it's 457 characters long. Chunk 2 holds characters 459 to 569, 110 characters: the blank
-line between them (characters 457 and 458) is in neither chunk. Every chunk, short or long, is converted to the same
-768 numbers.
-
-On their own, the numbers don't tell you anything: what matters is how close two vectors point. Two chunks about the
-same problem get vectors pointing in close directions; two chunks about different things don't.
 
 ---
 
@@ -301,15 +232,7 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
 ---
 
-## 📚 Next Steps
-
-**[05 · Vector Store](../05-vector-store/README.md)**: this project turned the 28 chunks into vectors. 05 stores
-them in Qdrant, a vector database, one point per chunk with its vector, text and labels, saved on disk.
-
-**[Advanced · 04 · Embeddings](../../Advanced/04-embeddings/README.md)** (planned): the same project, production
-grade. Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - In `pipeline.py`, print the length of `vectors[0]` and `vectors[1]`: both 768, though chunk 1 is 457 characters
   and chunk 2 is 110.
