@@ -40,7 +40,7 @@ EVAL_SET: 10 (question, the article that answers it)
 │  └─ each question: the 5 closest       │  ← is its article in the first 1, 3, 5?
 └───────────────────┬────────────────────┘
                     ↓
-     print_table(): one line per chunk size
+     print_table(), in utils.py: one line per chunk size
 
 with --answers:  compare_top_k()  ← one question answered from 1 chunk, then from 5 (2 answers)
 ```
@@ -161,12 +161,13 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 
 ```text
 12-tuning/
-├── tuning.py                             # EVAL_SET, evaluate(), print_table(), compare_top_k()
+├── tuning.py                             # EVAL_SET, evaluate(), compare_top_k()
 ├── docker-compose.yml                    # the Qdrant server: qdrant/qdrant:v1.19.1 on port 6333, data in a volume
 ├── index.html                            # the chat page
 ├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine (build() reuses stored chunks) and print_result()
+├── rag_engine.py                         # RAGEngine: build() reuses stored chunks
+├── utils.py                              # print_result() and print_table(): the helpers that print
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_client(), make_vector_store(), open_vector_store(), chunk_id()

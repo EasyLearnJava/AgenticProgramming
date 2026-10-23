@@ -7,12 +7,11 @@ build() embeds the chunks only when the server doesn't already hold exactly thes
   1. Building: load and split the articles; reuse the stored chunks, or store them in a new collection (one call)
   2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds, how it's set up, and whether it reused the stored chunks
-  4. Printing an answer with its sources
 
 Usage (this file only defines these; pipeline.py runs the steps):
     engine = RAGEngine()                             ->  settings only: nothing is read and no call is made
     engine.build()                                   ->  read and chunk; reuse the stored chunks, or embed and store
-    print_result(question, engine.query(question))   ->  the answer and up to 3 sources (two calls)
+    engine.query(question)                           ->  the answer and up to 3 sources (two calls)
 """
 from pathlib import Path
 
@@ -112,11 +111,3 @@ class RAGEngine:
                 "chunk_size": self.chunk_size, "chunk_overlap": self.chunk_overlap, "top_k": self.top_k,
                 "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL,
                 "reused_stored_chunks": self.reused_stored_chunks}
-
-
-def print_result(question: str, result: dict) -> None:
-    """Print one question, its answer and its sources, then a blank line."""
-    print(f"Q: {question}\nA: {result['answer']}")
-    for source in result["sources"]:
-        print(f"   source: {source['title']} ({source['system']}, {source['category']})")
-    print()

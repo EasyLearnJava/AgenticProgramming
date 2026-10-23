@@ -5,7 +5,7 @@ IT Knowledge Base: Tuning
 Scores the search for different chunk sizes and numbers of chunks (k): for each of 10 test questions, does the search
 find the article that answers it? It handles:
   1. The scores: one row per chunk size, counting the questions whose article is among the 1, 3 and 5 closest chunks
-  2. The table of those scores
+  2. The table of those scores, printed by print_table() (utils.py)
   3. With --answers, one question answered from 1 chunk and from 5, to compare the answers
 
 Everything runs in memory apart from the calls to Gemini: the Qdrant server isn't used or changed.
@@ -24,6 +24,7 @@ from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import make_retriever
+from utils import print_table
 from vector_store import make_vector_store
 
 # Each question with the title of the article that answers it, avoiding the articles' own words where they can
@@ -62,15 +63,6 @@ def evaluate(embeddings: Embeddings, size: int, eval_set=EVAL_SET, chunk_sizes=C
             row[f"top_{k}"] = sum(expected in titles[:k] for (_, expected), titles in zip(eval_set, found))
         rows.append(row)
     return rows
-
-
-def print_table(rows: list[dict], total: int) -> None:
-    """The scores, one line per chunk size."""
-    keys = [key for key in rows[0] if key.startswith("top_")]
-    print("chunk size  chunks  " + "  ".join(f"found in {key.replace('_', ' ')}" for key in keys))
-    for row in rows:
-        cells = "  ".join(f"{row[key]:>2} of {total:<6}" for key in keys)
-        print(f"{row['chunk_size']:>10}  {row['chunks']:>6}  {cells}")
 
 
 def compare_top_k(question: str, top_ks=(1, 5)) -> dict[int, str]:

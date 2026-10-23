@@ -8,7 +8,8 @@ from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
 import tuning
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from tuning import EVAL_SET, evaluate, print_table
+from tuning import EVAL_SET, evaluate
+from utils import print_table
 
 SMALL_SET = [("my vpn keeps dropping", "VPN Connection Timeout"), ("the printer is missing", "Printer Not Found")]
 

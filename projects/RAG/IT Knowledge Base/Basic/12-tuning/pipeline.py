@@ -15,8 +15,9 @@ import sys
 
 from qdrant_client.http.exceptions import ResponseHandlingException
 
-from rag_engine import RAGEngine, print_result
+from rag_engine import RAGEngine
 from retriever import QUESTIONS
+from utils import print_result
 from vector_store import QDRANT_URL
 
 
