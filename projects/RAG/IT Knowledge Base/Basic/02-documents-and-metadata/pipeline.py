@@ -8,7 +8,8 @@ The one file to run: it calls this project's steps in order, and the other files
 Usage:
     python pipeline.py
 """
-from knowledge_base import load_documents, print_documents
+from knowledge_base import load_documents
+from utils import print_documents
 
 
 def main() -> None:

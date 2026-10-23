@@ -1,13 +1,14 @@
 """
 Tests for knowledge_base.py: the CSV file read into 10 Documents, with each article's text and labels kept apart,
-and what print_documents() prints. No key, no network.
+and what print_documents(), in utils.py, prints. No key, no network.
 """
 from pathlib import Path
 
 import pytest
 from langchain_core.documents import Document
 
-from knowledge_base import KB_FILE, KBLoader, load_documents, print_documents
+from knowledge_base import KB_FILE, KBLoader, load_documents
+from utils import print_documents
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 DOCS = load_documents()

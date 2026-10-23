@@ -42,7 +42,7 @@ The title is in both: it's part of what the article says, and it names the artic
                │ 10 Documents
                ↓
 ┌──────────────────────────────┐
-│  print_documents()           │  ← which columns went where, then every Document
+│  print_documents()           │  ← utils.py: which columns went where, then every Document
 └──────────────────────────────┘
 ```
 
@@ -53,7 +53,7 @@ The title is in both: it's part of what the article says, and it names the artic
 3. **Build the text** → `Title: ...`, `Problem: ...`, `Resolution: ...` and `Notes: ...`, a blank line between them
 4. **Build the labels** → `doc_id`, then the title, system, category, priority and tags, as a dictionary
 5. **Convert** → each row becomes a `Document(page_content=text, metadata=labels)`
-6. **Print** → `print_documents()`: which columns went where, then every `Document`
+6. **Print** → `print_documents()`, from `utils.py`: which columns went where, then every `Document`
 
 ---
 
@@ -154,7 +154,8 @@ in Step 4.
 ```text
 02-documents-and-metadata/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── knowledge_base.py                     # KBLoader, load_documents() and print_documents(): Step 1
+├── knowledge_base.py                     # KBLoader and load_documents(): Step 1
+├── utils.py                              # print_documents(): the helper that prints the Documents
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
@@ -162,7 +163,7 @@ in Step 4.
 │   └── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
 ├── requirements.txt                      # langchain-core, pinned to an exact version
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import knowledge_base, and finds them in tests/
+├── pytest.ini                            # lets the tests import the files, and finds them in tests/
 └── README.md                             # you are here
 ```
 
@@ -258,8 +259,8 @@ def main() -> None:
 ```
 
 `pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order.
-`knowledge_base.py` only defines the step, so importing it reads and prints nothing. A new step is one more part of
-`main()`.
+`knowledge_base.py` only defines the step, and `utils.py` the helper that prints its result, so importing them reads
+and prints nothing. A new step is one more part of `main()`.
 
 ---
 

@@ -7,7 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from knowledge_base import load_documents, print_documents
+from knowledge_base import load_documents
+from utils import print_documents
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 
