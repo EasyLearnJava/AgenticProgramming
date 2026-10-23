@@ -13,7 +13,8 @@ from vector_store import COLLECTION, make_client
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 STEPS = ("Step 1: Read the knowledge base: 10 documents\n"
          "Step 2: Chunk: 28 chunks of at most 512 characters\n"
-         "Step 3: Embed and store\n")
+         f"Step 3: Embed: 28 vectors of {SIZE} numbers\n"
+         "Step 4: Store\n")
 
 
 def run(capsys, qdrant_path):

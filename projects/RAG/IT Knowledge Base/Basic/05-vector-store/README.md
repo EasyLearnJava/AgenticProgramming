@@ -13,11 +13,10 @@ with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
 
 - **Makes a collection**, `it_knowledge_base` (Qdrant's word for a table of points), for vectors of 768 numbers
   compared by cosine similarity: how closely two vectors point the same way
-- **Reads and chunks the knowledge base**: `data/sample_it_kb.csv` into 10 articles, then 28 chunks of at most 512
-  characters
-- **Embeds and stores the chunks** through LangChain's `QdrantVectorStore`: `add_documents()` sends the 28 texts to
-  Gemini in one call, and stores each chunk as a point: an id, its vector, and a payload with its text
-  (`page_content`) and its labels (`metadata`)
+- **Reads, chunks and embeds the knowledge base**: `data/sample_it_kb.csv` into 10 articles, then 28 chunks of at
+  most 512 characters, then `embed_chunks()` sends the 28 texts to Gemini in one call, for a vector each
+- **Stores each chunk as a point** with `store_vectors()`: an id, the chunk's vector, and a payload with its text
+  (`page_content`) and its labels (`metadata`). Storing makes no call to Gemini: the vectors are already made
 - **Starts fresh on every run**: it deletes the collection in `qdrant_data/` and stores the chunks again. The points
   get random ids, so without that, every run would add 28 more copies
 - **Prints** where Qdrant keeps the points, the collection's settings, then every stored point, read back from Qdrant
@@ -39,12 +38,18 @@ with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
 │  load_documents()                 │  ← knowledge_base.py: data/sample_it_kb.csv → 10 Documents, text + labels
 │  split_documents()                │  ← chunking.py: 28 chunks of at most 512 characters
 └─────────────────┬─────────────────┘
-                  │ 28 chunks; Step 3: Embed and store
+                  │ 28 chunks; Step 3: Embed
+                  ↓
+┌───────────────────────────────────┐
+│  embed_chunks(chunks, embeddings) │  ← embed_chunks.py: one call to Gemini, 28 vectors of 768 numbers
+└─────────────────┬─────────────────┘
+                  │ 28 vectors; Step 4: Store
                   ↓
 ┌───────────────────────────────────┐
 │  make_vector_store(embeddings,    │  ← vector_store.py: the it_knowledge_base collection,
 │                    768, client)   │     768 numbers, cosine, wrapped in QdrantVectorStore
-│  store.add_documents(chunks)      │  ← one call to Gemini, then 28 points
+│  store_vectors(store, chunks,     │  ← 28 points, each chunk with its vector: no call to Gemini
+│                vectors)           │
 └─────────────────┬─────────────────┘
                   │ 28 points: id + vector + payload (page_content, metadata)
                   ↓
@@ -58,13 +63,14 @@ with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
 
 1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
 2. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
-3. **Open Qdrant** → `make_client()`: local mode, inside the script, saving the points in `qdrant_data/`
-4. **Start fresh** → `make_vector_store()` deletes the collection if it's there (the last run's)
-5. **Make the collection** → then it makes it new: `it_knowledge_base`, 768 numbers per vector, cosine
-6. **Embed and store** → `store.add_documents(chunks)` embeds the 28 texts in one call and stores 28 points
-7. **Read back and print** → `print_points()`, from `utils.py`: the collection's settings, then every point, by
+3. **Embed** → `embed_chunks()` sends the 28 texts to Gemini in one call: 28 vectors of 768 numbers
+4. **Open Qdrant** → `make_client()`: local mode, inside the script, saving the points in `qdrant_data/`
+5. **Start fresh** → `make_vector_store()` deletes the collection if it's there (the last run's)
+6. **Make the collection** → then it makes it new: `it_knowledge_base`, 768 numbers per vector, cosine
+7. **Store** → `store_vectors()` writes 28 points, each chunk with its vector, with no call to Gemini
+8. **Read back and print** → `print_points()`, from `utils.py`: the collection's settings, then every point, by
    article and place
-8. **Close** → `client.close()`: the points stay in the folder, and another program can open it
+9. **Close** → `client.close()`: the points stay in the folder, and another program can open it
 
 ---
 
@@ -141,22 +147,24 @@ it's never committed. Delete it to start over: the next run makes it again. Only
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 23 passed, 2 skipped     (add -v for one line per test)
+python -m pytest                     # 27 passed, 3 skipped     (add -v for one line per test)
 ```
 
 The tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`. Most of them also use
 `tests/fakes.py`'s stand-in for Gemini, so they need no key and no network. They check:
 
-- **The store**: a new collection is empty, cosine, of the right size; storing the chunks makes 28 points in one
-  embedding call; each point holds a vector, the chunk's text and its labels; an existing collection is deleted
-  and made new, with none of its old points, on disk too; points on disk stay after Qdrant is closed; and what
-  `print_points()` prints
-- **The pipeline**: it stores the chunks on disk and never embeds a question; the points stay in the folder, and each
-  run starts fresh; and no other file runs anything
+- **The embeddings**: the 28 chunks are embedded in one call, one vector each, in order, from their text only
+- **The store**: a new collection is empty, cosine, of the right size; storing the vectors makes 28 points with no
+  call to the model, and a chunk without a vector stops it instead of being left out; each point holds a vector,
+  the chunk's text and its labels, and LangChain's store reads them back as the chunks; an existing collection is
+  deleted and made new, with none of its old points, on disk too; points on disk stay after Qdrant is closed; and
+  what `print_points()` prints
+- **The pipeline**: it embeds the chunks once, stores them on disk, and never embeds a question; the points stay in
+  the folder, and each run starts fresh; and no other file runs anything
 - **The model, the chunks and the Documents**: the model's settings and the no-key message; 28 chunks with their
   labels; 10 Documents with their text and labels
 
-The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
+The 3 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
 so it can be built, and skips the live tests.
 
@@ -168,8 +176,12 @@ so it can be built, and skips the live tests.
 
 A collection is a table of points, and each point has three parts: an id, a vector, and a payload. Here the payload
 holds the chunk's text (`page_content`) and its labels (`metadata`), so whatever finds a vector also gets the text and
-labels that go with it. `QdrantVectorStore` is LangChain's wrapper around a collection: give it chunks, and it embeds
-them with the embedding model and stores the points.
+labels that go with it. `QdrantVectorStore` is LangChain's wrapper around a collection.
+
+The vectors are made before the store: `embed_chunks()` in Step 3, then `store_vectors()` in Step 4. LangChain's own
+`add_documents()` would embed the chunks itself, so `store_vectors()` writes the points with Qdrant's `upsert()`
+instead, the text and labels under `page_content` and `metadata`: the names `QdrantVectorStore` reads them from, so
+it reads the points back as the chunks.
 
 ### 2. On Disk or In Memory
 
@@ -184,7 +196,7 @@ runs as a server, `QdrantClient(url=...)`, with the same code.
 
 ### 3. Starting Fresh on Every Run
 
-`QdrantVectorStore` gives each new point a random id. Storing the same 28 chunks twice would make 56 points, so
+`store_vectors()` gives each new point a random id. Storing the same 28 chunks twice would make 56 points, so
 `make_vector_store()` deletes the collection first, if it's there, then makes it new: in `qdrant_data/`, that's the
 last run's collection. It deletes the collection's points before the collection itself: on Windows, Qdrant's local
 mode can't remove the files of a collection it has open, and the new collection would find the old points in them.
@@ -291,11 +303,11 @@ way.
 
 ### 7. One File Runs the Steps
 
-`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 and 2, printing a line each, then Step 3:
-`make_client()` opens Qdrant on disk, `make_vector_store()` and `add_documents()` store the chunks, `print_points()`,
-from `utils.py`, prints them, and `client.close()` frees the folder. The other files only define the steps and that
-helper, so importing them makes no call. The model, its vector size and the folder are parameters of `main()`, so the
-tests pass a stand-in for Gemini and a folder of their own.
+`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4:
+`make_client()` opens Qdrant on disk, `make_vector_store()` makes the collection, `store_vectors()` stores Step 3's
+vectors, `print_points()`, from `utils.py`, prints them, and `client.close()` frees the folder. The other files only
+define the steps and that helper, so importing them makes no call. The model, its vector size and the folder are
+parameters of `main()`, so the tests pass a stand-in for Gemini and a folder of their own.
 
 ### 8. What a Score Means
 

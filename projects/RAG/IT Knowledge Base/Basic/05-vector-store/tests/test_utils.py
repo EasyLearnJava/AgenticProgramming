@@ -5,16 +5,18 @@ stand-in for Gemini (tests/fakes.py), and Qdrant in memory: no key, no network.
 from fakes import SIZE, KeywordEmbeddings
 
 from chunking import split_documents
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from utils import print_points
-from vector_store import make_vector_store
+from vector_store import make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
+VECTORS = embed_chunks(CHUNKS, KeywordEmbeddings())     # a stand-in vector for each chunk, in order
 
 
 def test_print_points_prints_the_collection_then_every_point(capsys):
     store = make_vector_store(KeywordEmbeddings(), SIZE)
-    store.add_documents(CHUNKS)
+    store_vectors(store, CHUNKS, VECTORS)
     print_points(store)
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == f"Collection 'it_knowledge_base': 28 points, vectors of {SIZE} numbers, compared by Cosine"
