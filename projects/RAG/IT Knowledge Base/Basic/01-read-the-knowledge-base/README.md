@@ -90,54 +90,6 @@ pip install -r requirements-dev.txt  # once: langchain-core and pytest, into .ve
 python pipeline.py
 ```
 
-It prints the step's name, then how many documents it read and each one's row and title, then every document in
-full. The start and the end of what you'll see:
-
-```text
-Step 1: Read the knowledge base
-10 documents
-row 0  title: VPN Connection Timeout
-row 1  title: MFA Setup Failure
-row 2  title: Laptop Performance Degradation
-row 3  title: SaaS Access Permission Denied
-row 4  title: WiFi Connectivity Issues Office
-row 5  title: Password Reset Failed
-row 6  title: Printer Not Found
-row 7  title: Email Attachment Size Limit
-row 8  title: Database Connection Timeout
-row 9  title: Microsoft Teams Audio Issues
-
-Document 1 of 10
-Text (page_content):
-title: VPN Connection Timeout
-problem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations
-resolution: 1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.
-system: VPN
-category: Remote Access
-notes: Common issue during peak hours especially for users on home networks. May be related to ISP throttling.
-priority: High
-tags: vpn;timeout;remote;connection
-
-Where it came from (metadata):
-{'source': 'sample_it_kb.csv', 'row': 0}
-
-Document 2 of 10
-Text (page_content):
-title: MFA Setup Failure
-...
-
-Document 10 of 10
-Text (page_content):
-title: Microsoft Teams Audio Issues
-...
-tags: teams;audio;collaboration;windows
-
-Where it came from (metadata):
-{'source': 'sample_it_kb.csv', 'row': 9}
-```
-
-The `...` lines stand for the parts left out here: your terminal shows all 10 documents in full.
-
 ### Or: Run It in One Command
 
 This one command does Steps 2 to 4 for you:
@@ -152,27 +104,6 @@ in Step 4.
 
 ---
 
-## 📁 Project Structure
-
-```text
-01-read-the-knowledge-base/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── knowledge_base.py                     # KBLoader and load_documents(): Step 1, which pipeline.py runs
-├── utils.py                              # print_documents(): the helper that prints the Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── test_knowledge_base.py            # 7 tests: the Documents and the loader
-│   ├── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
-│   └── test_utils.py                     # 2 tests: what print_documents() prints
-├── requirements.txt                      # langchain-core, pinned to an exact version
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import this folder's files, and finds them in tests/
-└── README.md                             # you are here
-```
-
----
-
 ## 🧪 Testing
 
 ```bash
@@ -183,24 +114,6 @@ The tests read the sample file and run `pipeline.py` as its own process: 10 Docu
 order, the metadata, the first one is the VPN article, making the loader reads nothing, `load()` and `lazy_load()`
 agree, the printed output, the same output whichever folder it's started from, that `knowledge_base.py` and
 `utils.py` run on their own print nothing, and what `print_documents()` prints for two Documents, and for none.
-
----
-
-## 📊 Understanding the Output
-
-The output starts with the step's name, `Step 1: Read the knowledge base`, then the count and the titles. Each
-Document has two parts:
-
-```text
-Document 1 of 10
-Text (page_content):                           ← every column, as "column: value" lines
-title: VPN Connection Timeout
-...
-tags: vpn;timeout;remote;connection
-
-Where it came from (metadata):                 ← the file, and the row (0 = the first article)
-{'source': 'sample_it_kb.csv', 'row': 0}
-```
 
 ---
 
@@ -283,17 +196,7 @@ pipeline does with them, not part of reading them, so it lives in `utils.py`. Ea
 
 ---
 
-## 📚 Next Steps
-
-**[02 · Documents and Metadata](../02-documents-and-metadata/README.md)**: this project put every column into a
-Document's text. 02 splits each article into its text (title, problem, resolution, notes) and the labels kept next
-to it (system, category, priority, tags).
-
-**[Advanced · 01 · Read the Knowledge Base](../../Advanced/01-read-the-knowledge-base/README.md)**: this project
-reads the file the way it should be. The advanced one reads it the way it might be: it checks every row, redacts
-sensitive data, removes duplicates, and reports everything it skipped or changed.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Change `KB_FILE` to read a copy of the sample with fewer rows, and see fewer Documents.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only each Document's `metadata`, to see where each one
