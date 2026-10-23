@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>How production RAG reads its data</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#7d8b99"/>
+    </marker>
+    <style>
+      .box { fill: #e8f1fb; stroke: #b4cdea; stroke-width: 1.2; }
+      .live { fill: #eaf6ee; stroke: #a9d3b5; stroke-width: 1.2; }
+      .ask { fill: #ffffff; stroke: #b4cdea; stroke-width: 1.2; stroke-dasharray: 5 4; }
+      .line { fill: none; stroke: #7d8b99; stroke-width: 1.4; }
+      .title { font-size: 15px; font-weight: 600; fill: #12406b; }
+      .liveTitle { font-size: 15px; font-weight: 600; fill: #1d5a32; }
+      .sub { font-size: 12px; fill: #45607a; }
+      .liveSub { font-size: 12px; fill: #3c6b4a; }
+      .lane { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; fill: #7d8b99; }
+    </style>
+  </defs>
+  <rect x="10" y="10" width="980" height="980" rx="14" fill="#ffffff" stroke="#d9dee5"/>
+  <text x="40" y="52" font-size="21" font-weight="700" fill="#1b2733">How production RAG reads its data</text>
+  <text x="40" y="76" font-size="13" fill="#5b6b7b">Three ways to notice what changed, before any question; and a fourth way that reads at question time</text>
+  <line x1="680" y1="96" x2="680" y2="800" stroke="#e3e8ee" stroke-width="1.5"/>
+
+  <!-- Left lane: ingestion -->
+  <text x="40" y="112" class="lane">BEFORE ANY QUESTION: INGESTION</text>
+  <rect x="60" y="124" width="560" height="60" rx="10" class="box"/>
+  <text x="340" y="149" text-anchor="middle" class="title">Data sources</text>
+  <text x="340" y="170" text-anchor="middle" class="sub">Files · Salesforce · SharePoint · databases · APIs · streams · websites</text>
+  <path d="M340 184V210" class="line" marker-end="url(#arrow)"/>
+  <rect x="200" y="212" width="280" height="42" rx="10" class="ask"/>
+  <text x="340" y="238" text-anchor="middle" class="title">How do you learn what changed?</text>
+  <path d="M340 254V272M130 272H550M130 272V294M340 272V294M550 272V294" class="line"/>
+  <path d="M130 288V296" class="line" marker-end="url(#arrow)"/>
+  <path d="M340 288V296" class="line" marker-end="url(#arrow)"/>
+  <path d="M550 288V296" class="line" marker-end="url(#arrow)"/>
+  <rect x="35" y="298" width="190" height="86" rx="10" class="box"/>
+  <text x="130" y="324" text-anchor="middle" class="title">Read it all</text>
+  <text x="130" y="346" text-anchor="middle" class="sub">first load, a rebuild,</text>
+  <text x="130" y="364" text-anchor="middle" class="sub">the nightly reconcile</text>
+  <rect x="245" y="298" width="190" height="86" rx="10" class="box"/>
+  <text x="340" y="324" text-anchor="middle" class="title">Ask on a schedule</text>
+  <text x="340" y="346" text-anchor="middle" class="sub">polling: what changed</text>
+  <text x="340" y="364" text-anchor="middle" class="sub">since the last run?</text>
+  <rect x="455" y="298" width="190" height="86" rx="10" class="box"/>
+  <text x="550" y="324" text-anchor="middle" class="title">Be told</text>
+  <text x="550" y="346" text-anchor="middle" class="sub">webhooks · CDC · streams</text>
+  <text x="550" y="364" text-anchor="middle" class="sub">a user's upload</text>
+  <path d="M130 384V404H550M550 384V404M340 384V420" class="line"/>
+  <path d="M340 410V424" class="line" marker-end="url(#arrow)"/>
+  <rect x="140" y="426" width="400" height="56" rx="10" class="box"/>
+  <text x="340" y="449" text-anchor="middle" class="title">Normalize into Documents</text>
+  <text x="340" y="469" text-anchor="middle" class="sub">stable id · text · metadata · permissions · version</text>
+  <path d="M340 482V504" class="line" marker-end="url(#arrow)"/>
+  <rect x="160" y="506" width="360" height="52" rx="10" class="box"/>
+  <text x="340" y="528" text-anchor="middle" class="title">Check, redact, parse and chunk</text>
+  <text x="340" y="547" text-anchor="middle" class="sub">only the documents whose content changed</text>
+  <path d="M340 558V580" class="line" marker-end="url(#arrow)"/>
+  <rect x="160" y="582" width="360" height="52" rx="10" class="box"/>
+  <text x="340" y="604" text-anchor="middle" class="title">Embedding model</text>
+  <text x="340" y="623" text-anchor="middle" class="sub">batched · rate-limited · cached by content hash</text>
+  <path d="M340 634V656" class="line" marker-end="url(#arrow)"/>
+  <rect x="160" y="658" width="360" height="56" rx="10" class="box"/>
+  <text x="340" y="681" text-anchor="middle" class="title">Vector database</text>
+  <text x="340" y="701" text-anchor="middle" class="sub">upsert by id · delete what's gone from the source</text>
+  <path d="M340 714V746" class="line" marker-end="url(#arrow)"/>
+  <rect x="160" y="748" width="360" height="52" rx="10" class="box"/>
+  <text x="340" y="770" text-anchor="middle" class="title">Retrieve chunks</text>
+  <text x="340" y="789" text-anchor="middle" class="sub">the closest, filtered to what this user may see</text>
+
+  <!-- Right lane: question time -->
+  <text x="700" y="112" class="lane">AT QUESTION TIME</text>
+  <rect x="710" y="124" width="250" height="60" rx="10" class="live"/>
+  <text x="835" y="149" text-anchor="middle" class="liveTitle">A user's question</text>
+  <text x="835" y="170" text-anchor="middle" class="liveSub">and who is asking</text>
+  <path d="M835 184V296" class="line" marker-end="url(#arrow)"/>
+  <rect x="710" y="298" width="250" height="86" rx="10" class="live"/>
+  <text x="835" y="324" text-anchor="middle" class="liveTitle">Read live values</text>
+  <text x="835" y="346" text-anchor="middle" class="liveSub">API · SQL · the source's own search</text>
+  <text x="835" y="364" text-anchor="middle" class="liveSub">as the user: never stale, never embedded</text>
+  <path d="M720 184V196H680V774H524" class="line" marker-end="url(#arrow)"/>
+  <path d="M835 384V846" class="line" marker-end="url(#arrow)"/>
+
+  <!-- Both lanes meet in the prompt -->
+  <path d="M340 800V846" class="line" marker-end="url(#arrow)"/>
+  <rect x="200" y="848" width="720" height="56" rx="10" class="box"/>
+  <text x="560" y="871" text-anchor="middle" class="title">Prompt: the chunks + the live values + the question  →  LLM</text>
+  <text x="560" y="891" text-anchor="middle" class="sub">an answer that names its sources</text>
+
+  <!-- Takeaway strip -->
+  <rect x="10" y="924" width="980" height="66" fill="#f3f6f9"/>
+  <path d="M10 924H990" stroke="#d9dee5"/>
+  <text x="40" y="951" font-size="13.5" fill="#1b2733"><tspan font-weight="700">Takeaway: </tspan>read it all, ask on a schedule, or be told: those three keep the vector store up to date.</text>
+  <text x="40" y="972" font-size="13.5" fill="#1b2733">Exact values that change by the minute (prices, balances, ticket status) are read live at question time, as the user.</text>
+</svg>

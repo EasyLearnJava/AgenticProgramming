@@ -15,7 +15,7 @@ LlamaIndex, Gemini in place of OpenAI, and a plain HTML page served by FastAPI i
 
 ## The projects
 
-The projects come in three levels:
+The projects come in four levels:
 
 - **`Entry/`**: the idea in three short Jupyter notebooks, before any of the app, with small models that run on the
   CPU, and Chroma. No API key.
@@ -23,6 +23,8 @@ The projects come in three levels:
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
   and reports it. 01 is built; 02 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
+- **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
+  [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
 
 Each Basic and Advanced folder is a project of its own: it holds the app as built so far plus one new piece, runs on
 its own, and has its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk,

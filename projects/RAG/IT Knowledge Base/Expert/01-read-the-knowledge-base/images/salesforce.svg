@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="900" viewBox="0 0 1000 900" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Salesforce RAG architecture</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#7d8b99"/>
+    </marker>
+    <style>
+      .box { fill: #e8f1fb; stroke: #b4cdea; stroke-width: 1.2; }
+      .sf { fill: #e6f3fb; stroke: #8cc3e6; stroke-width: 1.4; }
+      .code { fill: #eef1fa; stroke: #b9c3e3; stroke-width: 1.2; }
+      .store { fill: #e9f5ec; stroke: #a9d3b5; stroke-width: 1.2; }
+      .live { fill: #eaf6ee; stroke: #a9d3b5; stroke-width: 1.2; }
+      .net { fill: #fff7e8; stroke: #ecd29a; stroke-width: 1.2; }
+      .line { fill: none; stroke: #7d8b99; stroke-width: 1.4; }
+      .title { font-size: 15px; font-weight: 600; fill: #12406b; }
+      .sub { font-size: 12px; fill: #45607a; }
+      .greenTitle { font-size: 15px; font-weight: 600; fill: #1d5a32; }
+      .greenSub { font-size: 12px; fill: #3c6b4a; }
+      .netTitle { font-size: 15px; font-weight: 600; fill: #7a5410; }
+      .netSub { font-size: 12px; fill: #7d6431; }
+    </style>
+  </defs>
+  <rect x="10" y="10" width="980" height="880" rx="14" fill="#ffffff" stroke="#d9dee5"/>
+  <text x="40" y="52" font-size="21" font-weight="700" fill="#1b2733">Salesforce RAG architecture</text>
+  <text x="40" y="76" font-size="13" fill="#5b6b7b">Load once in bulk, then stream every change; read the values that change by the minute live</text>
+
+  <!-- Salesforce -->
+  <rect x="230" y="100" width="540" height="70" rx="12" class="sf"/>
+  <path d="M478 121a9 9 0 0 1 17-3a8 8 0 0 1 13 6a6 6 0 0 1-1 12h-28a7 7 0 0 1-1-15z" fill="none" stroke="#2b7bb9" stroke-width="1.6" transform="translate(-60 0)"/>
+  <text x="510" y="132" text-anchor="middle" font-size="17" font-weight="700" fill="#12406b">Salesforce</text>
+  <text x="500" y="156" text-anchor="middle" class="sub">Knowledge articles · Cases · Accounts · Opportunities · Contracts · Files</text>
+
+  <!-- Three ways in -->
+  <path d="M500 170V190M185 190H815M185 190V212M500 190V212M815 190V212" class="line"/>
+  <path d="M185 206V214" class="line" marker-end="url(#arrow)"/>
+  <path d="M500 206V214" class="line" marker-end="url(#arrow)"/>
+  <path d="M815 206V214" class="line" marker-end="url(#arrow)"/>
+  <rect x="40" y="216" width="290" height="92" rx="10" class="box"/>
+  <text x="185" y="242" text-anchor="middle" class="title">Initial load</text>
+  <text x="185" y="264" text-anchor="middle" class="sub">Bulk API 2.0 · SOQL</text>
+  <text x="185" y="283" text-anchor="middle" class="sub">once, and again to rebuild</text>
+  <rect x="355" y="216" width="290" height="92" rx="10" class="box"/>
+  <text x="500" y="242" text-anchor="middle" class="title">Live changes</text>
+  <text x="500" y="264" text-anchor="middle" class="sub">Change Data Capture, over the Pub/Sub API</text>
+  <text x="500" y="283" text-anchor="middle" class="sub">create · update · delete · undelete, with a replay ID</text>
+  <rect x="670" y="216" width="290" height="92" rx="10" class="net"/>
+  <text x="815" y="242" text-anchor="middle" class="netTitle">Safety net</text>
+  <text x="815" y="264" text-anchor="middle" class="netSub">nightly: compare Ids and SystemModstamp</text>
+  <text x="815" y="283" text-anchor="middle" class="netSub">events are kept only 72 hours</text>
+
+  <!-- Python + LangChain -->
+  <path d="M185 308V328H815M815 308V328M500 308V350" class="line"/>
+  <path d="M500 340V352" class="line" marker-end="url(#arrow)"/>
+  <rect x="120" y="354" width="760" height="92" rx="12" class="code"/>
+  <text x="500" y="381" text-anchor="middle" font-size="16" font-weight="700" fill="#24336b">Python + LangChain</text>
+  <text x="500" y="404" text-anchor="middle" class="sub">read → normalize → check and redact → chunk → embed</text>
+  <text x="500" y="424" text-anchor="middle" class="sub">upsert by record Id · delete on DELETE events · skip what didn't change (content hash)</text>
+
+  <!-- Stores -->
+  <path d="M330 446V478" class="line" marker-end="url(#arrow)"/>
+  <path d="M710 446V478" class="line" marker-end="url(#arrow)"/>
+  <rect x="120" y="480" width="420" height="70" rx="12" class="store"/>
+  <text x="330" y="507" text-anchor="middle" class="greenTitle">Vector database</text>
+  <text x="330" y="529" text-anchor="middle" class="greenSub">searchable, up-to-date embeddings, each with its record Id,</text>
+  <text x="330" y="545" text-anchor="middle" class="greenSub">owner and sharing labels</text>
+  <rect x="580" y="480" width="300" height="70" rx="12" class="store"/>
+  <text x="730" y="507" text-anchor="middle" class="greenTitle">State store</text>
+  <text x="730" y="529" text-anchor="middle" class="greenSub">last replay ID · watermarks · content hashes</text>
+
+  <!-- Question time -->
+  <path d="M330 550V588" class="line" marker-end="url(#arrow)"/>
+  <rect x="120" y="590" width="420" height="62" rx="10" class="box"/>
+  <text x="330" y="616" text-anchor="middle" class="title">Retrieve chunks</text>
+  <text x="330" y="637" text-anchor="middle" class="sub">filtered to the records this user may see</text>
+  <path d="M770 135H975V621H882" class="line" marker-end="url(#arrow)"/>
+  <rect x="580" y="590" width="300" height="62" rx="10" class="live"/>
+  <text x="730" y="616" text-anchor="middle" class="greenTitle">Live values, at question time</text>
+  <text x="730" y="637" text-anchor="middle" class="greenSub">REST or SOQL, as the user</text>
+  <path d="M330 652V690" class="line" marker-end="url(#arrow)"/>
+  <path d="M730 652V690" class="line" marker-end="url(#arrow)"/>
+  <rect x="120" y="692" width="760" height="62" rx="12" class="box"/>
+  <text x="500" y="718" text-anchor="middle" class="title">Prompt: the chunks + the live values + the question  →  LLM</text>
+  <text x="500" y="739" text-anchor="middle" class="sub">an answer that cites the articles and records it used</text>
+
+  <!-- Takeaway strip -->
+  <rect x="10" y="780" width="980" height="110" fill="#f3f6f9"/>
+  <path d="M10 780H990" stroke="#d9dee5"/>
+  <text x="40" y="810" font-size="13.5" fill="#1b2733"><tspan font-weight="700">Takeaway: </tspan>bulk-load once, then let Change Data Capture send every create, update, delete and undelete.</text>
+  <text x="40" y="832" font-size="13.5" fill="#1b2733">Reconcile every night, since an event missed for more than 72 hours is gone. Never embed an Opportunity amount</text>
+  <text x="40" y="854" font-size="13.5" fill="#1b2733">or a credit limit: read it live, as the user, so Salesforce's sharing rules decide what they see.</text>
+</svg>
