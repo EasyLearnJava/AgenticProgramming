@@ -171,9 +171,10 @@ in Step 4. A chunk size at the end of the command goes to `pipeline.py`: `... Ba
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
-│   ├── test_chunking.py                  # 8 tests: the chunks, their sizes, labels and breaks, what's printed
+│   ├── test_chunking.py                  # 7 tests: the chunks, their sizes, labels and breaks
 │   ├── test_knowledge_base.py            # 4 tests: the Documents, their text and labels
-│   └── test_pipeline.py                  # 4 tests: the output, a chunk size, any folder; nothing else runs
+│   ├── test_pipeline.py                  # 4 tests: the output, a chunk size, any folder; nothing else runs
+│   └── test_utils.py                     # 1 test: what print_chunks() prints
 ├── requirements.txt                      # langchain-core and langchain-text-splitters, pinned
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
 ├── pytest.ini                            # lets the tests import the files, and finds them in tests/
