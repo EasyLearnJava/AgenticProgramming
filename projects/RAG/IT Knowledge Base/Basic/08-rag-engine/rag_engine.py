@@ -46,6 +46,7 @@ class RAGEngine:
                  data_path: str | Path = KB_FILE, collection: str = COLLECTION,
                  chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, top_k: int = TOP_K):
         self.embeddings, self.model, self.embedding_size, self.client = embeddings, model, embedding_size, client
+        # Path comes from Python's pathlib: a file path that works the same on every system
         self.data_path, self.collection = Path(data_path), collection
         self.chunk_size, self.chunk_overlap, self.top_k = chunk_size, chunk_overlap, top_k
         self.documents, self.chunks = [], []
@@ -56,11 +57,13 @@ class RAGEngine:
         self.documents = load_documents(self.data_path)
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
         store = make_vector_store(self.embeddings, self.embedding_size, self.client, self.collection)
+        # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
         store.add_documents(self.chunks)
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
     def query(self, question: str) -> dict:
         """Answer one question: {"answer": ..., "sources": [...]}."""
+        # invoke() comes from LangChain's Runnable: it runs the whole chain on one input
         return self._with_sources(self._built_chain().invoke(question))
 
     def _built_chain(self) -> Runnable:
