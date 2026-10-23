@@ -96,45 +96,6 @@ pip install -r requirements-dev.txt  # once: langchain-core and pytest, into .ve
 python pipeline.py
 ```
 
-It prints the step's name, then how many documents it read, and which columns went into the text and which into the
-labels. Then it prints every document in full: a heading, its text, then its labels. The start and the end of what
-you'll see:
-
-```text
-Step 1: Read the knowledge base
-10 documents
-text:     title, problem, resolution, notes
-metadata: doc_id, title, system, category, priority, tags
-
-Document 1 of 10
-Text (page_content):
-Title: VPN Connection Timeout
-
-Problem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations
-
-Resolution: 1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.
-
-Notes: Common issue during peak hours especially for users on home networks. May be related to ISP throttling.
-
-Labels (metadata):
-{'doc_id': '0', 'title': 'VPN Connection Timeout', 'system': 'VPN', 'category': 'Remote Access', 'priority': 'High', 'tags': 'vpn;timeout;remote;connection'}
-
-Document 2 of 10
-Text (page_content):
-Title: MFA Setup Failure
-...
-
-Document 10 of 10
-Text (page_content):
-Title: Microsoft Teams Audio Issues
-...
-
-Labels (metadata):
-{'doc_id': '9', 'title': 'Microsoft Teams Audio Issues', 'system': 'Microsoft Teams', 'category': 'Collaboration', 'priority': 'Medium', 'tags': 'teams;audio;collaboration;windows'}
-```
-
-The `...` lines stand for the parts left out here: your terminal shows all 10 documents in full.
-
 ### Or: Run It in One Command
 
 This one command does Steps 2 to 4 for you:
@@ -149,34 +110,6 @@ in Step 4.
 
 ---
 
-## 📁 Project Structure
-
-```text
-02-documents-and-metadata/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── knowledge_base.py                     # KBLoader and load_documents(): Step 1
-├── utils.py                              # print_documents(): the helper that prints the Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── test_knowledge_base.py            # 4 tests: the Documents, their text and labels
-│   ├── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
-│   └── test_utils.py                     # 1 test: what print_documents() prints
-├── requirements.txt                      # langchain-core, pinned to an exact version
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the files, and finds them in tests/
-└── README.md                             # you are here
-```
-
-In `knowledge_base.py`, two lists decide where each column goes:
-
-| Name | Columns | Where they go |
-|---|---|---|
-| `TEXT_COLUMNS` | title, problem, resolution, notes | the Document's text (`page_content`) |
-| `METADATA_COLUMNS` | title, system, category, priority, tags | the Document's labels (`metadata`), after `doc_id` |
-
----
-
 ## 🧪 Testing
 
 ```bash
@@ -187,30 +120,6 @@ The tests read the sample file and run `pipeline.py` as its own process: 10 Docu
 problem, resolution and notes in that order; the labels are in `metadata` and not in the text; making the loader
 reads nothing until `load()`; the exact printed output, the same whichever folder `pipeline.py` is started from; and
 that no other file runs anything.
-
----
-
-## 📊 Understanding the Output
-
-The output starts with the step's name, `Step 1: Read the knowledge base`, then the split and the documents. Each
-Document has two parts:
-
-```text
-Document 1 of 10
-Text (page_content):                           ← title, problem, resolution and notes, each with its label
-Title: VPN Connection Timeout
-
-Problem: Users experience timeout errors ...
-
-Resolution: 1. Verify internet connection stability. ...
-
-Notes: Common issue during peak hours ...
-
-Labels (metadata):                             ← the article's number, then the facts about it
-{'doc_id': '0', 'title': 'VPN Connection Timeout', 'system': 'VPN', 'category': 'Remote Access', 'priority': 'High', 'tags': 'vpn;timeout;remote;connection'}
-```
-
-`doc_id` is the article's place in the file, counted from 0, as text: `'0'` is the first article and `'9'` the last.
 
 ---
 
@@ -279,15 +188,7 @@ and prints nothing. A new step is one more part of `main()`.
 
 ---
 
-## 📚 Next Steps
-
-**[03 · Chunking](../03-chunking/README.md)**: this project made one Document per article. 03 cuts each article into
-smaller pieces, chunks of at most 512 characters, each with its article's labels.
-
-**[Advanced · 02 · Documents and Metadata](../../Advanced/02-documents-and-metadata/README.md)** (planned): the same
-project, production grade. Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Move `"priority"` from `METADATA_COLUMNS` to `TEXT_COLUMNS`, and see it appear in the text instead of the labels.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only `doc.metadata["system"]` for each Document, to list the
