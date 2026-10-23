@@ -12,8 +12,9 @@ Usage:
 """
 import sys
 
-from rag_engine import RAGEngine, print_result
+from rag_engine import RAGEngine
 from retriever import QUESTIONS
+from utils import print_result
 
 
 # The tests pass an engine with stand-ins for Gemini

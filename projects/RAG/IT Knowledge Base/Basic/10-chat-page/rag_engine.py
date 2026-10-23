@@ -7,12 +7,11 @@ answers each question with its sources. It handles:
   1. Building: load and split the articles, embed and store the chunks, make the chain (one call to Gemini)
   2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
   3. Stats: what the engine holds and how it's set up
-  4. Printing an answer with its sources
 
 Usage (this file only defines these; pipeline.py runs the steps):
     engine = RAGEngine()                             ->  settings only: nothing is read and no call is made
     engine.build()                                   ->  read, chunk, embed and store (one call to Gemini)
-    print_result(question, engine.query(question))   ->  the answer and up to 3 sources (two calls)
+    engine.query(question)                           ->  the answer and up to 3 sources (two calls)
 """
 from pathlib import Path
 
@@ -93,11 +92,3 @@ class RAGEngine:
         return {"documents": len(self.documents), "chunks": len(self.chunks), "collection": self.collection,
                 "chunk_size": self.chunk_size, "chunk_overlap": self.chunk_overlap, "top_k": self.top_k,
                 "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL}
-
-
-def print_result(question: str, result: dict) -> None:
-    """Print one question, its answer and its sources, then a blank line."""
-    print(f"Q: {question}\nA: {result['answer']}")
-    for source in result["sources"]:
-        print(f"   source: {source['title']} ({source['system']}, {source['category']})")
-    print()

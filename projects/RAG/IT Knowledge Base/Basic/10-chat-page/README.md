@@ -143,7 +143,8 @@ server. Then open the page as in Step 6.
 ├── index.html                            # the chat page: the stats line, the question box, the answers
 ├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
 ├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats(); print_result()
+├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats()
+├── utils.py                              # print_result(): the helper that prints an answer and its sources
 ├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
 ├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
 ├── vector_store.py                       # make_vector_store(): Qdrant, in memory
