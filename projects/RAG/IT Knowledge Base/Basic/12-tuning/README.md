@@ -106,28 +106,6 @@ python tuning.py                     # the table
 python tuning.py --answers           # the table, then one question answered from 1 chunk and from 5
 ```
 
-`python tuning.py` prints a table with one line per chunk size: how many chunks it made, and how many of the 10
-questions found their article in the top 1, 3 and 5 chunks. Here `n` stands for those counts, which come from Gemini:
-
-```text
-10 questions, each with the article that answers it.
-
-chunk size  chunks  found in top 1  found in top 3  found in top 5
-       200      49   n of 10       n of 10       n of 10
-       512      28   n of 10       n of 10       n of 10
-      1000      10   n of 10       n of 10       n of 10
-```
-
-With `--answers`, the two answers follow the table. The parts in `< >` come from Gemini:
-
-```text
---- 'My VPN keeps dropping when I work from home', answered from 1 chunk:
-<Gemini's answer>
-
---- 'My VPN keeps dropping when I work from home', answered from 5 chunks:
-<Gemini's answer>
-```
-
 ### Step 6: Run the App (Optional)
 
 The engine, the API and the chat page keep their chunks in `qdrant_data/`:
@@ -154,39 +132,6 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 
 ---
 
-## 📁 Project Structure
-
-```text
-12-tuning/
-├── tuning.py                             # EVAL_SET, evaluate(), compare_top_k()
-├── index.html                            # the chat page
-├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
-├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine: build() reuses stored chunks
-├── utils.py                              # print_result() and print_table(): the helpers that print
-├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
-├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_client(), make_vector_store(), open_vector_store(), chunk_id()
-├── models.py                             # the Gemini models: the embedding model and the chat model
-├── config.py                             # load_api_key(): the key from .env, checked before anything else
-├── chunking.py                           # split_documents(): chunks of at most 512 characters, by default
-├── knowledge_base.py                     # load_documents(): the 10 articles as Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # skips the live tests when there's no key
-│   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
-│   └── test_*.py                         # one test file per module
-├── qdrant_data/                          # made by the first run: the stored chunks, on disk (in .gitignore)
-├── .env.example                          # copy it to .env: your key
-├── requirements.txt                      # the packages, pinned to exact versions
-├── requirements-dev.txt                  # requirements.txt plus pytest and httpx2, for the tests
-├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
-└── README.md                             # you are here
-```
-
----
-
 ## 🧪 Testing
 
 The tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
@@ -204,31 +149,6 @@ the terminal.
 
 The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
-
----
-
-## 📊 Understanding the Output
-
-```text
-chunk size  chunks  found in top 1  found in top 3  found in top 5
-       200      49   n of 10       n of 10       n of 10
-       │        │    └─ how many of the 10 questions had their article in the closest chunk, the 3 closest, the 5
-       │        └─ how many chunks that size made from the 10 articles
-       └─ the largest a chunk may be, in characters
-```
-
-- **Smaller chunks** each hold less of an article, so a question can match one part closely, but an article's answer
-  may be spread over several chunks.
-- **Bigger chunks** hold more context; at 1000 characters every article fits in one chunk, so there are 10.
-- **A bigger k** gives the question more chances to find its article: `found in top 5` is never lower than
-  `found in top 1`.
-
-`--answers` shows the other side of k: with 1 chunk the model may miss part of the fix; with 5 it has more to go on,
-and more to sort through.
-
-`tuning.py` makes 13 calls to Gemini: one for each question and one for each chunk size. `--answers` adds 5 more: 3
-embeddings (the chunks once, the question for each answer) and 2 answers. Everything in `tuning.py` runs in memory:
-it doesn't touch the chunks stored in `qdrant_data/`.
 
 ---
 
@@ -278,12 +198,7 @@ kept in `qdrant_data/` stay as they are.
 
 ---
 
-## 📚 Next Steps
-
-**[Advanced · 12 · Tuning](../../Advanced/12-tuning/README.md)** (planned): the same project, production grade. Its
-README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Add 300 to `CHUNK_SIZES` in `tuning.py`, and see where it lands in the table.
 - Reword one question in `EVAL_SET` to use its article's own words, and see whether it's found in the top 1 more
