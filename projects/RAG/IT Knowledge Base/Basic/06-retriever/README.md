@@ -11,7 +11,8 @@ retriever does both in one call. Built with **LangChain**, **Qdrant** (in memory
 
 ## 🎯 What This Project Does
 
-- **Stores the knowledge base** in Qdrant, in memory: the 28 chunks of the 10 articles, embedded in one call
+- **Stores the knowledge base** in Qdrant, in memory: the 28 chunks of the 10 articles, embedded in one call, then
+  stored with their vectors
 - **Embeds the question** with `embed_query()`: 768 numbers, made by the same model as the chunks, so the two can be
   compared. It tells Gemini this text is a question looking for documents (`RETRIEVAL_QUERY`)
 - **Searches**: Qdrant compares the question's vector with the 28 stored vectors and gives back the 5 closest chunks,
@@ -31,14 +32,15 @@ retriever does both in one call. Built with **LangChain**, **Qdrant** (in memory
 ```text
 pipeline.py: main(), the one file to run, calls each step in order:
 data/sample_it_kb.csv  →  10 articles  →  28 chunks         ← Steps 1 and 2: read, then chunk
-                                              │ Step 3: Embed and store
+                                              │ Steps 3 and 4: Embed, then store
                                               ↓
 ┌──────────────────────────────────────────────────┐
+│  embed_chunks(chunks, embeddings)                │  ← embed_chunks.py: the 28 chunks embedded (call 1)
 │  make_vector_store(embeddings, 768)              │  ← vector_store.py: Qdrant in memory, cosine
-│  store.add_documents(chunks)                     │     the 28 chunks embedded and stored (call 1)
+│  store_vectors(store, chunks, vectors)           │     28 points, each chunk with its vector
 └────────────────────────┬─────────────────────────┘
                          │
-a question ──────────────┤ Step 4: Retrieve
+a question ──────────────┤ Step 5: Retrieve
                          ↓
 ┌──────────────────────────────────────────────────┐
 │  embeddings.embed_query(question)                │  ← 768 numbers for the question (call 2)
@@ -55,7 +57,8 @@ a question ──────────────┤ Step 4: Retrieve
 ### The Pipeline in This Project
 
 1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
-2. **Store** → the 28 chunks embedded in one call and stored in an in-memory Qdrant collection
+2. **Embed and store** → `embed_chunks()` embeds the 28 chunks in one call, and `store_vectors()` stores them with
+   their vectors in an in-memory Qdrant collection
 3. **Embed the question** → `embed_query()`: 768 numbers, from the same model
 4. **Search** → Qdrant compares the question's vector with every stored one and keeps the 5 closest, with scores
 5. **Retrieve** → `make_retriever(store).invoke(question)` does steps 3 and 4 in one call
@@ -137,7 +140,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basi
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 27 passed, 3 skipped     (add -v for one line per test)
+python -m pytest                     # 31 passed, 4 skipped     (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
@@ -150,10 +153,12 @@ points closest to the VPN chunks, the same every time. They check:
   what `print_retrieval()` prints
 - **The pipeline**: it embeds the chunks, then the question by hand, then through the retriever; it takes a question
   of your own; and no other file runs anything
-- **The store, the model, the chunks and the Documents**: 28 points with their vectors, text and labels, stored in
-  one embedding call; the model's settings and the no-key message; 28 chunks; 10 Documents
+- **The embeddings, the store, the model, the chunks and the Documents**: the 28 chunks embedded in one call, one
+  vector each; 28 points with their vectors, text and labels, stored with no call to the model, and read back as the
+  chunks; a chunk without a vector stops the store; the model's settings and the no-key message; 28 chunks; 10
+  Documents
 
-The 3 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
+The 4 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
 so it can be built, and skips the live tests.
 
@@ -202,7 +207,7 @@ article's title, so the source of every part stays visible.
 
 ### 5. One File Runs the Steps
 
-`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4,
+`pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 4, printing a line each, then Step 5,
 the search by hand and with the retriever, and `print_retrieval()`, from `utils.py`, prints it. The other files
 only define the steps and that helper, so importing them makes no call. The question, the model and its vector size
 are parameters of `main()`, so the tests pass a stand-in for Gemini.

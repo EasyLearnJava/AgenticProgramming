@@ -5,8 +5,9 @@ IT Knowledge Base: The Pipeline
 The one file to run: it calls this project's steps in order, and the other files only define them. It handles:
   1. Step 1: reading the knowledge base into Documents
   2. Step 2: cutting them into chunks
-  3. Step 3: embedding and storing them in Qdrant, in memory (one call to Gemini)
-  4. Step 4: the chunks closest to a question, searched by hand and with the retriever (two calls), then printed
+  3. Step 3: embedding them (one call to Gemini)
+  4. Step 4: storing them in Qdrant, in memory, with their vectors
+  5. Step 5: the chunks closest to a question, searched by hand and with the retriever (two calls), then printed
 
 Usage:
     python pipeline.py                      # each step for "How do I fix VPN connection timeouts?"
@@ -17,11 +18,12 @@ import sys
 from langchain_core.embeddings import Embeddings
 
 from chunking import CHUNK_SIZE, split_documents
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
 from retriever import QUESTIONS, TOP_K, make_retriever
 from utils import print_retrieval
-from vector_store import make_vector_store
+from vector_store import make_vector_store, store_vectors
 
 
 # The tests pass a stand-in for Gemini as `embeddings`, with its vector size
@@ -31,12 +33,13 @@ def main(question: str = QUESTIONS[0], embeddings: Embeddings = embeddings, size
     print(f"Step 1: Read the knowledge base: {len(docs)} documents")
     chunks = split_documents(docs)
     print(f"Step 2: Chunk: {len(chunks)} chunks of at most {CHUNK_SIZE} characters")
+    vectors = embed_chunks(chunks, embeddings)     # one call to Gemini: every chunk's embedding
+    print(f"Step 3: Embed: {len(vectors)} vectors of {len(vectors[0])} numbers")
     store = make_vector_store(embeddings, size)
-    # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
-    store.add_documents(chunks)                    # one call to Gemini: every chunk's embedding
+    store_vectors(store, chunks, vectors)          # Step 3's vectors: no call to Gemini
     # count() comes from qdrant_client's QdrantClient: how many points the collection holds
-    print(f"Step 3: Embed and store: {store.client.count(store.collection_name).count} points, in Qdrant in memory")
-    print("Step 4: Retrieve")
+    print(f"Step 4: Store: {store.client.count(store.collection_name).count} points, in Qdrant in memory")
+    print("Step 5: Retrieve")
     # The question becomes a vector from the same model as the chunks, so the two can be compared (one call)
     # embed_query() comes from LangChain's Embeddings (Gemini's, here): one text in, one vector out
     question_vector = embeddings.embed_query(question)

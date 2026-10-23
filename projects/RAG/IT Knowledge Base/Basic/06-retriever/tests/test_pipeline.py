@@ -21,8 +21,9 @@ def test_the_pipeline_embeds_the_chunks_then_the_question_by_hand_then_through_t
     assert stand_in.calls == [("documents", 28), ("query", question), ("query", question)]
     assert printed.startswith("Step 1: Read the knowledge base: 10 documents\n"
                               "Step 2: Chunk: 28 chunks of at most 512 characters\n"
-                              "Step 3: Embed and store: 28 points, in Qdrant in memory\n"
-                              "Step 4: Retrieve\n"
+                              f"Step 3: Embed: 28 vectors of {SIZE} numbers\n"
+                              "Step 4: Store: 28 points, in Qdrant in memory\n"
+                              "Step 5: Retrieve\n"
                               f"Question: {question}\nThe question became {SIZE} numbers: [")
     assert "\n\nWhat a prompt gets, the 2 closest chunks as one text (format_docs):\n[1] " in printed
 

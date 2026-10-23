@@ -5,17 +5,19 @@ Gemini (tests/fakes.py), and Qdrant in memory: no key, no network.
 from fakes import SIZE, KeywordEmbeddings
 
 from chunking import split_documents
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from retriever import QUESTIONS, TOP_K, make_retriever
 from utils import print_retrieval
-from vector_store import make_vector_store
+from vector_store import make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
+VECTORS = embed_chunks(CHUNKS, KeywordEmbeddings())     # a stand-in vector for each chunk, in order
 
 
 def filled_store(stand_in=None):
     store = make_vector_store(stand_in or KeywordEmbeddings(), SIZE)
-    store.add_documents(CHUNKS)
+    store_vectors(store, CHUNKS, VECTORS)
     return store
 
 
