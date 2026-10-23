@@ -20,6 +20,7 @@ CHUNK_OVERLAP = 50
 
 def make_splitter(chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP) -> RecursiveCharacterTextSplitter:
     """A splitter that breaks at empty lines first, then line breaks, then spaces; it records start_index."""
+    # RecursiveCharacterTextSplitter comes from langchain_text_splitters: LangChain's splitter by size
     return RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=True)
 
 
