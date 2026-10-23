@@ -179,13 +179,15 @@ python knowledge_base_loader.py --data-path data/sample_it_kb_messy.csv
 ├── sensitive_data.py                     # finds PII, PCI and secrets in a text, and redacts them
 ├── data/
 │   ├── sample_it_kb.csv                  # the knowledge base: 10 IT support articles, all clean
-│   └── sample_it_kb_messy.csv            # 14 rows with a problem in most: one for each check
+│   ├── sample_it_kb_messy.csv            # 14 rows with a problem in most: one for each check
+│   └── edge_cases/                       # 20 bad inputs, one per file, with their results in TODO.md
 ├── tests/
 │   ├── test_knowledge_base_loader.py     # the Documents, the loader, the checks and their report, the log, the script
 │   └── test_sensitive_data.py            # each kind of sensitive value, and ordinary text left alone
 ├── requirements.txt                      # langchain-core, pinned to an exact version
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
 ├── pytest.ini                            # lets the tests import knowledge_base_loader, and finds them in tests/
+├── TODO.md                               # what's missing for production grade, and the inputs that found it
 └── README.md                             # you are here
 ```
 
