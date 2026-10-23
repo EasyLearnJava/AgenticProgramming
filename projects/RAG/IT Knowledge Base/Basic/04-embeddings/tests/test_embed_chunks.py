@@ -1,15 +1,16 @@
 """
 Tests for embed_chunks.py: the 28 chunks embedded in one call, one vector each, in order, from their text only, and
-what print_vectors() prints. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py); the live
-test asks the real Gemini.
+what print_vectors(), in utils.py, prints. The plain tests use KeywordEmbeddings, a stand-in for Gemini
+(tests/fakes.py); the live test asks the real Gemini.
 """
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 
 from chunking import split_documents
-from embed_chunks import embed_chunks, print_vectors
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
+from utils import print_vectors
 
 CHUNKS = split_documents(load_documents())
 

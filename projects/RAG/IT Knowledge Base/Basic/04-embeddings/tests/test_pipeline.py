@@ -8,9 +8,10 @@ from pathlib import Path
 from fakes import KeywordEmbeddings
 
 from chunking import split_documents
-from embed_chunks import embed_chunks, print_vectors
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from pipeline import main
+from utils import print_vectors
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 

@@ -61,7 +61,8 @@ that point in close directions.
 3. **Build the model** → `models.py` makes `GoogleGenerativeAIEmbeddings`, 768 numbers per text. No call yet
 4. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
 5. **Embed** → `embed_chunks()` sends the 28 chunks' texts to Gemini in one `embed_documents()` call
-6. **Print** → `print_vectors()`: every chunk, with the characters it holds and the start of its vector
+6. **Print** → `print_vectors()`, from `utils.py`: every chunk, with the characters it holds and the start of its
+   vector
 
 ---
 
@@ -153,7 +154,8 @@ in Step 5.
 ```text
 04-embeddings/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── embed_chunks.py                       # embed_chunks() and print_vectors(): Step 3
+├── embed_chunks.py                       # embed_chunks(): Step 3
+├── utils.py                              # print_vectors(): the helper that prints the vectors
 ├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
 ├── config.py                             # load_api_key(): the key, checked before anything else runs
 ├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters

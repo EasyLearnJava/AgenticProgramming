@@ -13,9 +13,10 @@ Usage:
 from langchain_core.embeddings import Embeddings
 
 from chunking import CHUNK_SIZE, split_documents
-from embed_chunks import embed_chunks, print_vectors
+from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import embeddings
+from utils import print_vectors
 
 
 # The tests pass a stand-in for Gemini as `embeddings`
