@@ -38,8 +38,9 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
 ┌───────────────────────────────────┐
 │  load_documents()                 │  ← the 10 articles
 │  split_documents()                │  ← 28 chunks of at most 512 characters
+│  embed_chunks()                   │  ← the 28 chunks embedded by Gemini (1 call)
 │  make_vector_store()              │  ← Qdrant, in memory
-│  store.add_documents()            │  ← the 28 chunks embedded by Gemini (1 call)
+│  store_vectors()                  │  ← 28 points, each chunk with its vector
 │  make_rag_chain(make_retriever()) │  ← the chain: retriever, prompt, Gemini, parser
 └────────────────┬──────────────────┘
                  │ query(question), for each question
@@ -140,7 +141,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 39 passed, 6 skipped     (add -v for one line per test)
+python -m pytest                     # 43 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the engine, they check that
@@ -151,7 +152,7 @@ with a new collection; that every setting is passed by name; and what `print_res
 they check that it builds the engine, then answers each question, or one of your own, after the steps' names; and
 that no other file runs anything.
 
-The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
 
 ---

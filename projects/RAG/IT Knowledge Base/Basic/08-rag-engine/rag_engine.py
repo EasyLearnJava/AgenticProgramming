@@ -21,11 +21,12 @@ from langchain_core.runnables import Runnable
 from qdrant_client import QdrantClient
 
 from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
+from embed_chunks import embed_chunks
 from knowledge_base import KB_FILE, load_documents
 from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import TOP_K, make_retriever
-from vector_store import COLLECTION, make_vector_store
+from vector_store import COLLECTION, make_vector_store, store_vectors
 
 MAX_SOURCES = 3        # sources per answer: the first 3 different articles among the chunks found
 SNIPPET_LENGTH = 200   # characters of each source's text shown with it
@@ -53,12 +54,12 @@ class RAGEngine:
         self.chain: Runnable | None = None
 
     def build(self) -> None:
-        """Load and split the articles, embed and store the chunks (one call to Gemini), and make the chain."""
+        """Load and split the articles, embed the chunks (one call to Gemini) and store them, and make the chain."""
         self.documents = load_documents(self.data_path)
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
+        vectors = embed_chunks(self.chunks, self.embeddings)      # one call to Gemini: every chunk's embedding
         store = make_vector_store(self.embeddings, self.embedding_size, self.client, self.collection)
-        # add_documents() comes from LangChain's VectorStore: it embeds the chunks, then stores them
-        store.add_documents(self.chunks)
+        store_vectors(store, self.chunks, vectors)
         self.chain = make_rag_chain(make_retriever(store, self.top_k), self.model)
 
     def query(self, question: str) -> dict:
