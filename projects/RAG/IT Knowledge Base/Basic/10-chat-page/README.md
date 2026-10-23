@@ -100,20 +100,11 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 uvicorn main:app --reload            # the server; Ctrl+C stops it
 ```
 
-It prints uvicorn's start-up lines, ending with these two. Then it waits for requests:
-
-```text
-INFO:     RAG engine built: 10 articles, 28 chunks
-INFO:     Application startup complete.
-```
+When it prints `RAG engine built`, the chunks are embedded and stored: the server is ready.
 
 ### Step 6: Open the Page
 
-Open http://127.0.0.1:8000. The page starts with this line:
-
-```text
-10 articles in 28 chunks. Answers by gemini-3.5-flash-lite, search by gemini-embedding-001, 5 chunks per question.
-```
+Open http://127.0.0.1:8000.
 
 The question box already holds `How do I fix VPN connection timeouts?`: click **Ask**. The answer shows up under the
 box: your question, Gemini's answer, then **Sources:** with up to 3 articles, each with its system, category and the
@@ -136,37 +127,6 @@ server. Then open the page as in Step 6.
 
 ---
 
-## 📁 Project Structure
-
-```text
-10-chat-page/
-├── index.html                            # the chat page: the stats line, the question box, the answers
-├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
-├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine: build(), query(), aquery(), stats()
-├── utils.py                              # print_result(): the helper that prints an answer and its sources
-├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
-├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_vector_store(): Qdrant, in memory
-├── models.py                             # the Gemini models: the embedding model and the chat model
-├── config.py                             # load_api_key(): the key from .env, checked before anything else
-├── chunking.py                           # split_documents(): chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles as Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # skips the live tests when there's no key
-│   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
-│   └── test_*.py                         # one test file per module
-├── .env.example                          # copy it to .env and put your key in it
-├── requirements.txt                      # the packages, pinned to exact versions, FastAPI and uvicorn included
-├── requirements-dev.txt                  # requirements.txt plus pytest and httpx2, for the tests
-├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
-└── README.md                             # you are here
-```
-
----
-
 ## 🧪 Testing
 
 ```bash
@@ -182,29 +142,6 @@ other file runs anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
-
----
-
-## 📊 Understanding the Output
-
-What the page shows:
-
-| Where | What | From |
-|---|---|---|
-| Under the title | one line about the knowledge base | `GET /api/stats`, when the page opens |
-| Under the box, while it works | `Searching the knowledge base and asking Gemini…` | the page itself; **Ask** is greyed out until the answer comes |
-| Above earlier answers | your question, the answer, then `Sources:` with up to 3 articles | `POST /api/query` |
-| Under the box, after it | `Done.`, or what went wrong | the answer's status |
-
-What went wrong, as the page shows it:
-
-| Status | The page shows |
-|---|---|
-| 422, a bad question (an empty one) | `question: String should have at least 1 character` |
-| 502, Gemini didn't answer | the server's `detail`, then `The server's terminal says why.` |
-| anything else, or no server | `Something went wrong: ...` |
-
-The box takes at most 500 characters, the same limit the API checks.
 
 ---
 
@@ -271,15 +208,7 @@ A 422 shows which field is wrong and why, a 502 shows the server's short message
 
 ---
 
-## 📚 Next Steps
-
-**[11 · Qdrant on Disk](../11-qdrant-on-disk/README.md)**: this project keeps the chunks in memory, so every start
-embeds them again. 11 keeps them on disk between runs, in a folder, and reuses them.
-
-**[Advanced · 10 · Chat Page](../../Advanced/10-chat-page/README.md)** (planned): the same project, production
-grade. Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Click **Ask** with an empty box, and read the message the page shows.
 - Ask three questions, and see the newest answer appear at the top.
