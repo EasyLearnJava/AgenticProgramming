@@ -111,29 +111,7 @@ python pipeline.py                   # the three sample questions
 uvicorn main:app --reload            # or the server and the chat page; Ctrl+C stops it
 ```
 
-The first `python pipeline.py` builds the engine, which embeds the chunks and stores them in `qdrant_data/`:
-
-```text
-Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in qdrant_data/
-```
-
-Every run after that finds them there:
-
-```text
-Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in qdrant_data/
-```
-
-Then come `Step 2: Answer` and each question (`Q:`), its answer (`A:`) and its sources. The parts in `< >` come from
-Gemini:
-
-```text
-Q: How do I fix VPN connection timeouts?
-A: <Gemini's answer>
-   source: <article title> (<system>, <category>)
-   ...
-```
-
-`uvicorn main:app --reload` builds the engine the same way. Then open http://127.0.0.1:8000 for the chat page; the
+`uvicorn main:app --reload` builds the engine at start-up. Then open http://127.0.0.1:8000 for the chat page; the
 API answers at `/docs`, `/api/query`, `/api/stats` and `/api/health`. Only one program at a time can open
 `qdrant_data/`, so stop the server (Ctrl+C) before running `python pipeline.py`.
 
@@ -148,38 +126,6 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/11-qdrant-on-disk    # from
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
 `uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops it.
 Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use Step 5.
-
----
-
-## 📁 Project Structure
-
-```text
-11-qdrant-on-disk/
-├── index.html                            # the chat page
-├── pipeline.py                           # the same steps in the terminal: build, then answer the sample questions
-├── main.py                               # the FastAPI app: start-up, the page, the three API routes
-├── rag_engine.py                         # RAGEngine: build() reuses stored chunks
-├── utils.py                              # print_result(): the helper that prints an answer and its sources
-├── rag_chain.py                          # the prompt and make_rag_chain(): retrieval, then the answer
-├── retriever.py                          # make_retriever() (5 chunks per question), format_docs(), sample questions
-├── vector_store.py                       # make_client(), make_vector_store(), open_vector_store(), chunk_id()
-├── models.py                             # the Gemini models: the embedding model and the chat model
-├── config.py                             # load_api_key(): the key from .env, checked before anything else
-├── chunking.py                           # split_documents(): chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): the 10 articles as Documents
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # skips the live tests when there's no key
-│   ├── fakes.py                          # stand-ins for Gemini, so the plain tests make no calls
-│   └── test_*.py                         # one test file per module
-├── qdrant_data/                          # made by the first run: the stored chunks, on disk (in .gitignore)
-├── .env.example                          # copy it to .env: your key
-├── requirements.txt                      # the packages, pinned to exact versions
-├── requirements-dev.txt                  # requirements.txt plus pytest and httpx2, for the tests
-├── pytest.ini                            # finds the tests in tests/, and defines the "live" marker
-└── README.md                             # you are here
-```
 
 ---
 
@@ -203,21 +149,6 @@ no other file runs anything in the terminal.
 
 The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
 no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
-
----
-
-## 📊 Understanding the Output
-
-```text
-Step 1: Build the engine: 10 articles, 28 chunks (embedded and stored) in qdrant_data/
-  └─ qdrant_data/ didn't hold exactly these chunks: they were embedded (1 call) and stored
-
-Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in qdrant_data/
-  └─ qdrant_data/ held exactly these 28 chunks: no call to Gemini for them
-```
-
-`stats()`, and so `/api/stats`, also says which happened: `"reused_stored_chunks"` is `true` when the stored chunks
-were reused.
 
 ---
 
@@ -280,15 +211,7 @@ once the server has stopped.
 
 ---
 
-## 📚 Next Steps
-
-**[12 · Tuning](../12-tuning/README.md)**: this project answers with fixed settings: chunks of 512 characters, 5 per
-question. 12 measures how well the search finds the right article for other chunk sizes and numbers of chunks.
-
-**[Advanced · 11 · Qdrant in Docker](../../Advanced/11-qdrant-in-docker/README.md)** (planned): the same project,
-production grade: the app and a Qdrant server in containers. Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Run `python pipeline.py` twice, and compare the first line of each run.
 - Change one word in an article in `data/sample_it_kb.csv`, run it again, and see the chunks embedded and stored
