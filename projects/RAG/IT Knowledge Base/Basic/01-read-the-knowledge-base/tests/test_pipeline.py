@@ -33,5 +33,7 @@ def test_the_pipeline_finds_the_csv_from_any_folder(tmp_path):
     assert run(cwd=tmp_path) == run()
 
 
-def test_the_loader_file_only_defines_the_steps():
-    assert run("knowledge_base_loader.py") == ""   # run on its own, it prints nothing: pipeline.py runs the steps
+def test_the_other_files_only_define_what_the_pipeline_runs():
+    # Run on their own, they print nothing: pipeline.py runs the steps
+    assert run("knowledge_base_loader.py") == ""
+    assert run("utils.py") == ""

@@ -2,14 +2,12 @@
 IT Knowledge Base: Read the Knowledge Base
 ==========================================
 
-Reads the IT knowledge base CSV file into LangChain Documents, one per article, and prints them. It handles:
+Reads the IT knowledge base CSV file into LangChain Documents, one per article. It handles:
   1. Reading the CSV file, one row at a time
   2. Turning each row into a Document (page_content + metadata)
-  3. Printing every Document
 
-Usage (pipeline.py runs these; this file only defines them):
+Usage (pipeline.py runs this; this file only defines it):
     docs = KBLoader(KB_FILE).load()   ->  10 Documents, one per article
-    print_documents(docs)             ->  the count and each title, then every Document in full
 """
 import csv
 from collections.abc import Iterator
@@ -39,19 +37,3 @@ class KBLoader(BaseLoader):
             for number, row in enumerate(csv.DictReader(file)):
                 text = "\n".join(f"{column}: {value}" for column, value in row.items())
                 yield Document(page_content=text, metadata={"source": self.data_path.name, "row": number})
-
-
-def print_documents(docs: list[Document]) -> None:
-    """Print the count and each title, then every Document in full."""
-    print(f"{len(docs)} documents")
-    for doc in docs:
-        print(f"row {doc.metadata['row']}  {doc.page_content.splitlines()[0]}")
-
-    for number, doc in enumerate(docs, 1):
-        print()
-        print(f"Document {number} of {len(docs)}")
-        print("Text (page_content):")
-        print(doc.page_content)
-        print()
-        print("Where it came from (metadata):")
-        print(doc.metadata)

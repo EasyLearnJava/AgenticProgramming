@@ -41,7 +41,7 @@ The happy path only: the file is there, and every row is a good article.
              │ 10 Documents
              ↓
 ┌──────────────────────────┐
-│    print_documents()     │  ← the count, the titles, then every Document
+│    print_documents()     │  ← utils.py: the count, the titles, then every Document
 └──────────────────────────┘
 ```
 
@@ -51,7 +51,7 @@ The happy path only: the file is there, and every row is a good article.
 2. **Configure** → `KBLoader(data_path)` stores which file to read
 3. **Read** → `csv.DictReader` gives each row as `{column: value}`
 4. **Convert** → each row becomes a `Document`: its text, and where it came from
-5. **Print** → the count and the titles, then every `Document`
+5. **Print** → `print_documents()`, from `utils.py`: the count and the titles, then every `Document`
 
 ---
 
@@ -161,15 +161,17 @@ in Step 4.
 ```text
 01-read-the-knowledge-base/
 ├── pipeline.py                           # the one file to run: main() calls each step in order
-├── knowledge_base_loader.py              # KBLoader and print_documents(): Step 1, which pipeline.py runs
+├── knowledge_base_loader.py              # KBLoader: Step 1, which pipeline.py runs
+├── utils.py                              # print_documents(): the helper that prints the Documents
 ├── data/
 │   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
 ├── tests/
 │   ├── test_knowledge_base_loader.py     # 7 tests: the Documents and the loader
-│   └── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
+│   ├── test_pipeline.py                  # 3 tests: pipeline.py's output, from any folder; nothing else runs
+│   └── test_utils.py                     # 2 tests: what print_documents() prints
 ├── requirements.txt                      # langchain-core, pinned to an exact version
 ├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import knowledge_base_loader, and finds them in tests/
+├── pytest.ini                            # lets the tests import this folder's files, and finds them in tests/
 └── README.md                             # you are here
 ```
 
@@ -178,13 +180,13 @@ in Step 4.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 10 passed     (add -v for one line per test)
+python -m pytest                     # 12 passed     (add -v for one line per test)
 ```
 
 The tests read the sample file and run `pipeline.py` as its own process: 10 Documents, every column as a line in
 order, the metadata, the first one is the VPN article, making the loader reads nothing, `load()` and `lazy_load()`
-agree, the printed output, the same output whichever folder it's started from, and that `knowledge_base_loader.py`
-run on its own prints nothing.
+agree, the printed output, the same output whichever folder it's started from, that `knowledge_base_loader.py` and
+`utils.py` run on their own print nothing, and what `print_documents()` prints for two Documents, and for none.
 
 ---
 
@@ -254,9 +256,19 @@ if __name__ == "__main__":
 ```
 
 `pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order.
-`knowledge_base_loader.py` only defines the step, so importing it, as the tests do, reads and prints nothing. A new
-step is one more part of `main()`. `if __name__ == "__main__":` is true only in the file you run, so `main()` runs
-from `python pipeline.py`, and not when the file is imported.
+`knowledge_base_loader.py` only defines the step, and `utils.py` the helper that prints its result, so importing
+them, as the tests do, reads and prints nothing. A new step is one more part of `main()`. `if __name__ == "__main__":`
+is true only in the file you run, so `main()` runs from `python pipeline.py`, and not when the file is imported.
+
+### 6. The Step Apart From the Helpers
+
+```python
+from knowledge_base_loader import KB_FILE, KBLoader   # the step: reading the knowledge base
+from utils import print_documents                     # a helper: showing what was read
+```
+
+`knowledge_base_loader.py` holds only what reading the knowledge base needs. Printing the Documents is something the
+pipeline does with them, not part of reading them, so it lives in `utils.py`. Each file then has one job.
 
 ---
 
@@ -269,8 +281,8 @@ from `python pipeline.py`, and not when the file is imported.
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
 
-**Issue**: `python knowledge_base_loader.py` prints nothing
-**Fix**: That file only defines the step. Run `python pipeline.py` (Step 4), which runs it.
+**Issue**: `python knowledge_base_loader.py` or `python utils.py` prints nothing
+**Fix**: Those files only define the step and its helper. Run `python pipeline.py` (Step 4), which runs them.
 
 ---
 
