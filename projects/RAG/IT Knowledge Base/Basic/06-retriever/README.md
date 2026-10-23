@@ -114,36 +114,6 @@ into git: never commit it, and never put a real key in `.env.example`.
 python pipeline.py
 ```
 
-It prints Steps 1 to 3 in one line each, then Step 4 in full: the question's vector, the 5 closest chunks with their
-scores, the same 5 found by the retriever in one call, and the text a prompt would get. The parts in `< >` come from
-Gemini:
-
-```text
-Step 1: Read the knowledge base: 10 documents
-Step 2: Chunk: 28 chunks of at most 512 characters
-Step 3: Embed and store: 28 points, in Qdrant in memory
-Step 4: Retrieve
-Question: How do I fix VPN connection timeouts?
-The question became 768 numbers: [<the first 5 numbers>, ...]
-
-The 5 closest chunks, with their scores, closest first:
-  <score>  <article title>, from character <start_index>
-  ...
-
-The retriever, embedding and searching in one call, found:
-  <article title>, from character <start_index>
-  ...
-
-What a prompt gets, the 2 closest chunks as one text (format_docs):
-[1] <article title>
-<the chunk's text>
-
-[2] <article title>
-<the chunk's text>
-```
-
-The `...` lines stand for the other 4 chunks: your terminal shows all 5.
-
 To ask your own question, put it after `pipeline.py`:
 
 ```bash
@@ -161,39 +131,6 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/06-retriever   # from the r
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
 `python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
 in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basic/06-retriever "my email bounced"`.
-
----
-
-## 📁 Project Structure
-
-```text
-06-retriever/
-├── pipeline.py                           # the one file to run: main() calls each step in order
-├── retriever.py                          # make_retriever() and format_docs(): Step 4
-├── utils.py                              # print_retrieval(): the helper that prints a search
-├── vector_store.py                       # make_vector_store(): Step 3, Qdrant in memory
-├── models.py                             # the embedding model: gemini-embedding-001, 768 numbers
-├── config.py                             # load_api_key(): the key, checked before anything else runs
-├── chunking.py                           # split_documents(): Step 2, the 28 chunks of at most 512 characters
-├── knowledge_base.py                     # load_documents(): Step 1, the 10 articles, text + labels
-├── data/
-│   └── sample_it_kb.csv                  # the knowledge base: 10 IT support articles
-├── tests/
-│   ├── conftest.py                       # decides once whether the live tests can run
-│   ├── fakes.py                          # stand-ins for Gemini: no key, no network
-│   ├── test_pipeline.py                  # the steps and what they print; nothing else runs
-│   ├── test_retriever.py                 # the search, the retriever, format_docs()
-│   ├── test_utils.py                     # what print_retrieval() prints
-│   ├── test_vector_store.py              # the collection and the stored points
-│   ├── test_models.py                    # the model's settings, and the no-key message
-│   ├── test_chunking.py                  # the chunks
-│   └── test_knowledge_base.py            # the Documents
-├── .env.example                          # copy it to .env and put your key in .env
-├── requirements.txt                      # the packages, pinned to exact versions
-├── requirements-dev.txt                  # requirements.txt plus pytest, for the tests
-├── pytest.ini                            # lets the tests import the files, and finds them in tests/
-└── README.md                             # you are here
-```
 
 ---
 
@@ -219,33 +156,6 @@ points closest to the VPN chunks, the same every time. They check:
 The 3 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
 so it can be built, and skips the live tests.
-
----
-
-## 📊 Understanding the Output
-
-The output starts with one line each for Steps 1 to 3, then `Step 4: Retrieve`, the question and its vector, and the
-search:
-
-```text
-The 5 closest chunks, with their scores, closest first:
-  <score>  <article title>, from character <start_index>
-```
-
-Each line is one chunk: its score, its article, and where in the article it starts. The score is the cosine
-similarity between the question's vector and the chunk's: how closely the two point the same way, from -1 to 1. The
-closer to 1, the closer the meaning. The scores matter by their order: the chunk with the highest one is the closest.
-
-The retriever finds the same 5 chunks as the search by hand: it does the same two steps, embed and search, in one
-call. It gives back the chunks without their scores.
-
-```text
-[1] <article title>
-<the chunk's text>
-```
-
-`format_docs()` puts a number and the article's title above each chunk, and a blank line between them, so whatever
-reads the text can tell which article each part came from.
 
 ---
 
@@ -320,15 +230,7 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
 ---
 
-## 📚 Next Steps
-
-**[07 · Grounded Answer](../07-grounded-answer/README.md)**: this project found the chunks for a question. 07 puts
-them and the question into one prompt, and Gemini answers from those chunks only.
-
-**[Advanced · 06 · Retriever](../../Advanced/06-retriever/README.md)** (planned): the same project, production grade.
-Its README lists what it will add.
-
-### Ideas to Try
+## 💡 Ideas to Try
 
 - Ask a question in your own words, with none of the articles' words in it:
   `python pipeline.py "my screen freezes all the time"`.
