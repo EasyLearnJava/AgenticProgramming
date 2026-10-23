@@ -4,7 +4,7 @@ Take a question and find the chunks of the IT knowledge base that answer it: the
 the same model as the chunks', and Qdrant gives back the 5 closest chunks, with their scores. Then a LangChain
 retriever does both in one call. Built with **LangChain**, **Qdrant** (in memory) and **Gemini**.
 
-> **Needs:** Python 3.11 or newer, and a Gemini API key. No Docker: Qdrant runs inside the script. Each run makes 3
+> **Needs:** Python 3.11 or newer, and a Gemini API key. Qdrant runs inside the script. Each run makes 3
 > calls to Gemini.
 
 ---
