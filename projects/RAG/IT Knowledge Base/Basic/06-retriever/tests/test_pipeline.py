@@ -25,7 +25,10 @@ def test_the_pipeline_embeds_the_chunks_then_the_question_by_hand_then_through_t
                               "Step 4: Store: 28 points, in Qdrant in memory\n"
                               "Step 5: Retrieve\n"
                               f"Question: {question}\nThe question became {SIZE} numbers: [")
-    assert "\n\nWhat a prompt gets, the 2 closest chunks as one text (format_docs):\n[1] " in printed
+    assert ("\n\nThe top score, worked out by hand from the question's vector and the top chunk's stored one:\n"
+            in printed)
+    assert ("\n\nA sample of what a prompt gets: the first 2 of the 5 chunks, as one text (format_docs):\n[1] "
+            in printed)
 
 
 def test_a_question_of_your_own(capsys):
