@@ -132,9 +132,9 @@ With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you
 python "projects/RAG/IT Knowledge Base/run.py" Basic/04-embeddings   # from the repo root
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 5.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python
+pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The project's output is the same
+as in Step 5, after run.py's own lines saying what it creates, installs and runs.
 
 ---
 
@@ -190,11 +190,11 @@ How close chunk 1 (VPN Connection Timeout) is to every other chunk, closest firs
   ...
 ```
 
-The closest are other problems with connecting or signing in: WiFi, MFA, a database connection timeout and a
-password reset. Chunk 2, the VPN article's own notes, is only 6th: it says "peak hours" and "ISP throttling", and
-never "VPN". A vector stands for what its chunk's text says, not for the article it came from. And every chunk here
-is an IT support article written the same way, so all 27 are close to chunk 1: the farthest, chunk 19 (the Printer
-article's notes), is still 0.666. What tells chunks apart is their order, not how big the number is.
+The closest are other problems with connecting or signing in: WiFi, MFA, a database connection timeout and a password
+reset. Chunk 2, the VPN article's own notes, is only 6th: it says "peak hours" and "ISP throttling", and never "VPN".
+A vector stands for what its chunk's text says, not for the article it came from. All 27 score between 0.666 (chunk
+19, the Printer article's notes) and 0.789 against chunk 1. What tells chunks apart is their order, not how big the
+number is.
 
 ### 2. One Call for Every Chunk
 
@@ -284,8 +284,9 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
 ## 💡 Ideas to Try
 
-- In `pipeline.py`, print the length of `vectors[0]` and `vectors[1]`: both 768, though chunk 1 is 457 characters
-  and chunk 2 is 110. One test checks the pipeline's exact output, so take the print out before `python -m pytest`.
+- In `pipeline.py`, print `len(vectors[0])` and `len(vectors[1])`, how many numbers each holds: both 768, though chunk
+  1 is 457 characters and chunk 2 is 110. One test checks the pipeline's exact output, so take the print out before
+  `python -m pytest`.
 - In `models.py`, change `EMBEDDING_SIZE` to `256`, run `python pipeline.py` again, and see each chunk converted to
   256 numbers. Tests check for 768, so put it back before `python -m pytest`.
 - In `embed_chunks.py`, put the article's title at the top of every chunk: embed
