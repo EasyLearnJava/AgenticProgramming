@@ -1,11 +1,13 @@
 # 05 · Vector Store
 
 Store the IT knowledge base's 28 chunks in Qdrant, a vector database: one point per chunk, with its vector, its text
-and its labels. Qdrant runs inside the script, in local mode, and saves the points in a folder, `qdrant_data/`. Built
-with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
+and its labels. Qdrant runs inside the script, in memory. Built with **LangChain** (`langchain-qdrant`), **Qdrant**
+and **Gemini**.
+
+In a RAG app, the vector database is where a question's vector is compared with every chunk's, to find the closest.
 
 > **Needs:** Python 3.11 or newer, and a Gemini API key. Qdrant runs inside the script, so there's no server to start.
-> Each run makes 1 call to Gemini, for all 28 chunks.
+> Each run makes 1 call to Gemini, for all 28 chunks: on the free tier, 28 of the 100 texts it embeds a minute.
 
 ---
 
@@ -17,12 +19,12 @@ with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
   most 512 characters, then `embed_chunks()` sends the 28 texts to Gemini in one call, for a vector each
 - **Stores each chunk as a point** with `store_vectors()`: an id, the chunk's vector, and a payload with its text
   (`page_content`) and its labels (`metadata`). Storing makes no call to Gemini: the vectors are already made
-- **Starts fresh on every run**: it deletes the collection in `qdrant_data/` and stores the chunks again. The points
-  get random ids, so without that, every run would add 28 more copies
-- **Prints** where Qdrant keeps the points, the collection's settings, then every stored point, read back from Qdrant
+- **Keeps Qdrant in memory**, inside the script: there's nothing to install or start, and the points are gone when
+  the script ends, so each run stores them again
+- **Prints** the collection's settings, then every stored point, read back from Qdrant
 - **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
-**Try it:** `python pipeline.py`, and see the 28 points read back from `qdrant_data/`.
+**Try it:** `python pipeline.py`, and see the 28 points read back from Qdrant.
 
 ---
 
@@ -46,16 +48,15 @@ with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
                   │ 28 vectors; Step 4: Store
                   ↓
 ┌───────────────────────────────────┐
-│  make_vector_store(embeddings,    │  ← vector_store.py: the it_knowledge_base collection,
-│                    768, client)   │     768 numbers, cosine, wrapped in QdrantVectorStore
+│  make_vector_store(embeddings,    │  ← vector_store.py: Qdrant in memory, inside the script, and the
+│                    768)           │     it_knowledge_base collection: 768 numbers, cosine
 │  store_vectors(store, chunks,     │  ← 28 points, each chunk with its vector: no call to Gemini
 │                vectors)           │
 └─────────────────┬─────────────────┘
                   │ 28 points: id + vector + payload (page_content, metadata)
                   ↓
 ┌───────────────────────────────────┐
-│  Qdrant, local mode               │  ← make_client(): inside the script, the points saved
-│  qdrant_data/                     │     in this folder; print_points() reads them back
+│  print_points(store)              │  ← utils.py: reads the points back from Qdrant, and prints them
 └───────────────────────────────────┘
 ```
 
@@ -64,21 +65,20 @@ with **LangChain** (`langchain-qdrant`), **Qdrant** and **Gemini**.
 1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
 2. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
 3. **Embed** → `embed_chunks()` sends the 28 texts to Gemini in one call: 28 vectors of 768 numbers
-4. **Open Qdrant** → `make_client()`: local mode, inside the script, saving the points in `qdrant_data/`
-5. **Start fresh** → `make_vector_store()` deletes the collection if it's there (the last run's)
-6. **Make the collection** → then it makes it new: `it_knowledge_base`, 768 numbers per vector, cosine
-7. **Store** → `store_vectors()` writes 28 points, each chunk with its vector, with no call to Gemini
-8. **Read back and print** → `print_points()`, from `utils.py`: the collection's settings, then every point, by
+4. **Make the collection** → `make_vector_store()` starts Qdrant in memory and makes `it_knowledge_base`: 768
+   numbers per vector, compared by cosine
+5. **Store** → `store_vectors()` writes 28 points, each chunk with its vector, with no call to Gemini
+6. **Read back and print** → `print_points()`, from `utils.py`: the collection's settings, then every point, by
    article and place
-9. **Close** → `client.close()`: the points stay in the folder, and another program can open it
 
 ---
 
 ## 📋 Prerequisites
 
 - **Python 3.11 or newer**
-- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. Every call to Gemini
-  uses your key's quota
+- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
+  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
+  call to Gemini uses your key's quota
 - A network connection, to reach Gemini
 
 ---
@@ -121,7 +121,7 @@ into git: never commit it, and never put a real key in `.env.example`.
 ### Step 5: Run It
 
 ```bash
-python pipeline.py                   # store the 28 chunks in qdrant_data/
+python pipeline.py                   # store the 28 chunks in Qdrant, in memory
 ```
 
 ### Or: Run It in One Command
@@ -136,37 +136,31 @@ It creates this folder's `.venv` the first time, installs `requirements-dev.txt`
 `python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
 in Step 5.
 
-### Where the Points Are Kept
-
-`qdrant_data/` is made next to `pipeline.py` on the first run, and it stays after the script ends: open it with Qdrant
-again, as in [Check a Score Yourself](#9-check-a-score-yourself), and the points are there. It's in `.gitignore`, so
-it's never committed. Delete it to start over: the next run makes it again. Only one program at a time can open it.
-
 ---
 
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 27 passed, 3 skipped     (add -v for one line per test)
+python -m pytest                     # 24 passed, 3 skipped     (add -v for one line per test)
 ```
 
-The tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`. Most of them also use
-`tests/fakes.py`'s stand-in for Gemini, so they need no key and no network. They check:
+The tests keep Qdrant in memory too. Most of them also use `tests/fakes.py`'s stand-in for Gemini, so they need no
+key and no network. They check:
 
 - **The embeddings**: the 28 chunks are embedded in one call, one vector each, in order, from their text only
 - **The store**: a new collection is empty, cosine, of the right size; storing the vectors makes 28 points with no
   call to the model, and a chunk without a vector stops it instead of being left out; each point holds a vector,
   the chunk's text and its labels, and LangChain's store reads them back as the chunks; an existing collection is
-  deleted and made new, with none of its old points, on disk too; points on disk stay after Qdrant is closed; and
-  what `print_points()` prints
-- **The pipeline**: it embeds the chunks once, stores them on disk, and never embeds a question; the points stay in
-  the folder, and each run starts fresh; and no other file runs anything
+  deleted and made new, with none of its old points; and what `print_points()` prints
+- **The pipeline**: it embeds the chunks once, stores them in memory, and never embeds a question; and no other file
+  runs anything
 - **The model, the chunks and the Documents**: the model's settings and the no-key message; 28 chunks with their
   labels; 10 Documents with their text and labels
 
 The 3 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
-so it can be built, and skips the live tests.
+so it can be built, and skips the live tests. With your key in `.env`, they run too (27 passed) and embed 57 texts;
+`python -m pytest -m "not live"` leaves them out.
 
 ---
 
@@ -176,31 +170,42 @@ so it can be built, and skips the live tests.
 
 A collection is a table of points, and each point has three parts: an id, a vector, and a payload. Here the payload
 holds the chunk's text (`page_content`) and its labels (`metadata`), so whatever finds a vector also gets the text and
-labels that go with it. `QdrantVectorStore` is LangChain's wrapper around a collection.
+labels that go with it. `QdrantVectorStore` is LangChain's wrapper around a collection. The run reads the points
+back from Qdrant and prints them:
+
+```text
+Collection 'it_knowledge_base': 28 points, vectors of 768 numbers, compared by Cosine
+Each point holds an id, a vector and a payload with metadata, page_content
+
+Point 1 of 28: VPN Connection Timeout, from character 0: 768 numbers, 457 characters of text, 7 labels
+Point 2 of 28: VPN Connection Timeout, from character 459: 768 numbers, 110 characters of text, 7 labels
+```
+
+The 7 labels are the article's 6 (`doc_id`, title, system, category, priority and tags) plus the chunk's own
+`start_index`.
 
 The vectors are made before the store: `embed_chunks()` in Step 3, then `store_vectors()` in Step 4. LangChain's own
 `add_documents()` would embed the chunks itself, so `store_vectors()` writes the points with Qdrant's `upsert()`
 instead, the text and labels under `page_content` and `metadata`: the names `QdrantVectorStore` reads them from, so
 it reads the points back as the chunks.
 
-### 2. On Disk or In Memory
+### 2. In Memory, Inside the Script
 
 ```python
-QdrantClient(path="qdrant_data")    # local mode: inside the script, the points kept in this folder after it ends
-QdrantClient(":memory:")            # inside the script too, in memory: gone at the end
+QdrantClient(":memory:")            # in make_vector_store(): inside the script, in memory, gone when it ends
 ```
 
-The same code works with either: only the client differs. `pipeline.py` uses the folder; the tests use memory, or a
-folder of their own. A folder can be open in only one program at a time; for several programs at once, Qdrant also
-runs as a server, `QdrantClient(url=...)`, with the same code.
+Qdrant runs in the script's own memory, so there's nothing to install or start, and the points last only as long as
+the script does. That's enough here: each run embeds and stores the 28 chunks again. The same code works with Qdrant
+keeping its points in a folder, `QdrantClient(path=...)`, or running as a server, `QdrantClient(url=...)`: only the
+client differs.
 
 ### 3. Starting Fresh on Every Run
 
-`store_vectors()` gives each new point a random id. Storing the same 28 chunks twice would make 56 points, so
-`make_vector_store()` deletes the collection first, if it's there, then makes it new: in `qdrant_data/`, that's the
-last run's collection. It deletes the collection's points before the collection itself: on Windows, Qdrant's local
-mode can't remove the files of a collection it has open, and the new collection would find the old points in them.
-Each run embeds the chunks again too: one call to Gemini.
+`store_vectors()` gives each new point a random id, so storing the same 28 chunks twice in one collection would make
+56 points. `make_vector_store()` deletes a collection by that name first, if it's there, then makes it new. In memory,
+each run of `pipeline.py` starts empty anyway; the delete matters when one program stores twice, as one of the tests
+does, and it still gets 28 points.
 
 ### 4. How Qdrant Measures "Close": the Distance
 
@@ -289,10 +294,9 @@ The meaning is the direction, and that doesn't change, so every cosine score sta
 each search becomes a simple dot product, which is faster. It does this only with cosine; with Dot, Euclid and
 Manhattan it uses the vectors exactly as they came.
 
-A Qdrant server keeps the vectors at length 1. Local mode, as here, does too while the script runs, but it saves them
-in `qdrant_data/` as Gemini returned them: a program that opens the folder later, like the one in
-[Check a Score Yourself](#9-check-a-score-yourself), reads Gemini's own numbers back. The scores are the same either
-way.
+Gemini's vectors at 768 numbers don't have length 1: the VPN article's title, embedded on its own, comes back with a
+length of 0.5906. Qdrant in memory, like a Qdrant server, keeps them at length 1, so a point read back from the
+collection has length 1.0. The scores are the same either way.
 
 ### 6. Choosing a Distance
 
@@ -304,74 +308,33 @@ way.
 ### 7. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4:
-`make_client()` opens Qdrant on disk, `make_vector_store()` makes the collection, `store_vectors()` stores Step 3's
-vectors, `print_points()`, from `utils.py`, prints them, and `client.close()` frees the folder. The other files only
-define the steps and that helper, so importing them makes no call. The model, its vector size and the folder are
-parameters of `main()`, so the tests pass a stand-in for Gemini and a folder of their own.
-
-### 8. What a Score Means
-
-A search in Qdrant gives each point it finds a score: the cosine similarity between the searched vector and the
-point's vector, how closely the two point the same way.
-
-- **1.0** means the same direction, the same meaning; **0** means unrelated.
-- **0.76** means fairly similar: an angle of about 40° between the two vectors; **0.87** is about 30°.
-
-It's the cosine from [How Qdrant Measures "Close": the Distance](#4-how-qdrant-measures-close-the-distance), above,
-with 768 numbers instead of 2:
-
-```text
-cosine(a, b) = (a₁×b₁ + a₂×b₂ + … + a₇₆₈×b₇₆₈) / (length of a × length of b)
-```
-
-The collection uses cosine, so Qdrant works with every vector at length 1 (see
-[Why Qdrant Works With Vectors of Length 1](#5-why-qdrant-works-with-vectors-of-length-1)). Both lengths are 1, so
-the score is just the sum of the 768 products: the two vectors multiplied number by number, then added up.
-With 2 numbers, `[0.6, 0.8]` and `[0.8, 0.6]` give `0.6×0.8 + 0.8×0.6 = 0.96`. A search in Qdrant does this sum
-between the searched vector and every stored point, and lists the highest first.
-
-Reading the scores:
-
-- **The order matters more than the values.** All 28 chunks are IT help-desk text, so to Gemini they're all fairly
-  similar, and the scores sit close together. What decides a search is which chunks score highest.
-
-### 9. Check a Score Yourself
-
-After `python pipeline.py`, with the venv active, in this folder, this reads two stored points from `qdrant_data/` and
-works out their cosine itself, with no call to Gemini:
-
-```bash
-python - <<'EOF'
-from qdrant_client import QdrantClient
-client = QdrantClient(path="qdrant_data")
-(a, b), _ = client.scroll("it_knowledge_base", limit=2, with_vectors=True)
-length_a, length_b = (sum(x * x for x in point.vector) ** 0.5 for point in (a, b))
-print("lengths:", round(length_a, 4), round(length_b, 4))   # as Gemini returned them
-print("cosine:", round(sum(x * y for x, y in zip(a.vector, b.vector)) / (length_a * length_b), 4))
-client.close()
-EOF
-```
-
-It prints the two vectors' lengths, then their cosine score: the formula above, the sum of the products divided by
-both lengths. The lengths aren't 1: local mode saves the vectors as Gemini returned them (see
-[Why Qdrant Works With Vectors of Length 1](#5-why-qdrant-works-with-vectors-of-length-1)). `scroll()` gives the
-points in id order, and each run of `pipeline.py` stores them with new random ids, so which two chunks you get changes
-from run to run.
+`make_vector_store()` starts Qdrant in memory and makes the collection, `store_vectors()` stores Step 3's vectors, and
+`print_points()`, from `utils.py`, reads them back and prints them. The other files only define the steps and that
+helper, so importing them makes no call. The model and its vector size are parameters of `main()`, so the tests pass
+a stand-in for Gemini.
 
 ---
 
 ## 🛠️ Troubleshooting
+
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
+**Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
+after it, and check it's restricted to the Generative Language API, not to another one.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
+**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 28; the
+message ends with "Please retry in" and a number of seconds. Wait that long, then run it again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
 **Fix**: There's no `.env` in this folder, and no `GOOGLE_API_KEY` in the environment. Do Step 4.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Put your real key after `GOOGLE_API_KEY=`.
-
-**Issue**: `RuntimeError: Storage folder .../qdrant_data is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.`
-**Fix**: Another program has `qdrant_data/` open, such as a Python session from
-[Check a Score Yourself](#9-check-a-score-yourself) that hasn't ended. Only one program at a time can open the folder:
-close the other one, then run again.
 
 **Issue**: `python vector_store.py` prints nothing
 **Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
@@ -380,8 +343,9 @@ close the other one, then run again.
 
 ## 💡 Ideas to Try
 
-- In [Check a Score Yourself](#9-check-a-score-yourself), set `limit=28` and print the cosine of the first point with
-  each of the others, to see which chunks score highest.
+- In `print_points()`, print `math.hypot(*point.vector)` for each point (with `import math` at the top): 1.0 every
+  time, though Gemini's vectors aren't length 1 (Key Concept 5).
 - Run `python pipeline.py` twice and print the points' ids with `scroll()`: the same 28 chunks, with new random ids
   each time.
-- Delete `qdrant_data/` and run `python pipeline.py` again: the folder is made anew.
+- In `make_vector_store()`, change `Distance.COSINE` to `Distance.EUCLID`, and see `print_points()` say
+  "compared by Euclid". A test checks for cosine, so put it back before `python -m pytest`.

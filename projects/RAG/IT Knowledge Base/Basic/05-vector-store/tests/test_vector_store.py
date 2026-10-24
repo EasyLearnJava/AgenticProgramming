@@ -1,10 +1,8 @@
 """
-Tests for vector_store.py: the collection, storing the 28 chunks with their vectors, what each stored point holds,
-and Qdrant on disk. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in
-memory or in a folder of the test's own; the live test asks the real Gemini.
+Tests for vector_store.py: the collection, storing the 28 chunks with their vectors, and what each stored point
+holds. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in memory; the live
+test asks the real Gemini.
 """
-from pathlib import Path
-
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 from qdrant_client import QdrantClient
@@ -14,7 +12,7 @@ from chunking import split_documents
 from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from vector_store import COLLECTION, QDRANT_PATH, make_client, make_vector_store, store_vectors
+from vector_store import COLLECTION, make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
 VECTORS = embed_chunks(CHUNKS, KeywordEmbeddings())     # a stand-in vector for each chunk, in order
@@ -66,26 +64,6 @@ def test_an_existing_collection_is_deleted_and_made_new():
     make_vector_store(KeywordEmbeddings(), 5, client)             # the same name again, with another vector size
     assert client.count(COLLECTION).count == 0                    # none of the old points are left
     assert client.get_collection(COLLECTION).config.params.vectors.size == 5      # and it has the new settings
-
-
-def test_qdrant_on_disk_keeps_the_points_in_its_folder(tmp_path):
-    assert QDRANT_PATH == Path(__file__).resolve().parent.parent / "qdrant_data"   # next to vector_store.py
-    client = make_client(tmp_path)
-    store_vectors(make_vector_store(KeywordEmbeddings(), SIZE, client), CHUNKS, VECTORS)
-    client.close()                                    # as when the script ends
-    reopened = make_client(tmp_path)
-    assert reopened.count(COLLECTION).count == 28     # still there
-    reopened.close()
-
-
-def test_on_disk_a_new_run_starts_with_none_of_the_old_points(tmp_path):
-    client = make_client(tmp_path)
-    store_vectors(make_vector_store(KeywordEmbeddings(), SIZE, client), CHUNKS, VECTORS)
-    client.close()
-    client = make_client(tmp_path)                    # a new run, opening the same folder
-    make_vector_store(KeywordEmbeddings(), SIZE, client)
-    assert client.count(COLLECTION).count == 0        # deleting only the collection left the 28 old points (Windows)
-    client.close()
 
 
 @pytest.mark.live

@@ -2,21 +2,17 @@
 IT Knowledge Base: The Vector Store
 ===================================
 
-Stores the knowledge base's chunks in Qdrant, the vector database: one point per chunk, with its vector, its text and
-its metadata. Qdrant runs in local mode, inside this script, and saves its points in the folder qdrant_data/. It
-handles:
-  1. Opening Qdrant in local mode, on disk in qdrant_data/
-  2. Making a new collection for EMBEDDING_SIZE-number vectors, compared by cosine; any old one is deleted first
-  3. Making the LangChain store on it, which keeps the embedding model for searches
-  4. Storing the chunks with the vectors embed_chunks() made for them: no call to Gemini here
+Stores the knowledge base's chunks in Qdrant, the vector database, running in memory inside this process: one point
+per chunk, with its vector, its text and its metadata. It handles:
+  1. Making a new collection for EMBEDDING_SIZE-number vectors, compared by cosine; any old one is deleted first
+  2. Making the LangChain store on it, which keeps the embedding model for searches
+  3. Storing the chunks with the vectors embed_chunks() made for them: no call to Gemini here
 
 Usage (this file only defines these; pipeline.py runs the steps):
-    client = make_client()                                ->  Qdrant in local mode, its points in qdrant_data/
-    store = make_vector_store(embeddings, size, client)   ->  a new, empty collection, "it_knowledge_base"
-    store_vectors(store, chunks, vectors)                 ->  one point per chunk: its vector, text and labels
+    store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  a new, empty collection, "it_knowledge_base"
+    store_vectors(store, chunks, vectors)                   ->  one point per chunk: its vector, text and labels
 """
 import uuid
-from pathlib import Path
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -26,17 +22,6 @@ from qdrant_client.models import Distance, Filter, FilterSelector, PointStruct, 
 
 # Qdrant's word for a table of points; not the course app's "it_kb", so the two apps' points never mix
 COLLECTION = "it_knowledge_base"
-
-# Where Qdrant's local mode saves the points: next to this file, whichever folder the script is run from
-# Path comes from Python's pathlib: resolve() gives this file's full path, and .parent its folder
-QDRANT_PATH = Path(__file__).resolve().parent / "qdrant_data"
-
-
-def make_client(path: str | Path = QDRANT_PATH) -> QdrantClient:
-    """Qdrant in local mode: it runs inside this program and saves its points in the folder `path`, made if it's not
-    there. Only one program at a time can open the folder."""
-    # QdrantClient comes from qdrant_client: path= runs Qdrant inside this program, its points in that folder
-    return QdrantClient(path=str(path))
 
 
 def make_vector_store(embeddings: Embeddings, size: int, client: QdrantClient | None = None,
