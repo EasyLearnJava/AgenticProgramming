@@ -4,6 +4,8 @@ Read the IT knowledge base's 10 articles into LangChain `Document`s, then cut ea
 chunks, of at most 512 characters: 28 in all. Built with **LangChain** (`langchain-core` and
 `langchain-text-splitters`) and Python's `csv` module.
 
+In a RAG app, a search returns chunks, not articles, so a chunk is what gets matched and shown to the model.
+
 > **Needs:** Python 3.11 or newer, and nothing else: this project only reads a local file.
 
 ---
@@ -133,7 +135,8 @@ The tests read the sample file and run `pipeline.py` as its own process:
 
 - **The chunks**: 512 characters cut each article into 2 or 3 chunks; no chunk is longer than the chunk size (checked
   at 200, 512 and 1000); each chunk keeps its article's labels and where it starts; chunks break between sections
-  first; 1000 characters keep every article whole; and the exact output of `print_chunks()`
+  first; 1000 characters keep every article whole; and what `print_chunks()` prints: the count line and a heading for
+  every article and chunk
 - **The Documents**: 10 of them; each text has the title, problem, resolution and notes in order; the labels are in
   the metadata, not the text; and making the loader reads nothing until `load()`
 - **The pipeline**: its exact output, with the default chunk size and with 200; the same whichever folder it's
@@ -145,8 +148,8 @@ The tests read the sample file and run `pipeline.py` as its own process:
 
 ### 1. A Chunk Is a Piece of an Article
 
-A whole article mixes its problem, its fix and its notes. A chunk holds one or two of those sections, so a program
-can work with the part of an article that matters rather than all of it. Each chunk is still a `Document`, and its
+A whole article mixes its problem, its fix and its notes. A chunk holds one or two of those sections, so a search can
+find the part of an article that matches a question, rather than all of it. Each chunk is still a `Document`, and its
 labels say which article it came from.
 
 ### 2. Recursive: the Biggest Break First
@@ -204,6 +207,15 @@ what's wrong, and chunk 2 is how to fix it.
 The VPN article works the same way. Its Title, Problem and Resolution make 29 + 2 + 110 + 2 + 314 = **457**. Adding
 the Notes would make 457 + 2 + 110 = 569, over 512, so the Notes (110 characters) become chunk 2, from character 459.
 
+The split has a cost: at 512, 18 of the 28 chunks don't have their article's title in their text, only in their
+labels. In 9 of the 10 articles, the Resolution is in a different chunk from the Problem (only the VPN article keeps
+them together). So a search can find a chunk cut off from what it belongs to, like a fix without its problem. There
+are two usual remedies: bigger chunks, which keep a problem and its fix together, or the article's title put at the
+top of every chunk.
+
+This project counts characters, but models, and many splitters, count tokens: pieces of words, about 4 characters of
+English each, so 512 characters is roughly 128 tokens.
+
 ### 4. The Overlap: Only When a Section Is Cut
 
 The overlap repeats up to 50 characters of whole pieces from the end of one chunk at the start of the next, so a
@@ -249,6 +261,11 @@ that prints the chunks, so importing them reads and prints nothing.
 
 ## 🛠️ Troubleshooting
 
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or `'langchain_text_splitters'`)
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
@@ -257,7 +274,7 @@ that prints the chunks, so importing them reads and prints nothing.
 **Fix**: The chunk size after `python pipeline.py` must be a whole number, like `python pipeline.py 200`.
 
 **Issue**: `ValueError: Got a larger chunk overlap (50) than chunk size (40), should be smaller.`
-**Fix**: The chunk size must be bigger than the overlap, 50. Use a size of 51 or more.
+**Fix**: The chunk size must be at least the overlap, 50. Use a size of 50 or more.
 
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
@@ -272,3 +289,4 @@ that prints the chunks, so importing them reads and prints nothing.
 - Run `python pipeline.py 1000`: every article fits in one chunk, so you get 10.
 - Run `python pipeline.py 200` and find the other places where the overlap repeats the end of a chunk.
 - In `chunking.py`, change `CHUNK_OVERLAP` to `0`, run `python pipeline.py 200` again, and see the repeats disappear.
+  One test checks the overlap is 50 and another that 200 makes 49 chunks, so put it back before `python -m pytest`.
