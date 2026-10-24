@@ -4,7 +4,8 @@ run it from its own folder with the venv's Python, so there's nothing to activat
 
 Usage (from the repo root):
     python "projects/RAG/IT Knowledge Base/run.py" Basic/01-read-the-knowledge-base
-    python "projects/RAG/IT Knowledge Base/run.py" Advanced/01-read-the-knowledge-base --log-level DEBUG   # options go to it
+    # options after the project's name go to it:
+    python "projects/RAG/IT Knowledge Base/run.py" Advanced/01-read-the-knowledge-base --log-level DEBUG
 """
 import argparse
 import logging

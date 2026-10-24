@@ -3,13 +3,15 @@
 An IT help-desk assistant that answers questions from a knowledge base of IT support articles, built with LangChain
 and Gemini, one step at a time. You ask "How do I fix VPN connection timeouts?"; it finds the parts of the articles
 that match, and Gemini is asked to write the answer from those parts only, naming the articles it used. That's RAG:
-retrieval-augmented generation. A model needs RAG because it knows only what it learned in training, and nothing
-about your own documents, such as these articles.
+retrieval-augmented generation. A model needs RAG because it knows only what it learned in training, and nothing about
+your own documents, such as these articles. To change what it knows, you change the articles, not the model: no
+retraining or fine-tuning.
 
 ```text
-question ─> embed it ─> find the closest chunks in Qdrant ─> prompt: the chunks + the question ─> Gemini ─> answer
-                                         │
-                                         └─> sources: the articles of the chunks found
+once:          articles ─> chunks ─> embed them ─> store them in Qdrant
+each question: question ─> embed it ─> find the closest chunks in Qdrant ─> prompt: the chunks + the question ─> Gemini ─> answer
+                                                        │
+                                                        └─> sources: the articles of the chunks found
 ```
 
 It rebuilds the *IT Knowledge Base RAG Application* from the Pluralsight course *Integrating Knowledge Bases for
@@ -29,11 +31,11 @@ The projects come in four levels:
 - **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
   [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
 
-Each Basic folder, and Advanced/01, is a project of its own: it holds the app as built so far plus one new piece,
-runs on its own, and has its own tests. Projects 01 to 05 are the ingestion half: they get the knowledge base ready
-to be searched (read, label, chunk, embed, store), once per run, with no question anywhere. 06 and 07 are the query
-half, which runs for each question: the user's question comes in at 06, and 07 onward answer it. 09 and 10 add the
-web app (an API, then a chat page): if you're here to learn RAG, you can skim them.
+Each Basic folder, and Advanced/01, is a project of its own: it holds the app as built so far plus one new piece, runs
+on its own, and has its own tests. Projects 01 to 05 are the ingestion half (also called indexing): they get the
+knowledge base ready to be searched (read, label, chunk, embed, store), once per run, with no question anywhere. 06
+and 07 are the query half, which runs for each question: the user's question comes in at 06, and 07 onward answer it.
+09 and 10 add the web app (an API, then a chat page): if you're here to learn RAG, you can skim them.
 
 Beside them, [`RAG series/`](RAG%20series/README.md) will hold a notebook for each course of the Pluralsight path
 *Retrieval Augmented Generation (RAG) for Developers*, each runnable in Google Colab; so far, course 1, Vector Space
