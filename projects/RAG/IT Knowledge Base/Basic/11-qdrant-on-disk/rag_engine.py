@@ -2,11 +2,12 @@
 IT Knowledge Base: The RAG Engine
 =================================
 
-The whole pipeline in one class, the way a server uses it, with the chunks kept on disk between runs, in
-qdrant_data/ (Qdrant's local mode). build() embeds the chunks only when Qdrant doesn't already hold exactly these
-chunks. It handles:
+The whole pipeline in one class, the way a server uses it. build() is the ingestion half, run once; query() is the
+query half, run for each question. The chunks are kept on disk between runs, in qdrant_data/ (Qdrant's local
+mode), and build() embeds them only when Qdrant doesn't already hold exactly these chunks, embedded the same way.
+It handles:
   1. Building: load and split the articles; reuse the stored chunks, or embed them (one call) into a new collection
-  2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
+  2. Answering: one question, sync or async, with up to MAX_SOURCES different articles the search found, as sources
   3. Stats: what the engine holds, how it's set up, and whether it reused the stored chunks
 
 Usage (this file only defines these; pipeline.py runs the steps):
@@ -24,12 +25,14 @@ from qdrant_client import QdrantClient
 from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
 from embed_chunks import embed_chunks
 from knowledge_base import KB_FILE, load_documents
-from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
+from models import EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import TOP_K, make_retriever
 from vector_store import COLLECTION, chunk_id, make_client, make_vector_store, open_vector_store, store_vectors
 
-MAX_SOURCES = 3        # sources per answer: the first 3 different articles among the chunks found
+# Sources per answer: the first 3 different articles among the chunks the search found. They're what Gemini was
+# given, not a checked list of what its answer used: an answer can use fewer, or none.
+MAX_SOURCES = 3
 SNIPPET_LENGTH = 200   # characters of each source's text shown with it
 
 
@@ -56,6 +59,9 @@ class RAGEngine:
         self.documents, self.chunks = [], []
         self.reused_stored_chunks = False
         self.chain: Runnable | None = None
+        # The models' names, for stats(): Gemini's models know theirs (.model); a stand-in goes by its class name
+        self.embedding_model_name = getattr(embeddings, "model", type(embeddings).__name__)
+        self.chat_model_name = getattr(model, "model", type(model).__name__)
 
     def build(self) -> None:
         """Load and split the articles, make sure Qdrant holds exactly these chunks, and make the chain."""
@@ -63,11 +69,12 @@ class RAGEngine:
             self.client = make_client()
         self.documents = load_documents(self.data_path)
         self.chunks = split_documents(self.documents, self.chunk_size, self.chunk_overlap)
-        # Each chunk's id comes from its text, so "Qdrant already holds these chunks" can be checked by id:
+        # Each chunk's id comes from its text, its labels, and the model and size that embed it, so "Qdrant already
+        # holds these chunks, embedded this way" can be checked by id:
         # all stored and nothing else -> reuse them, no call to Gemini; anything else -> embed them, then store
         # them in a new collection (make_vector_store() deletes the old one first). Only this engine's collection
         # is checked or deleted: engines with collections of their own keep theirs.
-        ids = [chunk_id(chunk) for chunk in self.chunks]
+        ids = [chunk_id(chunk, self.embeddings, self.embedding_size) for chunk in self.chunks]
         self.reused_stored_chunks = False
         # collection_exists() comes from qdrant_client's QdrantClient: whether a collection by this name is there
         if self.client.collection_exists(self.collection):
@@ -118,5 +125,5 @@ class RAGEngine:
         """What the engine holds and how it's set up, including whether build() reused the stored chunks."""
         return {"documents": len(self.documents), "chunks": len(self.chunks), "collection": self.collection,
                 "chunk_size": self.chunk_size, "chunk_overlap": self.chunk_overlap, "top_k": self.top_k,
-                "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL,
+                "embedding_model": self.embedding_model_name, "chat_model": self.chat_model_name,
                 "reused_stored_chunks": self.reused_stored_chunks}

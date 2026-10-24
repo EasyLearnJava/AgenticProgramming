@@ -31,7 +31,7 @@ def test_the_pipeline_builds_the_engine_then_answers_each_question(capsys):
                               f"{QDRANT_PATH.name}/\n"
                               "Step 2: Answer\n\n"
                               f"Q: {QUESTIONS[0]}\nA: An answer.\n"
-                              "   source: VPN Connection Timeout (VPN, Remote Access)\n")
+                              "   found by the search: VPN Connection Timeout (VPN, Remote Access)\n")
     assert [line for line in printed.splitlines() if line.startswith("Q: ")] == [f"Q: {q}" for q in QUESTIONS]
 
 
@@ -62,4 +62,4 @@ def test_a_new_run_reuses_the_chunks_saved_on_disk(tmp_path, capsys):
 def test_only_the_pipeline_runs_anything():
     runnable = sorted(path.name for path in FOLDER.glob("*.py")
                       if '__name__ == "__main__"' in path.read_text(encoding="utf-8"))
-    assert runnable == sorted(name for name in ("pipeline.py", "tuning.py") if (FOLDER / name).exists())
+    assert runnable == ["pipeline.py"]

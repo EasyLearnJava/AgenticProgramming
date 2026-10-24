@@ -2,8 +2,8 @@
 IT Knowledge Base: A Grounded Answer
 ====================================
 
-Answers a question from the knowledge base only: the retriever's chunks and the question go into one prompt, and
-Gemini answers from those chunks. That is RAG: retrieval first, then generation. It handles:
+Answers a question from the knowledge base: the retriever's chunks and the question go into one prompt, and Gemini
+is asked to answer from those chunks only. That is RAG: retrieval first, then generation. It handles:
   1. The prompt: the rules and the chunks, then the question
   2. The chain: retriever, prompt, chat model and parser, keeping the chunks found as the sources
 
@@ -21,7 +21,8 @@ from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthr
 
 from retriever import format_docs
 
-# "Only the articles below" keeps the answer grounded, instead of in what the model learned in training
+# "Only the articles below" asks Gemini to answer from the chunks found, not from what it learned in training.
+# Models mostly do as asked, but nothing here checks it: RAG makes made-up answers rarer, not impossible.
 # from_messages() comes from LangChain's ChatPromptTemplate: a prompt made of these messages
 prompt = ChatPromptTemplate.from_messages([
     ("system",

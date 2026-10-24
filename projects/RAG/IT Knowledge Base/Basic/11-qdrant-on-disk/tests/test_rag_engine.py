@@ -73,6 +73,21 @@ def test_other_chunk_sizes_replace_the_stored_chunks():
     assert client.count(COLLECTION).count == 10                # the 1000-character chunks only
 
 
+def test_another_embedding_model_embeds_the_chunks_again_instead_of_reusing_them():
+    class OtherEmbeddings(KeywordEmbeddings):                 # another model: its vectors can't be compared
+        pass
+
+    client = QdrantClient(":memory:")
+    stand_in_engine(client).build()
+    engine = RAGEngine(embeddings=OtherEmbeddings(), model=FakeListChatModel(responses=["An answer."]),
+                       embedding_size=SIZE, client=client)
+    engine.build()
+    assert engine.embeddings.calls == [("documents", 28)]     # embedded again, with the new model
+    assert engine.stats()["reused_stored_chunks"] is False
+    assert engine.stats()["embedding_model"] == "OtherEmbeddings"
+    assert client.count(COLLECTION).count == 28               # the new model's points only
+
+
 def test_a_failed_embedding_leaves_the_stored_chunks_as_they_were():
     client = QdrantClient(":memory:")
     stand_in_engine(client).build()                            # 28 chunks of 512
@@ -112,6 +127,15 @@ def test_another_knowledge_base_file(tmp_path):
     assert engine.stats()["documents"] == 2
 
 
+def test_stats_names_the_engines_own_models():
+    stand_in = stand_in_engine(None)
+    assert (stand_in.stats()["embedding_model"], stand_in.stats()["chat_model"]) == (
+        "KeywordEmbeddings", "FakeListChatModel")                    # stand-ins go by their class names
+    default = RAGEngine()                                            # Gemini's models: nothing is read or called
+    assert (default.stats()["embedding_model"], default.stats()["chat_model"]) == (
+        "gemini-embedding-001", "gemini-3.5-flash-lite")
+
+
 def test_settings_are_passed_by_name_only():
     with pytest.raises(TypeError):
         RAGEngine(KeywordEmbeddings())                         # a setting by position: refused
@@ -131,8 +155,11 @@ def test_query_gives_the_answer_and_up_to_3_different_sources():
 @pytest.mark.live
 def test_live_a_sample_question_is_answered_from_its_article():
     engine = RAGEngine()
-    engine.build()
-    result = engine.query(QUESTIONS[0])
-    assert result["answer"].strip()
-    assert result["sources"][0]["title"] == "VPN Connection Timeout"
-    engine.client.close()                                      # frees qdrant_data/ for the other tests
+    try:
+        engine.build()
+        result = engine.query(QUESTIONS[0])
+        assert result["answer"].strip()
+        assert result["sources"][0]["title"] == "VPN Connection Timeout"
+    finally:
+        if engine.client is not None:
+            engine.client.close()                              # frees qdrant_data/ for the other tests, even on a failure
