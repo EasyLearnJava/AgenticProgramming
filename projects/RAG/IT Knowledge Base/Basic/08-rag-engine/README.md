@@ -137,9 +137,10 @@ With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you
 python "projects/RAG/IT Knowledge Base/run.py" Basic/08-rag-engine   # from the repo root
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 5. A question at the end of the command goes to `pipeline.py`.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python
+pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The project's output is the same
+as in Step 5, after run.py's own lines saying what it creates, installs and runs. A question at the end of the command
+goes to `pipeline.py`.
 
 ---
 
@@ -240,7 +241,7 @@ Application restrictions, None. New settings can take up to 5 minutes to work.
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 31; the
 message ends with "Please retry in" and a number of seconds. Wait that long, then run it again.
 
-**Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
@@ -264,5 +265,5 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 - Ask a question of your own with `python pipeline.py "..."`, and compare the articles the answer says it used with
   the ones the search found.
 - Change `MAX_SOURCES` in `rag_engine.py` from 3 to 1, and see one source per answer. A test checks for up to 3, so
-  put it back before `python -m pytest`.
+  put it back before you run the tests.
 - In `pipeline.py`, build the engine with `RAGEngine(top_k=2)`, and compare its answers with the default 5 chunks.
