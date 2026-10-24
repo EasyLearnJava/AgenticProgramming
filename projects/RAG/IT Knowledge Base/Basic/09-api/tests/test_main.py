@@ -66,8 +66,9 @@ def test_a_failed_gemini_call_gets_a_502_without_the_details(client, monkeypatch
     monkeypatch.setattr(main.engine, "aquery", fail)
     response = client.post("/api/query", json={"question": "My VPN won't connect"})
     assert response.status_code == 502
-    assert response.json() == {"detail": "Gemini didn't answer (RuntimeError)."}
+    assert response.json() == {"detail": "Couldn't answer the question (RuntimeError)."}
     assert "quota exceeded for project 1234" in caplog.text     # the full reason is in the server's log
+    assert "Traceback (most recent call last)" in caplog.text   # with where it happened
 
 
 def test_without_a_key_the_server_stops_with_the_message_not_a_stack_trace():

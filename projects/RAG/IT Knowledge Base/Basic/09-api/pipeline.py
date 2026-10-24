@@ -31,4 +31,5 @@ def main(questions: list[str] = QUESTIONS, engine: RAGEngine | None = None) -> N
 
 
 if __name__ == "__main__":
-    main([" ".join(sys.argv[1:])] if len(sys.argv) > 1 else QUESTIONS)
+    question = " ".join(sys.argv[1:]).strip()
+    main([question] if question else QUESTIONS)     # no question, or only spaces: the sample questions

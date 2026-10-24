@@ -1,7 +1,8 @@
 # 09 · API
 
 The RAG engine behind a web server, so any program can ask the IT knowledge base questions over HTTP. The engine is
-built once, when the server starts; each request then answers one question, with up to 3 sources. Built with
+built once, when the server starts; each request then answers one question, with up to 3 of the articles the
+search found. Built with
 **FastAPI**, **LangChain**, **Gemini** (`gemini-embedding-001` and `gemini-3.5-flash-lite`) and **Qdrant**, running in
 memory.
 
@@ -13,13 +14,14 @@ memory.
 ## 🎯 What This Project Does
 
 - **Builds the engine once**, when the server starts: the 10 articles, cut into 28 chunks, embedded and stored
-- **`POST /api/query`** with `{"question": "..."}`: the answer and up to 3 sources
+- **`POST /api/query`** with `{"question": "..."}`: the answer and up to 3 sources: the articles the search
+  found, not a checked list of what the answer used
 - **`GET /api/stats`**: what the engine holds and how it's set up
 - **`GET /api/health`**: `{"status":"ok"}`, a quick check that the server is up
 - **Checks each question before it costs anything**: an empty or blank question, or one over 500 characters, gets a
   422 error without calling Gemini
-- **Hides Gemini's errors from the caller**: if Gemini doesn't answer, the caller gets a 502 error and the reason goes
-  to the server's terminal
+- **Keeps errors' details from the caller**: if a question can't be answered, the caller gets a 502 error with the
+  error's type, and the full error, with its traceback, goes to the server's terminal
 
 **Try it:** start the server, open http://127.0.0.1:8000/docs, and ask a question from the page FastAPI makes.
 
@@ -58,7 +60,9 @@ a program, curl, or the /docs page
 ## 📋 Prerequisites
 
 - **Python 3.11 or newer**
-- **A Gemini API key**: every call to Gemini uses your key's quota
+- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
+  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
+  call to Gemini uses your key's quota
 - **curl**, to call the API from a terminal (optional: the `/docs` page does the same in a browser)
 
 ---
@@ -101,7 +105,7 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 ### Step 5: Start the Server
 
 ```bash
-uvicorn main:app --reload            # the server; Ctrl+C stops it
+uvicorn main:app                     # the server; Ctrl+C stops it
 ```
 
 When it prints `RAG engine built`, the chunks are embedded and stored: the server is ready.
@@ -133,7 +137,7 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/09-api   # from the repo ro
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops the
+`uvicorn main:app` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops the
 server. Then ask it a question as in Step 6.
 
 ---
@@ -141,18 +145,20 @@ server. Then ask it a question as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 53 passed, 8 skipped     (add -v for one line per test)
+python -m pytest                     # 54 passed, 9 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. FastAPI's `TestClient` sends their
 requests to the app without starting a server. For the API, they check `/api/health`; that the engine is built at
 start-up; that a question gets the answer and its sources; that a bad question gets a 422 and no call; that a failed
-Gemini call gets a 502 without the details; and that without a key the server stops with the message, not a stack
-trace. For `pipeline.py`, they check that it builds the engine, then answers each question, or one of your own; and
-that no other file runs anything in the terminal.
+answer gets a 502 without the details, and the traceback in the log; and that without a key the server stops with
+the message, not a stack trace. For `pipeline.py`, they check that it builds the engine, then answers each
+question, or one of your own; and that no other file runs anything in the terminal.
 
-The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
+The 9 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+no key is set. With your key in `.env`, they run too. Together they embed more than 100 texts, the free tier's limit
+for a minute, so there run the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a
+time, a minute apart: `python -m pytest -m live tests/test_main.py`.
 
 ---
 
@@ -193,31 +199,48 @@ other requests.
 
 ### 4. Errors: the Detail for the Terminal, a Short Message for the Caller
 
-When the call to Gemini fails, `query()` logs the full reason in the server's terminal and sends the caller only a 502
-with the error's type. The caller learns that Gemini didn't answer, without the details of how.
+When answering fails, `query()` logs the full error, with its traceback (`logger.exception()`), in the server's
+terminal, and sends the caller only a 502 with the error's type: `{"detail":"Couldn't answer the question
+(ClientError)."}`. It's usually Gemini (a quota or a network problem), but not always, so the message doesn't say
+it was. The caller learns the question wasn't answered, without the details of how.
 
 ---
 
 ## 🛠️ Troubleshooting
 
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
+**Issue**: The terminal shows `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`, and the server doesn't start
+**Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
+after it, and check it's restricted to the Generative Language API, not to another one.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
+**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute; starting the server
+embeds 28, and each question 1 more. The message ends with "Please retry in" and a number of seconds. Wait that
+long, then try again.
+
 **Issue**: The terminal shows `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`, and the server doesn't start
-**Fix**: Press Ctrl+C (with `--reload`, uvicorn keeps waiting), put your key in `.env` (Step 4), and start it again.
+**Fix**: The server stops at once. Put your key in `.env` (Step 4), and start it again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
-**Issue**: A question gets `{"detail":"Gemini didn't answer (...)."}` with status 502
-**Fix**: The server's terminal has a `Gemini call failed:` line with the reason Gemini gave. Fix what it says, then
-ask again.
+**Issue**: A question gets `{"detail":"Couldn't answer the question (...)."}` with status 502
+**Fix**: The server's terminal has a `Couldn't answer:` line with the reason, then the traceback. Fix what it says,
+then ask again.
 
 **Issue**: http://127.0.0.1:8000 doesn't open in Codespaces
-**Fix**: `127.0.0.1` is your own computer. Open the **Ports** tab next to **Terminal** and click the globe icon on port
-8000.
+**Fix**: `127.0.0.1` is your own computer. Open the **Ports** tab next to **Terminal** and click the globe icon on
+port 8000.
 
 ---
 
 ## 💡 Ideas to Try
 
 - Send `{"question": ""}` from the `/docs` page and read the 422 it gets back.
-- Ask the same question twice, and compare the two answers and their sources.
+- Ask the same question twice, and compare the two answers: the sources are the same, as the search is, but the
+  wording of Gemini's answer can change.
 - Change `max_length=500` in `QueryIn` to 50, restart, and send a longer question.

@@ -12,7 +12,7 @@ import pytest
 import models
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
-SCRIPTS = [name for name in ("pipeline.py", "tuning.py") if (FOLDER / name).exists()]
+SCRIPTS = ["pipeline.py"]
 
 
 def test_the_embedding_model_and_its_vector_size():
