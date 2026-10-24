@@ -105,7 +105,8 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 uvicorn main:app                     # the server; Ctrl+C stops it
 ```
 
-When it prints `RAG engine built`, the chunks are embedded and stored: the server is ready.
+When it prints `Uvicorn running on http://127.0.0.1:8000`, the server is ready: the chunks are embedded and stored,
+and it has the port.
 
 ### Step 6: Open the Page
 
@@ -113,9 +114,9 @@ Open http://127.0.0.1:8000.
 
 The question box already holds `How do I fix VPN connection timeouts?`: click **Ask**. The answer shows up under the
 box: your question, Gemini's answer, then **Found by the search:** with up to 3 articles, each with its system,
-category and the start of its text. They're the articles the search found and Gemini was given, not a checked list
-of what the answer used. Any [1], [2] in an answer number the 5 chunks in the prompt (07 prints it), not the articles
-under **Found by the search:**.
+category and the start of the chunk the search found. They're the articles the search found and Gemini was given, not
+a checked list of what the answer used. Any [1], [2] in an answer number the 5 chunks in the prompt (07 prints it),
+not the articles under **Found by the search:**.
 
 In GitHub Codespaces, `127.0.0.1` is your own computer, not the codespace: open the **Ports** tab next to
 **Terminal** and click the globe icon on port 8000.
@@ -231,6 +232,14 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
+
+**Issue**: An error with `[Errno 10048]` or `address already in use` in it, and the server stops
+**Fix**: Another server, often another project's, already has port 8000. Stop it (Ctrl+C in its terminal), or
+start this one on another port, `uvicorn main:app --port 8001`, and use 8001 in the address.
+
+**Issue**: `uvicorn` isn't found: PowerShell says it `is not recognized`, bash says `command not found`
+**Fix**: The venv isn't active, so its `uvicorn` isn't on the path. Activate it (Step 2), or use the one command,
+which needs no activating.
 
 **Issue**: The page shows `... The server's terminal says why.`
 **Fix**: The question couldn't be answered. The server's terminal has a `Couldn't answer:` line with the reason,

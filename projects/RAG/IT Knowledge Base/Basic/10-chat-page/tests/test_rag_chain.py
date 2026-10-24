@@ -29,6 +29,7 @@ def test_the_prompt_has_the_rules_and_articles_then_the_question():
     system, human = prompt.invoke({"context": "[1] An article\nIts text", "question": "Why?"}).to_messages()
     assert system.type == "system" and human.type == "human"
     assert "using only the knowledge base articles below" in system.content
+    assert "say that the knowledge base doesn't cover it" in system.content
     assert system.content.endswith("Articles:\n[1] An article\nIts text")
     assert human.content == "Why?"
 
