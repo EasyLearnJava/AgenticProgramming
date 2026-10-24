@@ -110,6 +110,7 @@ def test_without_a_key_the_server_stops_with_the_message_not_a_stack_trace():
                             capture_output=True, text=True, timeout=60)
     assert result.returncode != 0
     assert "Can't build the models: GOOGLE_API_KEY is not set" in result.stderr
+    assert "Traceback" not in result.stderr
 
 
 @pytest.mark.live

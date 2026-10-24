@@ -153,7 +153,7 @@ def test_query_gives_the_answer_and_up_to_3_different_sources():
 
 
 @pytest.mark.live
-def test_live_a_sample_question_is_answered_from_its_article():
+def test_live_a_sample_question_finds_its_article_first_and_gets_an_answer():
     engine = RAGEngine()
     try:
         engine.build()
@@ -162,4 +162,4 @@ def test_live_a_sample_question_is_answered_from_its_article():
         assert result["sources"][0]["title"] == "VPN Connection Timeout"
     finally:
         if engine.client is not None:
-            engine.client.close()                              # frees qdrant_data/ for the other tests, even on a failure
+            engine.client.close()                              # frees qdrant_data/ for later tests, even on a failure

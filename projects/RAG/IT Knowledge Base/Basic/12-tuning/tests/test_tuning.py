@@ -30,6 +30,10 @@ def test_no_question_uses_a_word_of_its_articles_title():
         assert not words(question) & words(title), question
 
 
+def test_the_keyword_search_leaves_out_common_words():
+    assert words("What's the IP address of the printer?") == {"ip", "address", "printer"}
+
+
 def test_build_stores_embeds_each_chunk_size_once():
     stand_in = KeywordEmbeddings()
     stores = build_stores(stand_in, SIZE, chunk_sizes=[200, 1000])
@@ -55,6 +59,8 @@ def test_a_hit_needs_the_fact_not_just_the_article():
     rows = evaluate(stand_in, stores, eval_set=[("my vpn keeps dropping", "VPN Connection Timeout", "not there")],
                     top_ks=[5])
     assert [row["top_5"] for row in rows] == [0, 0, 0]
+    # Its article is listed as missed, for the two searches that pick chunks
+    assert [row.get("missed_in_top_1") for row in rows] == [["VPN Connection Timeout"]] * 2 + [None]
 
 
 def test_keyword_search_ranks_the_chunks_by_the_words_they_share_with_the_question():

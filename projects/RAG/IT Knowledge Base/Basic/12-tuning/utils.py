@@ -5,10 +5,12 @@ IT Knowledge Base: Utilities
 Helpers the pipeline uses that aren't a step of their own. It handles:
   1. Printing an answer with the articles the search found
   2. Printing the tuning scores: one line per chunk size and search
+  3. Printing, for each chunk size, the questions whose fact Gemini's first chunk missed
 
 Usage (pipeline.py and tuning.py call them; this file only defines them):
     print_result(question, engine.query(question))   ->  the question, the answer, then each source
     print_table(rows, total)                         ->  the scores, one line per chunk size and search
+    print_misses(rows)                               ->  for each chunk size, the articles of the questions missed
 """
 
 
@@ -32,3 +34,12 @@ def print_table(rows: list[dict], total: int) -> None:
         # Each score right-aligned under its heading; :g drops a whole number's ".0" (a random row's 1.0 -> 1)
         cells = "  ".join(f"{row[key]:g} of {total}".rjust(len(heading)) for key, heading in zip(keys, headings))
         print(f"{row['chunk_size']:>10}  {row['chunks']:>6}  {row['search']:<8}  {cells}")
+
+
+def print_misses(rows: list[dict]) -> None:
+    """For each chunk size, the questions whose fact wasn't in the first chunk Gemini's search found, by their
+    article; "none" if it found every fact first."""
+    print("\nNot in Gemini's top 1, by article:")
+    for row in rows:
+        if row["search"] == "gemini":
+            print(f"{row['chunk_size']:>10}  {', '.join(row['missed_in_top_1']) or 'none'}")

@@ -8,7 +8,8 @@ It handles:
   1. The stores: for each chunk size, the chunks embedded (one call to Gemini) and stored in memory
   2. The scores: for each chunk size, the questions whose fact is in the 1, 3 and 5 chunks found, by three searches:
      Gemini's embeddings, the question's own words (keywords), and a random order (what luck finds, on average)
-  3. The table of those scores, printed by print_table() (utils.py)
+  3. The table of those scores, printed by print_table() (utils.py), then for each chunk size the questions whose
+     fact wasn't in the first chunk Gemini's search found, printed by print_misses()
   4. With --answers, one question answered from 1 chunk and from 5, to compare the answers
 
 Everything runs in memory apart from the calls to Gemini: the chunks in qdrant_data/ aren't used or changed.
@@ -32,13 +33,12 @@ from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import make_retriever
-from utils import print_table
+from utils import print_misses, print_table
 from vector_store import make_vector_store, store_vectors
 
 # Each question, the title of the article that answers it, and the fact a good answer needs, word for word as the
-# article has it. No question uses a word of its article's title, so a good score means the search matched meanings,
-# not words. Two are near-misses: VPN and Database both have "Connection Timeout" in their titles and "peak hours"
-# in their text.
+# article has it. No question uses a word of its article's title, so no hit can come from the title alone. Two are
+# near-misses: VPN and Database both have "Connection Timeout" in their titles and "peak hours" in their text.
 EVAL_SET = [
     ("Which ports must be open for me to reach the office network from home?", "VPN Connection Timeout",
      "UDP 500 and 4500"),
@@ -59,6 +59,12 @@ EVAL_SET = [
 CHUNK_SIZES = [200, 512, 1000]       # small, the usual size, and big enough to keep every article whole
 TOP_KS = [1, 3, 5]                   # how many chunks a search returns
 SEARCHES = ["gemini", "keywords", "random"]
+# Words too common to tell one text from another: the keyword search leaves them out, or a question would match
+# chunks on "the", "to" and "of". "s", "t" and "m" are what's left of "what's", "won't" and "I'm".
+COMMON_WORDS = {"a", "about", "after", "an", "and", "are", "as", "at", "be", "being", "by", "can", "do", "does",
+                "for", "from", "has", "have", "how", "i", "if", "in", "is", "it", "its", "m", "me", "much", "must",
+                "my", "not", "of", "on", "or", "our", "s", "should", "t", "that", "the", "this", "to", "until",
+                "was", "we", "what", "when", "where", "which", "who", "why", "will", "with", "won", "you", "your"}
 
 
 def build_stores(embeddings: Embeddings, size: int,
@@ -76,9 +82,9 @@ def build_stores(embeddings: Embeddings, size: int,
 
 
 def words(text: str) -> set[str]:
-    """A text's words, in lower case: what the keyword search compares."""
+    """A text's words, in lower case, without the COMMON_WORDS: what the keyword search compares."""
     # findall() comes from Python's re module: every run of letters and digits in the text
-    return set(re.findall(r"[a-z0-9]+", text.lower()))
+    return set(re.findall(r"[a-z0-9]+", text.lower())) - COMMON_WORDS
 
 
 def keyword_search(question: str, chunks: list[Document], k: int) -> list[Document]:
@@ -97,7 +103,9 @@ def random_hit_chance(fact: str, chunks: list[Document], k: int) -> float:
 
 def evaluate(embeddings: Embeddings, stores: dict, eval_set=EVAL_SET, top_ks=TOP_KS) -> list[dict]:
     """Three rows of scores per chunk size, one for each search, e.g. {"chunk_size": 512, "chunks": 28,
-    "search": "gemini", "top_1": 6, "top_3": 8, "top_5": 9}: the questions whose fact is in the k chunks found."""
+    "search": "gemini", "top_1": 9, "top_3": 10, "top_5": 10, "missed_in_top_1": ["Email Attachment Size Limit"]}:
+    how many questions have their fact in the k chunks found and, for gemini and keywords, the articles of the
+    questions whose fact isn't in the first chunk found."""
     # The questions are embedded once and reused for every chunk size
     # embed_query() comes from LangChain's Embeddings (Gemini's, here): one text in, one vector out
     question_vectors = [embeddings.embed_query(question) for question, _, _ in eval_set]
@@ -115,6 +123,10 @@ def evaluate(embeddings: Embeddings, stores: dict, eval_set=EVAL_SET, top_ks=TOP
                 else:
                     row[f"top_{k}"] = sum(any(fact in chunk.page_content for chunk in results[:k])
                                           for (_, _, fact), results in zip(eval_set, found[search]))
+            if search != "random":
+                # Each question's article, if its fact isn't in the first chunk found
+                row["missed_in_top_1"] = [title for (_, title, fact), results in zip(eval_set, found[search])
+                                          if fact not in results[0].page_content]
             rows.append(row)
     return rows
 
@@ -128,9 +140,11 @@ def compare_top_k(question: str, store: QdrantVectorStore, top_ks=(1, 5)) -> dic
 if __name__ == "__main__":
     print(f"{len(EVAL_SET)} questions, each with the fact a good answer needs.\n")
     stores = build_stores(embeddings, EMBEDDING_SIZE)
-    print_table(evaluate(embeddings, stores), len(EVAL_SET))
+    rows = evaluate(embeddings, stores)
+    print_table(rows, len(EVAL_SET))
+    print_misses(rows)
     if "--answers" in sys.argv[1:]:
-        question = EVAL_SET[1][0]          # MFA: the cause is in the notes, after the fix's 7 steps
+        question = EVAL_SET[7][0]          # Email: at 512, its fact is in the 2nd chunk Gemini's search finds
         for k, answer in compare_top_k(question, stores[512][1]).items():
             print(f"\n--- {question!r}, answered from {k} chunk{'s' if k > 1 else ''}:")
             print(answer)
