@@ -133,9 +133,9 @@ With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you
 python "projects/RAG/IT Knowledge Base/run.py" Basic/05-vector-store   # from the repo root
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 5.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python
+pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The project's output is the same
+as in Step 5, after run.py's own lines saying what it creates, installs and runs.
 
 ---
 
@@ -179,6 +179,7 @@ Each point holds an id, a vector and a payload with metadata, page_content
 
 Point 1 of 28: VPN Connection Timeout, from character 0: 768 numbers, 457 characters of text, 7 labels
 Point 2 of 28: VPN Connection Timeout, from character 459: 768 numbers, 110 characters of text, 7 labels
+...
 ```
 
 The 7 labels are the article's 6 (`doc_id`, title, system, category, priority and tags) plus the chunk's own
@@ -197,8 +198,9 @@ QdrantClient(":memory:")            # in make_vector_store(): inside the script,
 
 Qdrant runs in the script's own memory, so there's nothing to install or start, and the points last only as long as
 the script does. That's enough here: each run embeds and stores the 28 chunks again. The same code works with Qdrant
-keeping its points in a folder, `QdrantClient(path=...)`, or running as a server, `QdrantClient(url=...)`: only the
-client differs.
+running as a server, `QdrantClient(url=...)`: only the client differs. In memory, Qdrant compares every vector, as a
+plain loop would, which is fine for 28; a Qdrant server keeps an index, so a search among millions needn't compare
+them all.
 
 ### 3. Starting Fresh on Every Run
 
@@ -249,9 +251,8 @@ With cosine, Qdrant divides every number of a vector by the vector's length, whi
 
 ![Normalized. A long grey arrow goes from the origin to [3, 4], length 5: what Gemini returns. A short blue arrow along the same line ends on a dashed circle of radius 1, at [0.6, 0.8]: what Qdrant stores. Every number is divided by 5. The direction, and so every cosine score, stays the same.](images/normalize.svg)
 
-The direction doesn't change, so every cosine score stays the same. Qdrant does it so that each search becomes a
-simple dot product, which is faster. In 06, the question's vector for "How do I fix VPN connection timeouts?" comes
-back from Gemini with a length of 0.5950, while a point's vector read back from the collection has length 1.
+The direction doesn't change, so every cosine score stays the same: Gemini's vectors don't come back at length 1, but
+a point's vector read back from the collection does.
 
 #### Dot: the angle and the lengths
 
@@ -335,8 +336,9 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
 ## 💡 Ideas to Try
 
-- In `print_points()`, print `f"{math.hypot(*point.vector):.4f}"` after each point's line (with `import math` at
-  the top): 1.0000 every time, though Gemini's vectors aren't length 1 (Key Concept 4).
+- In `pipeline.py`, print `f"{math.hypot(*vectors[0]):.4f}"` before `store_vectors()`, and in `print_points()` the
+  same for each `point.vector` (with `import math` at the top of each file): not 1 before, 1.0000 every time after
+  (Key Concept 4). One test checks the pipeline's output, so take the prints out before `python -m pytest`.
 - Run `python pipeline.py` twice and print the points' ids with `scroll()`: the same 28 chunks, with new random ids
   each time.
 - In `make_vector_store()`, change `Distance.COSINE` to `Distance.EUCLID`, and see `print_points()` say
