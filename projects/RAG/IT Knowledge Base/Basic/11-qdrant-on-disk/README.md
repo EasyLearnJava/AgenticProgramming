@@ -1,8 +1,8 @@
 # 11 · Qdrant on Disk
 
-The IT knowledge base app, with its chunks kept on disk between runs: Qdrant runs inside the app, in local mode, and
-saves them in the folder `qdrant_data/`. The first run embeds and stores the 28 chunks; every run after that finds
-them there and reuses them, with no call to Gemini for the chunks. The engine, the API and the chat page answer
+The IT knowledge base app, with its chunks kept on disk between runs: Qdrant still runs inside the app, in local mode,
+but now saves them in the folder `qdrant_data/`. The first run embeds and stores the 28 chunks; every run after that
+finds them there and reuses them, with no call to Gemini for the chunks. The engine, the API and the chat page answer
 questions from them. Built with **Qdrant** (local mode), **FastAPI**, **LangChain** and **Gemini**
 (`gemini-embedding-001` and `gemini-3.5-flash-lite`).
 
@@ -73,8 +73,8 @@ its vector, until the chunk or the model changes.
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 
 ---
 
@@ -146,7 +146,7 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 The plain tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
 
 ```bash
-python -m pytest                     # 68 passed, 9 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 68 passed, 9 deselected  (add -v for one line per test)
 ```
 
 They use stand-ins for Gemini, so they need no key and make no calls. They check:
@@ -162,12 +162,13 @@ They use stand-ins for Gemini, so they need no key and make no calls. They check
   a chunk without a vector stops the store; another data file can be read; `stats()` names the engine's own models;
   every setting is passed by name; and the server frees `qdrant_data/` when it stops
 - **The pipeline**: it builds the engine, then answers each question; a second run reuses the stored chunks, in
-  memory and on disk; and no other file runs anything in the terminal
+  memory and on disk; without a key, it and the server stop with the message, not a traceback; and no other file runs
+  anything in the terminal
 
-The 9 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too, and two of them, like the app, use `qdrant_data/`: stop the
-server first. Together they embed more than 100 texts, the free tier's limit for a minute, so there run the plain
-ones with `python -m pytest -m "not live"`, and the live ones one file at a time, a minute apart:
+The 9 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`; with
+no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Two of them, like the app,
+use `qdrant_data/`: stop the server first. Together, all 9 embed more than 100 texts, the free tier's limit for a
+minute, so on the free tier, run them one file at a time, a minute apart:
 `python -m pytest -m live tests/test_rag_engine.py`.
 
 ---
@@ -176,10 +177,10 @@ ones with `python -m pytest -m "not live"`, and the live ones one file at a time
 
 ### 1. Qdrant on Disk Keeps the Data
 
-Qdrant in memory loses everything when the program ends, so every run embeds the chunks again. In local mode,
-`QdrantClient(path="qdrant_data")`, it saves its points in that folder, so the chunks outlive each run of the app. It
-still runs inside the program, so only one program at a time can open the folder; for several at once, Qdrant also
-runs as a server, with the same code.
+Qdrant's local mode keeps its points in memory or, with `path=`, in a folder. Qdrant in memory loses everything when
+the program ends, so every run embeds the chunks again. On disk, with `QdrantClient(path="qdrant_data")`, it saves its
+points in that folder, so the chunks outlive each run of the app. It still runs inside the program, so only one
+program at a time can open the folder; for several at once, Qdrant also runs as a server, with the same code.
 
 ### 2. An Id Made From the Chunk and the Model
 
@@ -207,7 +208,7 @@ are in the key too: change only an article's priority, and its chunks are stored
 - anything else (an edited article, other chunk sizes, another model or vector size): embed the chunks with
   `embed_chunks()`, then store them with `store_vectors()` in a new collection from `make_vector_store()`, which
   deletes the old one first;
-- no collection yet (the first run): make it, then embed and store them.
+- no collection yet (the first run): embed them, then make it and store them.
 
 The chunks are embedded before the old collection is deleted, so if the call to Gemini fails, the stored chunks are
 still there. Two runs, one after the other, start:
@@ -223,8 +224,9 @@ Step 1: Build the engine: 10 articles, 28 chunks (already stored, reused) in qdr
 The second run made no call to Gemini for the chunks: only the question was embedded.
 
 Only the engine's own collection is checked or deleted: `it_knowledge_base`, unless it's given another. So an
-engine with other chunk sizes can share `qdrant_data/` without replacing these chunks, in a collection of its own:
-`RAGEngine(collection="it_kb_1000", chunk_size=1000)`.
+engine with other chunk sizes can share `qdrant_data/` without replacing these chunks, in a collection of its own.
+In the same program, it also shares the built engine's client, since the folder can't be opened twice at once:
+`RAGEngine(collection="it_kb_1000", chunk_size=1000, client=engine.client)`.
 
 ### 4. Closing the Folder
 
@@ -248,7 +250,12 @@ stopped.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute; a first run embeds 28
@@ -269,6 +276,14 @@ then ask again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
+
+**Issue**: `Can't build the models: .env isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding.`
+**Fix**: `.env` was saved in another encoding, often UTF-16 by Windows PowerShell 5's `echo ... > .env`. Save it
+again as UTF-8, or make it with `copy .env.example .env` and edit it.
+
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
+**Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
+`pip install -r requirements-dev.txt` (Step 3).
 
 ---
 
