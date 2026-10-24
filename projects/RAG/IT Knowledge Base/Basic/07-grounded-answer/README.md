@@ -81,8 +81,8 @@ data/sample_it_kb.csv                 10 articles
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 
 ---
 
@@ -150,7 +150,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 37 passed, 7 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 37 passed, 7 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini (`KeywordEmbeddings` for the embeddings, LangChain's `FakeListChatModel`
@@ -164,11 +164,11 @@ for the answers), so they need no key and make no calls. They check:
   its sources and the answer alone; the prompt it prints is exactly what the model got, and the model alone gets only
   the question; it takes a question of your own; and no other file runs anything
 
-The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too, and one checks that an off-topic question gets "the knowledge
-base doesn't cover it". Together they embed more than 100 texts, the free tier's limit for a minute, so there run
-the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a time, a minute apart:
-`python -m pytest -m live tests/test_rag_chain.py`.
+The 7 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
+with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. One live test asks how
+to bake bread: the answer must say the knowledge base doesn't cover it ("cover") and have no "flour" or "yeast" (no
+recipe from what Gemini knows). Together they embed more than 100 texts, the free tier's limit for a minute, so on
+the free tier, run them one file at a time, a minute apart: `python -m pytest -m live tests/test_rag_chain.py`.
 
 ---
 
@@ -195,7 +195,7 @@ I do not have access to real-time schedules, internal IT tickets, or company cal
 ```
 
 That's what retrieval adds: knowledge the model never saw. Here Gemini alone says it doesn't know; a model can also
-make up a confident answer instead.
+make up a confident answer instead (a hallucination).
 
 ### 2. The Prompt, Exactly as Gemini Got It
 
@@ -217,8 +217,11 @@ Notes: Building C has older access points scheduled for upgrade Q2. Capacity iss
 [2] WiFi Connectivity Issues Office
 ```
 
-The search put the one chunk with the answer first. The other 4 are there too: the prompt always gets 5, and some
-are about something else (a printer, a Salesforce role).
+The search put the one chunk with the answer first. The other 4 are there too: the prompt always gets 5 of the 28
+chunks, and some are about something else (a printer, a Salesforce role). The 10 articles, 6,621 characters in all,
+would fit whole in the prompt, but real knowledge bases don't: a model reads only so much at once (its context
+window), and every token sent costs (a token is a piece of a word, about 4 characters of English). Answers are
+counted in tokens too: `MAX_OUTPUT_TOKENS`, in `models.py`, caps each one at 500.
 
 ### 3. Asked, Not Guaranteed
 
@@ -239,8 +242,9 @@ Sources (the articles of the chunks found, closest first):
 ```
 
 Two things to see. The sources still list 5 articles, though the answer used none of them: they're the articles of
-the chunks the search found, and a search always finds 5. And Gemini alone, asked the same question, wrote a bread
-recipe, until it reached `MAX_OUTPUT_TOKENS`, 500.
+the chunks the search found, and a search always finds 5 chunks, here from 5 different articles (for the Building C
+question, from 3). And Gemini alone, asked the same question, wrote a bread recipe, until it reached
+`MAX_OUTPUT_TOKENS`, 500.
 
 ### 4. One Chain That Keeps the Chunks
 
@@ -249,18 +253,24 @@ RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=a
 ```
 
 `RunnableParallel` runs the retriever on the question and passes the question through, side by side. `.assign()`
-then adds the answer. Because `"docs"` stays in the result, `print_answer()` can show which articles the answer
-came from.
+then adds the answer. Because `"docs"` stays in the result, `print_answer()` can list the articles of the chunks the
+search found, which Gemini was given.
 
 ### 5. Runnables Joined With `|`
 
 ```python
-answer = (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]}) | prompt | model | StrOutputParser()
+answer = (
+    (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]})
+    | prompt
+    | model
+    | StrOutputParser()
+)
 model | StrOutputParser()   # the question alone: no retriever, no prompt, so no articles
 ```
 
 Each part is a Runnable, and `|` passes one part's output to the next: the chunks become one text for the prompt, the
-prompt goes to the model, and the parser turns the model's reply into plain text. One `invoke()` runs it all.
+prompt goes to the model, and the parser turns the model's reply into plain text. The lambda isn't a Runnable itself;
+when `|` joins it to one, LangChain wraps it in a `RunnableLambda`. One `invoke()` runs it all.
 
 ### 6. One File Runs the Steps
 
@@ -281,7 +291,12 @@ pass stand-ins for Gemini.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 29; the
@@ -297,6 +312,10 @@ message ends with "Please retry in" and a number of seconds. Wait that long, the
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
+**Issue**: `Can't build the models: .env isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding.`
+**Fix**: `.env` was saved in another encoding, often UTF-16 by Windows PowerShell 5's `echo ... > .env`. Save it
+again as UTF-8, or make it with `copy .env.example .env` and edit it.
+
 **Issue**: `python rag_chain.py` prints nothing
 **Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
 
@@ -306,7 +325,12 @@ message ends with "Please retry in" and a number of seconds. Wait that long, the
 
 - Ask how long a Salesforce role change takes to work: `python pipeline.py "how long until my new Salesforce role
   works?"`. The SaaS article says up to 30 minutes. Does Gemini alone guess?
-- Remove "using only the knowledge base articles below" from the prompt, ask the bread question again, and compare
-  the answers.
+- In `rag_chain.py`, cut both rules from the prompt: "using only the knowledge base articles below" and "If they
+  don't cover the question, say that the knowledge base doesn't cover it." Then ask the bread question again. In one
+  run, Gemini still declined, in its own words: "I'm sorry, but I can only assist with IT-related issues based on the
+  available articles. For password resets, VPN, printing, database connections, or SaaS access, please let me know."
+  Its answer points to what still kept it on topic: the prompt's first sentence, "You are an IT help-desk assistant",
+  and the articles it was still given. One test checks the prompt has the first rule, and the live bread test looks
+  for "cover", so put both back before `python -m pytest`.
 - Change `TOP_K` in `retriever.py` from 5 to 1, and see how the prompt, the answer and its sources change. Tests
   check for 5, so put it back before `python -m pytest`.
