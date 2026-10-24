@@ -2,7 +2,7 @@
 
 An IT help-desk assistant that answers questions from a knowledge base of IT support articles, built with LangChain
 and Gemini, one step at a time. You ask "How do I fix VPN connection timeouts?"; it finds the parts of the articles
-that match, and Gemini writes the answer from those parts only, naming the articles it used. That's RAG:
+that match, and Gemini is asked to write the answer from those parts only, naming the articles it used. That's RAG:
 retrieval-augmented generation.
 
 ```text
@@ -50,13 +50,13 @@ Models and Embeddings in RAGs.
 | `02-documents-and-metadata` | Each article's text to search (title, problem, resolution, notes) kept apart from its labels (system, category, priority, tags) | `python pipeline.py` |
 | `03-chunking` | The articles cut into chunks of at most 512 characters with `RecursiveCharacterTextSplitter`: 28 in all | `python pipeline.py` |
 | `04-embeddings` | The 28 chunks turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers each), in one call. No question yet | `python pipeline.py` |
-| `05-vector-store` | The chunks stored in Qdrant through `QdrantVectorStore`: one point per chunk, with its vector, text and labels, saved on disk in `qdrant_data/` by Qdrant's local mode, inside the script | `python pipeline.py` |
+| `05-vector-store` | The chunks stored in Qdrant through `QdrantVectorStore`: one point per chunk, with its vector, text and labels, in memory, inside the script | `python pipeline.py` |
 | `06-retriever` | The user's question: embedded, then searched in Qdrant for the 5 closest chunks; then both in one call with a retriever, a Runnable | `python pipeline.py` |
-| `07-grounded-answer` | The RAG chain: the chunks and the question go into a prompt, and Gemini (`gemini-3.5-flash-lite`) answers from them only | `python pipeline.py` |
+| `07-grounded-answer` | The RAG chain: the chunks and the question go into a prompt, and Gemini (`gemini-3.5-flash-lite`) is asked to answer from them only; then the same question without them | `python pipeline.py` |
 | `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python pipeline.py` |
-| `09-api` | A FastAPI server: `POST /api/query`, `GET /api/stats`, `GET /api/health` | `uvicorn main:app --reload` |
-| `10-chat-page` | A chat page at http://127.0.0.1:8000, served by the same server | `uvicorn main:app --reload` |
-| `11-qdrant-on-disk` | The chunks kept on disk between runs, in `qdrant_data/`, so they're embedded only once | `uvicorn main:app --reload` |
+| `09-api` | A FastAPI server: `POST /api/query`, `GET /api/stats`, `GET /api/health` | `uvicorn main:app` |
+| `10-chat-page` | A chat page at http://127.0.0.1:8000, served by the same server | `uvicorn main:app` |
+| `11-qdrant-on-disk` | The chunks kept on disk between runs, in `qdrant_data/`, so they're embedded only once | `uvicorn main:app` |
 | `12-tuning` | The search scored on 10 test questions for three chunk sizes and three values of k; with `--answers`, one question answered from 1 chunk and from 5 | `python tuning.py` |
 
 ### Advanced
@@ -78,11 +78,13 @@ Models and Embeddings in RAGs.
   **Open in Colab** button.
 - **A Gemini API key, from project 04 on**, set up as in the tutorials (`tutorials/09-gemini-key`): copy the project's
   `.env.example` to `.env` and put the key after `GOOGLE_API_KEY=`. Every call to Gemini uses your key's quota.
-  Without a key, the scripts stop with a message that says what to do.
-- **No Docker and no database server**: Qdrant runs inside the scripts. Projects 05, 11 and 12 save its points in a
+  Without a key, the scripts stop with a message that says what to do. On the free tier, Gemini embeds at most 100
+  texts a minute, and each text in a batch counts: a run of 04 to 11 embeds about 30, and 12's `tuning.py` 97.
+- **No Docker and no database server**: Qdrant runs inside the scripts. Projects 11 and 12 save its points in a
   `qdrant_data/` folder (in `.gitignore`); the others keep them in memory.
 - **Tests**: `python -m pytest` in a project's folder. The plain tests use stand-ins for Gemini, so they need no key;
-  the live tests call the real Gemini and run only when a key is set.
+  the live tests call the real Gemini and run only when a key is set. A project's live tests together can embed more
+  than 100 texts, so on the free tier run `python -m pytest -m "not live"`, and the live ones a file at a time.
 
 ## Run a project in one step
 

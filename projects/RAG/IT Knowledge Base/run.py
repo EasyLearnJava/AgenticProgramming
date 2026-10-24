@@ -27,9 +27,9 @@ COMMANDS = {
     "Basic/06-retriever": ["pipeline.py"],
     "Basic/07-grounded-answer": ["pipeline.py"],
     "Basic/08-rag-engine": ["pipeline.py"],
-    "Basic/09-api": ["-m", "uvicorn", "main:app", "--reload"],
-    "Basic/10-chat-page": ["-m", "uvicorn", "main:app", "--reload"],
-    "Basic/11-qdrant-on-disk": ["-m", "uvicorn", "main:app", "--reload"],
+    "Basic/09-api": ["-m", "uvicorn", "main:app"],
+    "Basic/10-chat-page": ["-m", "uvicorn", "main:app"],
+    "Basic/11-qdrant-on-disk": ["-m", "uvicorn", "main:app"],
     "Basic/12-tuning": ["tuning.py"],
     "Advanced/01-read-the-knowledge-base": ["knowledge_base_loader.py"],
 }
