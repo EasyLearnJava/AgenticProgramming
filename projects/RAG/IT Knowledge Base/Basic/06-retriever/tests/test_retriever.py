@@ -1,7 +1,7 @@
 """
 Tests for retriever.py: the question's vector searched in the store, the retriever as a Runnable (invoke, batch, k),
-and the chunks formatted for a prompt. The plain tests use KeywordEmbeddings, a stand-in for Gemini
-(tests/fakes.py); the live test asks the real Gemini.
+and the chunks formatted for a prompt. The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py);
+the live test asks the real Gemini.
 """
 import pytest
 from fakes import SIZE, KeywordEmbeddings

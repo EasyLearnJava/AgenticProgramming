@@ -77,8 +77,8 @@ a question ──────────────┤ Step 5: Retrieve
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 - A network connection, to reach Gemini
 
 ---
@@ -147,7 +147,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basi
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 32 passed, 4 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 32 passed, 4 deselected  (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
@@ -166,10 +166,10 @@ points closest to the VPN chunks, the same every time. They check:
   chunks; a chunk without a vector stops the store; the model's settings and the no-key message; 28 chunks; 10
   Documents
 
-The 4 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
-environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
-so it can be built, and skips the live tests. With your key in `.env`, they run too (36 passed) and embed 88 texts:
-on the free tier, wait a minute after a run first. `python -m pytest -m "not live"` leaves them out.
+The 4 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
+with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Together they embed 88
+texts, under the free tier's limit of 100 a minute, so `python -m pytest -m live` runs them all at once; on the free
+tier, wait a minute after a run first.
 
 ---
 
@@ -208,8 +208,8 @@ The VPN article's first chunk, its title, problem and fix, is well ahead of ever
 ### 3. What a Score Means
 
 Each score is the cosine similarity between the question's vector and a chunk's: how closely the two point the same
-way, from -1 to 1. **1.0** means the same direction; **0** means unrelated. **0.775** is an angle of about 39° between
-the two vectors.
+way, from -1 to 1. **1.0** means the same direction; **0** is at right angles. **0.775** is an angle of about 39°
+between the two vectors.
 
 ```text
 cosine(a, b) = (a₁×b₁ + a₂×b₂ + … + a₇₆₈×b₇₆₈) / (length of a × length of b)
@@ -240,9 +240,9 @@ The 5 closest chunks, with their scores, closest first:
   0.493  SaaS Access Permission Denied, from character 575
 ```
 
-Five chunks again, about nothing to do with bread. The scores are lower, 0.511 at the top against 0.775, but they
-never reach 0: all IT support text is still a little like any question. Nothing here says "no match"; a minimum
-score would have to be chosen, below which a chunk isn't kept.
+Five chunks again, about nothing to do with bread. The scores are lower, but with this model even unrelated texts
+score well above 0, so read 0.775 against 0.511. Nothing here says "no match"; a minimum score would have to be
+chosen, below which a chunk isn't kept.
 
 ### 4. The Retriever: Embed and Search in One Call
 
@@ -284,7 +284,12 @@ are parameters of `main()`, so the tests pass a stand-in for Gemini.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 30; the
@@ -314,7 +319,7 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 - Try a near-miss: `python pipeline.py "my screen freezes all the time"`. No article is about a frozen screen, but
   the Laptop article's problem says "applications freezing frequently" and the MFA article mentions Screen Time:
   which one comes first?
-- In `retriever.py`, change `TOP_K` to `2`, and see 2 chunks come back instead of 5. A test checks for 5, so put it
+- In `retriever.py`, change `TOP_K` to `2`, and see 2 chunks come back instead of 5. Tests check for 5, so put it
   back before `python -m pytest`.
 - Ask a few questions the knowledge base doesn't cover, and a few it does, and compare their top scores: is there a
   minimum score that would keep the good chunks and drop the rest?

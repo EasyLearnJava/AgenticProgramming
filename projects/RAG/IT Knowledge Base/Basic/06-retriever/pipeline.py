@@ -49,6 +49,7 @@ def main(question: str = QUESTIONS[0], embeddings: Embeddings = embeddings, size
     # invoke() comes from LangChain's Runnable: the retriever embeds the question and searches, in one call
     found = make_retriever(store).invoke(question)
     # The top chunk's vector, read back from Qdrant by its point's id, so its score can be worked out by hand
+    # langchain_qdrant puts each found point's id in the chunk's metadata, under "_id"
     # retrieve() comes from qdrant_client's QdrantClient: points by id, with their vectors when asked
     top_point = store.client.retrieve(store.collection_name, [scored[0][0].metadata["_id"]], with_vectors=True)[0]
     print_retrieval(question, question_vector, scored, found, top_point.vector)

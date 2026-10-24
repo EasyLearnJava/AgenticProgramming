@@ -18,7 +18,7 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, Filter, FilterSelector, PointStruct, VectorParams
+from qdrant_client.models import Distance, PointStruct, VectorParams
 
 # Qdrant's word for a table of points; not the course app's "it_kb", so the two apps' points never mix
 COLLECTION = "it_knowledge_base"
@@ -29,14 +29,10 @@ def make_vector_store(embeddings: Embeddings, size: int, client: QdrantClient | 
     """A LangChain QdrantVectorStore on a new, empty collection of `size`-number vectors; in memory if no client."""
     # QdrantClient comes from qdrant_client: ":memory:" runs Qdrant inside this program, in memory
     client = client if client is not None else QdrantClient(":memory:")
-    # Always fresh: a collection already there by this name is deleted, so nothing from before is left in it. Its
-    # points go first: on Windows, Qdrant's local mode can't remove the files of a collection it has open, and a new
-    # collection by the same name would find the old points in them.
+    # Always fresh: a collection already there by this name is deleted, so nothing from before is left in it
     # collection_exists() comes from qdrant_client's QdrantClient: whether a collection by this name is there
     if client.collection_exists(collection):
-        # delete(), FilterSelector and Filter come from qdrant_client: delete the points the filter matches
-        client.delete(collection, points_selector=FilterSelector(filter=Filter()))   # no rules: every point
-        # delete_collection() comes from qdrant_client's QdrantClient: it removes the collection
+        # delete_collection() comes from qdrant_client's QdrantClient: it removes the collection and its points
         client.delete_collection(collection)
     # create_collection() and VectorParams come from qdrant_client: a new collection, its vector size and distance
     client.create_collection(collection, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
