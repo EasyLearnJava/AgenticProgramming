@@ -5,16 +5,18 @@ it's the only file that runs anything. Without a key, it stops with a message in
 from pathlib import Path
 
 from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
+from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableLambda
 
-from pipeline import main
-from rag_chain import QUESTION
+from pipeline import QUESTION, main
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 
 
-def test_the_pipeline_retrieves_then_answers_from_the_chunks_found(capsys):
+def test_the_pipeline_retrieves_answers_from_the_chunks_found_then_asks_gemini_alone(capsys):
     stand_in = KeywordEmbeddings()
-    main(embeddings=stand_in, model=FakeListChatModel(responses=["Open UDP ports 500 and 4500."]), size=SIZE)
+    model = FakeListChatModel(responses=["In Q2.", "I can't know that."])     # the chain's reply, then the alone one
+    main(embeddings=stand_in, model=model, size=SIZE)
     printed = capsys.readouterr().out
     assert stand_in.calls == [("documents", 28), ("query", QUESTION)]    # the chunks, then the question, once each
     assert printed.startswith("Step 1: Read the knowledge base: 10 documents\n"
@@ -23,8 +25,26 @@ def test_the_pipeline_retrieves_then_answers_from_the_chunks_found(capsys):
                               "Step 4: Store: 28 points, in Qdrant in memory\n"
                               "Step 5: Retrieve and answer\n"
                               f"Question: {QUESTION}\n\n"
-                              "Answer (Gemini's, from the chunks found):\nOpen UDP ports 500 and 4500.\n\n"
-                              "Sources (the articles of the chunks found, closest first):\n  VPN Connection Timeout\n")
+                              "What Gemini got: the chain's prompt, filled in with the 5 chunks found and the "
+                              "question\n--- system message ---\n")
+    assert f"\n--- human message ---\n{QUESTION}\n\nAnswer (Gemini's, asked to use only the chunks found):\n" \
+           "In Q2.\n\nSources (the articles of the chunks found, closest first):\n" in printed
+    assert printed.endswith("\nFor comparison, the same question to Gemini alone, with no articles:\n"
+                            "I can't know that.\n")
+
+
+def test_the_printed_prompt_is_exactly_what_the_model_got(capsys):
+    seen = []
+
+    def stand_in_model(model_input):             # takes the model's place, and keeps what it was given
+        seen.append(model_input)
+        return AIMessage(content="An answer.")
+
+    main(embeddings=KeywordEmbeddings(), model=RunnableLambda(stand_in_model), size=SIZE)
+    printed = capsys.readouterr().out
+    system, human = seen[0].to_messages()        # the chain's call: the filled-in prompt
+    assert f"--- system message ---\n{system.content}\n--- human message ---\n{human.content}\n" in printed
+    assert seen[1] == QUESTION                   # alone: the question, and nothing else
 
 
 def test_a_question_of_your_own(capsys):

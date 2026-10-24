@@ -1,11 +1,12 @@
 # 07 · Grounded Answer
 
 Answer a question from the IT knowledge base: find the 5 chunks closest to the question, put them and the question
-into one prompt, and let Gemini write the answer from those chunks only, with the articles they came from. That's
-RAG: retrieval first, then generation. Built with **LangChain**, **Gemini** (`gemini-embedding-001` and
-`gemini-3.5-flash-lite`) and **Qdrant**, running in memory.
+into one prompt, and ask Gemini to answer from those chunks only, naming the articles it used. That's RAG: retrieval
+first, then generation. Then ask Gemini the same question alone, with no articles, to see what retrieval adds. Built
+with **LangChain**, **Gemini** (`gemini-embedding-001` and `gemini-3.5-flash-lite`) and **Qdrant**, running in memory.
 
-> **Needs:** Python 3.11 or newer, and a Gemini API key. Each run makes 3 calls to Gemini.
+> **Needs:** Python 3.11 or newer, and a Gemini API key. Each run makes 4 calls to Gemini: 2 embed 29 texts (the 28
+> chunks and the question), and 2 write answers (with the articles, then without).
 
 ---
 
@@ -14,15 +15,19 @@ RAG: retrieval first, then generation. Built with **LangChain**, **Gemini** (`ge
 - **Gets the knowledge base ready**: reads the 10 articles, cuts them into 28 chunks, embeds them with Gemini and
   stores them in Qdrant, in memory
 - **Finds the 5 chunks closest to the question** with a retriever
-- **Puts them into one prompt** with the question: its rules tell Gemini to answer using only these articles, and to
+- **Puts them into one prompt** with the question: its rules ask Gemini to answer using only these articles, and to
   say so when they don't cover the question
+- **Prints the prompt exactly as Gemini got it**: the rules, the 5 numbered chunks, then the question
 - **Has Gemini write the answer** with its chat model, `gemini-3.5-flash-lite`
-- **Keeps the chunks it found**, so the answer comes with its sources: the articles the chunks came from
+- **Lists the articles of the chunks found**, closest first: what the search found, not a checked list of what the
+  answer used
+- **Asks Gemini the same question alone**, with no articles, for comparison
 - **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
-"Grounded" means the answer comes from the knowledge base, not from what the model learned in training.
+"Grounded" means the answer is meant to come from the knowledge base, not from what the model learned in training.
+The prompt asks for that; nothing here checks it.
 
-**Try it:** `python pipeline.py "my printer is missing"`, and read the answer and the articles it came from.
+**Try it:** `python pipeline.py`, and compare the two answers to a question only this knowledge base can answer.
 
 ---
 
@@ -48,7 +53,12 @@ data/sample_it_kb.csv                 10 articles
 └──────────────┬───────────────┘
                │ {"docs", "question", "answer"}
                ↓
-      print_answer(), in utils.py: the answer, then its sources
+      print_answer(), in utils.py: the prompt as Gemini got it (prompt.format_messages()),
+                                   the answer, then the articles of the chunks found
+               │
+  question ────┤ for comparison, with no retriever and no articles
+               ↓
+      model | StrOutputParser(): Gemini alone (1 call); print_answer_alone() prints it
 ```
 
 ### The Pipeline in This Project
@@ -61,15 +71,18 @@ data/sample_it_kb.csv                 10 articles
 6. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
 7. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
 8. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
-9. **Print** → `print_answer()`, from `utils.py`: the question, the answer, then the articles the chunks came from,
-   each once
+9. **Print** → `print_answer()`, from `utils.py`: the question, the prompt as Gemini got it, the answer, then the
+   articles the chunks came from, each once
+10. **Compare** → the same question goes to Gemini alone (one call), and `print_answer_alone()` prints its answer
 
 ---
 
 ## 📋 Prerequisites
 
 - **Python 3.11 or newer**
-- **A Gemini API key**: every call to Gemini uses your key's quota
+- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
+  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
+  call to Gemini uses your key's quota
 
 ---
 
@@ -111,7 +124,7 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 ### Step 5: Run It
 
 ```bash
-python pipeline.py
+python pipeline.py                   # "When will the access points in Building C be upgraded?", both ways
 ```
 
 To ask your own question, put it after `pipeline.py`:
@@ -137,18 +150,25 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 35 passed, 6 skipped     (add -v for one line per test)
+python -m pytest                     # 37 passed, 7 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini (`KeywordEmbeddings` for the embeddings, LangChain's `FakeListChatModel`
-for the answers), so they need no key and make no calls. For the chain, they check that the prompt holds the rules
-and the articles, then the question; that the chain gives back the chunks, the question and the answer; that the
-model gets the chunks it found as the articles; and what `print_answer()` prints. For the pipeline, they check that
-it embeds the chunks, then the question, once each, and prints the steps, the answer and its sources; that it takes
-a question of your own; and that no other file runs anything.
+for the answers), so they need no key and make no calls. They check:
 
-The 6 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
+- **The chain**: the prompt holds the rules and the articles, then the question; the chain gives back the chunks, the
+  question and the answer; and the model gets the chunks it found as the articles
+- **The printing**: what `print_answer()` prints, the prompt as Gemini got it too, and what `print_answer_alone()`
+  prints
+- **The pipeline**: it embeds the chunks, then the question, once each, and prints the steps, the prompt, the answer,
+  its sources and the answer alone; the prompt it prints is exactly what the model got, and the model alone gets only
+  the question; it takes a question of your own; and no other file runs anything
+
+The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+no key is set. With your key in `.env`, they run too, and one checks that an off-topic question gets "the knowledge
+base doesn't cover it". Together they embed more than 100 texts, the free tier's limit for a minute, so there run
+the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a time, a minute apart:
+`python -m pytest -m live tests/test_rag_chain.py`.
 
 ---
 
@@ -156,10 +176,28 @@ no key is set. With your key in `.env`, they run too. To run only the plain ones
 
 ### 1. RAG: Retrieval First, Then Generation
 
-The model doesn't answer from memory. First the retriever finds the chunks that match the question; then the model
-writes the answer from those chunks. What the model knows about this help desk is only what the chunks say.
+First the retriever finds the chunks that match the question; then the model writes the answer with those chunks in
+its prompt. A model knows only what it learned in training, and nothing about this help desk. The run asks a question
+only this knowledge base can answer, both ways. With the articles:
 
-### 2. A Prompt That Keeps the Answer Grounded
+```text
+Answer (Gemini's, asked to use only the chunks found):
+Based on the knowledge base, the access points in Building C are scheduled for upgrade in Q2 (due to older access points and capacity issues during all-hands meetings).
+
+Articles used: [1] WiFi Connectivity Issues Office
+```
+
+Alone, with no articles:
+
+```text
+For comparison, the same question to Gemini alone, with no articles:
+I do not have access to real-time schedules, internal IT tickets, or company calendars, so I cannot tell you when the access points in Building C will be upgraded.
+```
+
+That's what retrieval adds: knowledge the model never saw. Here Gemini alone says it doesn't know; a model can also
+make up a confident answer instead.
+
+### 2. The Prompt, Exactly as Gemini Got It
 
 ```python
 ("system", "You are an IT help-desk assistant. Answer the user's question using only the knowledge base articles "
@@ -167,11 +205,44 @@ writes the answer from those chunks. What the model knows about this help desk i
 ("human", "{question}"),
 ```
 
-The system message holds the rules and the articles (`{context}`); the human message holds the question. "Using only
-the knowledge base articles below" is what keeps the answer grounded: without it, the model answers from what it
-learned in training.
+The system message holds the rules and the articles (`{context}`); the human message holds the question. The run
+prints the prompt filled in, with `prompt.format_messages()`, the chain's own template, so what you read is what
+Gemini got. For the Building C question, the articles start:
 
-### 3. One Chain That Keeps the Chunks
+```text
+Articles:
+[1] WiFi Connectivity Issues Office
+Notes: Building C has older access points scheduled for upgrade Q2. Capacity issues during all-hands meetings.
+
+[2] WiFi Connectivity Issues Office
+```
+
+The search put the one chunk with the answer first. The other 4 are there too: the prompt always gets 5, and some
+are about something else (a printer, a Salesforce role).
+
+### 3. Asked, Not Guaranteed
+
+"Using only the knowledge base articles below" asks Gemini to stay with the articles; it can't make it. Models mostly
+do as asked, but nothing in this project checks the answer against the chunks: RAG makes made-up answers rarer, not
+impossible. For `python pipeline.py "how do I bake bread"`, Gemini followed the rule:
+
+```text
+Answer (Gemini's, asked to use only the chunks found):
+The knowledge base doesn't cover it.
+
+Sources (the articles of the chunks found, closest first):
+  Database Connection Timeout
+  Password Reset Failed
+  VPN Connection Timeout
+  Printer Not Found
+  SaaS Access Permission Denied
+```
+
+Two things to see. The sources still list 5 articles, though the answer used none of them: they're the articles of
+the chunks the search found, and a search always finds 5. And Gemini alone, asked the same question, wrote a bread
+recipe, until it reached `MAX_OUTPUT_TOKENS`, 500.
+
+### 4. One Chain That Keeps the Chunks
 
 ```python
 RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
@@ -181,25 +252,40 @@ RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=a
 then adds the answer. Because `"docs"` stays in the result, `print_answer()` can show which articles the answer
 came from.
 
-### 4. Runnables Joined With `|`
+### 5. Runnables Joined With `|`
 
 ```python
 answer = (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]}) | prompt | model | StrOutputParser()
+model | StrOutputParser()   # the question alone: no retriever, no prompt, so no articles
 ```
 
 Each part is a Runnable, and `|` passes one part's output to the next: the chunks become one text for the prompt, the
 prompt goes to the model, and the parser turns the model's reply into plain text. One `invoke()` runs it all.
 
-### 5. One File Runs the Steps
+### 6. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 4, printing a line each, then Step 5,
-the chain, and `print_answer()`, from `utils.py`, prints its result. The other files only define the steps and that
+the chain, and `print_answer()`, from `utils.py`, prints its result with the prompt; then the question alone, which
+`print_answer_alone()` prints. The other files only define the steps and that
 helper, so importing them makes no call. The question and the two models are parameters of `main()`, so the tests
 pass stand-ins for Gemini.
 
 ---
 
 ## 🛠️ Troubleshooting
+
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
+**Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
+after it, and check it's restricted to the Generative Language API, not to another one.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
+**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 29; the
+message ends with "Please retry in" and a number of seconds. Wait that long, then run it again.
 
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
@@ -218,8 +304,9 @@ pass stand-ins for Gemini.
 
 ## 💡 Ideas to Try
 
-- Ask something the knowledge base doesn't cover, like `python pipeline.py "how do I bake bread"`, and see whether
-  the answer says the knowledge base doesn't cover it, as the prompt's rules ask.
-- Remove "using only the knowledge base articles below" from the prompt, ask the same question, and compare the
-  answers.
-- Change `TOP_K` in `retriever.py` from 5 to 1, and see how the answer and its sources change.
+- Ask how long a Salesforce role change takes to work: `python pipeline.py "how long until my new Salesforce role
+  works?"`. The SaaS article says up to 30 minutes. Does Gemini alone guess?
+- Remove "using only the knowledge base articles below" from the prompt, ask the bread question again, and compare
+  the answers.
+- Change `TOP_K` in `retriever.py` from 5 to 1, and see how the prompt, the answer and its sources change. Tests
+  check for 5, so put it back before `python -m pytest`.

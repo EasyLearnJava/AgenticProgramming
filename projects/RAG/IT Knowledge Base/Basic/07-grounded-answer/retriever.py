@@ -15,7 +15,12 @@ from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_qdrant import QdrantVectorStore
 
-TOP_K = 5   # how many chunks each search returns
+TOP_K = 5      # how many chunks each search returns
+QUESTIONS = [  # the course app's sample questions
+    "How do I fix VPN connection timeouts?",
+    "I can't set up MFA on my mobile device",
+    "My laptop is running very slow",
+]
 
 
 def make_retriever(store: QdrantVectorStore, k: int = TOP_K) -> VectorStoreRetriever:

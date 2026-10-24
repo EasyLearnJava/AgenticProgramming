@@ -10,7 +10,7 @@ from chunking import split_documents
 from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, embeddings
-from retriever import TOP_K, format_docs, make_retriever
+from retriever import QUESTIONS, TOP_K, format_docs, make_retriever
 from vector_store import make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
@@ -73,9 +73,6 @@ def test_format_docs_numbers_and_titles_each_chunk():
 def test_live_the_sample_questions_find_their_articles():
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
     store_vectors(store, CHUNKS, embed_chunks(CHUNKS, embeddings))
-    # The course app's sample questions, each with the article it should find first
-    articles = {"How do I fix VPN connection timeouts?": "VPN Connection Timeout",
-                "I can't set up MFA on my mobile device": "MFA Setup Failure",
-                "My laptop is running very slow": "Laptop Performance Degradation"}
-    results = make_retriever(store).batch(list(articles))
-    assert [chunks[0].metadata["title"] for chunks in results] == list(articles.values())
+    results = make_retriever(store).batch(QUESTIONS)
+    assert [chunks[0].metadata["title"] for chunks in results] == [
+        "VPN Connection Timeout", "MFA Setup Failure", "Laptop Performance Degradation"]

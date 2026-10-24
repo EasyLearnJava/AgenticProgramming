@@ -7,25 +7,31 @@ The one file to run: it calls this project's steps in order, and the other files
   2. Step 2: cutting them into chunks
   3. Step 3: embedding them (one call to Gemini)
   4. Step 4: storing them in Qdrant, in memory, with their vectors
-  5. Step 5: retrieving the closest chunks and answering from them, in one chain (two calls), then printing the answer
+  5. Step 5: retrieving the closest chunks and answering from them, in one chain (two calls), then printing the
+     prompt Gemini got, the answer and its sources
+  6. Then, for comparison, the same question to Gemini alone, with no articles (one more call)
 
 Usage:
-    python pipeline.py                          # the answer to the VPN question, and its sources
-    python pipeline.py "my printer is missing"  # the answer to your question (3 calls to Gemini)
+    python pipeline.py                          # a question only this knowledge base can answer, both ways
+    python pipeline.py "my printer is missing"  # your question, both ways (4 calls to Gemini)
 """
 import sys
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
+from langchain_core.output_parsers import StrOutputParser
 
 from chunking import CHUNK_SIZE, split_documents
 from embed_chunks import embed_chunks
 from knowledge_base import load_documents
 from models import EMBEDDING_SIZE, chat_model, embeddings
-from rag_chain import QUESTION, make_rag_chain
-from retriever import make_retriever
-from utils import print_answer
+from rag_chain import make_rag_chain, prompt
+from retriever import format_docs, make_retriever
+from utils import print_answer, print_answer_alone
 from vector_store import make_vector_store, store_vectors
+
+# Only this knowledge base knows the answer: the WiFi article's notes say Building C's upgrade is due in Q2
+QUESTION = "When will the access points in Building C be upgraded?"
 
 
 # The tests pass stand-ins for Gemini as `embeddings` and `model`, with the embeddings' vector size
@@ -46,7 +52,13 @@ def main(question: str = QUESTION, embeddings: Embeddings = embeddings, model: B
     chain = make_rag_chain(make_retriever(store), model)
     # invoke() comes from LangChain's Runnable: it runs the whole chain on one input
     result = chain.invoke(question)                # retrieval, prompt and answer, all in this one call
-    print_answer(question, result)
+    # What Gemini got: the chain's own prompt, filled in with the chunks it found and the question
+    # format_messages() comes from LangChain's ChatPromptTemplate: the prompt's messages, filled in
+    messages = prompt.format_messages(context=format_docs(result["docs"]), question=question)
+    print_answer(question, messages, result)
+    # For comparison: the same question to Gemini alone, with no retriever and no articles (one more call)
+    # StrOutputParser comes from langchain_core: it turns the model's reply into plain text
+    print_answer_alone((model | StrOutputParser()).invoke(question))
 
 
 if __name__ == "__main__":
