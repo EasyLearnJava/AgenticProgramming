@@ -108,7 +108,8 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 uvicorn main:app                     # the server; Ctrl+C stops it
 ```
 
-When it prints `RAG engine built`, the chunks are embedded and stored: the server is ready.
+When it prints `Uvicorn running on http://127.0.0.1:8000`, the server is ready: the chunks are embedded and stored,
+and it has the port.
 
 ### Step 6: Ask It a Question
 
@@ -200,8 +201,8 @@ nothing. `QueryOut` shapes each answer the same way on the way out.
 return await engine.aquery(body.question)
 ```
 
-`aquery()` does what `query()` does, with `await`: while Gemini works on one question, the server can take
-other requests.
+`engine.aquery()` does what `engine.query()` does, with `await`: while Gemini works on one question, the server can
+take other requests.
 
 ### 4. Errors: the Detail for the Terminal, a Short Message for the Caller
 
@@ -247,6 +248,14 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
+**Issue**: An error with `[Errno 10048]` or `address already in use` in it, and the server stops
+**Fix**: Another server, often another project's, already has port 8000. Stop it (Ctrl+C in its terminal), or
+start this one on another port, `uvicorn main:app --port 8001`, and use 8001 in the address.
+
+**Issue**: `uvicorn` isn't found: PowerShell says it `is not recognized`, bash says `command not found`
+**Fix**: The venv isn't active, so its `uvicorn` isn't on the path. Activate it (Step 2), or use the one command,
+which needs no activating.
+
 **Issue**: A question gets `{"detail":"Couldn't answer the question (...)."}` with status 502
 **Fix**: The server's terminal has a `Couldn't answer:` line with the reason, then the traceback. Fix what it says,
 then ask again.
@@ -263,4 +272,4 @@ port 8000.
 - Ask the same question twice, and compare the two answers: the sources are the same, as the search is, but the
   wording of Gemini's answer can change.
 - Change `max_length=500` in `QueryIn` to 50, restart, and send a longer question. One test checks the limit is 500,
-  so put it back before `python -m pytest`.
+  so put it back before you run the tests.
