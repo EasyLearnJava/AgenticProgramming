@@ -37,8 +37,10 @@ engine = RAGEngine()                               # settings only: importing th
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     engine.build()
+    stats = engine.stats()
+    how = "already stored, reused" if stats["reused_stored_chunks"] else "embedded and stored"
     # info() comes from Python's logging module: a line in the server's log
-    logger.info("RAG engine built: %(documents)s articles, %(chunks)s chunks", engine.stats())
+    logger.info("RAG engine built: %s articles, %s chunks (%s)", stats["documents"], stats["chunks"], how)
     yield
     # The server is stopping (Ctrl+C): free qdrant_data/ for the next start
     # close() comes from qdrant_client's QdrantClient: it frees the folder, so another program can open it

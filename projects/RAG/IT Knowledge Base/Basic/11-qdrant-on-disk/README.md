@@ -120,9 +120,10 @@ python pipeline.py                   # the three sample questions
 uvicorn main:app                     # or the server and the chat page; Ctrl+C stops it
 ```
 
-`uvicorn main:app` builds the engine at start-up. Then open http://127.0.0.1:8000 for the chat page; the
-API answers at `/docs`, `/api/query`, `/api/stats` and `/api/health`. Only one program at a time can open
-`qdrant_data/`, so stop the server (Ctrl+C) before running `python pipeline.py`.
+`uvicorn main:app` builds the engine at start-up, and its start-up line, `RAG engine built: ...`, ends with `(already
+stored, reused)` when the chunks were already in `qdrant_data/`, or with `(embedded and stored)`. Then open
+http://127.0.0.1:8000 for the chat page; the API answers at `/docs`, `/api/query`, `/api/stats` and `/api/health`.
+Only one program at a time can open `qdrant_data/`, so stop the server (Ctrl+C) before running `python pipeline.py`.
 
 In GitHub Codespaces, `127.0.0.1` is your own computer, not the codespace: open the **Ports** tab next to
 **Terminal** and click the globe icon on port 8000.
@@ -146,7 +147,7 @@ Then open http://127.0.0.1:8000 for the chat page. For `python pipeline.py`, use
 The plain tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
 
 ```bash
-python -m pytest -m "not live"       # 68 passed, 9 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 69 passed, 9 deselected  (add -v for one line per test)
 ```
 
 They use stand-ins for Gemini, so they need no key and make no calls. They check:
@@ -161,9 +162,9 @@ They use stand-ins for Gemini, so they need no key and make no calls. They check
   too, while one that's opened keeps its points; the points stay on disk; the 28 chunks are embedded in one call, and
   a chunk without a vector stops the store; another data file can be read; `stats()` names the engine's own models;
   every setting is passed by name; and the server frees `qdrant_data/` when it stops
-- **The pipeline**: it builds the engine, then answers each question; a second run reuses the stored chunks, in
-  memory and on disk; without a key, it and the server stop with the message, not a traceback; and no other file runs
-  anything in the terminal
+- **The pipeline**: it builds the engine, then answers each question; a second run reuses the stored chunks, in memory
+  and on disk, and the server's start-up line says whether it did; without a key, it and the server stop with the
+  message, not a traceback; and no other file runs anything in the terminal
 
 The 9 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`; with
 no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Two of them, like the app,
@@ -209,6 +210,10 @@ are in the key too: change only an article's priority, and its chunks are stored
   `embed_chunks()`, then store them with `store_vectors()` in a new collection from `make_vector_store()`, which
   deletes the old one first;
 - no collection yet (the first run): embed them, then make it and store them.
+
+If any chunk changed, all 28 are embedded again, still in one call; a bigger app would embed only the new ones. And
+`make_vector_store()` deletes the old collection's points before the collection itself: on Windows, Qdrant can't
+remove the files of a collection it has open, and a new collection by the same name would find the old points in them.
 
 The chunks are embedded before the old collection is deleted, so if the call to Gemini fails, the stored chunks are
 still there. Two runs, one after the other, start:
@@ -285,14 +290,22 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
+**Issue**: An error with `[Errno 10048]` or `address already in use` in it, and the server stops
+**Fix**: Another server, often another project's, already has port 8000. Stop it (Ctrl+C in its terminal), or
+start this one on another port, `uvicorn main:app --port 8001`, and use 8001 in the address.
+
+**Issue**: `uvicorn` isn't found: PowerShell says it `is not recognized`, bash says `command not found`
+**Fix**: The venv isn't active, so its `uvicorn` isn't on the path. Activate it (Step 2), or use the one command,
+which needs no activating.
+
 ---
 
 ## 💡 Ideas to Try
 
 - Run `python pipeline.py` twice, and compare the first line of each run.
-- Change one word in an article in `data/sample_it_kb.csv`, run it again, and see the chunks embedded and stored
-  anew.
+- Change one word in an article's problem text in `data/sample_it_kb.csv`, run it again, and see the chunks embedded
+  and stored anew. The tests read the same file, so put it back before you run the tests.
 - Delete `qdrant_data/` and run `python pipeline.py` again: the first line says the chunks were embedded and stored.
 - In `models.py`, change `EMBEDDING_SIZE` to `256` and run `python pipeline.py`: the stored 768-number vectors don't
-  match, so the chunks are embedded again. Tests check for 768, so put it back (and run once more) before
-  `python -m pytest`.
+  match, so the chunks are embedded again. Tests check for 768, so put it back (and run once more) before you run the
+  tests.

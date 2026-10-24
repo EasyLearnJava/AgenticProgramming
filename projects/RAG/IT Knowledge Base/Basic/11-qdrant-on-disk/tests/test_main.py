@@ -5,6 +5,7 @@ directly, so no server is started. The stand-in engine keeps its chunks
 in memory, so nothing is saved in qdrant_data/.
 The live test builds the real engine and asks the real Gemini.
 """
+import logging
 import os
 import subprocess
 import sys
@@ -52,6 +53,18 @@ def test_the_page_checks_each_answer_and_shows_text_as_text():
 def test_health(client):
     response = client.get("/api/health")
     assert (response.status_code, response.json()) == (200, {"status": "ok"})
+
+
+def test_the_start_up_line_says_whether_the_stored_chunks_were_reused(monkeypatch, caplog, tmp_path):
+    caplog.set_level(logging.INFO, logger="uvicorn.error")
+    for _ in range(2):                         # two starts on one folder: the second finds the chunks stored
+        engine = RAGEngine(embeddings=KeywordEmbeddings(), model=FakeListChatModel(responses=["An answer."]),
+                           embedding_size=SIZE, client=make_client(tmp_path))
+        monkeypatch.setattr(main, "engine", engine)
+        with TestClient(main.app):                # start-up, then shut-down, which frees the folder
+            pass
+    assert "RAG engine built: 10 articles, 28 chunks (embedded and stored)" in caplog.text
+    assert "RAG engine built: 10 articles, 28 chunks (already stored, reused)" in caplog.text
 
 
 def test_the_engine_is_built_at_start_up(client):
