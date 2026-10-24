@@ -53,7 +53,7 @@ a program, curl, or the /docs page
 2. **Build** → before the first request, `lifespan()` runs `engine.build()` once: one call to Gemini for the chunks
 3. **Check** → each request's JSON is checked against `QueryIn`; a bad question gets a 422 and no call
 4. **Answer** → `query()` runs `engine.aquery(question)`: the question's embedding and the answer, 2 calls
-5. **Reply** → the answer goes back shaped as `QueryOut`; if Gemini fails, a 502 goes back instead
+5. **Reply** → the answer goes back shaped as `QueryOut`; if answering fails (often Gemini), a 502 goes back instead
 
 ---
 
@@ -61,8 +61,8 @@ a program, curl, or the /docs page
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 - **curl**, to call the API from a terminal (optional: the `/docs` page does the same in a browser)
 
 ---
@@ -124,6 +124,12 @@ curl http://127.0.0.1:8000/api/stats
 curl -X POST http://127.0.0.1:8000/api/query -H "Content-Type: application/json" -d '{"question": "How do I fix VPN connection timeouts?"}'
 ```
 
+The question gets back JSON like this, from a real run:
+
+```text
+{"answer":"To fix VPN connection timeouts, follow these resolution steps from the knowledge base:\n\n1. Verify internet connection stability.\n2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open.\n3. Restart the VPN client application.\n4. Clear the VPN cache in application settings.\n5. If the issue persists, restart the VPN service on the server.\n6. Contact the network team if the problem continues.\n\nArticles used: \n- VPN Connection Timeout","sources":[{"title":"VPN Connection Timeout","system":"VPN","category":"Remote Access","snippet":"Title: VPN Connection Timeout\n\nProblem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations\n\nResolution: 1. Verify internet connection stability. 2. C..."},{"title":"MFA Setup Failure","system":"MFA","category":"Security","snippet":"Resolution: 1. Ensure device time is synchronized (Settings > Date & Time > Automatic). 2. Clear cache and data for Microsoft Authenticator app. 3. Uninstall and reinstall the authenticator app. 4. Re..."},{"title":"Database Connection Timeout","system":"Database","category":"Infrastructure","snippet":"Title: Database Connection Timeout\n\nProblem: Application team reports production database connection timeouts during peak hours"}]}
+```
+
 In GitHub Codespaces, the curl commands work as they are, in the codespace's terminal. In the browser, `127.0.0.1` is
 your own computer, not the codespace: open the **Ports** tab next to **Terminal**, click the globe icon on port 8000,
 and add `/docs` to the address it opens.
@@ -145,20 +151,20 @@ server. Then ask it a question as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 54 passed, 9 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 54 passed, 9 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. FastAPI's `TestClient` sends their
 requests to the app without starting a server. For the API, they check `/api/health`; that the engine is built at
 start-up; that a question gets the answer and its sources; that a bad question gets a 422 and no call; that a failed
 answer gets a 502 without the details, and the traceback in the log; and that without a key the server stops with
-the message, not a stack trace. For `pipeline.py`, they check that it builds the engine, then answers each
+the message, not a traceback. For `pipeline.py`, they check that it builds the engine, then answers each
 question, or one of your own; and that no other file runs anything in the terminal.
 
-The 9 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too. Together they embed more than 100 texts, the free tier's limit
-for a minute, so there run the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a
-time, a minute apart: `python -m pytest -m live tests/test_main.py`.
+The 9 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
+with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Together they embed
+more than 100 texts, the free tier's limit for a minute, so on the free tier, run them one file at a time, a minute
+apart: `python -m pytest -m live tests/test_main.py`.
 
 ---
 
@@ -201,7 +207,7 @@ other requests.
 
 When answering fails, `query()` logs the full error, with its traceback (`logger.exception()`), in the server's
 terminal, and sends the caller only a 502 with the error's type: `{"detail":"Couldn't answer the question
-(ClientError)."}`. It's usually Gemini (a quota or a network problem), but not always, so the message doesn't say
+(...)."}`. It's usually Gemini (a quota or a network problem), but not always, so the message doesn't say
 it was. The caller learns the question wasn't answered, without the details of how.
 
 ---
@@ -215,7 +221,12 @@ it was. The caller learns the question wasn't answered, without the details of h
 
 **Issue**: The terminal shows `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`, and the server doesn't start
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute; starting the server
@@ -227,6 +238,14 @@ long, then try again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
+
+**Issue**: `Can't build the models: .env isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding.`
+**Fix**: `.env` was saved in another encoding, often UTF-16 by Windows PowerShell 5's `echo ... > .env`. Save it
+again as UTF-8, or make it with `copy .env.example .env` and edit it.
+
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
+**Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
+`pip install -r requirements-dev.txt` (Step 3).
 
 **Issue**: A question gets `{"detail":"Couldn't answer the question (...)."}` with status 502
 **Fix**: The server's terminal has a `Couldn't answer:` line with the reason, then the traceback. Fix what it says,
@@ -243,4 +262,5 @@ port 8000.
 - Send `{"question": ""}` from the `/docs` page and read the 422 it gets back.
 - Ask the same question twice, and compare the two answers: the sources are the same, as the search is, but the
   wording of Gemini's answer can change.
-- Change `max_length=500` in `QueryIn` to 50, restart, and send a longer question.
+- Change `max_length=500` in `QueryIn` to 50, restart, and send a longer question. One test checks the limit is 500,
+  so put it back before `python -m pytest`.

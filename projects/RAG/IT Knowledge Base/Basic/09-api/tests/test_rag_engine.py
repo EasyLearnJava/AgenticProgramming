@@ -110,7 +110,7 @@ def test_settings_are_passed_by_name_only():
 
 
 @pytest.mark.live
-def test_live_a_sample_question_is_answered_from_its_article():
+def test_live_a_sample_question_finds_its_article_first_and_gets_an_answer():
     engine = RAGEngine()
     engine.build()
     result = engine.query(QUESTIONS[0])

@@ -6,10 +6,10 @@ The RAG engine served by FastAPI: the engine is built once, when the server star
 question. It handles:
   1. Building the engine at start-up
   2. Checking each question before it costs a call to Gemini
-  3. Answering, and reporting a failed Gemini call as 502
+  3. Answering, and reporting a 502 if answering fails (often a failed call to Gemini)
 
     POST /api/query   {"question": "..."}  ->  {"answer": "...", "sources": [{"title", "system", "category", ...}]}
-                      blank, or over 500 characters  ->  422;  Gemini doesn't answer  ->  502
+                      blank, or over 500 characters  ->  422;  answering fails (often Gemini)  ->  502
     GET  /api/stats   ->  {"documents": 10, "chunks": 28, ...}
     GET  /api/health  ->  {"status": "ok"}
 
