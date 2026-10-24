@@ -3,8 +3,8 @@
 Turn the IT knowledge base's 28 chunks into vectors with Gemini's embedding model, `gemini-embedding-001`: 768
 numbers for each chunk, all in one call. Built with **LangChain** (`langchain-google-genai`) and **Gemini**.
 
-In a RAG app, a search compares a question's vector with these vectors, so it can find the chunks closest in meaning,
-even when they use other words.
+In a RAG app, a search compares a question's vector with these vectors, so it can find the chunks closest in meaning
+(semantic search), even when they use other words.
 
 > **Needs:** Python 3.11 or newer, and a Gemini API key. Each run makes 1 call to Gemini, for all 28 chunks. On the
 > free tier, each chunk counts as one request against a limit of 100 a minute, so a run uses 28.
@@ -27,7 +27,7 @@ even when they use other words.
 An embedding is a vector, a list of numbers that stands for a text's meaning: texts with close meanings get vectors
 that point in close directions.
 
-**Try it:** `python pipeline.py`, and see each chunk become 768 numbers.
+**Try it:** `python pipeline.py`, and see each chunk become 768 numbers, then how close chunk 1 is to all the others.
 
 ---
 
@@ -77,8 +77,8 @@ that point in close directions.
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 - A network connection, to reach Gemini
 
 ---
@@ -141,7 +141,7 @@ in Step 5.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 20 passed, 2 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 20 passed, 2 deselected  (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
@@ -157,10 +157,11 @@ point the same way. Gemini's 768 numbers do that for meaning, not just words. Th
 - **The chunks and the Documents**: 28 chunks of at most 512 characters, each with its article's labels; and
   10 Documents with their text and labels
 
-The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
-environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
-so it can be built, and skips the live tests. With your key in `.env`, they run too (22 passed) and embed 29 texts;
-`python -m pytest -m "not live"` leaves them out.
+The 2 deselected tests are live tests, marked `live`: they call the real Gemini, so they run only when a key is set,
+in `.env` or the environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the
+model a fake one so it can be built, and skips the live tests, so plain `python -m pytest` runs only the others. With
+your key, `python -m pytest -m live` runs both at once: together they embed 29 texts, under the free tier's limit of
+100 a minute.
 
 ---
 
@@ -186,13 +187,14 @@ How close chunk 1 (VPN Connection Timeout) is to every other chunk, closest firs
   0.777  chunk 23: Database Connection Timeout
   0.764  chunk 14: Password Reset Failed
   0.759  chunk 2: VPN Connection Timeout
+  ...
 ```
 
 The closest are other problems with connecting or signing in: WiFi, MFA, a database connection timeout and a
 password reset. Chunk 2, the VPN article's own notes, is only 6th: it says "peak hours" and "ISP throttling", and
 never "VPN". A vector stands for what its chunk's text says, not for the article it came from. And every chunk here
-is an IT support article written the same way, so all 27 are close to chunk 1: the farthest, chunk 25, is still
-0.693. What tells chunks apart is their order, not how big the number is.
+is an IT support article written the same way, so all 27 are close to chunk 1: the farthest, chunk 19 (the Printer
+article's notes), is still 0.666. What tells chunks apart is their order, not how big the number is.
 
 ### 2. One Call for Every Chunk
 
@@ -250,7 +252,12 @@ a parameter of `main()`, so the tests pass their stand-in for Gemini.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 28; the
@@ -278,6 +285,9 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 ## 💡 Ideas to Try
 
 - In `pipeline.py`, print the length of `vectors[0]` and `vectors[1]`: both 768, though chunk 1 is 457 characters
-  and chunk 2 is 110.
+  and chunk 2 is 110. One test checks the pipeline's exact output, so take the print out before `python -m pytest`.
 - In `models.py`, change `EMBEDDING_SIZE` to `256`, run `python pipeline.py` again, and see each chunk converted to
-  256 numbers. One test checks the size is 768, so put it back before `python -m pytest`.
+  256 numbers. Tests check for 768, so put it back before `python -m pytest`.
+- In `embed_chunks.py`, put the article's title at the top of every chunk: embed
+  `chunk.metadata["title"] + "\n\n" + chunk.page_content`. See whether chunk 2, the VPN article's notes, comes closer
+  to chunk 1. Two tests expect the text alone, so put it back before `python -m pytest`.

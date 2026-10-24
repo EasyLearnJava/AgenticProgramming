@@ -5,7 +5,8 @@ IT Knowledge Base: The Pipeline
 The one file to run: it calls this project's steps in order, and the other files only define them. It handles:
   1. Step 1: reading the knowledge base into Documents
   2. Step 2: cutting them into chunks
-  3. Step 3: embedding every chunk (one call to Gemini), then printing each chunk's vector size and first numbers
+  3. Step 3: embedding every chunk (one call to Gemini), then printing each chunk's vector size and first numbers,
+     then how close chunk 1 is to every other chunk
 
 Usage:
     python pipeline.py
