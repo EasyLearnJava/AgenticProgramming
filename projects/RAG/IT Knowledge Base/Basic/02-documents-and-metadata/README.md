@@ -4,7 +4,8 @@ Read the IT knowledge base, a CSV file of 10 IT support articles, into LangChain
 into two parts: the text to read, and the labels that describe it. Built with **LangChain** and Python's `csv`
 module.
 
-In a RAG app, `page_content` is what gets searched and read; the metadata travels with it, to name the source.
+In a RAG app, only `page_content` is searched, so the labels leave the text and travel with it as metadata, to name
+the article it came from.
 
 > **Needs:** Python 3.11 or newer, and nothing else: this project only reads a local file.
 
@@ -151,12 +152,12 @@ Labels (metadata):
 
 `page_content` is what the article says, and in a RAG app it's what gets searched and read, so it holds only the
 article's content. `metadata` holds facts about the article, as separate fields. They travel with the text and say
-which article it is, so an answer can name its source, and a program can read a label directly,
+which article it is, so an answer can name the article it came from, and a program can read a label directly,
 `doc.metadata["system"]`, rather than look for it inside the text.
 
 **Before and after.** In 01, the same article had all 8 columns in its text, and only
 `{'source': 'sample_it_kb.csv', 'row': 0}` as metadata. Here, system, category, priority and tags have moved out of
-the text into the labels. `doc_id` is the number 01 called `row`, and `source` is gone: all 10 articles come from
+the text into the labels. `doc_id` holds 01's row number, as text, and `source` is gone: all 10 articles come from
 the same file.
 
 ### 2. Every Part of the Text Keeps Its Label
@@ -222,4 +223,5 @@ and prints nothing. A new step is one more part of `main()`.
 - Move `"priority"` from `METADATA_COLUMNS` to `TEXT_COLUMNS`, and see it appear in the text instead of the labels.
   The tests expect the split as it is, so move it back before `python -m pytest`.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only `doc.metadata["system"]` for each Document, to list the
-  systems the knowledge base covers.
+  systems the knowledge base covers. One test checks the pipeline's exact output, so take Step 2 out before
+  `python -m pytest`.
