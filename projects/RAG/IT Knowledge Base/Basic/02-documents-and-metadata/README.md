@@ -1,11 +1,11 @@
 # 02 · Documents and Metadata
 
-Read the IT knowledge base, a CSV file of 10 IT support articles, into LangChain `Document`s, with each article split
-into two parts: the text to read, and the labels that describe it. Built with **LangChain** and Python's `csv`
+Read the IT knowledge base, a CSV file of 10 IT support articles, into LangChain `Document`s, with each article
+divided into two parts: the text to read, and the labels that describe it. Built with **LangChain** and Python's `csv`
 module.
 
-In a RAG app, only `page_content` is searched, so the labels leave the text and travel with it as metadata, to name
-the article it came from.
+In a RAG app, `page_content` is what gets embedded and matched; the labels travel beside it as metadata, to name, show
+or filter the article.
 
 > **Needs:** Python 3.11 or newer, and nothing else: this project only reads a local file.
 
@@ -15,7 +15,7 @@ the article it came from.
 
 - **Reads** `data/sample_it_kb.csv`, one row at a time
 - **Puts the article's content into its text** (`page_content`): the title, problem, resolution and notes, each
-  with its label, and a blank line between them
+  starting with its name, and a blank line between them
 - **Puts the facts about the article into its labels** (`metadata`): `doc_id` (the article's number), title,
   system, category, priority and tags
 - **Prints** which columns went where, then every `Document` in full
@@ -37,7 +37,7 @@ The title is in both: it's part of what the article says, and it names the artic
                ↓
 ┌──────────────────────────────┐
 │  load_documents()            │  ← KBLoader(path).load(): data/sample_it_kb.csv, one Document per row
-│  └─ KBLoader.lazy_load()     │     reads the file one row at a time, and splits each row:
+│  └─ KBLoader.lazy_load()     │     reads the file one row at a time, and divides each row:
 │                              │       title, problem, resolution, notes      → page_content
 │                              │       doc_id, title, system, category,
 │                              │       priority, tags                         → metadata
@@ -107,9 +107,9 @@ This one command does Steps 2 to 4 for you:
 python "projects/RAG/IT Knowledge Base/run.py" Basic/02-documents-and-metadata   # from the repo root
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 4.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python
+pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The project's output is the same
+as in Step 4, after run.py's own lines saying what it creates, installs and runs.
 
 ---
 
@@ -160,7 +160,7 @@ which article it is, so an answer can name the article it came from, and a progr
 the text into the labels. `doc_id` holds 01's row number, as text, and `source` is gone: all 10 articles come from
 the same file.
 
-### 2. Every Part of the Text Keeps Its Label
+### 2. Every Part of the Text Says What It Is
 
 ```python
 text = "\n\n".join(f"{column.capitalize()}: {row[column]}" for column in TEXT_COLUMNS)
@@ -171,9 +171,9 @@ tell the symptom from the fix. The blank lines (`\n\n`) between the parts keep t
 
 ### 3. Two Lists Decide What Goes Where
 
-`TEXT_COLUMNS` and `METADATA_COLUMNS` are the only place the split is written down. To move a column from one part to
-the other, you change a list, not the loop. The title is in both lists, so it's read with the text and is also there
-as a label.
+`TEXT_COLUMNS` and `METADATA_COLUMNS` are the only place the division is written down. To move a column from one part
+to the other, you change a list, not the loop. The title is in both lists, so it's read with the text and is also
+there as a label.
 
 ### 4. One Function for Every Article
 
@@ -221,7 +221,7 @@ and prints nothing. A new step is one more part of `main()`.
 ## 💡 Ideas to Try
 
 - Move `"priority"` from `METADATA_COLUMNS` to `TEXT_COLUMNS`, and see it appear in the text instead of the labels.
-  The tests expect the split as it is, so move it back before `python -m pytest`.
+  The tests expect the division as it is, so move it back before `python -m pytest`.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only `doc.metadata["system"]` for each Document, to list the
   systems the knowledge base covers. One test checks the pipeline's exact output, so take Step 2 out before
   `python -m pytest`.
