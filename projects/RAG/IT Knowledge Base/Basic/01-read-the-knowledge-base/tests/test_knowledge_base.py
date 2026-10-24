@@ -8,6 +8,7 @@ No key, no network: the tests only read the CSV file.
 """
 from pathlib import Path
 
+import pytest
 from langchain_core.documents import Document
 
 from knowledge_base import KB_FILE, KBLoader, load_documents
@@ -45,8 +46,10 @@ def test_the_first_document_is_the_vpn_timeout():
     assert "category: Remote Access" in lines
 
 
-def test_making_the_loader_reads_nothing(tmp_path):
-    KBLoader(tmp_path / "missing.csv")             # no error: the loader hasn't opened the file yet
+def test_making_the_loader_reads_nothing_and_load_reads_the_file(tmp_path):
+    loader = KBLoader(tmp_path / "missing.csv")    # no error yet: the loader hasn't opened the file
+    with pytest.raises(FileNotFoundError):
+        loader.load()                              # load() is what opens it
 
 
 def test_load_gives_the_same_documents_as_lazy_load():

@@ -3,6 +3,9 @@
 Read the IT knowledge base, a CSV file of 10 IT support articles, into LangChain `Document`s: one per article, each
 with its text and where it came from, and print them. Built with **LangChain** and Python's `csv` module.
 
+In a RAG app, a `Document`'s text is what gets searched and read, and its metadata travels with it, to say which
+article that text came from.
+
 > **Needs:** Python 3.11 or newer, and nothing else: this project only reads a local file.
 
 ---
@@ -110,23 +113,47 @@ in Step 4.
 python -m pytest                     # 12 passed     (add -v for one line per test)
 ```
 
-The tests read the sample file and run `pipeline.py` as its own process: 10 Documents, every column as a line in
-order, the metadata, the first one is the VPN article, making the loader reads nothing, `load()` and `lazy_load()`
-agree, the printed output, the same output whichever folder it's started from, that `knowledge_base.py` and
-`utils.py` run on their own print nothing, and what `print_documents()` prints for two Documents, and for none.
+The tests read the sample file and run `pipeline.py` as its own process:
+
+- **The Documents**: the path is the CSV file next to the script; 10 Documents; every column as a line, in order; the
+  metadata names the file and the row; the first one is the VPN article; making the loader reads nothing until
+  `load()`; and `load()` and `lazy_load()` agree
+- **The printing**: what `print_documents()` prints for two Documents, and for none
+- **The pipeline**: its output; the same whichever folder it's started from; and `knowledge_base.py` and `utils.py`
+  print nothing when run on their own
 
 ---
 
 ## 🎓 Key Concepts Demonstrated
 
-### 1. A Document: Text + Metadata
+### 1. A Row Becomes a Document: Text + Metadata
 
 ```python
-Document(page_content="title: VPN Connection Timeout\nproblem: ...", metadata={"source": "sample_it_kb.csv", "row": 0})
+text = "\n".join(f"{column}: {value}" for column, value in row.items())   # one "column: value" line per column
+yield Document(page_content=text, metadata={"source": self.path.name, "row": number})
 ```
 
-`page_content` is the article's text; `metadata` travels with it and says where that text came from: the file, and
-the row.
+Each row of the CSV file becomes one `Document`. The first one, the VPN article, prints as:
+
+```text
+Document 1 of 10
+Text (page_content):
+title: VPN Connection Timeout
+problem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations
+resolution: 1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.
+system: VPN
+category: Remote Access
+notes: Common issue during peak hours especially for users on home networks. May be related to ISP throttling.
+priority: High
+tags: vpn;timeout;remote;connection
+
+Where it came from (metadata):
+{'source': 'sample_it_kb.csv', 'row': 0}
+```
+
+`page_content` is the article's text: all 8 columns of its row, one `column: value` line each, in the header row's
+order. `metadata` travels with the text and says where it came from: the file's name, and the row. Rows count from
+0 and the header row isn't one, so row 0 is the file's second line.
 
 ### 2. Configure First, Load Later
 
@@ -142,6 +169,10 @@ The settings go in first, and the work happens only when it's asked for. `load_d
 
 `lazy_load()` hands out one Document at a time, so even a very large file never has to be in memory all at once.
 `load()`, from LangChain's `BaseLoader`, just collects them into a list.
+
+`KBLoader` makes Documents of the same shape as LangChain's own `CSVLoader`: a `column: value` line per column, and
+the source and row as metadata. `CSVLoader` is in the `langchain-community` package, which is being sunset, so this
+project writes those few lines itself on `BaseLoader`, from `langchain-core`, and every one of them is there to read.
 
 ### 4. A Path From the File, Not From Where You Run It
 
@@ -184,6 +215,11 @@ pipeline does with them, not part of reading them, so it lives in `utils.py`. Ea
 
 ## 🛠️ Troubleshooting
 
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
@@ -198,6 +234,7 @@ pipeline does with them, not part of reading them, so it lives in `utils.py`. Ea
 
 ## 💡 Ideas to Try
 
-- Change `KB_FILE` to read a copy of the sample with fewer rows, and see fewer Documents.
+- Change `KB_FILE` to read a copy of the sample with fewer rows, and see fewer Documents. The tests expect the
+  10-row sample, so put `KB_FILE` back before `python -m pytest`.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only each Document's `metadata`, to see where each one
   came from.
