@@ -55,10 +55,23 @@ def test_the_model_gets_the_chunks_it_found_as_the_articles():
     assert human.content == "My VPN won't connect"
 
 
-@pytest.mark.live
-def test_live_the_vpn_answer_comes_from_the_vpn_article():
+@pytest.fixture(scope="module")
+def live_chain():
+    """The chain on the real Gemini, built once for the two live tests below: the 28 chunks embedded in one call."""
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
     store_vectors(store, CHUNKS, embed_chunks(CHUNKS, embeddings))
-    result = make_rag_chain(make_retriever(store), chat_model).invoke(QUESTIONS[0])
-    assert result["answer"].strip()
+    return make_rag_chain(make_retriever(store), chat_model)
+
+
+@pytest.mark.live
+def test_live_the_vpn_question_finds_the_vpn_article_first_and_gets_an_answer(live_chain):
+    result = live_chain.invoke(QUESTIONS[0])
     assert result["docs"][0].metadata["title"] == "VPN Connection Timeout"
+    assert result["answer"].strip()
+
+
+@pytest.mark.live
+def test_live_an_off_topic_question_is_answered_as_not_covered(live_chain):
+    # The prompt asks for "the knowledge base doesn't cover it". A model mostly does as it's asked, not always.
+    answer = live_chain.invoke("How do I bake bread?")["answer"]
+    assert "cover" in answer.lower()

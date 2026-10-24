@@ -1,25 +1,26 @@
 # 08 · RAG Engine
 
 The whole question-answering pipeline in one class, `RAGEngine`: built once, it then answers each question from the
-IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`gemini-embedding-001` and
-`gemini-3.5-flash-lite`) and **Qdrant**, running in memory.
+IT knowledge base, with up to 3 of the articles the search found. Built with **LangChain**, **Gemini**
+(`gemini-embedding-001` and `gemini-3.5-flash-lite`) and **Qdrant**, running in memory.
 
 > **Needs:** Python 3.11 or newer, and a Gemini API key. A run with the three sample questions makes 7 calls to
-> Gemini.
+> Gemini, which embed 31 texts: the 28 chunks and the 3 questions.
 
 ---
 
 ## 🎯 What This Project Does
 
-- **`build()`, once**: loads the 10 articles, cuts them into 28 chunks, embeds and stores them in Qdrant, and makes
-  the chain
-- **`query(question)`, for each question**: the answer, plus up to 3 sources; each source is a different article,
-  with its title, system, category and the start of the chunk's text
-- **`stats()`**: what the engine holds (10 articles, 28 chunks) and how it's set up
+- **`build()`, once: the ingestion half**: loads the 10 articles, cuts them into 28 chunks, embeds and stores them
+  in Qdrant, and makes the chain
+- **`query(question)`, for each question: the query half**: the answer, plus up to 3 sources: the first different
+  articles among the chunks the search found, each with its title, system, category and the start of the chunk's
+  text. They're what Gemini was given, not a checked list of what the answer used
+- **`stats()`**: what the engine holds (10 articles, 28 chunks) and how it's set up, with its own models' names
 - **`pipeline.py`**, the one file to run, builds the engine, then answers the three sample questions, or the one you
   give it, naming each step first
 
-**Try it:** `python pipeline.py "printer not found"`, and read the answer with its sources.
+**Try it:** `python pipeline.py "printer not found"`, and read the answer with the articles the search found.
 
 ---
 
@@ -47,13 +48,13 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
                  ↓
 ┌───────────────────────────────────┐
 │  chain.invoke(question)           │  ← the question's embedding and the answer (2 calls)
-│  _with_sources()                  │  ← the first 3 different articles among the chunks found
+│  _with_sources()                  │  ← the first 3 different articles among the chunks the search found
 └────────────────┬──────────────────┘
                  ↓
    {"answer": "...", "sources": [{"title", "system", "category", "snippet"}, ...]}
                  │
                  ↓
-   print_result(), in utils.py: the question, the answer, then each source
+   print_result(), in utils.py: the question, the answer, then each article the search found
 ```
 
 ### The Pipeline in This Project
@@ -63,9 +64,9 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
    sizes; it reads nothing
 3. **Build** → `build()` loads and chunks the articles, embeds and stores the chunks, and makes the chain
 4. **Ask** → `query(question)` runs the chain: the 5 closest chunks, then Gemini's answer from them
-5. **Name the sources** → the first 3 different articles among those chunks, closest first, each with the first 200
+5. **List the sources** → the first 3 different articles among those chunks, closest first, each with the first 200
    characters of its chunk
-6. **Print** → `print_result()`, from `utils.py`: the question, the answer, then each source
+6. **Print** → `print_result()`, from `utils.py`: the question, the answer, then each article the search found
 7. **Report** → `stats()` gives what the engine holds and how it's set up
 
 ---
@@ -73,7 +74,9 @@ IT knowledge base with up to 3 sources. Built with **LangChain**, **Gemini** (`g
 ## 📋 Prerequisites
 
 - **Python 3.11 or newer**
-- **A Gemini API key**: every call to Gemini uses your key's quota
+- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
+  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
+  call to Gemini uses your key's quota
 
 ---
 
@@ -141,19 +144,23 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 43 passed, 7 skipped     (add -v for one line per test)
+python -m pytest                     # 44 passed, 8 skipped     (add -v for one line per test)
 ```
 
-The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the engine, they check that
-nothing is read or called before `build()`; that `build()` embeds the 28 chunks in one call; that `query()` gives the
-answer and up to 3 different sources; that other chunk sizes and numbers of chunks, another data file and another
-collection can be set, and engines in collections of their own keep their own chunks; that building again starts
-with a new collection; that every setting is passed by name; and what `print_result()` prints. For the pipeline,
-they check that it builds the engine, then answers each question, or one of your own, after the steps' names; and
-that no other file runs anything.
+The plain tests use stand-ins for Gemini, so they need no key and make no calls. They check:
 
-The 7 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
+- **The engine**: nothing is read or called before `build()`; `build()` embeds the 28 chunks in one call; `query()`
+  gives the answer and up to 3 different articles; other chunk sizes and numbers of chunks, another data file and
+  another collection can be set, and engines in collections of their own keep their own chunks; building again
+  starts with a new collection; `stats()` names the engine's own models; and every setting is passed by name
+- **The printing**: what `print_result()` prints
+- **The pipeline**: it builds the engine, then answers each question, or one of your own, after the steps' names;
+  and no other file runs anything
+
+The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+no key is set. With your key in `.env`, they run too. Together they embed more than 100 texts, the free tier's limit
+for a minute, so there run the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a
+time, a minute apart: `python -m pytest -m live tests/test_rag_engine.py`.
 
 ---
 
@@ -163,12 +170,13 @@ no key is set. With your key in `.env`, they run too. To run only the plain ones
 
 ```python
 engine = RAGEngine()          # settings only
-engine.build()                # load, chunk, embed and store, make the chain: once
-engine.query("...")           # each question: the chain, then the sources
+engine.build()                # ingestion: load, chunk, embed and store, make the chain: once
+engine.query("...")           # the query half, each question: retrieve, answer, then the sources
 ```
 
-The slow, costly part, embedding every chunk, happens once in `build()`. Every question after that only embeds the
-question and asks for the answer.
+A RAG app has two halves. Ingestion, in `build()`, gets the knowledge base ready: the slow, costly part, embedding
+every chunk, happens there, once. The query half, in `query()`, runs for each question: it only embeds the question,
+retrieves the closest chunks and asks for the answer.
 
 ### 2. Configure First, Build Later
 
@@ -183,21 +191,48 @@ an engine another knowledge base file or a collection of its own. Every setting 
 start of the constructor's parameters), so `RAGEngine(collection="it_kb_1000", chunk_size=1000)` can't put a value
 in the wrong setting.
 
-### 3. Sources: Different Articles, Not Just Chunks
+### 3. Sources: the Articles the Search Found
 
 Two of the 5 chunks found can come from one article. `_with_sources()` keeps the first chunk of each article, closest
-first, and stops at 3, so every source names a different article.
+first, and stops at 3, so every source names a different article. Gemini reads all 5 chunks; the list shows at most 3
+articles; and it comes from the search, not from the answer, so it isn't a checked citation. The run shows the
+difference:
+
+```text
+Sources: [1] VPN Connection Timeout, [2] VPN Connection Timeout
+   found by the search: VPN Connection Timeout (VPN, Remote Access)
+   found by the search: MFA Setup Failure (MFA, Security)
+   found by the search: Database Connection Timeout (Database, Infrastructure)
+```
+
+The first line is the end of Gemini's answer: it says it used the VPN article's two chunks. The search also found
+chunks of the MFA and Database articles, and they're listed because they were in the prompt, not because the answer
+used them.
 
 ### 4. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` builds the engine (Step 1, in one line, from `stats()`),
-then answers each question (Step 2), and `print_result()`, from `utils.py`, prints each answer. `rag_engine.py` and
+then answers each question (Step 2), and `print_result()`, from `utils.py`, prints each answer. With no question,
+or only spaces, after `pipeline.py`, it answers the three sample questions. `rag_engine.py` and
 the other files only define the parts, so importing them reads nothing and makes no call. The engine is a parameter
 of `main()`, so the tests pass one with stand-ins for Gemini.
 
 ---
 
 ## 🛠️ Troubleshooting
+
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
+**Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
+after it, and check it's restricted to the Generative Language API, not to another one.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
+**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 31; the
+message ends with "Please retry in" and a number of seconds. Wait that long, then run it again.
 
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
@@ -216,6 +251,8 @@ of `main()`, so the tests pass one with stand-ins for Gemini.
 
 ## 💡 Ideas to Try
 
-- Ask a question of your own with `python pipeline.py "..."`, and check that each source is a different article.
-- Change `MAX_SOURCES` in `rag_engine.py` from 3 to 1, and see one source per answer.
+- Ask a question of your own with `python pipeline.py "..."`, and compare the articles the answer says it used with
+  the ones the search found.
+- Change `MAX_SOURCES` in `rag_engine.py` from 3 to 1, and see one source per answer. A test checks for up to 3, so
+  put it back before `python -m pytest`.
 - In `pipeline.py`, build the engine with `RAGEngine(top_k=2)`, and compare its answers with the default 5 chunks.
