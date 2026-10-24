@@ -3,10 +3,13 @@
 An IT help-desk assistant that answers questions from a knowledge base of IT support articles, built with LangChain
 and Gemini, one step at a time. You ask "How do I fix VPN connection timeouts?"; it finds the parts of the articles
 that match, and Gemini is asked to write the answer from those parts only, naming the articles it used. That's RAG:
-retrieval-augmented generation.
+retrieval-augmented generation. A model needs RAG because it knows only what it learned in training, and nothing
+about your own documents, such as these articles.
 
 ```text
-question ─> embed it ─> find the closest chunks in Qdrant ─> prompt: the chunks + the question ─> Gemini ─> answer + sources
+question ─> embed it ─> find the closest chunks in Qdrant ─> prompt: the chunks + the question ─> Gemini ─> answer
+                                         │
+                                         └─> sources: the articles of the chunks found
 ```
 
 It rebuilds the *IT Knowledge Base RAG Application* from the Pluralsight course *Integrating Knowledge Bases for
@@ -26,9 +29,11 @@ The projects come in four levels:
 - **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
   [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
 
-Each Basic and Advanced folder is a project of its own: it holds the app as built so far plus one new piece, runs on
-its own, and has its own tests. Projects 01 to 05 get the knowledge base ready to be searched (read, split, chunk,
-embed, store), with no question anywhere; the user's question comes in at 06, and 07 onward answer it.
+Each Basic folder, and Advanced/01, is a project of its own: it holds the app as built so far plus one new piece,
+runs on its own, and has its own tests. Projects 01 to 05 are the ingestion half: they get the knowledge base ready
+to be searched (read, label, chunk, embed, store), once per run, with no question anywhere. 06 and 07 are the query
+half, which runs for each question: the user's question comes in at 06, and 07 onward answer it. 09 and 10 add the
+web app (an API, then a chat page): if you're here to learn RAG, you can skim them.
 
 Beside them, [`RAG series/`](RAG%20series/README.md) will hold a notebook for each course of the Pluralsight path
 *Retrieval Augmented Generation (RAG) for Developers*, each runnable in Google Colab; so far, course 1, Vector Space
@@ -49,15 +54,15 @@ Models and Embeddings in RAGs.
 | `01-read-the-knowledge-base` | The CSV file of 10 articles read into LangChain `Document`s by a document loader | `python pipeline.py` |
 | `02-documents-and-metadata` | Each article's text to search (title, problem, resolution, notes) kept apart from its labels (system, category, priority, tags) | `python pipeline.py` |
 | `03-chunking` | The articles cut into chunks of at most 512 characters with `RecursiveCharacterTextSplitter`: 28 in all | `python pipeline.py` |
-| `04-embeddings` | The 28 chunks turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers each), in one call. No question yet | `python pipeline.py` |
-| `05-vector-store` | The chunks stored in Qdrant through `QdrantVectorStore`: one point per chunk, with its vector, text and labels, in memory, inside the script | `python pipeline.py` |
+| `04-embeddings` | The 28 chunks turned into vectors by Gemini (`gemini-embedding-001`, 768 numbers each), in one call; then how close chunk 1 is to every other chunk. No question yet | `python pipeline.py` |
+| `05-vector-store` | The chunks stored in Qdrant as points, written with Qdrant's `upsert()`: one per chunk, with its vector, text and labels, in memory, inside the script | `python pipeline.py` |
 | `06-retriever` | The user's question: embedded, then searched in Qdrant for the 5 closest chunks; then both in one call with a retriever, a Runnable | `python pipeline.py` |
 | `07-grounded-answer` | The RAG chain: the chunks and the question go into a prompt, and Gemini (`gemini-3.5-flash-lite`) is asked to answer from them only; then the same question without them | `python pipeline.py` |
 | `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python pipeline.py` |
 | `09-api` | A FastAPI server: `POST /api/query`, `GET /api/stats`, `GET /api/health` | `uvicorn main:app` |
 | `10-chat-page` | A chat page at http://127.0.0.1:8000, served by the same server | `uvicorn main:app` |
 | `11-qdrant-on-disk` | The chunks kept on disk between runs, in `qdrant_data/`, so they're embedded only once | `uvicorn main:app` |
-| `12-tuning` | The search scored on 10 test questions for three chunk sizes and three values of k; with `--answers`, one question answered from 1 chunk and from 5 | `python tuning.py` |
+| `12-tuning` | The search scored on 10 test questions for three chunk sizes and three values of k, raced against keywords (common words left out) and a random order; then, for each size, the questions whose fact wasn't in the first chunk Gemini's search found. With `--answers`, one of those questions answered from 1 chunk and from 5 | `python tuning.py` |
 
 ### Advanced
 
@@ -70,10 +75,12 @@ Models and Embeddings in RAGs.
 
 - **Python 3.11 or newer** (3.12 or newer for `Entry/V1`, `Entry/V3` and `RAG series`, for the NumPy they pin), and
   in each project: `python -m venv .venv`, activate it, then `pip install -r requirements-dev.txt`. Each project pins
-  its packages to exact versions.
+  the packages it names to exact versions. On Windows with long paths off, keep the path of the repo root to 91
+  characters or fewer: a path in a Basic project's `.venv` can be 168 characters longer (in 07), and Windows refuses
+  a path of 260 characters or more.
 - **For `Entry`, a GitHub Codespace**: on Windows with long paths off, its Jupyter packages can fail to install when
-  the repo sits deep in your folders (a path over 260 characters; each version's README has the details). It needs
-  no key.
+  the repo sits deep in your folders (a path of 260 characters or more; each version's README has the details). It
+  needs no key.
 - **For `RAG series`, a browser and a Google account**: its notebooks open in Google Colab from their README's
   **Open in Colab** button.
 - **A Gemini API key, from project 04 on**, set up as in the tutorials (`tutorials/09-gemini-key`): copy the project's
@@ -82,9 +89,10 @@ Models and Embeddings in RAGs.
   texts a minute, and each text in a batch counts: a run of 04 to 11 embeds about 30, and 12's `tuning.py` 97.
 - **No Docker and no database server**: Qdrant runs inside the scripts. Projects 11 and 12 save its points in a
   `qdrant_data/` folder (in `.gitignore`); the others keep them in memory.
-- **Tests**: `python -m pytest` in a project's folder. The plain tests use stand-ins for Gemini, so they need no key;
-  the live tests call the real Gemini and run only when a key is set. A project's live tests together can embed more
-  than 100 texts, so on the free tier run `python -m pytest -m "not live"`, and the live ones a file at a time.
+- **Tests**: `python -m pytest -m "not live"` in a project's folder runs the plain tests: they use stand-ins for
+  Gemini, so they need no key. The live tests call the real Gemini and run only when a key is set. From 07 on, a
+  project's live tests together embed more than 100 texts, so on the free tier run them one file at a time, a minute
+  apart (`python -m pytest -m live tests/<file>`, as its README shows).
 
 ## Run a project in one step
 
