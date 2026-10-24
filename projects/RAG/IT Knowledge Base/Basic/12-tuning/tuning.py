@@ -104,8 +104,8 @@ def random_hit_chance(fact: str, chunks: list[Document], k: int) -> float:
 def evaluate(embeddings: Embeddings, stores: dict, eval_set=EVAL_SET, top_ks=TOP_KS) -> list[dict]:
     """Three rows of scores per chunk size, one for each search, e.g. {"chunk_size": 512, "chunks": 28,
     "search": "gemini", "top_1": 9, "top_3": 10, "top_5": 10, "missed_in_top_1": ["Email Attachment Size Limit"]}:
-    how many questions have their fact in the k chunks found and, for gemini and keywords, the articles of the
-    questions whose fact isn't in the first chunk found."""
+    how many questions have their fact in the k chunks found and, for gemini, the articles of the questions whose
+    fact isn't in the first chunk found."""
     # The questions are embedded once and reused for every chunk size
     # embed_query() comes from LangChain's Embeddings (Gemini's, here): one text in, one vector out
     question_vectors = [embeddings.embed_query(question) for question, _, _ in eval_set]
@@ -123,8 +123,8 @@ def evaluate(embeddings: Embeddings, stores: dict, eval_set=EVAL_SET, top_ks=TOP
                 else:
                     row[f"top_{k}"] = sum(any(fact in chunk.page_content for chunk in results[:k])
                                           for (_, _, fact), results in zip(eval_set, found[search]))
-            if search != "random":
-                # Each question's article, if its fact isn't in the first chunk found
+            if search == "gemini":
+                # Each question's article, if its fact isn't in the first chunk found: print_misses() lists them
                 row["missed_in_top_1"] = [title for (_, title, fact), results in zip(eval_set, found[search])
                                           if fact not in results[0].page_content]
             rows.append(row)

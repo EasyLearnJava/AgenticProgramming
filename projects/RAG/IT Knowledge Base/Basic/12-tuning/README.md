@@ -122,7 +122,7 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 
 ```bash
 python tuning.py                     # the table
-python tuning.py --answers           # the table, then one question answered from 1 chunk and from 5
+python tuning.py --answers           # or, a minute later: the table, then one question from 1 chunk and from 5
 ```
 
 ### Step 6: Run the App (Optional)
@@ -150,7 +150,8 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/12-tuning   # from the repo
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python tuning.py`
 in this folder with the venv's Python, so there's nothing to activate. Options after the project's name go to
-`tuning.py`: add `--answers` at the end for the two answers. The output is the same as in Step 5.
+`tuning.py`: add `--answers` at the end for the two answers. The project's output is the same as in Step 5, after
+run.py's own lines saying what it creates, installs and runs.
 
 ---
 
@@ -159,7 +160,7 @@ in this folder with the venv's Python, so there's nothing to activate. Options a
 The plain tests keep Qdrant in memory, or in a folder of each test's own, never in `qdrant_data/`:
 
 ```bash
-python -m pytest -m "not live"       # 81 passed, 10 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 82 passed, 10 deselected  (add -v for one line per test)
 ```
 
 They use stand-ins for Gemini, so they need no key and make no calls. They check:
@@ -230,12 +231,14 @@ Not in Gemini's top 1, by article:
 
 ### 4. Reading the Table
 
-- **Read the top 1 first.** Gemini's search puts the chunk with the fact first for 7, 9 and 10 of the 10 questions;
-  the keywords manage 4, 5 and 8. That gap is what the embeddings add. The lines under the table name the questions
+- **Read the top 1 first.** Gemini's search puts the chunk with the fact first for 7, 9 and 10 of the 10 questions
+  (its hit rate at k = 1: 70%, 90% and 100%); the keywords manage 4, 5 and 8. That gap is what the embeddings add. The
+  CRM question shares no word with the chunk holding its fact, once common words are left out: the keywords never find
+  it in their top 5, and Gemini's search puts it first at every size. The lines under the table name the questions
   whose fact Gemini's first chunk missed, by article: MFA, Laptop and Email at 200, only Email at 512, none at 1000.
-- **Keywords are strong on exact terms.** A question with "10.50.3.25" or "CorpWiFi-5G" in it shares those words
-  with the chunk that has them, and the keyword search puts that chunk first. That's why real apps often combine
-  the two searches.
+- **Keywords are strong on exact terms.** A question with "10.50.3.25" or "CorpWiFi-5G" in it shares those words with
+  the chunk that has them, and the keyword search usually puts that chunk first. That's why real apps often combine
+  the two searches (hybrid search).
 - **Read each row against random.** At 1000 characters, each article is one chunk, and the top 5 is half the
   knowledge base: luck alone finds 5 of 10, the keywords 9 and Gemini's search all 10.
 - **In the top 1, bigger chunks win, and that's this data.** A bigger chunk holds more: these 10 articles are short
@@ -277,9 +280,10 @@ Source: [2] Email Attachment Size Limit
 ```
 
 From 1 chunk, the answer missed the 25MB limit: the chunk found was from the right article, but wasn't the chunk with
-the limit. From 5, the chunk with the limit was in the prompt too, and the answer gave it. With k = 1, an answer has
-nothing to fall back on when that chunk is the wrong one; with 5, the prompt is longer and more of it is about
-something else.
+the limit. The prompt asks Gemini to say when the articles don't cover a question; instead, it gave the 10MB
+cloud-sharing rule, which reads like a limit. From 5, the chunk with the limit was in the prompt too, 2nd (the [2] its
+answer cites), and the answer gave it. With k = 1, an answer has nothing to fall back on when that chunk is the wrong
+one; with 5, the prompt is longer and more of it is about something else.
 
 ---
 
@@ -323,9 +327,17 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 `python pipeline.py`, or the other way round. Only one program at a time can open the folder. Stop the other one
 (Ctrl+C), then try again. `tuning.py` never opens it.
 
-**Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
+
+**Issue**: An error with `[Errno 10048]` or `address already in use` in it, and the server stops
+**Fix**: Another server, often another project's, already has port 8000. Stop it (Ctrl+C in its terminal), or
+start this one on another port, `uvicorn main:app --port 8001`, and use 8001 in the address.
+
+**Issue**: `uvicorn` isn't found: PowerShell says it `is not recognized`, bash says `command not found`
+**Fix**: The venv isn't active, so its `uvicorn` isn't on the path. Activate it (Step 2), or use the one command,
+which needs no activating.
 
 ---
 
@@ -334,7 +346,9 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 - Replace 200 with 300 in `CHUNK_SIZES` in `tuning.py`, and see where it lands in the table. Wait a minute between
   runs.
 - Reword one question in `EVAL_SET` to use its article's title words, and see whether that question's keyword hit
-  changes. A test checks that no question does, so put it back before `python -m pytest`.
-- Add a question about the VPN's busy times ("peak hours" is in both the VPN and the Database articles), with
-  "ISP throttling" as its fact, and see whether the search tells the two near-misses apart. Tests check that each
-  article has one question, using none of its title's words, so take it out before `python -m pytest`.
+  changes. A test checks that no question does, so put it back before you run the tests.
+- Add a question about the VPN's busy times ("peak hours" is in both the VPN and the Database articles), with "ISP
+  throttling" as its fact, and see whether the search tells the two near-misses apart. Tests check that each article
+  has one question, using none of its title's words, so take it out before you run the tests.
+- In the `--answers` loop in `tuning.py`, also print whether `EVAL_SET[7][2]`, "25MB", is in each answer. An
+  exact-text check like that would miss "25 MB" written with a space: answers are hard to score by text.

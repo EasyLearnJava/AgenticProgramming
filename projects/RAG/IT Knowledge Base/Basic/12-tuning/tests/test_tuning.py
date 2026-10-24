@@ -59,8 +59,8 @@ def test_a_hit_needs_the_fact_not_just_the_article():
     rows = evaluate(stand_in, stores, eval_set=[("my vpn keeps dropping", "VPN Connection Timeout", "not there")],
                     top_ks=[5])
     assert [row["top_5"] for row in rows] == [0, 0, 0]
-    # Its article is listed as missed, for the two searches that pick chunks
-    assert [row.get("missed_in_top_1") for row in rows] == [["VPN Connection Timeout"]] * 2 + [None]
+    # Its article is listed as missed, for Gemini's search
+    assert [row.get("missed_in_top_1") for row in rows] == [["VPN Connection Timeout"], None, None]
 
 
 def test_keyword_search_ranks_the_chunks_by_the_words_they_share_with_the_question():
