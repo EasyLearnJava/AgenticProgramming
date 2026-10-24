@@ -13,11 +13,18 @@ Builds the two Gemini models every other file imports from here. It handles:
 
 Building a model makes no call to Gemini: each embed_... and each invoke does, and uses your key's quota.
 """
+import logging
 import sys
 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
 from config import MissingKeyError, load_api_key
+
+# Google's library warns once a run that "automatic function calling" is "not recommended": a feature this project
+# never uses. The warning would look like a problem, so only that one message is dropped; any other still shows.
+# getLogger() and addFilter() come from Python's logging module: a filter that returns False drops the message
+logging.getLogger("google_genai.models").addFilter(
+    lambda record: "automatic function calling" not in record.getMessage())
 
 # gemini-embedding-001 gives 128 to 3072 numbers per text; 768 is a size Google recommends, and cheaper to store
 EMBEDDING_MODEL = "gemini-embedding-001"

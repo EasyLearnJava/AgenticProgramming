@@ -2,10 +2,10 @@
 IT Knowledge Base: The RAG Engine
 =================================
 
-The whole pipeline in one class, the way a server uses it: build() fills the vector store once, and query() then
-answers each question with its sources. It handles:
+The whole pipeline in one class, the way a server uses it. build() is the ingestion half, run once: read, chunk,
+embed and store. query() is the query half, run for each question: retrieve, then answer. It handles:
   1. Building: load and split the articles, embed and store the chunks, make the chain (one call to Gemini)
-  2. Answering: one question, sync or async, with up to MAX_SOURCES different articles as sources
+  2. Answering: one question, sync or async, with up to MAX_SOURCES different articles the search found, as sources
   3. Stats: what the engine holds and how it's set up
 
 Usage (this file only defines these; pipeline.py runs the steps):
@@ -23,12 +23,14 @@ from qdrant_client import QdrantClient
 from chunking import CHUNK_OVERLAP, CHUNK_SIZE, split_documents
 from embed_chunks import embed_chunks
 from knowledge_base import KB_FILE, load_documents
-from models import CHAT_MODEL, EMBEDDING_MODEL, EMBEDDING_SIZE, chat_model, embeddings
+from models import EMBEDDING_SIZE, chat_model, embeddings
 from rag_chain import make_rag_chain
 from retriever import TOP_K, make_retriever
 from vector_store import COLLECTION, make_vector_store, store_vectors
 
-MAX_SOURCES = 3        # sources per answer: the first 3 different articles among the chunks found
+# Sources per answer: the first 3 different articles among the chunks the search found. They're what Gemini was
+# given, not a checked list of what its answer used: an answer can use fewer, or none.
+MAX_SOURCES = 3
 SNIPPET_LENGTH = 200   # characters of each source's text shown with it
 
 
@@ -52,6 +54,9 @@ class RAGEngine:
         self.chunk_size, self.chunk_overlap, self.top_k = chunk_size, chunk_overlap, top_k
         self.documents, self.chunks = [], []
         self.chain: Runnable | None = None
+        # The models' names, for stats(): Gemini's models know theirs (.model); a stand-in goes by its class name
+        self.embedding_model_name = getattr(embeddings, "model", type(embeddings).__name__)
+        self.chat_model_name = getattr(model, "model", type(model).__name__)
 
     def build(self) -> None:
         """Load and split the articles, embed the chunks (one call to Gemini) and store them, and make the chain."""
@@ -96,4 +101,4 @@ class RAGEngine:
         """What the engine holds and how it's set up."""
         return {"documents": len(self.documents), "chunks": len(self.chunks), "collection": self.collection,
                 "chunk_size": self.chunk_size, "chunk_overlap": self.chunk_overlap, "top_k": self.top_k,
-                "embedding_model": EMBEDDING_MODEL, "chat_model": CHAT_MODEL}
+                "embedding_model": self.embedding_model_name, "chat_model": self.chat_model_name}

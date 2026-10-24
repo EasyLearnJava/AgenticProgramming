@@ -1,8 +1,9 @@
 # 10 · Chat Page
 
 A web page to ask the IT knowledge base questions in, served by the same server as the API. You type a question, and
-the page shows Gemini's answer with the articles it came from. Built with **FastAPI**, plain **HTML and JavaScript**,
-**LangChain**, **Gemini** (`gemini-embedding-001` and `gemini-3.5-flash-lite`) and **Qdrant**, running in memory.
+the page shows Gemini's answer with the articles the search found. Built with **FastAPI**, plain **HTML and
+JavaScript**, **LangChain**, **Gemini** (`gemini-embedding-001` and `gemini-3.5-flash-lite`) and **Qdrant**, running
+in memory.
 
 > **Needs:** Python 3.11 or newer, a Gemini API key, and a web browser. Starting the server makes 1 call to Gemini;
 > each question makes 2.
@@ -15,7 +16,9 @@ the page shows Gemini's answer with the articles it came from. Built with **Fast
 - **Shows one line about the knowledge base** when the page opens, from `GET /api/stats`
 - **Sends your question** to `POST /api/query` when you click **Ask** or press Enter, and shows the answer with its
   sources, newest first
-- **Shows what went wrong** when a question is bad or Gemini doesn't answer
+- **Has no memory**: each question goes to the server on its own, so a follow-up like "and on Windows?" isn't read
+  with the question before it
+- **Shows what went wrong** when a question is bad or can't be answered
 - **Keeps the API**: `/docs`, `/api/query`, `/api/stats` and `/api/health` answer as before
 
 **Try it:** start the server, open http://127.0.0.1:8000, and click **Ask**.
@@ -54,7 +57,9 @@ the browser
 ## 📋 Prerequisites
 
 - **Python 3.11 or newer**
-- **A Gemini API key**: every call to Gemini uses your key's quota
+- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
+  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
+  call to Gemini uses your key's quota
 - **A web browser**
 
 ---
@@ -97,7 +102,7 @@ APIs & Services > Credentials, as `.env.example` says. `.env` is in `.gitignore`
 ### Step 5: Start the Server
 
 ```bash
-uvicorn main:app --reload            # the server; Ctrl+C stops it
+uvicorn main:app                     # the server; Ctrl+C stops it
 ```
 
 When it prints `RAG engine built`, the chunks are embedded and stored: the server is ready.
@@ -107,8 +112,9 @@ When it prints `RAG engine built`, the chunks are embedded and stored: the serve
 Open http://127.0.0.1:8000.
 
 The question box already holds `How do I fix VPN connection timeouts?`: click **Ask**. The answer shows up under the
-box: your question, Gemini's answer, then **Sources:** with up to 3 articles, each with its system, category and the
-start of its text.
+box: your question, Gemini's answer, then **Found by the search:** with up to 3 articles, each with its system,
+category and the start of its text. They're the articles the search found and Gemini was given, not a checked list
+of what the answer used.
 
 In GitHub Codespaces, `127.0.0.1` is your own computer, not the codespace: open the **Ports** tab next to
 **Terminal** and click the globe icon on port 8000.
@@ -122,7 +128,7 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/10-chat-page   # from the r
 ```
 
 It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`uvicorn main:app --reload` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops the
+`uvicorn main:app` in this folder with the venv's Python, so there's nothing to activate. Ctrl+C stops the
 server. Then open the page as in Step 6.
 
 ---
@@ -130,18 +136,20 @@ server. Then open the page as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 56 passed, 8 skipped     (add -v for one line per test)
+python -m pytest                     # 57 passed, 9 skipped     (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the page, they check that it's
 served at `/` and `/index.html` as HTML, with `Cache-Control: no-cache`, and that it calls `/api/query` and
 `/api/stats`; and that it handles an unexpected status and never puts the server's text in as HTML. For the API, they
-check each route, the 422 for a bad question, the 502 for a failed Gemini call, and the message when there's no key.
-For `pipeline.py`, they check that it builds the engine, then answers each question, or one of your own; and that no
-other file runs anything in the terminal.
+check each route, the 422 for a bad question, the 502 for a failed answer, with the traceback in the log, and the
+message when there's no key. For `pipeline.py`, they check that it builds the engine, then answers each question,
+or one of your own; and that no other file runs anything in the terminal.
 
-The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too. To run only the plain ones: `python -m pytest -m "not live"`.
+The 9 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
+no key is set. With your key in `.env`, they run too. Together they embed more than 100 texts, the free tier's limit
+for a minute, so there run the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a
+time, a minute apart: `python -m pytest -m live tests/test_main.py`.
 
 ---
 
@@ -190,21 +198,36 @@ A 422 shows which field is wrong and why, a 502 shows the server's short message
 
 ## 🛠️ Troubleshooting
 
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
+**Issue**: The terminal shows `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`, and the server doesn't start
+**Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
+after it, and check it's restricted to the Generative Language API, not to another one.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
+**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute; starting the server
+embeds 28, and each question 1 more. The message ends with "Please retry in" and a number of seconds. Wait that
+long, then try again.
+
 **Issue**: The terminal shows `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`, and the server doesn't start
-**Fix**: Press Ctrl+C (with `--reload`, uvicorn keeps waiting), put your key in `.env` (Step 4), and start it again.
+**Fix**: The server stops at once. Put your key in `.env` (Step 4), and start it again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
 **Issue**: The page shows `... The server's terminal says why.`
-**Fix**: Gemini didn't answer. The server's terminal has a `Gemini call failed:` line with the reason.
+**Fix**: The question couldn't be answered. The server's terminal has a `Couldn't answer:` line with the reason,
+then the traceback.
 
 **Issue**: The page shows `Something went wrong: ...`
 **Fix**: The server isn't running, or it answered with an error the page didn't expect. Check the server's terminal.
 
 **Issue**: http://127.0.0.1:8000 doesn't open in Codespaces
-**Fix**: `127.0.0.1` is your own computer. Open the **Ports** tab next to **Terminal** and click the globe icon on port
-8000.
+**Fix**: `127.0.0.1` is your own computer. Open the **Ports** tab next to **Terminal** and click the globe icon on
+port 8000.
 
 ---
 
@@ -212,4 +235,6 @@ A 422 shows which field is wrong and why, a 502 shows the server's short message
 
 - Click **Ask** with an empty box, and read the message the page shows.
 - Ask three questions, and see the newest answer appear at the top.
+- Ask "How do I fix VPN connection timeouts?", then "and if that doesn't work?": the second question arrives on its
+  own, so the search has nothing about VPNs to go on.
 - Change the question in the box's `value` in `index.html`, reload the page, and see the new default question.

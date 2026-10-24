@@ -95,6 +95,15 @@ def test_building_again_starts_with_a_new_collection():
     assert client.count(COLLECTION).count == 28
 
 
+def test_stats_names_the_engines_own_models():
+    stand_in = stand_in_engine()
+    assert (stand_in.stats()["embedding_model"], stand_in.stats()["chat_model"]) == (
+        "KeywordEmbeddings", "FakeListChatModel")                    # stand-ins go by their class names
+    default = RAGEngine()                                            # Gemini's models: nothing is read or called
+    assert (default.stats()["embedding_model"], default.stats()["chat_model"]) == (
+        "gemini-embedding-001", "gemini-3.5-flash-lite")
+
+
 def test_settings_are_passed_by_name_only():
     with pytest.raises(TypeError):
         RAGEngine(KeywordEmbeddings())                     # a setting by position: refused
