@@ -40,7 +40,7 @@ def test_without_a_key_each_script_stops_with_the_message_not_a_stack_trace(scri
 
 @pytest.mark.live
 def test_live_an_embedding_has_768_numbers():
-    assert len(models.embeddings.embed_query("My VPN won't connect")) == 768
+    assert len(models.embeddings.embed_documents(["Title: VPN Connection Timeout"])[0]) == 768
 
 
 @pytest.mark.live

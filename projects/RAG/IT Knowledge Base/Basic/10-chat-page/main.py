@@ -9,7 +9,8 @@ server starts, and each request answers one question. It handles:
   3. Checking each question before it costs a call to Gemini, then answering it
 
     GET  / (or /index.html)  ->  the chat page; it sends each question to POST /api/query
-    POST /api/query   {"question": "..."}  ->  {"answer": "...", "sources": [...]};  bad question 422, Gemini fails 502
+    POST /api/query   {"question": "..."}  ->  {"answer": "...", "sources": [...]}
+                      a bad question  ->  422;  answering fails (often Gemini)  ->  502
     GET  /api/stats   ->  {"documents": 10, "chunks": 28, ...}
     GET  /api/health  ->  {"status": "ok"}
 

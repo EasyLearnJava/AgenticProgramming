@@ -58,8 +58,8 @@ the browser
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 - **A web browser**
 
 ---
@@ -114,7 +114,8 @@ Open http://127.0.0.1:8000.
 The question box already holds `How do I fix VPN connection timeouts?`: click **Ask**. The answer shows up under the
 box: your question, Gemini's answer, then **Found by the search:** with up to 3 articles, each with its system,
 category and the start of its text. They're the articles the search found and Gemini was given, not a checked list
-of what the answer used.
+of what the answer used. Any [1], [2] in an answer number the 5 chunks in the prompt (07 prints it), not the articles
+under **Found by the search:**.
 
 In GitHub Codespaces, `127.0.0.1` is your own computer, not the codespace: open the **Ports** tab next to
 **Terminal** and click the globe icon on port 8000.
@@ -136,20 +137,20 @@ server. Then open the page as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 57 passed, 9 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 57 passed, 9 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the page, they check that it's
 served at `/` and `/index.html` as HTML, with `Cache-Control: no-cache`, and that it calls `/api/query` and
 `/api/stats`; and that it handles an unexpected status and never puts the server's text in as HTML. For the API, they
-check each route, the 422 for a bad question, the 502 for a failed answer, with the traceback in the log, and the
-message when there's no key. For `pipeline.py`, they check that it builds the engine, then answers each question,
-or one of your own; and that no other file runs anything in the terminal.
+check each route, the 422 for a bad question, the 502 for a failed answer, with the traceback in the log, and that
+with no key the server stops with the message, not a traceback. For `pipeline.py`, they check that it builds the
+engine, then answers each question, or one of your own; and that no other file runs anything in the terminal.
 
-The 9 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too. Together they embed more than 100 texts, the free tier's limit
-for a minute, so there run the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a
-time, a minute apart: `python -m pytest -m live tests/test_main.py`.
+The 9 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
+with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Together they embed
+more than 100 texts, the free tier's limit for a minute, so on the free tier, run them one file at a time, a minute
+apart: `python -m pytest -m live tests/test_main.py`.
 
 ---
 
@@ -205,7 +206,12 @@ A 422 shows which field is wrong and why, a 502 shows the server's short message
 
 **Issue**: The terminal shows `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`, and the server doesn't start
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute; starting the server
@@ -217,6 +223,14 @@ long, then try again.
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
+
+**Issue**: `Can't build the models: .env isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding.`
+**Fix**: `.env` was saved in another encoding, often UTF-16 by Windows PowerShell 5's `echo ... > .env`. Save it
+again as UTF-8, or make it with `copy .env.example .env` and edit it.
+
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
+**Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
+`pip install -r requirements-dev.txt` (Step 3).
 
 **Issue**: The page shows `... The server's terminal says why.`
 **Fix**: The question couldn't be answered. The server's terminal has a `Couldn't answer:` line with the reason,
