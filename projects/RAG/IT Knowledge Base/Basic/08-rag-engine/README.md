@@ -4,6 +4,8 @@ The whole question-answering pipeline in one class, `RAGEngine`: built once, it 
 IT knowledge base, with up to 3 of the articles the search found. Built with **LangChain**, **Gemini**
 (`gemini-embedding-001` and `gemini-3.5-flash-lite`) and **Qdrant**, running in memory.
 
+In a RAG app, embedding every chunk is the slow, costly part, so it happens once, not for each question.
+
 > **Needs:** Python 3.11 or newer, and a Gemini API key. A run with the three sample questions makes 7 calls to
 > Gemini, which embed 31 texts: the 28 chunks and the 3 questions.
 
@@ -75,8 +77,8 @@ IT knowledge base, with up to 3 of the articles the search found. Built with **L
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 
 ---
 
@@ -144,7 +146,7 @@ in Step 5. A question at the end of the command goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 44 passed, 8 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 44 passed, 8 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. They check:
@@ -157,10 +159,10 @@ The plain tests use stand-ins for Gemini, so they need no key and make no calls.
 - **The pipeline**: it builds the engine, then answers each question, or one of your own, after the steps' names;
   and no other file runs anything
 
-The 8 skipped tests are live tests, marked `live`: they call the real Gemini, so `tests/conftest.py` skips them when
-no key is set. With your key in `.env`, they run too. Together they embed more than 100 texts, the free tier's limit
-for a minute, so there run the plain ones with `python -m pytest -m "not live"`, and the live ones one file at a
-time, a minute apart: `python -m pytest -m live tests/test_rag_engine.py`.
+The 8 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
+with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Together they embed
+more than 100 texts, the free tier's limit for a minute, so on the free tier, run them one file at a time, a minute
+apart: `python -m pytest -m live tests/test_rag_engine.py`.
 
 ---
 
@@ -174,9 +176,8 @@ engine.build()                # ingestion: load, chunk, embed and store, make th
 engine.query("...")           # the query half, each question: retrieve, answer, then the sources
 ```
 
-A RAG app has two halves. Ingestion, in `build()`, gets the knowledge base ready: the slow, costly part, embedding
-every chunk, happens there, once. The query half, in `query()`, runs for each question: it only embeds the question,
-retrieves the closest chunks and asks for the answer.
+A RAG app has two halves. Ingestion, in `build()`, gets the knowledge base ready, once. The query half, in `query()`,
+runs for each question: it only embeds the question, retrieves the closest chunks and asks for the answer.
 
 ### 2. Configure First, Build Later
 
@@ -207,7 +208,7 @@ Sources: [1] VPN Connection Timeout, [2] VPN Connection Timeout
 
 The first line is the end of Gemini's answer: it says it used the VPN article's two chunks. The search also found
 chunks of the MFA and Database articles, and they're listed because they were in the prompt, not because the answer
-used them.
+used them. The [1], [2] in an answer number the 5 chunks in the prompt (07 prints it), not the lines of this list.
 
 ### 4. One File Runs the Steps
 
@@ -228,7 +229,12 @@ of `main()`, so the tests pass one with stand-ins for Gemini.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 31; the
@@ -243,6 +249,10 @@ message ends with "Please retry in" and a number of seconds. Wait that long, the
 
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
+
+**Issue**: `Can't build the models: .env isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding.`
+**Fix**: `.env` was saved in another encoding, often UTF-16 by Windows PowerShell 5's `echo ... > .env`. Save it
+again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
 **Issue**: `python rag_engine.py` prints nothing
 **Fix**: That file only defines the engine. Run `python pipeline.py` (Step 5), which builds it and asks it.

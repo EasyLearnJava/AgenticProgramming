@@ -73,5 +73,6 @@ def test_live_the_vpn_question_finds_the_vpn_article_first_and_gets_an_answer(li
 @pytest.mark.live
 def test_live_an_off_topic_question_is_answered_as_not_covered(live_chain):
     # The prompt asks for "the knowledge base doesn't cover it". A model mostly does as it's asked, not always.
-    answer = live_chain.invoke("How do I bake bread?")["answer"]
-    assert "cover" in answer.lower()
+    answer = live_chain.invoke("How do I bake bread?")["answer"].lower()
+    assert "cover" in answer
+    assert "flour" not in answer and "yeast" not in answer        # and no recipe from what Gemini knows
