@@ -67,7 +67,7 @@ a question ──────────────┤ Step 5: Retrieve
 3. **Embed the question** → `embed_query()`: 768 numbers, from the same model
 4. **Search** → Qdrant compares the question's vector with every stored one and keeps the 5 closest, with scores
 5. **Check the top score** → the top chunk's vector, read back from Qdrant by its id, gives the same score by hand
-6. **Retrieve** → `make_retriever(store).invoke(question)` does steps 3 and 4 in one call
+6. **Retrieve** → `make_retriever(store).invoke(question)` embeds the question and searches, in one call
 7. **Format** → `format_docs()` joins chunks into one numbered, titled text
 8. **Print** → `print_retrieval()`, from `utils.py`: each step's result
 
@@ -138,9 +138,10 @@ With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you
 python "projects/RAG/IT Knowledge Base/run.py" Basic/06-retriever   # from the repo root
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 5. A question at the end of the command goes to `pipeline.py`: `... Basic/06-retriever "my email bounced"`.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python
+pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The project's output is the same
+as in Step 5, after run.py's own lines saying what it creates, installs and runs. A question at the end of the command
+goes to `pipeline.py`: `... Basic/06-retriever "my email bounced"`.
 
 ---
 
@@ -209,7 +210,8 @@ The VPN article's first chunk, its title, problem and fix, is well ahead of ever
 
 Each score is the cosine similarity between the question's vector and a chunk's: how closely the two point the same
 way, from -1 to 1. **1.0** means the same direction; **0** is at right angles. **0.775** is an angle of about 39°
-between the two vectors.
+between the two vectors. Chunks written alike score high with each other, and a short question can score lower even
+against its answer, so compare scores within one search.
 
 ```text
 cosine(a, b) = (a₁×b₁ + a₂×b₂ + … + a₇₆₈×b₇₆₈) / (length of a × length of b)
@@ -322,4 +324,6 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 - In `retriever.py`, change `TOP_K` to `2`, and see 2 chunks come back instead of 5. Tests check for 5, so put it
   back before `python -m pytest`.
 - Ask a few questions the knowledge base doesn't cover, and a few it does, and compare their top scores: is there a
-  minimum score that would keep the good chunks and drop the rest?
+  minimum score that would keep the good chunks and drop the rest? Try one on the printed scores, such as keeping only
+  the chunks that score 0.55 or more. LangChain's `similarity_score_threshold` retriever rescales cosine to (cosine +
+  1) / 2 first, so there bread's 0.511 counts as about 0.76, and passes a 0.55 cut.
