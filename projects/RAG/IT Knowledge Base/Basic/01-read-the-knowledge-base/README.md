@@ -171,7 +171,7 @@ The settings go in first, and the work happens only when it's asked for. `load_d
 `load()`, from LangChain's `BaseLoader`, just collects them into a list.
 
 `KBLoader` makes Documents of the same shape as LangChain's own `CSVLoader`: a `column: value` line per column, and
-the source and row as metadata. `CSVLoader` is in the `langchain-community` package, which is being sunset, so this
+the source and row as metadata. `CSVLoader` is in the `langchain-community` package, which has been sunset, so this
 project writes those few lines itself on `BaseLoader`, from `langchain-core`, and every one of them is there to read.
 
 ### 4. A Path From the File, Not From Where You Run It
@@ -237,4 +237,4 @@ pipeline does with them, not part of reading them, so it lives in `utils.py`. Ea
 - Change `KB_FILE` to read a copy of the sample with fewer rows, and see fewer Documents. The tests expect the
   10-row sample, so put `KB_FILE` back before `python -m pytest`.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only each Document's `metadata`, to see where each one
-  came from.
+  came from. One test checks the output ends with the last Document, so take Step 2 out before `python -m pytest`.
