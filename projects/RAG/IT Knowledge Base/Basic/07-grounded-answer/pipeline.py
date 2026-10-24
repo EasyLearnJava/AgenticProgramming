@@ -8,7 +8,7 @@ The one file to run: it calls this project's steps in order, and the other files
   3. Step 3: embedding them (one call to Gemini)
   4. Step 4: storing them in Qdrant, in memory, with their vectors
   5. Step 5: retrieving the closest chunks and answering from them, in one chain (two calls), then printing the
-     prompt Gemini got, the answer and its sources
+     prompt Gemini got, the answer and the sources
   6. Then, for comparison, the same question to Gemini alone, with no articles (one more call)
 
 Usage:

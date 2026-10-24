@@ -141,9 +141,10 @@ With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you
 python "projects/RAG/IT Knowledge Base/run.py" Basic/07-grounded-answer   # from the repo root
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 5. A question at the end of the command goes to `pipeline.py`.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python
+pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The project's output is the same
+as in Step 5, after run.py's own lines saying what it creates, installs and runs. A question at the end of the command
+goes to `pipeline.py`.
 
 ---
 
@@ -161,7 +162,7 @@ for the answers), so they need no key and make no calls. They check:
 - **The printing**: what `print_answer()` prints, the prompt as Gemini got it too, and what `print_answer_alone()`
   prints
 - **The pipeline**: it embeds the chunks, then the question, once each, and prints the steps, the prompt, the answer,
-  its sources and the answer alone; the prompt it prints is exactly what the model got, and the model alone gets only
+  the sources and the answer alone; the prompt it prints is exactly what the model got, and the model alone gets only
   the question; it takes a question of your own; and no other file runs anything
 
 The 7 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
@@ -192,6 +193,7 @@ Alone, with no articles:
 ```text
 For comparison, the same question to Gemini alone, with no articles:
 I do not have access to real-time schedules, internal IT tickets, or company calendars, so I cannot tell you when the access points in Building C will be upgraded.
+...
 ```
 
 That's what retrieval adds: knowledge the model never saw. Here Gemini alone says it doesn't know; a model can also
@@ -219,9 +221,9 @@ Notes: Building C has older access points scheduled for upgrade Q2. Capacity iss
 
 The search put the one chunk with the answer first. The other 4 are there too: the prompt always gets 5 of the 28
 chunks, and some are about something else (a printer, a Salesforce role). The 10 articles, 6,621 characters in all,
-would fit whole in the prompt, but real knowledge bases don't: a model reads only so much at once (its context
-window), and every token sent costs (a token is a piece of a word, about 4 characters of English). Answers are
-counted in tokens too: `MAX_OUTPUT_TOKENS`, in `models.py`, caps each one at 500.
+would fit whole in the prompt, but many real knowledge bases don't: a model reads only so much at once (its context
+window), and sending all of it would cost more tokens with every question (a token is a piece of a word, about 4
+characters of English). Answers are counted in tokens too: `MAX_OUTPUT_TOKENS`, in `models.py`, caps each one at 500.
 
 ### 3. Asked, Not Guaranteed
 
@@ -268,9 +270,9 @@ answer = (
 model | StrOutputParser()   # the question alone: no retriever, no prompt, so no articles
 ```
 
-Each part is a Runnable, and `|` passes one part's output to the next: the chunks become one text for the prompt, the
-prompt goes to the model, and the parser turns the model's reply into plain text. The lambda isn't a Runnable itself;
-when `|` joins it to one, LangChain wraps it in a `RunnableLambda`. One `invoke()` runs it all.
+Each part is, or becomes, a Runnable, and `|` passes one part's output to the next: the chunks become one text for the
+prompt, the prompt goes to the model, and the parser turns the model's reply into plain text. The lambda isn't a
+Runnable itself; when `|` joins it to one, LangChain wraps it in a `RunnableLambda`. One `invoke()` runs it all.
 
 ### 6. One File Runs the Steps
 
@@ -302,7 +304,7 @@ Application restrictions, None. New settings can take up to 5 minutes to work.
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 29; the
 message ends with "Please retry in" and a number of seconds. Wait that long, then run it again.
 
-**Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
@@ -325,12 +327,14 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
 - Ask how long a Salesforce role change takes to work: `python pipeline.py "how long until my new Salesforce role
   works?"`. The SaaS article says up to 30 minutes. Does Gemini alone guess?
-- In `rag_chain.py`, cut both rules from the prompt: "using only the knowledge base articles below" and "If they
-  don't cover the question, say that the knowledge base doesn't cover it." Then ask the bread question again. In one
-  run, Gemini still declined, in its own words: "I'm sorry, but I can only assist with IT-related issues based on the
+- In `rag_chain.py`, cut both rules from the prompt: "using only the knowledge base articles below" and "If they don't
+  cover the question, say that the knowledge base doesn't cover it." Then ask the bread question again. In one run,
+  Gemini still declined, in its own words: "I'm sorry, but I can only assist with IT-related issues based on the
   available articles. For password resets, VPN, printing, database connections, or SaaS access, please let me know."
   Its answer points to what still kept it on topic: the prompt's first sentence, "You are an IT help-desk assistant",
-  and the articles it was still given. One test checks the prompt has the first rule, and the live bread test looks
-  for "cover", so put both back before `python -m pytest`.
-- Change `TOP_K` in `retriever.py` from 5 to 1, and see how the prompt, the answer and its sources change. Tests
-  check for 5, so put it back before `python -m pytest`.
+  and the articles it was still given. Then ask an IT question no article covers, such as "my monitor flickers", with
+  and without the rules. The label above the answer, "asked to use only the chunks found", is fixed text in
+  `print_answer()`, whatever the prompt says. Tests check the prompt has both rules, and the live bread test looks for
+  "cover", so put them back before you run the tests.
+- Change `TOP_K` in `retriever.py` from 5 to 1, and see how the prompt, the answer and the sources change. Tests check
+  for 5, so put it back before you run the tests.
