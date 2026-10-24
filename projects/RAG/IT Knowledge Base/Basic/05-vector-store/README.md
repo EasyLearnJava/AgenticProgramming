@@ -4,7 +4,8 @@ Store the IT knowledge base's 28 chunks in Qdrant, a vector database: one point 
 and its labels. Qdrant runs inside the script, in memory. Built with **LangChain** (`langchain-qdrant`), **Qdrant**
 and **Gemini**.
 
-In a RAG app, the vector database is where a question's vector is compared with every chunk's, to find the closest.
+In a RAG app, the vector database is where a question's vector is compared with the chunks' vectors, to find the
+closest.
 
 > **Needs:** Python 3.11 or newer, and a Gemini API key. Qdrant runs inside the script, so there's no server to start.
 > Each run makes 1 call to Gemini, for all 28 chunks: on the free tier, 28 of the 100 texts it embeds a minute.
@@ -77,8 +78,8 @@ In a RAG app, the vector database is where a question's vector is compared with 
 
 - **Python 3.11 or newer**
 - **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
-  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
-  call to Gemini uses your key's quota
+  restrictions, restrict it to the Gemini API (the Generative Language API; not Gemini for Google Cloud API, a
+  different service), so a leaked key can't be used for anything else. Every call to Gemini uses your key's quota
 - A network connection, to reach Gemini
 
 ---
@@ -141,7 +142,7 @@ in Step 5.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 24 passed, 3 skipped     (add -v for one line per test)
+python -m pytest -m "not live"       # 24 passed, 3 deselected  (add -v for one line per test)
 ```
 
 The tests keep Qdrant in memory too. Most of them also use `tests/fakes.py`'s stand-in for Gemini, so they need no
@@ -157,10 +158,9 @@ key and no network. They check:
 - **The model, the chunks and the Documents**: the model's settings and the no-key message; 28 chunks with their
   labels; 10 Documents with their text and labels
 
-The 3 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
-environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
-so it can be built, and skips the live tests. With your key in `.env`, they run too (27 passed) and embed 57 texts;
-`python -m pytest -m "not live"` leaves them out.
+The 3 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
+with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Together they embed 57
+texts, under the free tier's limit of 100 a minute, so `python -m pytest -m live` runs them all at once.
 
 ---
 
@@ -204,8 +204,8 @@ client differs.
 
 `store_vectors()` gives each new point a random id, so storing the same 28 chunks twice in one collection would make
 56 points. `make_vector_store()` deletes a collection by that name first, if it's there, then makes it new. In memory,
-each run of `pipeline.py` starts empty anyway; the delete matters when one program stores twice, as one of the tests
-does, and it still gets 28 points.
+each run of `pipeline.py` starts empty anyway; the delete matters when one program makes the collection again on the
+same client, as one of the tests does: none of the old points are left.
 
 ### 4. How Qdrant Measures "Close": the Distance
 
@@ -239,73 +239,52 @@ For text, the direction is what carries the meaning, so `b` should win: that's w
 
 ![Cosine. Three arrows from the origin on a grid: a to [3, 4], b to [6, 8] along the same line as a, and c to [4, 3]. An arc marks the 16 degree angle between a and c; a and b are 0 degrees apart. Cosine of a and b: 50 / (5 x 10) = 1.00. Cosine of a and c: 24 / (5 x 5) = 0.96. Higher is closer, so b is closest: only the direction counts.](images/cosine.svg)
 
-Cosine divides the dot product by both lengths, so only the angle is left: 1 means the same direction, 0 unrelated,
--1 opposite. `b` scores 1.00 although it's twice as long as `a`.
+Cosine divides the dot product by both lengths, so only the angle is left: 1 means the same direction, 0 at right
+angles, -1 opposite. `b` scores 1.00 although it's twice as long as `a`.
 
 **Use it for** text embeddings, where the meaning is the direction, and for any vectors that don't already have
 length 1, like Gemini's at 768 numbers. If a model's documentation doesn't say otherwise, cosine is the safe choice.
-
-#### Dot: the angle and the lengths
-
-![Dot. The same three arrows. A dashed line drops from c's tip onto a's line, and c's shadow along a is 4.8 long. Dot of a and b: 3x6 + 4x8 = 50, that is 5 x 10. Dot of a and c: 3x4 + 4x3 = 24, that is 5 x 4.8. Higher is closer, so b is closest. On vectors of length 1, dot ranks exactly like cosine.](images/dot.svg)
-
-The dot product multiplies the numbers pair by pair and adds them up: `3×6 + 4×8 = 50`. It's the same as `a`'s length
-times the other vector's "shadow" on `a`: `b`'s shadow is all of it, 10, so `5 × 10 = 50`; `c`'s is 4.8, so
-`5 × 4.8 = 24`. A longer vector scores higher, so length counts as well as direction.
-
-**Use it for** vectors that already have length 1. Then dot and cosine give exactly the same order, and dot is a
-little faster. OpenAI's embeddings, and Gemini's at the full 3072 numbers, come back with length 1. Use it also when a
-model's documentation says to, or when a longer vector should win on purpose (in some recommendation systems, a longer
-vector means a more popular item).
-
-#### Euclid: the straight line between the tips
-
-![Euclid. The same three arrows. A dashed line beside a and b runs from a's tip to b's tip: 5.00 long. Another runs from a's tip to c's tip: 1.41 long. Lower is closer, so c is closest, though b points the same way as a.](images/euclid.svg)
-
-The ordinary distance between two points: `√(3² + 4²) = 5.00` from `a`'s tip to `b`'s, `√(1² + 1²) = 1.41` to `c`'s.
-Lower is closer, and 0 means the same point. `b` loses because it's long, even though it means the same thing.
-
-**Use it for** data where the actual position matters, not just the direction: image features, sensor readings,
-measurements, grouping similar items into clusters. On vectors of length 1 it ranks results in the same order as
-cosine.
-
-#### Manhattan: the walk along the grid
-
-![Manhattan. The same three arrows. A dashed path walks from a's tip to b's tip along the grid lines: 4 up and 3 across, 3 + 4 = 7. Another walks from a's tip to c's tip: 1 across and 1 down, 1 + 1 = 2. Lower is closer, so c is closest.](images/manhattan.svg)
-
-Like walking city blocks, with no diagonals: add up the differences, `3 + 4 = 7` to `b` and `1 + 1 = 2` to `c`.
-Lower is closer.
-
-**Use it for** text rarely. It shows up with other kinds of number data, where one big difference should count for
-less than it does with Euclid, which squares every difference.
-
-### 5. Why Qdrant Works With Vectors of Length 1
 
 With cosine, Qdrant divides every number of a vector by the vector's length, which keeps the direction:
 
 ![Normalized. A long grey arrow goes from the origin to [3, 4], length 5: what Gemini returns. A short blue arrow along the same line ends on a dashed circle of radius 1, at [0.6, 0.8]: what Qdrant stores. Every number is divided by 5. The direction, and so every cosine score, stays the same.](images/normalize.svg)
 
-```text
-Gemini returns:  [3, 4]        length √(3² + 4²) = 5
-Qdrant uses:     [0.6, 0.8]    [3/5, 4/5], length 1
-```
+The direction doesn't change, so every cosine score stays the same. Qdrant does it so that each search becomes a
+simple dot product, which is faster. In 06, the question's vector for "How do I fix VPN connection timeouts?" comes
+back from Gemini with a length of 0.5950, while a point's vector read back from the collection has length 1.
 
-The meaning is the direction, and that doesn't change, so every cosine score stays the same. Qdrant does it so that
-each search becomes a simple dot product, which is faster. It does this only with cosine; with Dot, Euclid and
-Manhattan it uses the vectors exactly as they came.
+#### Dot: the angle and the lengths
 
-Gemini's vectors at 768 numbers don't have length 1: the VPN article's title, embedded on its own, comes back with a
-length of 0.5906. Qdrant in memory, like a Qdrant server, keeps them at length 1, so a point read back from the
-collection has length 1.0. The scores are the same either way.
+![Dot. The same three arrows. A dashed line drops from c's tip onto a's line, and c's shadow along a is 4.8 long. Dot of a and b: 3x6 + 4x8 = 50, that is 5 x 10. Dot of a and c: 3x4 + 4x3 = 24, that is 5 x 4.8. Higher is closer, so b is closest. On vectors of length 1, dot ranks exactly like cosine.](images/dot.svg)
 
-### 6. Choosing a Distance
+Multiply the numbers pair by pair and add them up: a longer vector scores higher, and higher is closer.
+
+**Use it for** vectors that already have length 1: then it ranks exactly like cosine, and is a little faster.
+
+#### Euclid: the straight line between the tips
+
+![Euclid. The same three arrows. A dashed line beside a and b runs from a's tip to b's tip: 5.00 long. Another runs from a's tip to c's tip: 1.41 long. Lower is closer, so c is closest, though b points the same way as a.](images/euclid.svg)
+
+The straight line between the tips: lower is closer, and `b` loses for being long, though it means the same thing.
+
+**Use it for** data where the position matters, not just the direction, such as sensor readings or measurements.
+
+#### Manhattan: the walk along the grid
+
+![Manhattan. The same three arrows. A dashed path walks from a's tip to b's tip along the grid lines: 4 up and 3 across, 3 + 4 = 7. Another walks from a's tip to c's tip: 1 across and 1 down, 1 + 1 = 2. Lower is closer, so c is closest.](images/manhattan.svg)
+
+Add up the differences, like walking city blocks with no diagonals: lower is closer.
+
+**Use it for** number data where one big difference should count for less than with Euclid; rarely for text.
+
+### 5. Choosing a Distance
 
 - **Use the distance the embedding model's documentation recommends.** For Gemini's embeddings, that's cosine.
 - **It's fixed when the collection is created.** To change it, make a new collection and store the chunks again.
-- **It decides what the scores mean.** With cosine and dot, higher is closer; with Euclid and Manhattan, lower is
-  closer. This project uses cosine, so its scores read "the closer to 1, the closer the meaning".
+- **It decides what a search's scores mean.** With cosine and dot, higher is closer; with Euclid and Manhattan, lower
+  is closer. This project uses cosine, so its scores read "the closer to 1, the closer the meaning".
 
-### 7. One File Runs the Steps
+### 6. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4:
 `make_vector_store()` starts Qdrant in memory and makes the collection, `store_vectors()` stores Step 3's vectors, and
@@ -324,7 +303,12 @@ a stand-in for Gemini.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
 **Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
-after it, and check it's restricted to the Generative Language API, not to another one.
+after it.
+
+**Issue**: An error with `403 PERMISSION_DENIED` in it
+**Fix**: Google refused the key for this service. In the Google Cloud console, open the key: under API restrictions
+it should list the Gemini API (the Generative Language API), not Gemini for Google Cloud API, and under
+Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 28; the
@@ -336,6 +320,14 @@ message ends with "Please retry in" and a number of seconds. Wait that long, the
 **Issue**: `Can't build the models: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Put your real key after `GOOGLE_API_KEY=`.
 
+**Issue**: `Can't build the models: .env isn't saved as UTF-8 text. Open it in an editor and save it with UTF-8 encoding.`
+**Fix**: `.env` was saved in another encoding, often UTF-16 by Windows PowerShell 5's `echo ... > .env`. Save it
+again as UTF-8, or make it with `copy .env.example .env` and edit it.
+
+**Issue**: `ModuleNotFoundError: No module named 'langchain_core'` (or another of the packages)
+**Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
+`pip install -r requirements-dev.txt` (Step 3).
+
 **Issue**: `python vector_store.py` prints nothing
 **Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
 
@@ -343,9 +335,10 @@ message ends with "Please retry in" and a number of seconds. Wait that long, the
 
 ## 💡 Ideas to Try
 
-- In `print_points()`, print `math.hypot(*point.vector)` for each point (with `import math` at the top): 1.0 every
-  time, though Gemini's vectors aren't length 1 (Key Concept 5).
+- In `print_points()`, print `f"{math.hypot(*point.vector):.4f}"` after each point's line (with `import math` at
+  the top): 1.0000 every time, though Gemini's vectors aren't length 1 (Key Concept 4).
 - Run `python pipeline.py` twice and print the points' ids with `scroll()`: the same 28 chunks, with new random ids
   each time.
 - In `make_vector_store()`, change `Distance.COSINE` to `Distance.EUCLID`, and see `print_points()` say
-  "compared by Euclid". A test checks for cosine, so put it back before `python -m pytest`.
+  "compared by Euclid". Three tests check for cosine, and one searches, which `QdrantVectorStore` refuses unless its
+  `distance=` (cosine if not given) matches the collection's, so put it back before `python -m pytest`.
