@@ -101,9 +101,9 @@ This one command does Steps 2 to 4 for you:
 python "projects/RAG/IT Knowledge Base/run.py" Basic/01-read-the-knowledge-base   # from the repo root
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs
-`python pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The output is the same as
-in Step 4.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `python
+pipeline.py` in this folder with the venv's Python, so there's nothing to activate. The project's output is the same
+as in Step 4, after run.py's own lines saying what it creates, installs and runs.
 
 ---
 
