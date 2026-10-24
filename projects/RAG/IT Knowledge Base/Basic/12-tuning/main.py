@@ -14,7 +14,7 @@ qdrant_data/. The engine is built once, when the server starts, and each request
     GET  /api/health  ->  {"status": "ok"}
 
 Usage:
-    uvicorn main:app --reload      # then open http://127.0.0.1:8000: the chat page
+    uvicorn main:app               # then open http://127.0.0.1:8000: the chat page
 """
 import logging
 from contextlib import asynccontextmanager
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     # info() comes from Python's logging module: a line in the server's log
     logger.info("RAG engine built: %(documents)s articles, %(chunks)s chunks", engine.stats())
     yield
-    # The server is stopping (Ctrl+C, or --reload restarting it): free qdrant_data/ for the next start
+    # The server is stopping (Ctrl+C): free qdrant_data/ for the next start
     # close() comes from qdrant_client's QdrantClient: it frees the folder, so another program can open it
     engine.client.close()
 
@@ -103,8 +103,9 @@ async def query(body: QueryIn):
     try:
         return await engine.aquery(body.question)
     except Exception as err:
-        # The full reason goes to this terminal; the page only learns that Gemini didn't answer.
-        # warning() comes from Python's logging module: a warning line in the server's log
-        logger.warning("Gemini call failed: %s", err)
+        # The full error, with its traceback, goes to this terminal; the page only learns the question wasn't
+        # answered, and the error's type. It's often Gemini (a quota, a network problem), but not always.
+        # exception() comes from Python's logging module: an error line in the server's log, with the traceback
+        logger.exception("Couldn't answer: %s", err)
         # HTTPException comes from fastapi: FastAPI answers with this status code and detail
-        raise HTTPException(status_code=502, detail=f"Gemini didn't answer ({type(err).__name__}).") from None
+        raise HTTPException(status_code=502, detail=f"Couldn't answer the question ({type(err).__name__}).") from None

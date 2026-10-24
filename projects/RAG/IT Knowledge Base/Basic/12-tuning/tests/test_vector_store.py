@@ -79,16 +79,29 @@ def test_opening_a_collection_keeps_its_points():
 
 
 def test_each_chunk_gets_its_own_id_and_always_the_same_one():
-    ids = [chunk_id(chunk) for chunk in CHUNKS]
+    ids = [chunk_id(chunk, KeywordEmbeddings(), SIZE) for chunk in CHUNKS]
     assert len(set(ids)) == 28                                                    # one each
-    assert ids == [chunk_id(chunk) for chunk in split_documents(load_documents())]   # the same on every run
+    again = split_documents(load_documents())
+    assert ids == [chunk_id(chunk, KeywordEmbeddings(), SIZE) for chunk in again]   # the same on every run
+
+
+def test_a_chunks_id_changes_with_the_model_the_size_or_its_labels():
+    class OtherEmbeddings(KeywordEmbeddings):                 # another model: another class name
+        pass
+
+    chunk = CHUNKS[0]
+    relabelled = chunk.model_copy(update={"metadata": chunk.metadata | {"priority": "Low"}})
+    ids = {chunk_id(chunk, KeywordEmbeddings(), SIZE), chunk_id(chunk, OtherEmbeddings(), SIZE),
+           chunk_id(chunk, KeywordEmbeddings(), 256), chunk_id(relabelled, KeywordEmbeddings(), SIZE)}
+    assert len(ids) == 4                                      # each change gives a new id, so nothing is reused
 
 
 def test_each_point_is_stored_under_its_chunks_id():
     store = make_vector_store(KeywordEmbeddings(), SIZE)
     store_vectors(store, CHUNKS, VECTORS)
     points, _ = store.client.scroll(COLLECTION, limit=100)
-    assert sorted(point.id for point in points) == sorted(chunk_id(chunk) for chunk in CHUNKS)
+    assert sorted(point.id for point in points) == sorted(chunk_id(chunk, KeywordEmbeddings(), SIZE)
+                                                          for chunk in CHUNKS)
 
 
 def test_storing_the_same_chunks_again_replaces_them_instead_of_adding_copies():

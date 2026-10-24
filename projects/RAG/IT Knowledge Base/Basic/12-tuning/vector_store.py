@@ -9,15 +9,17 @@ they're kept between runs. It handles:
   2. Making a new collection for EMBEDDING_SIZE-number vectors, compared by cosine; any old one is deleted first
   3. Opening a collection that's already there, to reuse its points
   4. Storing the chunks with the vectors embed_chunks() made for them, under their ids: no call to Gemini here
-  5. Giving each chunk an id made from its content, so storing it again replaces it instead of copying it
+  5. Giving each chunk an id made from its content and the model that embedded it, so storing it again replaces
+     it instead of copying it, and vectors from another model or size are never reused
 
 Usage (this file only defines these; pipeline.py runs the steps):
     make_client()                                           ->  Qdrant in local mode, its points in qdrant_data/
     store = make_vector_store(embeddings, EMBEDDING_SIZE)   ->  a new, empty collection "it_knowledge_base", in memory
     store = open_vector_store(embeddings, client)           ->  the collection already there, with its points
     store_vectors(store, chunks, vectors)                   ->  one point per chunk, under its chunk_id()
-    chunk_id(chunk)                                         ->  the chunk's id, the same on every run
+    chunk_id(chunk, embeddings, size)                       ->  the chunk's id, the same on every run
 """
+import json
 import uuid
 from pathlib import Path
 
@@ -76,15 +78,22 @@ def store_vectors(store: QdrantVectorStore, chunks: list[Document], vectors: lis
     vector without a chunk, stops it: no chunk is left out."""
     # The text and labels go under "page_content" and "metadata", the names LangChain's store reads them from
     # PointStruct comes from qdrant_client: one point, with its id, its vector and its payload
-    points = [PointStruct(id=chunk_id(chunk), vector=vector,
+    # Each id comes from the chunk and from how it was embedded: the store's model, and the vector's size
+    points = [PointStruct(id=chunk_id(chunk, store.embeddings, len(vector)), vector=vector,
                           payload={"page_content": chunk.page_content, "metadata": chunk.metadata})
               for chunk, vector in zip(chunks, vectors, strict=True)]     # strict: the two lists, the same length
     # upsert() comes from qdrant_client's QdrantClient: it writes the points; one with the same id is replaced
     store.client.upsert(store.collection_name, points=points)
 
 
-def chunk_id(chunk: Document) -> str:
-    """The same id every time for the same chunk: a UUID made from its article, place and text."""
-    key = f"it-kb/{chunk.metadata['doc_id']}/{chunk.metadata['start_index']}/{chunk.page_content}"
+def chunk_id(chunk: Document, embeddings: Embeddings, size: int) -> str:
+    """The same id every time for the same chunk embedded the same way: a UUID made from the embedding model's name,
+    the vector size, the chunk's labels (its article and place among them) and its text. Change any of them, and the
+    id changes."""
+    # A vector belongs to the model, and the size, that made it: one from another model can't be compared with it
+    model = getattr(embeddings, "model", type(embeddings).__name__)   # a stand-in goes by its class name
+    # dumps() comes from Python's json module: the labels as one text, sorted by name so it's always the same
+    labels = json.dumps(chunk.metadata, sort_keys=True)
+    key = f"it-kb/{model}/{size}/{labels}/{chunk.page_content}"
     # uuid5() comes from Python's uuid module: the same id for the same text, every time
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
