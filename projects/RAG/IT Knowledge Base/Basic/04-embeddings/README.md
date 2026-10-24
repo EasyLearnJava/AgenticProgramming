@@ -3,7 +3,11 @@
 Turn the IT knowledge base's 28 chunks into vectors with Gemini's embedding model, `gemini-embedding-001`: 768
 numbers for each chunk, all in one call. Built with **LangChain** (`langchain-google-genai`) and **Gemini**.
 
-> **Needs:** Python 3.11 or newer, and a Gemini API key. Each run makes 1 call to Gemini, for all 28 chunks.
+In a RAG app, a search compares a question's vector with these vectors, so it can find the chunks closest in meaning,
+even when they use other words.
+
+> **Needs:** Python 3.11 or newer, and a Gemini API key. Each run makes 1 call to Gemini, for all 28 chunks. On the
+> free tier, each chunk counts as one request against a limit of 100 a minute, so a run uses 28.
 
 ---
 
@@ -16,6 +20,8 @@ numbers for each chunk, all in one call. Built with **LangChain** (`langchain-go
   not its labels (`metadata`)
 - **Prints** how many vectors came back, then every chunk, one line each: its article, which characters it holds,
   and the first 5 of its 768 numbers
+- **Prints how close chunk 1's vector is to every other chunk's**, closest first, as a cosine similarity worked out
+  from the vectors themselves: no question, and no more calls to Gemini
 - **Runs from one file**, `pipeline.py`, which names each step, then runs it
 
 An embedding is a vector, a list of numbers that stands for a text's meaning: texts with close meanings get vectors
@@ -50,7 +56,8 @@ that point in close directions.
                  │
                  ↓
 ┌──────────────────────────────────┐
-│  print_vectors(chunks, vectors)  │  ← every chunk, with its vector's size and first 5 numbers
+│  print_vectors(chunks, vectors)  │  ← every chunk, with its vector's size and first 5 numbers;
+│  └─ cosine()                     │     then how close chunk 1 is to every other chunk
 └──────────────────────────────────┘
 ```
 
@@ -62,15 +69,16 @@ that point in close directions.
 4. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
 5. **Embed** → `embed_chunks()` sends the 28 chunks' texts to Gemini in one `embed_documents()` call
 6. **Print** → `print_vectors()`, from `utils.py`: every chunk, with the characters it holds and the start of its
-   vector
+   vector, then how close chunk 1 is to each of the others
 
 ---
 
 ## 📋 Prerequisites
 
 - **Python 3.11 or newer**
-- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. Every call to Gemini
-  uses your key's quota
+- **A Gemini API key**, made in the Google Cloud console, under APIs & Services > Credentials. There, under API
+  restrictions, restrict it to the Generative Language API, so a leaked key can't be used for anything else. Every
+  call to Gemini uses your key's quota
 - A network connection, to reach Gemini
 
 ---
@@ -133,23 +141,26 @@ in Step 5.
 ## 🧪 Testing
 
 ```bash
-python -m pytest                     # 18 passed, 2 skipped     (add -v for one line per test)
+python -m pytest                     # 20 passed, 2 skipped     (add -v for one line per test)
 ```
 
 The tests need no key and no network. Most of them use `tests/fakes.py`'s stand-in for Gemini, which turns each text
-into a few numbers counted from its words, the same every time. They check:
+into a few numbers counted from its words, the same every time: 10 numbers count the words vpn, mfa, laptop and so
+on, and one more is the text's length. It's the simplest picture of an embedding: texts that use the same words
+point the same way. Gemini's 768 numbers do that for meaning, not just words. The tests check:
 
 - **The pipeline**: its steps and what they print; it embeds the chunks in one call and never a question; and no
   other file runs anything
 - **The embedding**: the 28 chunks go to the model in one call, one vector each; only the chunks' texts are sent, in
-  the chunks' order; and what `print_vectors()` prints
+  the chunks' order; `cosine()` on vectors whose answer is known; and what `print_vectors()` prints, closeness too
 - **The model**: its name and vector size; and without a key, `pipeline.py` stops with the message, not a stack trace
 - **The chunks and the Documents**: 28 chunks of at most 512 characters, each with its article's labels; and
   10 Documents with their text and labels
 
 The 2 skipped tests are live tests: they call the real Gemini, so they run only when a key is set, in `.env` or the
 environment. `tests/conftest.py` decides this once, before any test runs: with no key, it gives the model a fake one
-so it can be built, and skips the live tests.
+so it can be built, and skips the live tests. With your key in `.env`, they run too (22 passed) and embed 29 texts;
+`python -m pytest -m "not live"` leaves them out.
 
 ---
 
@@ -163,12 +174,31 @@ embeddings.embed_documents(["Title: VPN Connection Timeout ...", ...])   # -> on
 
 An embedding model reads a text and gives back a vector: a fixed number of numbers, whatever the text's length. The
 numbers aren't readable one by one; together they point in a direction, and texts with close meanings point in close
-directions.
+directions. How close two directions are is their cosine similarity, which `cosine()` in `utils.py` works out: 1 for
+the same direction, 0 at right angles. The run ends with chunk 1 against every other chunk:
+
+```text
+How close chunk 1 (VPN Connection Timeout) is to every other chunk, closest first
+(cosine similarity: 1 is the same direction, 0 is at right angles):
+  0.789  chunk 11: WiFi Connectivity Issues Office
+  0.779  chunk 3: MFA Setup Failure
+  0.778  chunk 12: WiFi Connectivity Issues Office
+  0.777  chunk 23: Database Connection Timeout
+  0.764  chunk 14: Password Reset Failed
+  0.759  chunk 2: VPN Connection Timeout
+```
+
+The closest are other problems with connecting or signing in: WiFi, MFA, a database connection timeout and a
+password reset. Chunk 2, the VPN article's own notes, is only 6th: it says "peak hours" and "ISP throttling", and
+never "VPN". A vector stands for what its chunk's text says, not for the article it came from. And every chunk here
+is an IT support article written the same way, so all 27 are close to chunk 1: the farthest, chunk 25, is still
+0.693. What tells chunks apart is their order, not how big the number is.
 
 ### 2. One Call for Every Chunk
 
 `embed_chunks()` sends all 28 texts in a single `embed_documents()` call, and the vectors come back in the same
-order: vector 1 belongs to chunk 1, and so on. One call for the list is faster and simpler than 28 calls.
+order: vector 1 belongs to chunk 1, and so on. One call for the list is faster and simpler than 28 calls. Gemini's
+free tier still counts each text as one request, against a limit of 100 a minute, so a run uses 28 of them.
 
 ### 3. Only the Text Is Embedded
 
@@ -176,8 +206,8 @@ order: vector 1 belongs to chunk 1, and so on. One call for the list is faster a
 embeddings.embed_documents([chunk.page_content for chunk in chunks])
 ```
 
-The labels (`metadata`) stay with each chunk but aren't sent: the vector stands for what the chunk says. `embed_documents()`
-also tells Gemini these texts are documents to be found (`RETRIEVAL_DOCUMENT`).
+The labels (`metadata`) stay with each chunk but aren't sent: the vector stands for what the chunk says.
+`embed_documents()` also tells Gemini these texts are documents to be found (`RETRIEVAL_DOCUMENT`).
 
 ### 4. 768 Numbers
 
@@ -213,6 +243,19 @@ a parameter of `main()`, so the tests pass their stand-in for Gemini.
 
 ## 🛠️ Troubleshooting
 
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (INVALID_ARGUMENT): 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', ...`
+**Fix**: Gemini didn't accept the key in `.env`. Copy it again from the Google Cloud console, with nothing before or
+after it, and check it's restricted to the Generative Language API, not to another one.
+
+**Issue**: `GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, ...`
+**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute, and a run embeds 28; the
+message ends with "Please retry in" and a number of seconds. Wait that long, then run it again.
+
 **Issue**: `Can't build the models: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
 **Fix**: There's no `.env` in this folder, and no `GOOGLE_API_KEY` in the environment. Do Step 4.
 
@@ -237,4 +280,4 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 - In `pipeline.py`, print the length of `vectors[0]` and `vectors[1]`: both 768, though chunk 1 is 457 characters
   and chunk 2 is 110.
 - In `models.py`, change `EMBEDDING_SIZE` to `256`, run `python pipeline.py` again, and see each chunk converted to
-  256 numbers.
+  256 numbers. One test checks the size is 768, so put it back before `python -m pytest`.
