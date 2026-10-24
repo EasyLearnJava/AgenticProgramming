@@ -4,6 +4,8 @@ Read the IT knowledge base, a CSV file of 10 IT support articles, into LangChain
 into two parts: the text to read, and the labels that describe it. Built with **LangChain** and Python's `csv`
 module.
 
+In a RAG app, `page_content` is what gets searched and read; the metadata travels with it, to name the source.
+
 > **Needs:** Python 3.11 or newer, and nothing else: this project only reads a local file.
 
 ---
@@ -116,10 +118,13 @@ in Step 4.
 python -m pytest                     # 8 passed     (add -v for one line per test)
 ```
 
-The tests read the sample file and run `pipeline.py` as its own process: 10 Documents; each text has the title,
-problem, resolution and notes in that order; the labels are in `metadata` and not in the text; making the loader
-reads nothing until `load()`; the exact printed output, the same whichever folder `pipeline.py` is started from; and
-that no other file runs anything.
+The tests read the sample file and run `pipeline.py` as its own process:
+
+- **The Documents**: 10 of them, from the CSV file next to the script; each text has the title, problem, resolution
+  and notes in that order, and none is empty; the labels are in `metadata` and not in the text; and making the
+  loader reads nothing until `load()`
+- **The printing**: what `print_documents()` prints: which columns went where, then every Document
+- **The pipeline**: its exact output; the same whichever folder it's started from; and no other file runs anything
 
 ---
 
@@ -127,13 +132,32 @@ that no other file runs anything.
 
 ### 1. Text and Labels Kept Apart
 
-```python
-Document(page_content="Title: VPN Connection Timeout\n\nProblem: ...", metadata={"doc_id": "0", "system": "VPN", ...})
+The VPN article prints as:
+
+```text
+Document 1 of 10
+Text (page_content):
+Title: VPN Connection Timeout
+
+Problem: Users experience timeout errors when attempting to connect to the corporate VPN from remote locations
+
+Resolution: 1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.
+
+Notes: Common issue during peak hours especially for users on home networks. May be related to ISP throttling.
+
+Labels (metadata):
+{'doc_id': '0', 'title': 'VPN Connection Timeout', 'system': 'VPN', 'category': 'Remote Access', 'priority': 'High', 'tags': 'vpn;timeout;remote;connection'}
 ```
 
-`page_content` is what the article says: the part meant to be read. `metadata` holds facts about the article, as
-separate fields. A program can then use a label directly, `doc.metadata["system"]`, rather than look for it inside
-the text, and the text stays free of fields that aren't part of the article's content.
+`page_content` is what the article says, and in a RAG app it's what gets searched and read, so it holds only the
+article's content. `metadata` holds facts about the article, as separate fields. They travel with the text and say
+which article it is, so an answer can name its source, and a program can read a label directly,
+`doc.metadata["system"]`, rather than look for it inside the text.
+
+**Before and after.** In 01, the same article had all 8 columns in its text, and only
+`{'source': 'sample_it_kb.csv', 'row': 0}` as metadata. Here, system, category, priority and tags have moved out of
+the text into the labels. `doc_id` is the number 01 called `row`, and `source` is gone: all 10 articles come from
+the same file.
 
 ### 2. Every Part of the Text Keeps Its Label
 
@@ -141,8 +165,8 @@ the text, and the text stays free of fields that aren't part of the article's co
 text = "\n\n".join(f"{column.capitalize()}: {row[column]}" for column in TEXT_COLUMNS)
 ```
 
-Each part starts with what it is, `Problem:` or `Resolution:`, so a reader of the text can tell the symptom from the
-fix. The blank lines (`\n\n`) between the parts keep them apart.
+Each part starts with what it is, `Problem:` or `Resolution:`, so whoever reads the text, a person or a model, can
+tell the symptom from the fix. The blank lines (`\n\n`) between the parts keep them apart.
 
 ### 3. Two Lists Decide What Goes Where
 
@@ -176,6 +200,11 @@ and prints nothing. A new step is one more part of `main()`.
 
 ## 🛠️ Troubleshooting
 
+**Issue**: `.venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.`
+**Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
+`Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
 **Issue**: `ModuleNotFoundError: No module named 'langchain_core'`
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
@@ -191,5 +220,6 @@ and prints nothing. A new step is one more part of `main()`.
 ## 💡 Ideas to Try
 
 - Move `"priority"` from `METADATA_COLUMNS` to `TEXT_COLUMNS`, and see it appear in the text instead of the labels.
+  The tests expect the split as it is, so move it back before `python -m pytest`.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only `doc.metadata["system"]` for each Document, to list the
   systems the knowledge base covers.
