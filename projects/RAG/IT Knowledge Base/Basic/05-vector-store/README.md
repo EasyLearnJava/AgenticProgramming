@@ -202,6 +202,13 @@ running as a server, `QdrantClient(url=...)`: only the client differs. In memory
 plain loop would, which is fine for 28; a Qdrant server keeps an index, so a search among millions needn't compare
 them all.
 
+`make_vector_store()` asks for that index anyway, to show how it looks: `hnsw_config` in the code under Key Concept 4.
+The index is called HNSW: a graph linking each vector to its 16 nearest (`m`), so a search hops through the graph and
+checks a small part of the vectors instead of every one; `ef_construct` is how thoroughly it searches while building
+the graph. An index makes search faster, not better: at best it finds the same chunks. Here it does nothing: in
+memory, Qdrant ignores these settings, and even a Qdrant server builds the index only once it holds thousands of
+chunks, not 28.
+
 ### 3. Starting Fresh on Every Run
 
 `store_vectors()` gives each new point a random id, so storing the same 28 chunks twice in one collection would make
@@ -214,7 +221,8 @@ same client, as one of the tests does: none of the old points are left.
 When `make_vector_store()` creates the collection, it also fixes how Qdrant will measure how close two vectors are:
 
 ```python
-client.create_collection(collection, vectors_config=VectorParams(size=size, distance=Distance.COSINE))
+client.create_collection(collection, vectors_config=VectorParams(size=size, distance=Distance.COSINE),
+                         hnsw_config=HnswConfigDiff(m=16, ef_construct=100))   # the index: see Key Concept 2
 ```
 
 Qdrant offers four distances. To see how they differ, take three vectors of 2 numbers instead of 768:
