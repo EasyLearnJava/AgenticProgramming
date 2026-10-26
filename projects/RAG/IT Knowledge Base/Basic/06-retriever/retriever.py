@@ -28,6 +28,24 @@ def make_retriever(store: QdrantVectorStore, k: int = TOP_K) -> VectorStoreRetri
     # as_retriever() comes from LangChain's VectorStore: a retriever that searches this store
     return store.as_retriever(search_kwargs={"k": k})
 
+    # Other ways to search, off for now: to try one, comment out the return above and uncomment one below.
+    # None of them checks that a chunk answers the question: each only changes which close chunks come back.
+    #
+    # 1. A minimum score: drops chunks that aren't close enough, so a question the articles don't cover gets fewer
+    #    than k chunks, or none. score_threshold isn't the cosine pipeline.py prints: LangChain turns the cosine
+    #    into (cosine + 1) / 2, so 0.8 keeps chunks with a cosine of 0.6 or more.
+    # return store.as_retriever(search_type="similarity_score_threshold",
+    #                           search_kwargs={"k": k, "score_threshold": 0.8})
+    #
+    # 2. MMR (maximal marginal relevance): takes the 20 closest chunks, then picks k that are close to the question
+    #    and different from each other, so near-copies don't fill every place. lambda_mult=1 is closeness only.
+    # return store.as_retriever(search_type="mmr", search_kwargs={"k": k, "fetch_k": 20, "lambda_mult": 0.5})
+    #
+    # 3. A filter: searches only the chunks with one label, here the "Remote Access" category. It needs
+    #    `from qdrant_client import models`; each point keeps its labels under "metadata".
+    # return store.as_retriever(search_kwargs={"k": k, "filter": models.Filter(must=[models.FieldCondition(
+    #     key="metadata.category", match=models.MatchValue(value="Remote Access"))])})
+
 
 def format_docs(docs: list[Document]) -> str:
     """The chunks as one text for a prompt, each numbered and titled so an answer can name its article."""
