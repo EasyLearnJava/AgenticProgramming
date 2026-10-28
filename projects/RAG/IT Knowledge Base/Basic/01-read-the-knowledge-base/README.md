@@ -16,7 +16,8 @@ article that text came from.
 - **Turns each row into a LangChain `Document`**: its `page_content` has one `column: value` line per column
 - **Records where each one came from** in its `metadata`: the file's name and the row number
 - **Prints** how many there are, each one's title, then every `Document` in full
-- **Runs from one file**, `pipeline.py`, which names each step, then runs it
+- **All the code in one file**, `pipeline.py`: the loader, and `main()`, which names each step, then runs it. The
+  helper that prints the Documents is apart, in `utils.py`
 
 The happy path only: the file is there, and every row is a good article.
 
@@ -28,7 +29,7 @@ The happy path only: the file is there, and every row is a good article.
 
 ```text
 ┌──────────────────────────┐
-│   pipeline.py: main()    │  ← the one file to run: calls each step in order
+│   pipeline.py: main()    │  ← the one file to run: it holds the loader below, and calls each step in order
 └────────────┬─────────────┘
              │ Step 1: Read the knowledge base
              ↓
@@ -119,8 +120,8 @@ The tests read the sample file and run `pipeline.py` as its own process:
   metadata names the file and the row; the first one is the VPN article; making the loader reads nothing until
   `load()`; and `load()` and `lazy_load()` agree
 - **The printing**: what `print_documents()` prints for two Documents, and for none
-- **The pipeline**: its output; the same whichever folder it's started from; and `knowledge_base.py` and `utils.py`
-  print nothing when run on their own
+- **Running it**: its output; the same whichever folder it's started from; and `utils.py` run on its own, or
+  `pipeline.py` imported, prints nothing
 
 ---
 
@@ -180,8 +181,8 @@ project writes those few lines itself on `BaseLoader`, from `langchain-core`, an
 KB_FILE = Path(__file__).resolve().parent / "data" / "sample_it_kb.csv"
 ```
 
-`Path(__file__).resolve().parent` is the folder `knowledge_base.py` is in, so the data file is found whichever
-folder you start `pipeline.py` from. A bare `"data/sample_it_kb.csv"` would be looked for in the current folder.
+`Path(__file__).resolve().parent` is the folder `pipeline.py` is in, so the data file is found whichever folder
+you start it from. A bare `"data/sample_it_kb.csv"` would be looked for in the current folder.
 
 ### 5. One File Runs the Steps
 
@@ -196,20 +197,21 @@ if __name__ == "__main__":
     main()
 ```
 
-`pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order.
-`knowledge_base.py` only defines the step, and `utils.py` the helper that prints its result, so importing
-them, as the tests do, reads and prints nothing. A new step is one more part of `main()`. `if __name__ == "__main__":`
-is true only in the file you run, so `main()` runs from `python pipeline.py`, and not when the file is imported.
+`pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order. A new step is
+one more part of `main()`. `if __name__ == "__main__":` is true only in the file you run, so `main()` runs from
+`python pipeline.py`, and not when the file is imported: the tests import `KBLoader` and `load_documents()` from
+it, and nothing is read or printed until they call them. `utils.py` only defines the helper that prints the
+result, so run on its own, it prints nothing.
 
-### 6. The Step Apart From the Helpers
+### 6. The Code in One File, the Helper Apart
 
 ```python
-from knowledge_base import load_documents   # the step: reading the knowledge base
-from utils import print_documents           # a helper: showing what was read
+from utils import print_documents   # a helper: showing what was read
 ```
 
-`knowledge_base.py` holds only what reading the knowledge base needs. Printing the Documents is something the
-pipeline does with them, not part of reading them, so it lives in `utils.py`. Each file then has one job.
+`pipeline.py` holds the project's code, top to bottom in the order it's used: the path to the data file, the
+loader (`KBLoader` and `load_documents()`), then `main()`, which runs them. Printing the Documents is something the
+pipeline does with them, not part of reading them, so it lives in `utils.py`, and `pipeline.py` imports it.
 
 ---
 
@@ -227,8 +229,9 @@ pipeline does with them, not part of reading them, so it lives in `utils.py`. Ea
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
 
-**Issue**: `python knowledge_base.py` or `python utils.py` prints nothing
-**Fix**: Those files only define the step and its helper. Run `python pipeline.py` (Step 4), which runs them.
+**Issue**: `python utils.py` prints nothing
+**Fix**: That file only defines the helper that prints the Documents. Run `python pipeline.py` (Step 4), which
+uses it.
 
 ---
 
