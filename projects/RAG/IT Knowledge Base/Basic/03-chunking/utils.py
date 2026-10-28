@@ -6,14 +6,12 @@ Helpers the pipeline uses that aren't a step of their own. It handles:
   1. Printing how many chunks each article makes, then every chunk
 
 Usage (pipeline.py calls it; this file only defines it):
-    print_chunks(docs, chunks)   ->  how many chunks each article makes, then every article's chunks
+    print_chunks(docs, chunks, chunk_size)   ->  how many chunks each article makes, then every article's chunks
 """
 from langchain_core.documents import Document
 
-from chunking import CHUNK_SIZE
 
-
-def print_chunks(docs: list[Document], chunks: list[Document], chunk_size: int = CHUNK_SIZE) -> None:
+def print_chunks(docs: list[Document], chunks: list[Document], chunk_size: int) -> None:
     """Print how many chunks each article makes, then every article's chunks: where each starts, and its text."""
     print(f"{len(docs)} articles -> {len(chunks)} chunks of at most {chunk_size} characters")
     for doc in docs:

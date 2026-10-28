@@ -23,7 +23,8 @@ In a RAG app, a search returns chunks, not articles, so a chunk is what gets mat
 - **Keeps each chunk's labels**: every chunk is a `Document` of its own, with its article's labels plus
   `start_index`, where in the article's text the chunk starts
 - **Prints** how many chunks each article made, then every chunk, with where it starts and how long it is
-- **Runs from one file**, `pipeline.py`, which names each step, then runs it
+- **All the code in one file**, `pipeline.py`: the loader, the splitter, and `main()`, which names each step, then
+  runs it. The helper that prints the chunks is apart, in `utils.py`
 
 **Try it:** `python pipeline.py`, then `python pipeline.py 200`, and compare the two.
 
@@ -33,24 +34,24 @@ In a RAG app, a search returns chunks, not articles, so a chunk is what gets mat
 
 ```text
 ┌──────────────────────────────────┐
-│  pipeline.py: main(chunk_size)   │  ← the one file to run: calls each step in order
+│  pipeline.py: main(chunk_size)   │  ← the one file to run: it holds the steps below, and calls each in order
 └────────────────┬─────────────────┘
                  │ Step 1: Read the knowledge base
                  ↓
 ┌──────────────────────────────────┐
-│  load_documents()                │  ← knowledge_base.py: data/sample_it_kb.csv → 10 Documents, text + labels
+│  load_documents()                │  ← data/sample_it_kb.csv → 10 Documents, text + labels
 └────────────────┬─────────────────┘
                  │ 10 Documents; Step 2: Chunk
                  ↓
 ┌──────────────────────────────────┐
-│  split_documents(docs)           │  ← chunking.py
+│  split_documents(docs)           │  ← LangChain's splitter, from langchain_text_splitters:
 │  └─ make_splitter()              │     RecursiveCharacterTextSplitter(chunk_size=512,
 │                                  │       chunk_overlap=50, add_start_index=True)
 └────────────────┬─────────────────┘
                  │ 28 chunks: Documents with their article's labels + start_index
                  ↓
 ┌──────────────────────────────────┐
-│  print_chunks(docs, chunks)      │  ← how many chunks each article made, then every chunk
+│  print_chunks(docs, chunks)      │  ← utils.py: how many chunks each article made, then every chunk
 └──────────────────────────────────┘
 ```
 
@@ -140,7 +141,7 @@ The tests read the sample file and run `pipeline.py` as its own process:
   every article and chunk
 - **The Documents**: 10 of them; each text has the title, problem, resolution and notes in order; the labels are in
   the metadata, not the text; and making the loader reads nothing until `load()`
-- **The pipeline**: its exact output, with the default chunk size and with 200; the same whichever folder it's
+- **Running it**: its exact output, with the default chunk size and with 200; the same whichever folder it's
   started from; and no other file runs anything
 
 ---
@@ -255,8 +256,20 @@ def main(chunk_size: int = CHUNK_SIZE) -> None:
 ```
 
 `pipeline.py` is the only file that runs anything: `main()` runs the steps in order, the earlier one in a line and
-this project's own in full. `chunking.py` and `knowledge_base.py` only define the steps, and `utils.py` the helper
-that prints the chunks, so importing them reads and prints nothing.
+this project's own in full. `utils.py` only defines the helper that prints the chunks, so importing it prints
+nothing.
+
+### 7. The Code in One File, the Helper Apart
+
+```python
+from utils import print_chunks   # a helper: showing the chunks
+```
+
+`pipeline.py` holds the project's code, top to bottom: the settings (the data file, the two column lists, the chunk
+size and overlap), the loader (`KBLoader` and `load_documents()`), the splitter (`make_splitter()` and
+`split_documents()`), then `main()`, which runs them. Printing the chunks is something the pipeline does with them,
+not part of making them, so it lives in `utils.py`. `main()` hands it the chunk size, so `utils.py` needs nothing
+from `pipeline.py`.
 
 ---
 
@@ -280,8 +293,9 @@ that prints the chunks, so importing them reads and prints nothing.
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
 
-**Issue**: `python chunking.py` prints nothing
-**Fix**: That file only defines the step. Run `python pipeline.py` (Step 4), which runs it.
+**Issue**: `python utils.py` prints nothing
+**Fix**: That file only defines the helper that prints the chunks. Run `python pipeline.py` (Step 4), which uses
+it.
 
 ---
 
@@ -289,5 +303,5 @@ that prints the chunks, so importing them reads and prints nothing.
 
 - Run `python pipeline.py 1000`: every article fits in one chunk, so you get 10.
 - Run `python pipeline.py 200` and find the other places where the overlap repeats the end of a chunk.
-- In `chunking.py`, change `CHUNK_OVERLAP` to `0`, run `python pipeline.py 200` again, and see the repeats disappear.
+- In `pipeline.py`, change `CHUNK_OVERLAP` to `0`, run `python pipeline.py 200` again, and see the repeats disappear.
   One test checks the overlap is 50 and another that 200 makes 49 chunks, so put it back before `python -m pytest`.

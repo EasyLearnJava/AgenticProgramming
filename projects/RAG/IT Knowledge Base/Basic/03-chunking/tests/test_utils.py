@@ -1,15 +1,14 @@
 """
 Tests for utils.py: what print_chunks() prints for the 28 chunks. No key, no network.
 """
-from chunking import split_documents
-from knowledge_base import load_documents
+from pipeline import CHUNK_SIZE, load_documents, split_documents
 from utils import print_chunks
 
 DOCS = load_documents()
 
 
 def test_print_chunks_prints_the_counts_then_every_articles_chunks(capsys):
-    print_chunks(DOCS, split_documents(DOCS))
+    print_chunks(DOCS, split_documents(DOCS), CHUNK_SIZE)
     printed = capsys.readouterr().out
     lines = printed.splitlines()
     assert printed.startswith("10 articles -> 28 chunks of at most 512 characters\n"
