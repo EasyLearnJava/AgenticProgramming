@@ -7,14 +7,12 @@ Helpers the pipeline uses that aren't a step of their own. It handles:
   2. Printing how close chunk 1's vector is to every other chunk's (cosine similarity)
 
 Usage (pipeline.py calls it; this file only defines it):
-    print_vectors(chunks, vectors)   ->  every chunk with its vector's size and first 5 numbers, then how close
-                                         chunk 1 is to every other chunk, closest first
+    print_vectors(chunks, vectors, EMBEDDING_MODEL)   ->  every chunk with its vector's size and first 5 numbers,
+                                                          then how close chunk 1 is to every other chunk, closest first
 """
 import math
 
 from langchain_core.documents import Document
-
-from models import EMBEDDING_MODEL
 
 
 def cosine(a: list[float], b: list[float]) -> float:
@@ -23,10 +21,10 @@ def cosine(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b)) / (math.hypot(*a) * math.hypot(*b))
 
 
-def print_vectors(chunks: list[Document], vectors: list[list[float]]) -> None:
+def print_vectors(chunks: list[Document], vectors: list[list[float]], model_name: str) -> None:
     """Print how many vectors came back, then every chunk: where it is in its article, and its first numbers. Then
     how close chunk 1's vector is to every other chunk's, closest first."""
-    print(f"{len(chunks)} chunks -> {len(vectors)} vectors ({EMBEDDING_MODEL})")
+    print(f"{len(chunks)} chunks -> {len(vectors)} vectors ({model_name})")
     print()
     for number, (chunk, vector) in enumerate(zip(chunks, vectors), 1):
         start = chunk.metadata["start_index"]

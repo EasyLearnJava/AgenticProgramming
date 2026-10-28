@@ -22,7 +22,9 @@ In a RAG app, a search compares a question's vector with these vectors, so it ca
   and the first 5 of its 768 numbers
 - **Prints how close chunk 1's vector is to every other chunk's**, closest first, as a cosine similarity worked out
   from the vectors themselves: no question, and no more calls to Gemini
-- **Runs from one file**, `pipeline.py`, which names each step, then runs it
+- **All the code in one file**, `pipeline.py`: the loader, the splitter, the model, the embedding, and `main()`,
+  which names each step, then runs it. Two files are apart: `config.py`, which checks the key, and `utils.py`, which
+  prints the vectors
 
 An embedding is a vector, a list of numbers that stands for a text's meaning: texts with close meanings get vectors
 that point in close directions.
@@ -35,19 +37,19 @@ that point in close directions.
 
 ```text
 ┌──────────────────────────────────┐
-│  pipeline.py: main()             │  ← the one file to run: calls each step in order
+│  pipeline.py: main()             │  ← the one file to run: it holds the steps below, and calls each in order
 └────────────────┬─────────────────┘
                  │ Steps 1 and 2: Read the knowledge base, then chunk it
                  ↓
 ┌──────────────────────────────────┐
-│  load_documents()                │  ← knowledge_base.py: data/sample_it_kb.csv → 10 Documents, text + labels
-│  split_documents()               │  ← chunking.py: 28 chunks of at most 512 characters
+│  load_documents()                │  ← data/sample_it_kb.csv → 10 Documents, text + labels
+│  split_documents()               │  ← 28 chunks of at most 512 characters
 └────────────────┬─────────────────┘
                  │ 28 chunks; Step 3: Embed
                  ↓
 ┌──────────────────────────────────┐
-│  embed_chunks(chunks, embeddings)│  ← embed_chunks.py: one embed_documents() call, text only
-│  └─ embeddings                   │     models.py: gemini-embedding-001, 768 numbers;
+│  embed_chunks(chunks, embeddings)│  ← one embed_documents() call, text only
+│  └─ embeddings                   │     gemini-embedding-001, 768 numbers;
 │                                  │     config.py checks the key before the model is built
 └────────────────┬─────────────────┘
                  │ one call to Gemini
@@ -56,7 +58,7 @@ that point in close directions.
                  │
                  ↓
 ┌──────────────────────────────────┐
-│  print_vectors(chunks, vectors)  │  ← every chunk, with its vector's size and first 5 numbers;
+│  print_vectors(chunks, vectors)  │  ← utils.py: every chunk, with its vector's size and first 5 numbers;
 │  └─ cosine()                     │     then how close chunk 1 is to every other chunk
 └──────────────────────────────────┘
 ```
@@ -65,8 +67,8 @@ that point in close directions.
 
 1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
 2. **Check the key** → `config.py` reads `GOOGLE_API_KEY` from `.env` or the environment, and stops if it's missing
-3. **Build the model** → `models.py` makes `GoogleGenerativeAIEmbeddings`, 768 numbers per text. No call yet
-4. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
+3. **Build the model** → `pipeline.py` makes `GoogleGenerativeAIEmbeddings`, 768 numbers per text. No call yet
+4. **Load and chunk** → `load_documents()` and `split_documents()` turn the CSV into 28 chunks
 5. **Embed** → `embed_chunks()` sends the 28 chunks' texts to Gemini in one `embed_documents()` call
 6. **Print** → `print_vectors()`, from `utils.py`: every chunk, with the characters it holds and the start of its
    vector, then how close chunk 1 is to each of the others
@@ -213,14 +215,14 @@ The labels (`metadata`) stay with each chunk but aren't sent: the vector stands 
 
 ### 4. 768 Numbers
 
-`gemini-embedding-001` can give 128 to 3072 numbers per text. `models.py` asks for 768 (`EMBEDDING_SIZE`), one of the
-sizes Google recommends: smaller vectors are cheaper to keep and to compare. Building the model makes no call to
+`gemini-embedding-001` can give 128 to 3072 numbers per text. `pipeline.py` asks for 768 (`EMBEDDING_SIZE`), one of
+the sizes Google recommends: smaller vectors are cheaper to keep and to compare. Building the model makes no call to
 Gemini; each `embed_...()` call does, and uses your key's quota.
 
 ### 5. The Key Is Checked First
 
-`config.py`'s `load_api_key()` reads `GOOGLE_API_KEY` from the environment or from `.env`, and `models.py` calls it
-before building the model. A missing key, the placeholder from `.env.example`, or a `.env` that isn't UTF-8 stops
+`config.py`'s `load_api_key()` reads `GOOGLE_API_KEY` from the environment or from `.env`, and `pipeline.py` calls
+it before building the model. A missing key, the placeholder from `.env.example`, or a `.env` that isn't UTF-8 stops
 `pipeline.py` at once with a message saying what to do, rather than with a confusing error from the first call to
 Gemini. A key set in the environment (a Codespaces secret, say) wins over the one in `.env`.
 
@@ -234,12 +236,27 @@ def main(embeddings: Embeddings = embeddings) -> None:
     print(f"Step 2: Chunk: {len(chunks)} chunks of at most {CHUNK_SIZE} characters")
     print("Step 3: Embed")
     vectors = embed_chunks(chunks, embeddings)
-    print_vectors(chunks, vectors)
+    print_vectors(chunks, vectors, EMBEDDING_MODEL)
 ```
 
 `pipeline.py` is the only file that runs anything: `main()` runs the steps in order, the earlier ones in a line each
-and this project's own in full. The other files only define the steps, so importing them makes no call. The model is
-a parameter of `main()`, so the tests pass their stand-in for Gemini.
+and this project's own in full. `config.py` and `utils.py` only define what it uses, and building the model makes
+no call, so importing any of them makes no call. The model is a parameter of `main()`, so the tests pass their
+stand-in for Gemini.
+
+### 7. The Code in One File, the Helpers Apart
+
+```python
+from config import MissingKeyError, load_api_key   # checks the key, before the model is built
+from utils import print_vectors                    # a helper: showing the vectors
+```
+
+`pipeline.py` holds the project's code, top to bottom: the settings (the data file, the column lists, the chunk size
+and overlap, the model's name and vector size), the loader, the splitter, the model, `embed_chunks()`, then
+`main()`, which runs them. Two files stay apart. `utils.py` holds `cosine()` and `print_vectors()`, which show the
+vectors; `main()` hands `print_vectors()` the model's name, so `utils.py` needs nothing from `pipeline.py`.
+`config.py` holds the key check, because the tests need it before `pipeline.py` is imported: `tests/conftest.py`
+asks it whether there's a real key, and gives the model a fake one when there isn't.
 
 ---
 
@@ -277,8 +294,8 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
-**Issue**: `python embed_chunks.py` prints nothing
-**Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
+**Issue**: `python utils.py` or `python config.py` prints nothing
+**Fix**: Those files only define what `pipeline.py` uses. Run `python pipeline.py` (Step 5), which runs every step.
 
 ---
 
@@ -287,8 +304,8 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 - In `pipeline.py`, print `len(vectors[0])` and `len(vectors[1])`, how many numbers each holds: both 768, though chunk
   1 is 457 characters and chunk 2 is 110. One test checks the pipeline's exact output, so take the print out before
   `python -m pytest`.
-- In `models.py`, change `EMBEDDING_SIZE` to `256`, run `python pipeline.py` again, and see each chunk converted to
+- In `pipeline.py`, change `EMBEDDING_SIZE` to `256`, run `python pipeline.py` again, and see each chunk converted to
   256 numbers. Tests check for 768, so put it back before `python -m pytest`.
-- In `embed_chunks.py`, put the article's title at the top of every chunk: embed
+- In `pipeline.py`'s `embed_chunks()`, put the article's title at the top of every chunk: embed
   `chunk.metadata["title"] + "\n\n" + chunk.page_content`. See whether chunk 2, the VPN article's notes, comes closer
   to chunk 1. Two tests expect the text alone, so put it back before `python -m pytest`.

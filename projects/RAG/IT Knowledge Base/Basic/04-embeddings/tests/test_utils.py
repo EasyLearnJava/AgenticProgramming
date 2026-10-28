@@ -5,9 +5,7 @@ stand-in for Gemini (tests/fakes.py): no key, no network.
 import pytest
 from fakes import SIZE, KeywordEmbeddings
 
-from chunking import split_documents
-from embed_chunks import embed_chunks
-from knowledge_base import load_documents
+from pipeline import EMBEDDING_MODEL, embed_chunks, load_documents, split_documents
 from utils import cosine, print_vectors
 
 CHUNKS = split_documents(load_documents())
@@ -21,7 +19,7 @@ def test_cosine_is_1_for_the_same_direction_0_at_right_angles_and_minus_1_for_op
 
 
 def test_print_vectors_prints_each_chunk_with_its_vectors_size_and_first_numbers(capsys):
-    print_vectors(CHUNKS, embed_chunks(CHUNKS, KeywordEmbeddings()))
+    print_vectors(CHUNKS, embed_chunks(CHUNKS, KeywordEmbeddings()), EMBEDDING_MODEL)
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == "28 chunks -> 28 vectors (gemini-embedding-001)"
     assert lines[2].startswith(
@@ -33,7 +31,7 @@ def test_print_vectors_prints_each_chunk_with_its_vectors_size_and_first_numbers
 
 def test_print_vectors_then_prints_how_close_chunk_1_is_to_every_other_chunk_closest_first(capsys):
     vectors = embed_chunks(CHUNKS, KeywordEmbeddings())
-    print_vectors(CHUNKS, vectors)
+    print_vectors(CHUNKS, vectors, EMBEDDING_MODEL)
     lines = capsys.readouterr().out.splitlines()
     assert lines[30:33] == ["",
                             "How close chunk 1 (VPN Connection Timeout) is to every other chunk, closest first",
