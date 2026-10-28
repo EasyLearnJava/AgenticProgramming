@@ -19,7 +19,8 @@ or filter the article.
 - **Puts the facts about the article into its labels** (`metadata`): `doc_id` (the article's number), title,
   system, category, priority and tags
 - **Prints** which columns went where, then every `Document` in full
-- **Runs from one file**, `pipeline.py`, which names the step, then runs it
+- **All the code in one file**, `pipeline.py`: the loader, and `main()`, which names the step, then runs it. The
+  helper that prints the Documents is apart, in `utils.py`
 
 The title is in both: it's part of what the article says, and it names the article.
 
@@ -31,7 +32,7 @@ The title is in both: it's part of what the article says, and it names the artic
 
 ```text
 ┌──────────────────────────────┐
-│  pipeline.py: main()         │  ← the one file to run: calls each step in order
+│  pipeline.py: main()         │  ← the one file to run: it holds the loader below, and calls each step in order
 └──────────────┬───────────────┘
                │ Step 1: Read the knowledge base
                ↓
@@ -125,7 +126,7 @@ The tests read the sample file and run `pipeline.py` as its own process:
   and notes in that order, and none is empty; the labels are in `metadata` and not in the text; and making the
   loader reads nothing until `load()`
 - **The printing**: what `print_documents()` prints: which columns went where, then every Document
-- **The pipeline**: its exact output; the same whichever folder it's started from; and no other file runs anything
+- **Running it**: its exact output; the same whichever folder it's started from; and no other file runs anything
 
 ---
 
@@ -190,12 +191,23 @@ doesn't have to know about the loader or the file.
 def main() -> None:
     print("Step 1: Read the knowledge base")
     docs = load_documents()
-    print_documents(docs)
+    print_documents(docs, TEXT_COLUMNS, METADATA_COLUMNS)
 ```
 
-`pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order.
-`knowledge_base.py` only defines the step, and `utils.py` the helper that prints its result, so importing them reads
-and prints nothing. A new step is one more part of `main()`.
+`pipeline.py` is the only file that runs anything: `main()` names each step, then runs it, in order. `utils.py`
+only defines the helper that prints its result, so importing it prints nothing. A new step is one more part of
+`main()`.
+
+### 6. The Code in One File, the Helper Apart
+
+```python
+from utils import print_documents   # a helper: showing what was read
+```
+
+`pipeline.py` holds the project's code, top to bottom in the order it's used: the path to the data file, the two
+column lists, the loader (`KBLoader` and `load_documents()`), then `main()`, which runs them. Printing the Documents
+is something the pipeline does with them, not part of reading them, so it lives in `utils.py`. `main()` hands it
+the two lists, so it prints the columns the loader used, and `utils.py` needs nothing from `pipeline.py`.
 
 ---
 
@@ -213,15 +225,16 @@ and prints nothing. A new step is one more part of `main()`.
 **Issue**: `FileNotFoundError: [Errno 2] No such file or directory: '.../data/sample_it_kb.csv'`
 **Fix**: The data file is missing from this folder's `data/`. Put `sample_it_kb.csv` back there.
 
-**Issue**: `python knowledge_base.py` prints nothing
-**Fix**: That file only defines the step. Run `python pipeline.py` (Step 4), which runs it.
+**Issue**: `python utils.py` prints nothing
+**Fix**: That file only defines the helper that prints the Documents. Run `python pipeline.py` (Step 4), which
+uses it.
 
 ---
 
 ## 💡 Ideas to Try
 
-- Move `"priority"` from `METADATA_COLUMNS` to `TEXT_COLUMNS`, and see it appear in the text instead of the labels.
-  The tests expect the division as it is, so move it back before `python -m pytest`.
+- Move `"priority"` from `METADATA_COLUMNS` to `TEXT_COLUMNS` in `pipeline.py`, and see it appear in the text
+  instead of the labels. The tests expect the division as it is, so move it back before `python -m pytest`.
 - Add a Step 2 to `main()` in `pipeline.py` that prints only `doc.metadata["system"]` for each Document, to list the
   systems the knowledge base covers. One test checks the pipeline's exact output, so take Step 2 out before
   `python -m pytest`.

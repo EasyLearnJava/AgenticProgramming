@@ -1,14 +1,14 @@
 """
 Tests for utils.py: what print_documents() prints for the 10 Documents. No key, no network.
 """
-from knowledge_base import load_documents
+from pipeline import METADATA_COLUMNS, TEXT_COLUMNS, load_documents
 from utils import print_documents
 
 DOCS = load_documents()
 
 
 def test_print_documents_prints_the_split_then_every_document(capsys):
-    print_documents(DOCS)
+    print_documents(DOCS, TEXT_COLUMNS, METADATA_COLUMNS)
     printed = capsys.readouterr().out
     assert printed.startswith("10 documents\ntext:     title, problem, resolution, notes\n"
                               "metadata: doc_id, title, system, category, priority, tags\n\n"
