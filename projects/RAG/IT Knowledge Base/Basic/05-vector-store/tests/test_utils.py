@@ -4,11 +4,8 @@ stand-in for Gemini (tests/fakes.py), and Qdrant in memory: no key, no network.
 """
 from fakes import SIZE, KeywordEmbeddings
 
-from chunking import split_documents
-from embed_chunks import embed_chunks
-from knowledge_base import load_documents
+from pipeline import embed_chunks, load_documents, make_vector_store, split_documents, store_vectors
 from utils import print_points
-from vector_store import make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
 VECTORS = embed_chunks(CHUNKS, KeywordEmbeddings())     # a stand-in vector for each chunk, in order

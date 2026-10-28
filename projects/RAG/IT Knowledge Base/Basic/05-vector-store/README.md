@@ -23,7 +23,9 @@ closest.
 - **Keeps Qdrant in memory**, inside the script: there's nothing to install or start, and the points are gone when
   the script ends, so each run stores them again
 - **Prints** the collection's settings, then every stored point, read back from Qdrant
-- **Runs from one file**, `pipeline.py`, which names each step, then runs it
+- **All the code in one file**, `pipeline.py`: the loader, the splitter, the model, the embedding, the vector store,
+  and `main()`, which names each step, then runs it. Two files are apart: `config.py`, which checks the key, and
+  `utils.py`, which prints the points
 
 **Try it:** `python pipeline.py`, and see the 28 points read back from Qdrant.
 
@@ -33,23 +35,23 @@ closest.
 
 ```text
 ┌───────────────────────────────────┐
-│  pipeline.py: main()              │  ← the one file to run: calls each step in order
+│  pipeline.py: main()              │  ← the one file to run: it holds the steps below, and calls each in order
 └─────────────────┬─────────────────┘
                   │ Steps 1 and 2: Read the knowledge base, then chunk it
                   ↓
 ┌───────────────────────────────────┐
-│  load_documents()                 │  ← knowledge_base.py: data/sample_it_kb.csv → 10 Documents, text + labels
-│  split_documents()                │  ← chunking.py: 28 chunks of at most 512 characters
+│  load_documents()                 │  ← data/sample_it_kb.csv → 10 Documents, text + labels
+│  split_documents()                │  ← 28 chunks of at most 512 characters
 └─────────────────┬─────────────────┘
                   │ 28 chunks; Step 3: Embed
                   ↓
 ┌───────────────────────────────────┐
-│  embed_chunks(chunks, embeddings) │  ← embed_chunks.py: one call to Gemini, 28 vectors of 768 numbers
+│  embed_chunks(chunks, embeddings) │  ← one call to Gemini, 28 vectors of 768 numbers
 └─────────────────┬─────────────────┘
                   │ 28 vectors; Step 4: Store
                   ↓
 ┌───────────────────────────────────┐
-│  make_vector_store(embeddings,    │  ← vector_store.py: Qdrant in memory, inside the script, and the
+│  make_vector_store(embeddings,    │  ← Qdrant in memory, inside the script, and the
 │                    768)           │     it_knowledge_base collection: 768 numbers, cosine
 │  store_vectors(store, chunks,     │  ← 28 points, each chunk with its vector: no call to Gemini
 │                vectors)           │
@@ -64,7 +66,7 @@ closest.
 ### The Pipeline in This Project
 
 1. **Run** → `python pipeline.py`: `main()` runs each step in order, and prints each one's name
-2. **Load and chunk** → `knowledge_base.py` and `chunking.py` turn the CSV into 28 chunks
+2. **Load and chunk** → `load_documents()` and `split_documents()` turn the CSV into 28 chunks
 3. **Embed** → `embed_chunks()` sends the 28 texts to Gemini in one call: 28 vectors of 768 numbers
 4. **Make the collection** → `make_vector_store()` starts Qdrant in memory and makes `it_knowledge_base`: 768
    numbers per vector, compared by cosine
@@ -297,9 +299,24 @@ Add up the differences, like walking city blocks with no diagonals: lower is clo
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 3, printing a line each, then Step 4:
 `make_vector_store()` starts Qdrant in memory and makes the collection, `store_vectors()` stores Step 3's vectors, and
-`print_points()`, from `utils.py`, reads them back and prints them. The other files only define the steps and that
-helper, so importing them makes no call. The model and its vector size are parameters of `main()`, so the tests pass
-a stand-in for Gemini.
+`print_points()`, from `utils.py`, reads them back and prints them. `config.py` and `utils.py` only define what it
+uses, and building the model makes no call, so importing any of them makes no call. The model and its vector size
+are parameters of `main()`, so the tests pass a stand-in for Gemini.
+
+### 7. The Code in One File, the Helpers Apart
+
+```python
+from config import MissingKeyError, load_api_key   # checks the key, before the model is built
+from utils import print_points                     # a helper: showing the points
+```
+
+`pipeline.py` holds the project's code, top to bottom: the settings (the data file, the column lists, the chunk size
+and overlap, the model's name and vector size, the collection's name), the loader, the splitter, the model,
+`embed_chunks()`, the vector store (`make_vector_store()` and `store_vectors()`), then `main()`, which runs them.
+Two files stay apart. `utils.py` holds `print_points()`, which reads the points back from the store it's handed, so
+it needs nothing from `pipeline.py`. `config.py` holds the key check, because the tests need it before
+`pipeline.py` is imported: `tests/conftest.py` asks it whether there's a real key, and gives the model a fake one
+when there isn't.
 
 ---
 
@@ -337,8 +354,8 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
-**Issue**: `python vector_store.py` prints nothing
-**Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
+**Issue**: `python utils.py` or `python config.py` prints nothing
+**Fix**: Those files only define what `pipeline.py` uses. Run `python pipeline.py` (Step 5), which runs every step.
 
 ---
 
