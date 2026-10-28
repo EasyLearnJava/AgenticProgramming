@@ -7,19 +7,19 @@ Helpers the pipeline uses that aren't a step of their own. It handles:
      hand, and a sample of what a prompt gets
 
 Usage (pipeline.py calls it; this file only defines it):
-    print_retrieval(question, vector, scored, chunks, top_vector)   ->  each step of a search, then the prompt's text
+    print_retrieval(question, vector, scored, chunks, top_vector, format_docs(chunks[:2]))
+        ->  each step of a search, then the prompt's text: the first 2 chunks, as format_docs() joins them
 """
 import math
 
 from langchain_core.documents import Document
 
-from retriever import format_docs
-
 
 def print_retrieval(question: str, question_vector: list[float], scored: list[tuple[Document, float]],
-                    chunks: list[Document], top_vector: list[float]) -> None:
+                    chunks: list[Document], top_vector: list[float], sample: str) -> None:
     """Print the question's vector, the closest chunks with their scores, the top score worked out by hand from
-    the question's vector and the top chunk's stored one, the retriever's chunks, and a sample of the prompt."""
+    the question's vector and the top chunk's stored one, the retriever's chunks, and a sample of the prompt:
+    `sample`, the first 2 chunks as format_docs() joins them."""
     print(f"Question: {question}")
     start = ", ".join(f"{x:.4f}" for x in question_vector[:5])
     print(f"The question became {len(question_vector)} numbers: [{start}, ...]")
@@ -44,4 +44,4 @@ def print_retrieval(question: str, question_vector: list[float], scored: list[tu
     for chunk in chunks:
         print(f"  {chunk.metadata['title']}, from character {chunk.metadata['start_index']}")
     print(f"\nA sample of what a prompt gets: the first 2 of the {len(chunks)} chunks, as one text (format_docs):")
-    print(format_docs(chunks[:2]))
+    print(sample)

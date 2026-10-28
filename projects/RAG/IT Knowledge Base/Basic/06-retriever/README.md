@@ -25,7 +25,9 @@ In a RAG app, the chunks a search finds are all the model gets to read, so an an
   searches, and returns the 5 chunks
 - **Joins chunks into one text** with `format_docs()`: each chunk numbered and titled, ready to go into a prompt
 - **Prints** each step for one question, `How do I fix VPN connection timeouts?`, or for yours
-- **Runs from one file**, `pipeline.py`, which names each step, then runs it
+- **All the code in one file**, `pipeline.py`: the loader, the splitter, the model, the embedding, the vector store,
+  the retriever, and `main()`, which names each step, then runs it. Two files are apart: `config.py`, which checks
+  the key, and `utils.py`, which prints the search
 
 **Try it:** `python pipeline.py "my email bounced"`, and see which chunks come back for your question.
 
@@ -34,13 +36,13 @@ In a RAG app, the chunks a search finds are all the model gets to read, so an an
 ## 🏗️ Architecture
 
 ```text
-pipeline.py: main(), the one file to run, calls each step in order:
+pipeline.py: main(), the one file to run: it holds the steps below, and calls each in order:
 data/sample_it_kb.csv  →  10 articles  →  28 chunks         ← Steps 1 and 2: read, then chunk
                                               │ Steps 3 and 4: Embed, then store
                                               ↓
 ┌──────────────────────────────────────────────────┐
-│  embed_chunks(chunks, embeddings)                │  ← embed_chunks.py: the 28 chunks embedded (call 1)
-│  make_vector_store(embeddings, 768)              │  ← vector_store.py: Qdrant in memory, cosine
+│  embed_chunks(chunks, embeddings)                │  ← the 28 chunks embedded (call 1)
+│  make_vector_store(embeddings, 768)              │  ← Qdrant in memory, cosine
 │  store_vectors(store, chunks, vectors)           │     28 points, each chunk with its vector
 └────────────────────────┬─────────────────────────┘
                          │
@@ -54,7 +56,7 @@ a question ──────────────┤ Step 5: Retrieve
                          │ the same two steps, in one call:
                          ↓
 ┌──────────────────────────────────────────────────┐
-│  make_retriever(store).invoke(question)          │  ← retriever.py: the 5 closest chunks (call 3)
+│  make_retriever(store).invoke(question)          │  ← the 5 closest chunks (call 3)
 │  format_docs(chunks)                             │  ← one text: [1] title + chunk, [2] title + chunk ...
 └──────────────────────────────────────────────────┘
 ```
@@ -193,7 +195,7 @@ store.similarity_search_with_score_by_vector(question_vector, k=5)   # -> [(chun
 ```
 
 Qdrant compares the question's vector with every stored vector, by cosine, and keeps the `k` closest. `TOP_K` in
-`retriever.py` sets `k`: 5. For the VPN question, the run prints:
+`pipeline.py` sets `k`: 5. For the VPN question, the run prints:
 
 ```text
 The 5 closest chunks, with their scores, closest first:
@@ -271,9 +273,25 @@ sample.
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 4, printing a line each, then Step 5,
 the search by hand and with the retriever, and `print_retrieval()`, from `utils.py`, prints it, with the top score
-worked out by hand. The other files
-only define the steps and that helper, so importing them makes no call. The question, the model and its vector size
-are parameters of `main()`, so the tests pass a stand-in for Gemini.
+worked out by hand. `config.py` and `utils.py` only define what it uses, and building the model makes no call, so
+importing any of them makes no call. The question, the model and its vector size are parameters of `main()`, so the
+tests pass a stand-in for Gemini.
+
+### 7. The Code in One File, the Helpers Apart
+
+```python
+from config import MissingKeyError, load_api_key   # checks the key, before the model is built
+from utils import print_retrieval                  # a helper: showing the search
+```
+
+`pipeline.py` holds the project's code, top to bottom: the settings (the data file, the column lists, the chunk size
+and overlap, the model's name and vector size, the collection's name, `TOP_K` and the sample questions), the loader,
+the splitter, the model, `embed_chunks()`, the vector store (`make_vector_store()` and `store_vectors()`), the
+retriever (`make_retriever()` and `format_docs()`), then `main()`, which runs them. Two files stay apart. `utils.py`
+holds `print_retrieval()`, which shows the search; `main()` hands it the sample of the prompt, already joined by
+`format_docs()`, so `utils.py` needs nothing from `pipeline.py`. `config.py` holds the key check, because the tests
+need it before `pipeline.py` is imported: `tests/conftest.py` asks it whether there's a real key, and gives the model
+a fake one when there isn't.
 
 ---
 
@@ -311,8 +329,8 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 **Fix**: The venv isn't active, or the packages aren't installed in it. Activate it (Step 2), then
 `pip install -r requirements-dev.txt` (Step 3).
 
-**Issue**: `python retriever.py` prints nothing
-**Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
+**Issue**: `python utils.py` or `python config.py` prints nothing
+**Fix**: Those files only define what `pipeline.py` uses. Run `python pipeline.py` (Step 5), which runs every step.
 
 ---
 
@@ -321,7 +339,7 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 - Try a near-miss: `python pipeline.py "my screen freezes all the time"`. No article is about a frozen screen, but
   the Laptop article's problem says "applications freezing frequently" and the MFA article mentions Screen Time:
   which one comes first?
-- In `retriever.py`, change `TOP_K` to `2`, and see 2 chunks come back instead of 5. Tests check for 5, so put it
+- In `pipeline.py`, change `TOP_K` to `2`, and see 2 chunks come back instead of 5. Tests check for 5, so put it
   back before `python -m pytest`.
 - Ask a few questions the knowledge base doesn't cover, and a few it does, and compare their top scores: is there a
   minimum score that would keep the good chunks and drop the rest? Try one on the printed scores, such as keeping only

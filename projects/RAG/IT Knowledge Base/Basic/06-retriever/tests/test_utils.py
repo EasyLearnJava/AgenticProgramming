@@ -4,12 +4,9 @@ Gemini (tests/fakes.py), and Qdrant in memory: no key, no network.
 """
 from fakes import SIZE, KeywordEmbeddings
 
-from chunking import split_documents
-from embed_chunks import embed_chunks
-from knowledge_base import load_documents
-from retriever import QUESTIONS, TOP_K, make_retriever
+from pipeline import (QUESTIONS, TOP_K, embed_chunks, format_docs, load_documents, make_retriever, make_vector_store,
+                      split_documents, store_vectors)
 from utils import print_retrieval
-from vector_store import make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
 VECTORS = embed_chunks(CHUNKS, KeywordEmbeddings())     # a stand-in vector for each chunk, in order
@@ -31,7 +28,8 @@ def test_print_retrieval_prints_the_vector_the_scores_the_retrievers_chunks_and_
     question = QUESTIONS[0]
     vector = KeywordEmbeddings().embed_query(question)
     scored = store.similarity_search_with_score_by_vector(vector, k=TOP_K)
-    print_retrieval(question, vector, scored, make_retriever(store).invoke(question), top_vector(store, scored))
+    found = make_retriever(store).invoke(question)
+    print_retrieval(question, vector, scored, found, top_vector(store, scored), format_docs(found[:2]))
     printed = capsys.readouterr().out
     assert printed.startswith(f"Question: {question}\nThe question became {SIZE} numbers: [")
     assert "\n\nThe 5 closest chunks, with their scores, closest first:\n" in printed
@@ -44,7 +42,7 @@ def test_the_top_score_worked_out_by_hand_is_qdrants_score(capsys):
     store = filled_store()
     vector = KeywordEmbeddings().embed_query(QUESTIONS[0])
     scored = store.similarity_search_with_score_by_vector(vector, k=TOP_K)
-    print_retrieval(QUESTIONS[0], vector, scored, [], top_vector(store, scored))
+    print_retrieval(QUESTIONS[0], vector, scored, [], top_vector(store, scored), "")
     lines = capsys.readouterr().out.splitlines()
     by_hand = lines.index(
         "The top score, worked out by hand from the question's vector and the top chunk's stored one:")
