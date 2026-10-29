@@ -13,7 +13,10 @@ in memory.
 ## 🎯 What This Project Does
 
 - **Serves a chat page**, `index.html`, at http://127.0.0.1:8000, from the same server as the API
-- **Shows one line about the knowledge base** when the page opens, from `GET /api/stats`
+- **Shows what the knowledge base holds** when the page opens, as a row of labels, from `GET /api/stats`
+- **Offers the three sample questions** as buttons: click one to ask it
+- **Looks the part**: light and dark themes that follow your system's setting, and a card for each answer with
+  its numbered sources; it's all in `index.html`, with no fonts or scripts from anywhere else
 - **Sends your question** to `POST /api/query` when you click **Ask** or press Enter, and shows the answer with its
   sources, newest first
 - **Has no memory**: each question goes to the server on its own, so a follow-up like "and on Windows?" isn't read

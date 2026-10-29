@@ -2,67 +2,460 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>IT Knowledge Base</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%236d5efc'/%3E%3Cpath d='M10 11h12M10 16h12M10 21h7' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    /* The colours, light by default; the dark ones follow the system's dark mode */
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f6fb;
+      --text: #111827;
+      --muted: #5d6579;
+      --faint: #8a91a5;
+      --card: rgba(255, 255, 255, 0.74);
+      --card-solid: #ffffff;
+      --line: rgba(17, 24, 39, 0.09);
+      --accent: #6d5efc;
+      --accent-2: #19b5cc;
+      --accent-soft: rgba(109, 94, 252, 0.11);
+      --glow-1: rgba(109, 94, 252, 0.24);
+      --glow-2: rgba(25, 181, 204, 0.22);
+      --dots: rgba(17, 24, 39, 0.08);
+      --error: #cf3350;
+      --error-soft: rgba(207, 51, 80, 0.09);
+      --ok: #148a63;
+      --shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 18px 40px -18px rgba(17, 24, 39, 0.25);
+      --radius: 20px;
+      --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0c16;
+        --text: #eceef8;
+        --muted: #a2a9bd;
+        --faint: #737b91;
+        --card: rgba(21, 24, 40, 0.72);
+        --card-solid: #151828;
+        --line: rgba(255, 255, 255, 0.08);
+        --accent: #8d80ff;
+        --accent-2: #3fd3e6;
+        --accent-soft: rgba(141, 128, 255, 0.15);
+        --glow-1: rgba(141, 128, 255, 0.28);
+        --glow-2: rgba(63, 211, 230, 0.16);
+        --dots: rgba(255, 255, 255, 0.07);
+        --error: #ff7088;
+        --error-soft: rgba(255, 112, 136, 0.12);
+        --ok: #4ad6a0;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 22px 48px -20px rgba(0, 0, 0, 0.7);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Soft glows behind everything, drifting slowly, under a faint dot grid that fades out downwards */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background:
+        radial-gradient(60vmax 42vmax at 8% -6%, var(--glow-1), transparent 62%),
+        radial-gradient(52vmax 40vmax at 96% 4%, var(--glow-2), transparent 62%),
+        radial-gradient(64vmax 46vmax at 50% 118%, var(--glow-1), transparent 62%);
+      animation: drift 26s ease-in-out infinite alternate;
+    }
+    @keyframes drift {
+      from { transform: scale(1.08); }
+      to { transform: translate3d(2vmax, -1.5vmax, 0) scale(1.12); }
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background-image: radial-gradient(var(--dots) 1px, transparent 1.3px);
+      background-size: 22px 22px;
+      -webkit-mask-image: linear-gradient(to bottom, #000, transparent 75%);
+      mask-image: linear-gradient(to bottom, #000, transparent 75%);
+    }
+
+    main { max-width: 780px; margin: 0 auto; padding: 56px 16px 72px; }
+
+    /* The header: the mark, the title, and the line about the knowledge base */
+    header { text-align: center; margin-bottom: 30px; }
+    .mark {
+      display: inline-grid;
+      place-items: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 17px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 12px 30px -10px var(--accent);
+      color: #fff;
+    }
+    h1 {
+      margin: 18px 0 6px;
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      font-weight: 750;
+    }
+    h1 span {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .tagline { margin: 0 auto; max-width: 600px; color: var(--muted); font-size: 1.05rem; }
+    #stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin: 18px 0 0;
+      min-height: 30px;
+      color: var(--faint);
+      font-size: 0.9rem;
+    }
+    .pill {
+      padding: 4px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 0.82rem;
+      backdrop-filter: blur(10px);
+    }
+
+    /* The question box and the Ask button, on one glass card */
+    .card, .composer {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+    }
+    .composer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 8px 8px 18px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .composer:focus-within { border-color: var(--accent); box-shadow: var(--shadow), 0 0 0 5px var(--accent-soft); }
+    .composer svg { flex: none; color: var(--faint); }
+    #question {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 1.05rem;
+    }
+    #question::placeholder { color: var(--faint); }
+    #ask {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border: 0;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+      box-shadow: 0 10px 22px -10px var(--accent);
+      transition: transform 0.15s, filter 0.15s, opacity 0.15s;
+    }
+    #ask:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    #ask:active { transform: translateY(0); }
+    #ask:disabled { opacity: 0.55; cursor: progress; transform: none; }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    /* Under the box: what's happening, and how much of the 500 characters the question uses */
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin: 12px 6px 0;
+      color: var(--faint);
+      font-size: 0.88rem;
+    }
+    .meta p { margin: 0; }
+    #status[data-state="busy"] { color: var(--accent); }
+    #status[data-state="busy"]::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+    #status[data-state="error"] {
+      padding: 2px 10px;
+      border-radius: 8px;
+      background: var(--error-soft);
+      color: var(--error);
+    }
+    #status[data-state="done"] { color: var(--ok); }
+    @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+    #counter { flex: none; font-variant-numeric: tabular-nums; }
+
+    /* The sample questions: click one to ask it */
+    .samples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 22px 0 34px; }
+    .chip {
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.88rem;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s;
+    }
+    .chip:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+
+    /* Before the first answer */
+    #empty { margin: 40px 0; color: var(--faint); text-align: center; }
+
+    /* One card per answer, newest first */
+    #answers { display: grid; gap: 18px; }
+    .card { padding: 24px 26px; animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(0.99); } }
+    .card-label {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+    .card-question { margin: 0 0 14px; font-size: 1.22rem; line-height: 1.35; letter-spacing: -0.01em; }
+    .card-answer { margin: 0; white-space: pre-wrap; font-size: 1.02rem; line-height: 1.7; }
+    .sources-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 22px 0 10px;
+      color: var(--faint);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .sources-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    .sources { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: source; }
+    .source {
+      position: relative;
+      padding: 12px 14px 12px 50px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card-solid);
+      counter-increment: source;
+    }
+    .source::before {
+      content: counter(source);
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .source-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+    .source-title { font-weight: 650; }
+    .tag {
+      padding: 1px 9px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+    .source-snippet { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
+
+    /* While Gemini answers: a card with shimmering lines in the answer's place */
+    .pending .line {
+      height: 12px;
+      margin-top: 12px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, var(--line) 25%, var(--accent-soft) 50%, var(--line) 75%);
+      background-size: 300% 100%;
+      animation: shimmer 1.4s linear infinite;
+    }
+    .pending .line:nth-child(4) { width: 70%; }
+    @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -200% 0; } }
+
+    footer { margin-top: 48px; color: var(--faint); font-size: 0.82rem; text-align: center; }
+
+    @media (max-width: 560px) {
+      main { padding-top: 36px; }
+      .composer { padding-left: 14px; }
+      .composer svg { display: none; }
+      #ask span { display: none; }
+      .card { padding: 20px 18px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
 </head>
 <body>
   <!--
     IT Knowledge Base: Chat Page. Served by main.py at /; calls GET /api/stats and POST /api/query.
   -->
-  <h1>IT Knowledge Base</h1>
-  <p id="stats">Loading…</p>
-  <form id="form">
-    <label>Your question
-      <input id="question" size="60" maxlength="500" autocomplete="off" value="How do I fix VPN connection timeouts?">
-    </label>
-    <button id="ask">Ask</button>
-  </form>
-  <p id="status">Gemini is asked to answer from the articles the search finds in the knowledge base.</p>
-  <div id="answers"></div>
+  <main>
+    <header>
+      <div class="mark" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <h1>IT <span>Knowledge Base</span></h1>
+      <p class="tagline">Ask the help desk. Each answer comes from the articles the search finds.</p>
+      <p id="stats">Loading…</p>
+    </header>
+
+    <form id="form" class="composer">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <label for="question" class="sr-only">Your question</label>
+      <input id="question" maxlength="500" autocomplete="off" placeholder="Ask about VPN, MFA, printers, email…"
+             value="How do I fix VPN connection timeouts?">
+      <button id="ask">
+        <span>Ask</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <div class="meta">
+      <p id="status" role="status">Gemini is asked to answer from the articles the search finds in the knowledge base.</p>
+      <span id="counter" aria-hidden="true"></span>
+    </div>
+
+    <div class="samples" aria-label="Sample questions">
+      <button type="button" class="chip">How do I fix VPN connection timeouts?</button>
+      <button type="button" class="chip">I can't set up MFA on my mobile device</button>
+      <button type="button" class="chip">My laptop is running very slow</button>
+    </div>
+
+    <p id="empty">Your answers appear here, newest first, each with the articles it came from.</p>
+    <div id="answers" aria-live="polite"></div>
+
+    <footer>Gemini is asked to use only the articles shown; check what matters before you act on it.</footer>
+  </main>
 
   <script>
     const statsLine = document.getElementById("stats");
     const status = document.getElementById("status");
+    const form = document.getElementById("form");
+    const input = document.getElementById("question");
     const button = document.getElementById("ask");
+    const counter = document.getElementById("counter");
+    const empty = document.getElementById("empty");
     const answers = document.getElementById("answers");
 
-    // On load: one line about what the server holds.
+    // A new element with a class and its text. textContent, never innerHTML, so the server's text can't add HTML.
+    function el(tag, className, text = "") {
+      const node = document.createElement(tag);
+      node.className = className;
+      node.textContent = text;
+      return node;
+    }
+
+    // The line under the box: "busy" while waiting, "error" when something went wrong, "done" after an answer
+    function setStatus(text, state = "") {
+      status.textContent = text;
+      status.dataset.state = state;
+    }
+
+    // How much of the 500 characters the question uses
+    function updateCounter() {
+      counter.textContent = `${input.value.length}/500`;
+    }
+    input.addEventListener("input", updateCounter);
+    updateCounter();
+
+    // On load: what the server holds, as a row of small labels.
     fetch("/api/stats")
       .then((res) => {
         if (!res.ok) throw new Error(`the server answered HTTP ${res.status}`);
         return res.json();
       })
       .then((s) => {
-        statsLine.textContent = `${s.documents} articles in ${s.chunks} chunks. Answers by ${s.chat_model}, `
-          + `search by ${s.embedding_model}, ${s.top_k} chunks per question.`;
+        statsLine.replaceChildren(...[
+          `${s.documents} articles`, `${s.chunks} chunks`, `${s.top_k} chunks per question`,
+          `answers by ${s.chat_model}`, `search by ${s.embedding_model}`,
+        ].map((text) => el("span", "pill", text)));
       })
       .catch((err) => { statsLine.textContent = `Something went wrong: ${err.message}`; });
 
-    // One answer, newest first. textContent, never innerHTML, so the server's text can't add HTML.
+    // One answer, newest first: the question, the answer, then each article the search found.
     function showAnswer(question, data) {
-      const block = document.createElement("section");
-      const q = document.createElement("h3");
-      q.textContent = question;
-      const a = document.createElement("p");
-      a.style.whiteSpace = "pre-wrap";          // keep the answer's line breaks
+      const card = el("article", "card");
+      const a = el("p", "card-answer");
       a.textContent = data.answer;
-      const list = document.createElement("ul");
+      const list = el("ol", "sources");
       for (const source of data.sources) {
-        const item = document.createElement("li");
-        const title = document.createElement("strong");
-        title.textContent = source.title;
-        item.append(title, ` (${source.system}, ${source.category}): ${source.snippet}`);
+        const head = el("div", "source-head");
+        head.append(el("strong", "source-title", source.title), el("span", "tag", source.system),
+                    el("span", "tag", source.category));
+        const item = el("li", "source");
+        item.append(head, el("p", "source-snippet", source.snippet));
         list.append(item);
       }
-      block.append(q, a, "Found by the search:", list, document.createElement("hr"));
-      answers.prepend(block);
+      card.append(el("p", "card-label", "You asked"), el("h2", "card-question", question), a,
+                  el("p", "sources-label", "Found by the search"), list);
+      answers.prepend(card);
+    }
+
+    // While waiting: a card with the question and shimmering lines where the answer will go
+    function showPending(question) {
+      const card = el("article", "card pending");
+      card.setAttribute("aria-hidden", "true");
+      card.append(el("p", "card-label", "Asking"), el("h2", "card-question", question),
+                  el("div", "line"), el("div", "line"));
+      answers.prepend(card);
+      empty.hidden = true;
+      return card;
+    }
+
+    // A sample question: put it in the box and ask it (not while another question is being answered)
+    for (const chip of document.querySelectorAll(".chip")) {
+      chip.addEventListener("click", () => {
+        if (button.disabled) return;
+        input.value = chip.textContent;
+        updateCounter();
+        form.requestSubmit();
+      });
     }
 
     // Each submit: send the question, then show the answer or what went wrong.
     document.getElementById("form").addEventListener("submit", async (event) => {
       event.preventDefault();                   // stay on this page: the form would otherwise reload it
-      const question = document.getElementById("question").value;
+      const question = input.value;
       button.disabled = true;                   // one question at a time: each one is a real call to Gemini
-      status.textContent = "Searching the knowledge base and asking Gemini…";
+      setStatus("Searching the knowledge base and asking Gemini", "busy");
+      const pending = showPending(question);
       try {
         const res = await fetch("/api/query", {
           method: "POST",
@@ -75,17 +468,20 @@
         }
         const data = await res.json();
         if (res.status === 422) {
-          status.textContent = data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; ");
+          setStatus(data.detail.map((p) => `${p.loc.at(-1)}: ${p.msg}`).join("; "), "error");
         } else if (res.status === 502) {
-          status.textContent = `${data.detail} The server's terminal says why.`;
+          setStatus(`${data.detail} The server's terminal says why.`, "error");
         } else {
           showAnswer(question, data);
-          status.textContent = "Done.";
+          setStatus("Done.", "done");
         }
       } catch (err) {
-        status.textContent = `Something went wrong: ${err.message}`;
+        setStatus(`Something went wrong: ${err.message}`, "error");
       } finally {
+        pending.remove();
+        empty.hidden = answers.children.length > 0;     // back to the hint if nothing has been answered yet
         button.disabled = false;
+        input.focus();
       }
     });
   </script>
