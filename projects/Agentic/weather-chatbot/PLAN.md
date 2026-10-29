@@ -1,6 +1,8 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
-> **Status:** 📝 Planned: this document is the plan; there's no code yet.
+> **Status:** 🚧 Being built, step by step (section 11): steps 1 and 2 are done, step 3 is built and waits for its
+> live check, and each finished step has a page in the app's documentation. Live at
+> https://weather-chatbot-hazel.vercel.app/.
 >
 > **Facts checked on 2026-10-29** by calling the real endpoints and reading the current docs and package files
 > (section 3 and [Sources](#sources)). Unfamiliar terms are explained in [Words Used](#words-used).
@@ -122,6 +124,7 @@ Added later the same day:
 | 12 | Your Open-Meteo REST example | Ran it as given, then with `timezone=auto` and `wind_speed_unit=mph` | `200` in 0.28 s, no key: it fits the no-auth pair. But as given, the answer is in GMT: "now" said 17:00 when it was 12:00 in Dallas, and the daily highs and lows were worked out on GMT days (3 November: 80.4 °F, against 75.4 °F on Dallas's own day). The wind came back in km/h next to °F | Every Open-Meteo call sends `timezone=auto` and matching units. Since both no-auth doors use the same function, the fix is made once |
 | 13 | Your Apify REST example | Called without a token and with an obviously fake one (nothing runs, nothing is charged); Apify's API docs | No token: `402 Payment Required`, with an x402 `payment-required` header asking for up to 1 USDC on Base ("PAYMENT-SIGNATURE header is required."). Fake token: `401`, `{"error":{"type":"user-or-token-not-found","message":"User was not found or authentication token is not valid"}}`. Docs: success is `201` with the Actor's items as a JSON array, so this door returns the forecast itself; a run over 300 s gets `408`; the query parameters `build`, `timeout` and `maxTotalChargeUsd` pin the build and cap the run's time and cost | It fits the auth pair: the same Actor and token as the MCP door. The same bad token looks different at each door (a JSON body here, a `WWW-Authenticate` header on MCP); both become one `AuthError` (9.2). We never pay a `402`: it means the token is missing |
 | 14 | A token check that runs nothing | `GET https://api.apify.com/v2/users/me` without a token, and with a fake one | `401` `token-not-provided`, and `401` `user-or-token-not-found`; a valid token gets the account's details (step 0 confirms) | The health check verifies the token for both auth lanes without starting a run (9.5) |
+| 15 | How Open-Meteo's geocoding reads a name (step 3) | Searched Paris, Springfield, "Springfield, MA", Atlantis, Narnia, Hogwarts and Mordor on 2026-10-29 | Results come by relevance, not population: Springfield gives Missouri (170,188), Illinois (114,394), then Massachusetts (154,341). A region after a comma narrows it: "Springfield, MA" and "Springfield, Massachusetts" give Massachusetts first; without the comma, nothing. `countryCode=US` changes nothing for Springfield (all five are in the US). **Atlantis is a real town** (Western Cape, South Africa, 82,736 people). Narnia's candidates have no population. Hogwarts and Mordor return no `results` key at all. A `+` in the query reads as a space | The ambiguity rule sorts by population itself, and treats an unknown largest population as ambiguous (7.6). The system prompt tells the model to put a region after a comma. The "can't find it" golden question uses Hogwarts, not Atlantis (section 10) |
 
 "Remote HTTP" and "Remote Streamable HTTP" in the first brief are the same thing: MCP's Streamable HTTP transport, one
 URL answering POSTs with JSON or a stream. AI SDK's `transport: { type: "http" }` covers both.
@@ -393,8 +396,9 @@ the bottom, a rounded input, "Type something…", with an icon at each end.
   - **A Compare switch** that sends one question through all four lanes at once and shows the four answers in the same
     2×2, each with its time and cost. Compare skips the cache, so every door pays the same upstream cost.
 - **What else the image doesn't have:** the tool chips (5.3), the weather card, a Stop button while an answer streams,
-  a Try again button on errors, the Open-Meteo credit, a one-line privacy note, a left menu (Chat and Documentation,
-  with the running build at its foot), and the in-app documentation: one page per build step, from `docs/`.
+  a Try again button on errors, the Open-Meteo credit, a one-line privacy note, a left menu (Chat, Documentation
+  and Issues and fixes, with the running build at its foot), the in-app documentation (one page per build step, from
+  `docs/`), and an issues log: every problem met while building and deploying, and its fix.
 - **Accessibility:** new messages are announced through an `aria-live="polite"` region; everything works by keyboard,
   with a visible focus ring; `prefers-reduced-motion` turns off the typing animation; each chip is a button with a
   label.
@@ -595,7 +599,7 @@ export async function runChat(chatRequest: ChatRequest, { log, signal }: RunChat
 
 | Tool | Input | Output | Open-Meteo API | Cache |
 |---|---|---|---|---|
-| `geocode_location` | `query` (1 to 100 characters), `count` 1 to 10 (5), `language` (`en`), `countryCode` (optional) | candidates (name, region, country, latitude, longitude, time zone, population) and an `isAmbiguous` flag | `geocoding-api.open-meteo.com/v1/search` | 30 days |
+| `geocode_location` | `query` (1 to 100 characters; a region or country after a comma narrows it: "Springfield, MA"), `count` 1 to 10 (5), `countryCode` (optional); always in English (`language=en`) | candidates (name, region, country, country code, latitude, longitude, time zone, population; Open-Meteo leaves out what it doesn't know) and an `isAmbiguous` flag | `geocoding-api.open-meteo.com/v1/search` | 30 days |
 | `get_current_weather` | `latitude`, `longitude`, `units` (`metric` or `imperial`) | temperature, feels like, wind, the condition in words, day or night, observed at (local time), time zone | `api.open-meteo.com/v1/forecast` with `current=` | 10 min |
 | `get_forecast` | `latitude`, `longitude`, `days` 1 to 16, `includeHourly` (true or false), `units` | per day: min and max, chance of rain, sunrise, sunset; per hour if asked: temperature, chance of rain, condition; all in local time | the same, with `timezone=auto` | 30 min |
 | `get_air_quality` | `latitude`, `longitude` | PM2.5, PM10, European AQI, US AQI, observed at | `air-quality-api.open-meteo.com/v1/air-quality` | 30 min |
@@ -605,10 +609,12 @@ a description, input and output schemas, and a `run` function that calls `lib/up
 turns them into AI SDK tools and runs them inside `/api/chat`; our MCP server registers the same objects with
 `mcp-handler` and runs them inside `/api/mcp`. Written once, so the two no-auth doors can't drift apart.
 
-**The ambiguity rule,** in code rather than left to the model: `isAmbiguous` is true when the second-largest candidate
-is in a different region and has at least a third of the largest one's population, or when populations are missing.
-"Springfield" (170,188, then 154,341) is ambiguous; "Paris" (2,138,551, then 24,782) isn't. A place the user narrows
-("Springfield, MA") goes in as the query and a country code.
+**The ambiguity rule,** in code rather than left to the model (`lib/weather/ambiguity.ts`): the candidates are sorted by
+population (Open-Meteo sorts by relevance), and `isAmbiguous` is true when the largest candidate in another region (a
+different first-level region or country) has at least a third of the largest one's population, or when the largest
+one's population is unknown and there is a candidate in another region. "Springfield" (170,188, then 154,341) is
+ambiguous; "Paris" (2,138,551, then 24,782) isn't; nor is "Springfield, MA", whose candidates are all in
+Massachusetts. A place the user narrows goes in as the query, with the region after a comma.
 
 **The auth pair's Actor tool,** `lib/weather/tools/open-meteo-actor.ts`, has Apify's name
 (`gochujang--open-meteo-weather-forecast`) and the Actor's input (`locations`, `forecastDays`, `mode`). `rest-auth`
@@ -646,6 +652,7 @@ weather-chatbot/
 ├── tsconfig.json                    strict; the @/ import alias
 ├── biome.json                       formatting and lint rules (7.10)
 ├── vitest.config.ts                 unit and route tests
+├── vitest.evals.config.ts           the golden questions, against a running deployment
 ├── playwright.config.ts             end-to-end tests, with the bypass header
 ├── next.config.ts                   security headers; BotID
 ├── instrumentation.ts               OpenTelemetry and Sentry start-up
@@ -658,15 +665,19 @@ weather-chatbot/
 │   ├── docs/
 │   │   ├── page.tsx                 the documentation's first page: one link per finished step
 │   │   └── [slug]/page.tsx          one documentation page, rendered from docs/<slug>.md at build time
+│   ├── issues/page.tsx              Issues and fixes: the problems met in each step, from docs/issues.md
 │   └── api/
 │       ├── chat/route.ts            POST: check, parse, then runChat()
+│       ├── nearby-city/route.ts     GET: the city Vercel places the visitor in, for one suggested question
 │       ├── mcp/route.ts             mcp-no-auth's server: registerTools() mounted with mcp-handler
 │       └── health/route.ts          GET: checkLanes()
 ├── components/                      one React component per file; display only
 │   ├── side-menu.tsx                the left menu: Chat, Documentation, the running build
 │   ├── markdown-doc.tsx             shows a Markdown document; raw HTML never rendered
-│   ├── chat-window.tsx
-│   ├── chat-input.tsx
+│   ├── answer-markdown.tsx          shows an answer's Markdown: no images, links in a new tab
+│   ├── chat-window.tsx              the chat card: useChat, the lane, the compare switch
+│   ├── chat-welcome.tsx             the first message, with questions to try
+│   ├── chat-input.tsx               the question box, the location pin, Send and Stop
 │   ├── chat-message.tsx             one message: who and when, its tool chips, its text, its weather card
 │   ├── tool-chip.tsx                one tool call: its path label and its wire view
 │   ├── weather-card.tsx
@@ -674,6 +685,7 @@ weather-chatbot/
 │   ├── compare-grid.tsx             one question through all four lanes, side by side
 │   └── status-dots.tsx
 ├── hooks/                           React hooks, one per file
+│   ├── use-nearby-city.ts           reads /api/nearby-city, once, for a suggested question
 │   └── use-lane-status.ts           reads /api/health for the status dots
 ├── lib/
 │   ├── utils.ts                     every shared helper function (7.10)
@@ -681,15 +693,15 @@ weather-chatbot/
 │   ├── types.ts                     shared types: LaneId, Place, Forecast, ToolStatus, ...
 │   ├── config.ts                    the only file that reads process.env; checked with Zod at start-up
 │   ├── errors.ts                    the error classes, toAppError(), the user messages (9.2)
-│   ├── logger.ts                    pino, redaction, the request id, shipping to Axiom (9.1)
+│   ├── logger.ts                    one JSON line per failure (step 3); then pino, redaction, the request id, Axiom (9.1)
 │   ├── chat/
 │   │   ├── chat-request.ts          the Zod schema for POST /api/chat, and parseChatRequest()
 │   │   ├── model.ts                 the model: Gemini through @ai-sdk/google; the one file to change it
-│   │   ├── sample-conversation.ts   step 2's sample, worked out per lane, shown until the live chat arrives in step 3
+│   │   ├── lane-examples.ts         the compare view's four requests (step 2's sample conversation, gone since step 3)
 │   │   ├── system-prompt.ts         the system prompt (7.7)
 │   │   └── run-chat.ts              one chat turn: the lane, the model, the stream
 │   ├── lanes/                       the four paths, one file each (7.11)
-│   │   ├── lane.ts                  the Lane type and the four lane ids
+│   │   ├── lane.ts                  the Lane type: the tools the model sees, and how to close the lane
 │   │   ├── open-lane.ts             opens the lane the user picked, with its same-door fallback
 │   │   ├── rest-no-auth.ts          REST, no auth: our tools call Open-Meteo's API from /api/chat
 │   │   ├── mcp-no-auth.ts           MCP, no auth: the same tools, through our MCP server
@@ -700,6 +712,8 @@ weather-chatbot/
 │   │   ├── open-meteo.ts            forecast, geocoding, air quality: time limits, one retry, Runtime Cache
 │   │   └── apify.ts                 run the Actor and get its items; check the token
 │   ├── weather/
+│   │   ├── weather-tool.ts          the shape every tool has, and the coordinate schemas they share
+│   │   ├── open-meteo-tools.ts      the four Open-Meteo tools, by name: the one list both no-auth doors use
 │   │   ├── tools/                   tool definitions, written once (7.6)
 │   │   │   ├── geocode-location.ts
 │   │   │   ├── get-current-weather.ts
@@ -715,12 +729,12 @@ weather-chatbot/
 │   │   └── read-doc.ts              reads a page's Markdown from docs/
 │   └── health/
 │       └── check-lanes.ts           the health check, per lane (9.5)
-├── docs/                            the in-app documentation: step-1.md, step-2.md, ... one per finished step
+├── docs/                            the in-app documentation: step-1.md, step-2.md, ... one per finished step; issues.md
 └── tests/
-    ├── stubs/                       stand-ins the unit tests need (server-only)
+    ├── stubs/                       stand-ins the unit tests need (server-only; Open-Meteo's fetch and the cache)
     ├── unit/                        one test file per lib file, at the same path: utils.test.ts, lanes/rest-auth.test.ts, ...
     ├── fixtures/                    recorded Open-Meteo and Apify answers
-    ├── e2e/                         Playwright, one run per lane
+    ├── e2e/                         Playwright: the page, with /api/chat answered by a recorded stream
     └── evals/                       the golden questions, run on all four lanes
 ```
 
@@ -769,8 +783,9 @@ weather-chatbot/
 Names from outside keep their spelling only where they come in. Open-Meteo's `temperature_2m` and `country_code`
 appear only in the schemas in `lib/upstream/open-meteo.ts`, which map them once to our names (`temperature`,
 `countryCode`); Biome's naming rule is relaxed for that file alone. The same goes for environment variable names
-(`VERCEL_ENV`, in `lib/config.ts`), HTTP header names (`Authorization`), and Playwright's own `baseURL`: `biome.json`
-lists each file that takes such names, and nothing else. Test files may use plain numbers as test data. The Actor's
+(`VERCEL_ENV`, in `lib/config.ts`), HTTP header names (`Authorization`), Playwright's own `baseURL`, and the MCP
+tool names used as keys (`get_forecast`, in `lib/types.ts`, `lib/weather/open-meteo-tools.ts` and
+`lib/lanes/rest-no-auth.ts`): `biome.json` lists each file that takes such names, and nothing else. Test files may use plain numbers as test data. The Actor's
 tool keeps Apify's name,
 `gochujang--open-meteo-weather-forecast`, in both auth lanes, so both doors send the same call: it's the one tool name
 we don't choose.
@@ -787,8 +802,10 @@ helpers planned so far:
 
 | Function | What it does | Used by |
 |---|---|---|
-| `roundCoordinate(value, decimals = 2)` | rounds a latitude or longitude; 2 decimals is about 1 km | cache keys, the location pin, logs |
-| `toCacheKey(toolName, input)` | a stable cache key from a tool's name and its rounded input | the Open-Meteo cache |
+| `toWireText(request)`, `toHost(url)` | a request as it goes over the wire; a URL's host (step 2) | the wire views, the chips |
+| `roundCoordinate(value, decimals = 2)` | rounds a latitude or longitude; 2 decimals is about 1 km | the Open-Meteo requests (and so the cache keys: a request's URL is its key), the tools' outputs, the location pin |
+| `toWeekday(isoDate)` | "2026-10-30" → "Friday", read as written, in no time zone (step 3) | the forecast's days |
+| `toRetryAfterMs(header)` | a `Retry-After` of a number of seconds, in ms (step 3) | `open-meteo.ts`, later `apify.ts` |
 | `formatLocalTime(isoTime, timeZone)` | "15:00 Paris time" | the chips, the weather card |
 | `formatDuration(ms)` | "0.6 s" | the chips, the compare grid |
 | `truncate(text, maxChars)` | shortens text, ending it with "…" | chip previews |
@@ -797,7 +814,7 @@ helpers planned so far:
 | `hashText(text)` | a SHA-256 hash, with Web Crypto, so it works in the browser and on the server | the logs' message hash |
 | `newRequestId()` | a random id, for when `x-vercel-id` is missing | the logger |
 | `timeoutSignal(ms, parentSignal?)` | an abort signal that fires at the time limit, or when the parent aborts | MCP connections, HTTP calls |
-| `withRetry(task, { tries, waitMs, shouldRetry })` | runs a task again after a short random wait, when `shouldRetry` says so | `open-meteo.ts`, `apify.ts` |
+| `withRetry(task, { tries, waitMs, shouldRetry, signal })` | runs a task again after a wait, when `shouldRetry` says so; stops with the signal's reason once it fires (the caller picks the random wait, so tests can make it 0) | `open-meteo.ts`, `apify.ts` |
 | `once(fn)` | wraps a function so it runs only the first time it's called | closing a lane |
 
 **The token, in two places.** `APIFY_TOKEN` is read in `config.ts` and used in exactly two files: `lib/upstream/apify.ts`
@@ -822,7 +839,7 @@ anything skipped is shown). `toAppError()` runs at the edges: the routes, the st
 a `timeoutSignal`.
 
 **Settings and numbers.** In the app, `process.env` is read only in `config.ts`; test settings
-(`playwright.config.ts`) read their own. Limits, time budgets and cache times live in
+(`playwright.config.ts`, the golden questions' `EVAL_BASE_URL`) read their own. Limits, time budgets and cache times live in
 `constants.ts`, named with their unit; no unexplained numbers in the code.
 
 **Logging.** Only through `lib/logger.ts`; no `console.log`.
@@ -961,6 +978,7 @@ alert are decided once. "Its twin" is the no-auth lane behind the same door.
 | `BudgetExceededError` | Apify's credit is gone | as `AuthError` | no | its twin | warn | yes |
 | `ContractError` | a tool missing or renamed; output that fails its schema | as for an unavailable lane | no | an auth lane: its twin; else the cache | error | yes |
 | `ModelError` | Gemini times out or answers `5xx`, or `429` when the free tier's quota is used up | "The assistant didn't answer. Try again." with a button | 2 (AI SDK) | none for now: one model | error | if it lasts 5 min |
+| `ConfigError` | a setting the app needs is missing, such as `GOOGLE_API_KEY` (step 3) | "The assistant isn't set up on this deployment yet." (`503`) | no | — | error | on the first one |
 | `AbortedError` | the user pressed Stop or closed the tab | nothing | — | — | info | no |
 | `UnexpectedError` | a bug | "Something went wrong (ref 7f3a9c)." | no | — | error | yes |
 
@@ -1073,7 +1091,8 @@ do), for example:
 - "Do I need an umbrella in Paris tomorrow afternoon?": an hourly forecast, on Paris's dates.
 - "Same for Dallas, in Fahrenheit": a follow-up, in imperial units, on Dallas's own days.
 - "Weather in Springfield": asks which one; no forecast call.
-- "Weather in Atlantis": says it can't find the place.
+- "Weather in Hogwarts": says it can't find the place. (Not Atlantis: that's a real town in South Africa; section 3,
+  row 15.)
 - "Weather in London 30 days from now": says it forecasts up to 16 days ahead.
 - "Compare Delhi and Mumbai this weekend": two places, two forecasts.
 - "Is the air OK in Delhi?": `get_air_quality` on the no-auth pair; on the auth pair, says the lane has no air quality.
@@ -1091,7 +1110,8 @@ grounding and safety, 95% overall, on every lane.
 
 Each step builds on the one before and ends with a check that only uses what's built by then. Every step adds its page
 to the in-app documentation (`docs/step-N.md`, under Documentation in the left menu): what it built, how it works, and
-how to check it. Every step also keeps
+how to check it; and the problems it met while being built and deployed, with their fixes, to the issues log
+(`docs/issues.md`, Issues and fixes in the left menu). Every step also keeps
 the code rules in 7.8 to 7.10: new files go where the layout says, a new helper goes in `lib/utils.ts` with its tests
 in the step whose code first uses it, and Biome and `tsc` pass with no warnings. The lanes come in teaching order:
 each adds one thing to the one before.
@@ -1102,7 +1122,7 @@ each adds one thing to the one before.
    each charged (and whether platform usage is in the price), which units the Actor answers in, whether the MCP door's
    tool accepts time and cost limits, and that `GET /v2/users/me` answers `200` for the token. **Done when:** the open
    questions in section 3 (rows 4, 6 and 14) are answered, and the auth lanes' budget in 9.3 has a measured number.
-1. [ ] **Scaffold** `projects/Agentic/weather-chatbot/` (a folder name without spaces keeps Vercel's Root Directory and
+1. [x] **Scaffold** `projects/Agentic/weather-chatbot/` (a folder name without spaces keeps Vercel's Root Directory and
    shell commands simple) with the layout in 7.8: Next.js; TypeScript with the settings in 7.10 and the `@/` alias;
    Biome with the rules in 7.10; Vitest; exact versions (`.npmrc`); the README's first version; the left menu and the
    in-app documentation, with this step's page. A Vercel
@@ -1110,7 +1130,7 @@ each adds one thing to the one before.
    redeploy it, and Protection Bypass for Automation turned on; CI in GitHub Actions running lint, type check and
    tests. **Done when:** an empty page is live on a Vercel URL, CI passes, and CI fails on a test branch that adds a
    misnamed file, an `any` and a `console.log`.
-2. [ ] **The page, with sample data:** the tokens, card, bubbles, input (the mic hidden), chips with path labels and
+2. [x] **The page, with sample data:** the tokens, card, bubbles, input (the mic hidden), chips with path labels and
    wire views, the weather card, the 2×2 lane picker (each lane marked with the step that makes it live, until the
    health check's status dots in step 9) and the compare grid, from a sample conversation worked out per lane; and
    the end-to-end tests (Playwright, on a desktop and a 360 px phone screen, with axe). **Done when:** it matches the
@@ -1118,9 +1138,10 @@ each adds one thing to the one before.
 3. [ ] **REST · no auth, and the chat route:** the four tool definitions in `lib/weather/tools/`,
    `lib/upstream/open-meteo.ts` (time limits, a retry, the Runtime Cache, `timezone=auto`), the ambiguity rule,
    `lib/lanes/rest-no-auth.ts`; then `streamText` with Gemini (`lib/chat/model.ts`, your key from `.env.local`), the system prompt, input
-   limits, the step and token caps, the time budgets, Stop, the location pin and the nearby-city suggestion. **Done
+   limits, the step and token caps, the time budgets, Stop, the location pin and the nearby-city suggestion. Until
+   step 4 makes `MCP · no auth` live, a chat starts on `REST · no auth`, the only live lane. **Done
    when:** the Paris question shows two chips labelled `REST · no auth` and an answer built from them on preview, and 5
-   golden questions pass.
+   golden questions pass (`npm run evals`).
 4. [ ] **MCP · no auth:** `/api/mcp` with `mcp-handler`, registering the same four tool definitions; and
    `lib/lanes/mcp-no-auth.ts`, with the bypass and request-id headers. **Done when:** the same question gets the same
    answer through MCP, the MCP Inspector lists and calls the tools on the preview URL, and the handshake and the hop

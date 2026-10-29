@@ -15,9 +15,14 @@
     "format": "biome check --write .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "evals": "vitest run --config vitest.evals.config.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "4.0.107",
+    "@ai-sdk/react": "4.0.160",
+    "@vercel/functions": "3.10.4",
+    "ai": "7.0.156",
     "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",

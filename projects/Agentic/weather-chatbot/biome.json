@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!next-env.d.ts", "!**/.next", "!**/*.md"]
+    "includes": ["**", "!next-env.d.ts", "!**/.next", "!**/*.md", "!tests/fixtures"]
   },
   "formatter": {
     "enabled": true,
@@ -88,7 +88,7 @@
       }
     },
     {
-      "includes": ["lib/chat/sample-conversation.ts", "tests/unit/utils.test.ts"],
+      "includes": ["lib/chat/lane-examples.ts", "tests/unit/utils.test.ts"],
       "linter": {
         "rules": {
           "style": {
@@ -100,6 +100,51 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["lib/upstream/open-meteo.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": {
+              "level": "error",
+              "options": {
+                "conventions": [
+                  { "selector": { "kind": "objectLiteralProperty" }, "formats": ["camelCase", "snake_case"] }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["lib/types.ts", "lib/weather/open-meteo-tools.ts", "lib/lanes/rest-no-auth.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": {
+              "level": "error",
+              "options": {
+                "conventions": [
+                  { "selector": { "kind": "objectLiteralProperty" }, "formats": ["camelCase", "snake_case"] },
+                  { "selector": { "kind": "typeProperty" }, "formats": ["camelCase", "snake_case"] }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["lib/logger.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
           }
         }
       }

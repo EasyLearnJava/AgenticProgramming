@@ -1,13 +1,16 @@
 /*
- * components/tool-chip.tsx: one tool call: what it asked, through which lane and to which host; opened, the request,
- * the input and the output.
+ * components/tool-chip.tsx: one tool call: what it asked and how it's going; once done, the lane, the host and the time.
+ * Opened, the request on the wire, the input and the output.
  */
 import type { ReactNode } from "react";
 import { LANE_BY_ID } from "@/lib/constants";
 import type { ToolCallView } from "@/lib/types";
-import { toHost, toWireText } from "@/lib/utils";
+import { formatDuration, toHost, toWireText } from "@/lib/utils";
 
 type ToolChipProps = { call: ToolCallView };
+
+const MARK_BY_STATUS = { running: "…", done: "✓", failed: "✗", stopped: "■" } as const;
+const WORD_BY_STATUS = { running: "Running", done: "Done", failed: "Failed", stopped: "Stopped" } as const;
 
 /** Shows a JSON value, or a sentence as it is. */
 function toDisplayText(value: unknown): string {
@@ -16,27 +19,45 @@ function toDisplayText(value: unknown): string {
 
 /** A tool call as a chip that opens; it's a <details> element, so it works with the keyboard and without script. */
 export function ToolChip({ call }: ToolChipProps): ReactNode {
+  const record = call.call;
   return (
-    <details className="tool-chip">
+    <details className={`tool-chip tool-chip-${call.status}`}>
       <summary>
         <span className="tool-chip-mark" aria-hidden="true">
-          ✓
+          {MARK_BY_STATUS[call.status]}
         </span>
-        <span className="visually-hidden">Done:</span>
+        <span className="visually-hidden">{WORD_BY_STATUS[call.status]}:</span>
         <code className="tool-chip-name">{call.tool}</code>
         <span className="tool-chip-input">{call.inputSummary}</span>
-        <span className="tool-chip-lane">
-          {LANE_BY_ID[call.laneId].label} · {toHost(call.wire.url)}
-        </span>
+        {record ? (
+          <span className="tool-chip-lane">
+            {LANE_BY_ID[record.laneId].label} · {toHost(record.wire.url)} ·{" "}
+            {record.cache === "hit" ? "from the cache" : formatDuration(record.durationMs)}
+          </span>
+        ) : null}
       </summary>
       <div className="tool-chip-body">
-        <p className="tool-chip-result">→ {call.resultSummary}</p>
-        <p className="tool-chip-label">On the wire</p>
-        <pre>{toWireText(call.wire)}</pre>
+        {call.resultSummary ? <p className="tool-chip-result">→ {call.resultSummary}</p> : null}
+        {call.errorText ? <p className="tool-chip-error">{call.errorText}</p> : null}
+        {record ? (
+          <>
+            <p className="tool-chip-label">On the wire</p>
+            {record.cache === "hit" ? (
+              <p className="tool-chip-note">
+                Answered from the cache: no request went out this time. This is the request that fetched it.
+              </p>
+            ) : null}
+            <pre>{toWireText(record.wire)}</pre>
+          </>
+        ) : null}
         <p className="tool-chip-label">Input</p>
-        <pre>{toDisplayText(call.input)}</pre>
-        <p className="tool-chip-label">Output</p>
-        <pre>{toDisplayText(call.output)}</pre>
+        <pre>{toDisplayText(call.input ?? "(still arriving)")}</pre>
+        {call.output === undefined ? null : (
+          <>
+            <p className="tool-chip-label">Output</p>
+            <pre>{toDisplayText(call.output)}</pre>
+          </>
+        )}
       </div>
     </details>
   );

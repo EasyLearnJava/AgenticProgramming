@@ -8,7 +8,7 @@ import type { DocEntry } from "@/lib/docs/doc-list";
 
 const DOCS_FOLDER = path.join(process.cwd(), "docs");
 
-/** Reads a documentation page's Markdown; it runs at build time, so every page is static. */
-export async function readDocMarkdown(doc: DocEntry): Promise<string> {
+/** Reads a page's Markdown, a step's or the issues log; it runs at build time, so every page is static. */
+export async function readDocMarkdown(doc: Pick<DocEntry, "slug">): Promise<string> {
   return readFile(path.join(DOCS_FOLDER, `${doc.slug}.md`), "utf8");
 }

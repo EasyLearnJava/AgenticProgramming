@@ -141,13 +141,19 @@ body {
   justify-content: space-between;
 }
 
+.chat-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .chat-title {
   margin: 0;
   font-size: 1.125rem;
   color: var(--bot-text);
 }
 
-.sample-note {
+.chat-subtitle {
   max-width: 52ch;
   margin: 4px 0 0;
   font-size: 0.875rem;
@@ -155,6 +161,7 @@ body {
 }
 
 .compare-toggle,
+.new-chat-button,
 .send-button {
   padding: 8px 14px;
   border: 1px solid var(--accent);
@@ -236,6 +243,12 @@ body {
   color: var(--bot-text);
 }
 
+/* A lane that isn't live yet: a dashed border, and no pointer; its text keeps full contrast. */
+.lane-option:has(input:disabled) {
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
 .messages {
   display: flex;
   flex-direction: column;
@@ -295,6 +308,102 @@ body {
   border-top-right-radius: 6px;
   background: var(--user-bubble);
   color: var(--user-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The bot's answers are Markdown: paragraphs and lists, spaced inside the bubble. */
+.bubble-bot > * {
+  margin: 0;
+}
+
+.bubble-bot > * + * {
+  margin-top: 8px;
+}
+
+.bubble-bot ul,
+.bubble-bot ol {
+  padding-left: 20px;
+}
+
+/* A line of small print under a message. */
+.message-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* A note under an answer, such as one a time budget cut short. */
+.message-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--warn);
+}
+
+/* The first message's questions to try. */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* While the first part of an answer is on its way. */
+.typing {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* The text keeps its contrast; the dot beside it pulses. */
+.typing::before {
+  content: "●" / "";
+  margin-right: 6px;
+  color: var(--bot-bubble);
+  animation: typing-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes typing-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing::before {
+    animation: none;
+  }
+}
+
+/* An answer that failed: the sentence, and Try again. */
+.chat-error {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--fail);
+  border-radius: 12px;
+  color: var(--fail);
+}
+
+.chat-error p {
+  margin: 0;
 }
 
 /* Tool chips: one per tool call; each opens to show the request on the wire, the input and the output. */
@@ -333,6 +442,25 @@ body {
 .tool-chip-mark {
   font-weight: 700;
   color: var(--ok);
+}
+
+.tool-chip-running .tool-chip-mark {
+  color: var(--warn);
+}
+
+.tool-chip-stopped .tool-chip-mark {
+  color: var(--muted);
+}
+
+.tool-chip-failed .tool-chip-mark,
+.tool-chip-error {
+  color: var(--fail);
+}
+
+.tool-chip-note {
+  margin: 0 0 6px;
+  font-size: 0.8125rem;
+  color: var(--muted);
 }
 
 .tool-chip-name {
@@ -399,45 +527,49 @@ body {
   color: var(--muted);
 }
 
-.weather-card .weather-card-summary {
-  margin-top: 6px;
-}
-
-.rain-bars {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+/* One row per day: the day, its condition, its temperatures, and a meter for its chance of rain. */
+.forecast-days {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  margin: 12px 0;
+  margin: 10px 0;
   padding: 0;
   list-style: none;
 }
 
-.rain-bar {
-  display: flex;
-  flex-direction: column;
+.forecast-day {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, auto) minmax(0, 1fr) auto minmax(7rem, auto);
+  gap: 4px 12px;
   align-items: center;
-  gap: 2px;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
-.rain-bar-track {
+.forecast-day-name {
+  font-weight: 600;
+}
+
+.forecast-day-rain {
   display: flex;
-  align-items: flex-end;
-  width: 100%;
-  height: 40px;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.rain-meter {
+  width: 48px;
+  height: 8px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--bg-mid);
 }
 
-.rain-bar-fill {
-  width: 100%;
-  min-height: 2px;
+.rain-meter-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
   background: var(--bot-bubble);
-}
-
-.rain-bar-hour {
-  color: var(--muted);
 }
 
 .weather-card-credit a {
@@ -662,6 +794,10 @@ body {
 
   .message {
     max-width: 100%;
+  }
+
+  .forecast-day {
+    grid-template-columns: 1fr auto;
   }
 
   .compare-grid {

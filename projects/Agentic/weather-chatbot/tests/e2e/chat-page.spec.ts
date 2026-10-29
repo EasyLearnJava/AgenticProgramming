@@ -1,67 +1,195 @@
 /*
- * tests/e2e/chat-page.spec.ts: the chat page in a real browser: the sample conversation, the tool chips' wire views
- * for each lane, the keyboard, the compare view, accessibility (axe) and a 360-pixel screen.
+ * tests/e2e/chat-page.spec.ts: the chat page in a real browser. /api/chat is answered in the browser with a recorded
+ * answer (tests/e2e/chat-stream.ts), so no model is called, here or against a live URL: the welcome, the lanes, an
+ * answer with its chips and weather card, a failure, Stop, the location pin, the nearby city, the compare view,
+ * accessibility (axe) and a 360-pixel screen.
  */
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+import {
+  ANSWER,
+  CUT_SHORT_STREAM_BODY,
+  FORECAST_URL,
+  PARIS_STREAM_BODY,
+  STREAM_HEADERS,
+} from "@/tests/e2e/chat-stream";
+
+const PARIS_QUESTION = "Do I need an umbrella in Paris tomorrow afternoon?";
+
+/** Answers the page's /api/chat with the recorded Paris answer, and keeps each request body it sent. */
+async function answerWithParis(page: Page): Promise<unknown[]> {
+  const bodies: unknown[] = [];
+  await page.route("**/api/chat", async (route) => {
+    bodies.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, headers: STREAM_HEADERS, body: PARIS_STREAM_BODY });
+  });
+  return bodies;
+}
+
+/** Asks the Paris question, from the welcome's questions to try, and waits for the answer. */
+async function askParis(page: Page): Promise<void> {
+  await page.getByRole("button", { name: PARIS_QUESTION }).click();
+  // In the conversation: the same words are also in the hidden announcement for screen readers.
+  await expect(page.getByRole("list", { name: "Conversation" }).getByText(ANSWER)).toBeVisible();
+}
 
 test.beforeEach(async ({ page }) => {
+  // A test that doesn't answer /api/chat itself gets a failed request, never the real model; a later route wins.
+  await page.route("**/api/chat", (route) => route.abort());
+  // No nearby city unless a test gives one: on a laptop there's none anyway.
+  await page.route("**/api/nearby-city", (route) => route.fulfill({ json: { city: null } }));
   await page.goto("/");
 });
 
-test("shows the sample conversation, with the menu and the build line", async ({ page }) => {
+test("shows the welcome and the questions to try, with the menu and the build line", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Chat" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("Do I need an umbrella in Paris tomorrow afternoon?")).toBeVisible();
-  await expect(page.getByText(/^No umbrella needed/)).toBeVisible();
+  await expect(page.getByText(/^Hi, I’m Nimbus/)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Questions to try" }).getByRole("button")).toHaveCount(3);
   await expect(page.getByText(/^Build/)).toBeVisible();
 });
 
-test("opens a tool chip to show the request on the wire, and switches it with the lane", async ({ page }) => {
-  // The forecast chip: its summary reads "… 2 days, hourly" on every lane.
-  const forecastChip = page
-    .locator("details.tool-chip")
-    .filter({ has: page.locator("summary", { hasText: "2 days, hourly" }) });
+test("starts on REST · no auth; the lanes that aren't live yet are switched off, with their step", async ({ page }) => {
+  await expect(page.getByLabel(/REST · no auth/)).toBeChecked();
+  for (const [label, step] of [
+    ["MCP · no auth", 4],
+    ["REST · with auth", 6],
+    ["MCP · with auth", 7],
+  ] as const) {
+    const lane = page.getByLabel(new RegExp(label));
+    await expect(lane).toBeDisabled();
+    await expect(page.locator(".lane-option", { has: lane })).toContainText(`live from step ${step}`);
+  }
+});
+
+test("answers: two chips with their lane and request, the answer, and the weather card", async ({ page }) => {
+  const bodies = await answerWithParis(page);
+  await askParis(page);
+  // The request carried the lane and the browser's locale.
+  expect(bodies[0]).toMatchObject({ laneId: "rest-no-auth", messages: [{ role: "user" }] });
+  expect(typeof (bodies[0] as { locale?: unknown }).locale).toBe("string");
+  // Each chip says which lane and host it went through, and how long it took.
+  const chips = page.locator("details.tool-chip");
+  await expect(chips).toHaveCount(2);
+  await expect(chips.nth(0).locator("summary")).toContainText("REST · no auth · geocoding-api.open-meteo.com · 0.3 s");
+  await expect(chips.nth(1).locator("summary")).toContainText("48.85, 2.35 · 2 days, hourly");
+  // A chip opens to show the request exactly as it went out.
+  const forecastChip = chips.nth(1);
   await expect(forecastChip).not.toHaveAttribute("open");
   await forecastChip.locator("summary").click();
   await expect(forecastChip).toHaveAttribute("open", "");
-  await expect(forecastChip.getByText("POST https://<this deployment>/api/mcp")).toBeVisible();
-  await expect(forecastChip.getByText('"method":"tools/call"')).toBeVisible();
-
-  // The same chip, still open, now shows the call through Apify's REST API, with the token.
-  await page.getByLabel(/REST · with auth/).check();
-  await expect(forecastChip).toHaveAttribute("open", "");
-  await expect(forecastChip.locator("summary")).toContainText("gochujang--open-meteo-weather-forecast");
-  await expect(forecastChip.locator("summary")).toContainText("api.apify.com");
-  await expect(forecastChip.getByText("Authorization: Bearer <APIFY_TOKEN>")).toBeVisible();
+  await expect(forecastChip.getByText(`GET ${FORECAST_URL}`)).toBeVisible();
+  // The weather card names the place geocoding found, with a row per day.
+  const card = page.getByRole("region", { name: "Forecast for Paris, Île-de-France Region, France" });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("Friday 30")).toBeVisible();
+  await expect(card.getByText("6 to 15 °C")).toBeVisible();
 });
 
-test("moves between the lanes with the arrow keys", async ({ page }) => {
-  const mcpNoAuth = page.getByLabel(/MCP · no auth/);
-  await expect(mcpNoAuth).toBeChecked();
-  await mcpNoAuth.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByLabel(/MCP · with auth/)).toBeChecked();
+test("shows the server's sentence when the chat can't answer, with Try again", async ({ page }) => {
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "text/plain",
+      headers: { "x-nimbus-error": "1" },
+      body: "The assistant isn't set up on this deployment yet.",
+    }),
+  );
+  await page.getByRole("button", { name: PARIS_QUESTION }).click();
+  // Ours: Next.js's route announcer is an alert too.
+  const alert = page.getByRole("alert").filter({ hasText: "isn't set up" });
+  await expect(alert).toContainText("The assistant isn't set up on this deployment yet.");
+  await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
-test("shows the same call through the four lanes, side by side", async ({ page }) => {
+test("turns Send into Stop while an answer is on its way, and Stop ends it", async ({ page }) => {
+  // The answer is held back until Stop has been pressed, then the request is dropped.
+  let release = (): void => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/chat", async (route) => {
+    await held;
+    await route.abort().catch(() => undefined);
+  });
+  await page.getByRole("button", { name: PARIS_QUESTION }).click();
+  await expect(page.getByText("Nimbus is checking the weather…")).toBeVisible();
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
+  await expect(page.getByText("Nimbus is checking the weather…")).toBeHidden();
+  release();
+});
+
+test("says when a time budget cut an answer short, and shows its unfinished tool call as stopped", async ({ page }) => {
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ status: 200, headers: STREAM_HEADERS, body: CUT_SHORT_STREAM_BODY }),
+  );
+  await page.getByRole("button", { name: PARIS_QUESTION }).click();
+  await expect(page.getByText(/This answer was cut short/)).toBeVisible();
+  const chip = page.locator("details.tool-chip");
+  await expect(chip).toHaveClass(/tool-chip-stopped/);
+  await expect(chip.locator("summary")).toContainText("Stopped:");
+  await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
+});
+
+test("shows one plain sentence for an error page that isn't the chat's own", async ({ page }) => {
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ status: 504, contentType: "text/plain", body: "FUNCTION_INVOCATION_TIMEOUT iad1::abc123" }),
+  );
+  await page.getByRole("button", { name: PARIS_QUESTION }).click();
+  const alert = page.getByRole("alert").filter({ hasText: "couldn't be reached" });
+  await expect(alert).toContainText("The chat couldn't be reached. Please try again.");
+  await expect(page.getByText(/FUNCTION_INVOCATION_TIMEOUT/)).toHaveCount(0);
+});
+
+test("starts a new chat: the conversation goes, and the welcome comes back", async ({ page }) => {
+  await answerWithParis(page);
+  await askParis(page);
+  await page.getByRole("button", { name: "New chat" }).click();
+  await expect(page.getByText(/^Hi, I’m Nimbus/)).toBeVisible();
+  await expect(page.locator("details.tool-chip")).toHaveCount(0);
+});
+
+test("suggests a question about the nearby city, saying it's only a guess", async ({ page }) => {
+  await page.route("**/api/nearby-city", (route) => route.fulfill({ json: { city: "Dallas" } }));
+  await page.reload();
+  await expect(page.getByRole("button", { name: "What's the weather in Dallas this weekend?" })).toBeVisible();
+  await expect(page.getByText(/Dallas is a guess from your network’s location/)).toBeVisible();
+});
+
+test.describe("the location pin", () => {
+  test.use({ geolocation: { latitude: 48.85341, longitude: 2.3488 }, permissions: ["geolocation"] });
+
+  test("puts your location, rounded to about 1 km, into the question", async ({ page }) => {
+    await page.getByRole("button", { name: "Use my location" }).click();
+    await expect(page.getByLabel("Your question")).toHaveValue("What's the weather at my location (48.85, 2.35)?");
+    await expect(page.getByText(/rounded to about 1 km: 48.85, 2.35/)).toBeVisible();
+  });
+});
+
+test("shows the same forecast call through the four lanes, side by side", async ({ page }) => {
   await page.getByRole("button", { name: "Compare the four lanes" }).click();
   const cells = page.locator(".compare-cell");
   await expect(cells).toHaveCount(4);
-  await expect(cells.nth(0).getByText("GET https://api.open-meteo.com/v1/forecast")).toBeVisible();
-  await expect(cells.nth(3).getByText("POST https://mcp.apify.com/")).toBeVisible();
+  await expect(cells.nth(0).getByText(`GET ${FORECAST_URL}`)).toBeVisible();
+  await expect(cells.nth(0)).toContainText("Live: ask in the chat on this lane");
+  await expect(cells.nth(3)).toContainText("Live from step 7");
 });
 
-test("has no accessibility violations, with a chip and the compare view open", async ({ page }) => {
+test("has no accessibility violations, with an answer, an open chip and the compare view", async ({ page }) => {
+  await answerWithParis(page);
+  await askParis(page);
   await page.locator("details.tool-chip summary").first().click();
   await page.getByRole("button", { name: "Compare the four lanes" }).click();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
 
-test("fits the screen without scrolling sideways", async ({ page }) => {
+test("fits the screen without scrolling sideways, with an answer and the compare view", async ({ page }) => {
+  await answerWithParis(page);
+  await askParis(page);
+  await page.locator("details.tool-chip summary").nth(1).click();
   await page.getByRole("button", { name: "Compare the four lanes" }).click();
-  await page.locator("details.tool-chip summary").first().click();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

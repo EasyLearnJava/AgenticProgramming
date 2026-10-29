@@ -1,8 +1,8 @@
 /*
- * lib/constants.ts: every fixed value the app uses, by name. For now the four lanes; limits and time budgets come with
- * the steps that use them.
+ * lib/constants.ts: every fixed value the app uses, by name: the lanes, the chat's limits, the time budgets, the cache
+ * times and Open-Meteo's addresses. Each name ends with its unit.
  */
-import type { LaneId, LaneInfo } from "@/lib/types";
+import type { LaneId, LaneInfo, LiveLaneId } from "@/lib/types";
 
 // ① The four lanes: which door, which auth, where the call goes, and the build step that makes each one live.
 export const LANE_BY_ID: Readonly<Record<LaneId, LaneInfo>> = {
@@ -48,5 +48,59 @@ export const LANE_GRID: readonly (readonly [LaneId, LaneId])[] = [
 
 export const LANE_IDS: readonly LaneId[] = LANE_GRID.flat();
 
-// ③ The lane a new chat starts on (PLAN.md, decision 8).
-export const DEFAULT_LANE_ID: LaneId = "mcp-no-auth";
+// ③ The lanes that answer for real, and the one a new chat starts on. The plan's default is MCP · no auth
+// (PLAN.md 4.5); until step 4 makes it live, a chat starts on the only live lane.
+export const LIVE_LANE_IDS: readonly LiveLaneId[] = ["rest-no-auth"];
+export const DEFAULT_LANE_ID: LiveLaneId = "rest-no-auth";
+
+// ④ What one chat request may carry (PLAN.md 9.2, InputError): messages, each of yours, and the whole history.
+export const MAX_MESSAGES = 20;
+export const MAX_MESSAGE_CHARS = 2000;
+export const MAX_HISTORY_CHARS = 200_000;
+
+// ⑤ One answer: at most 5 steps (model calls), and a cap on what the model writes.
+export const MAX_STEPS = 5;
+export const MAX_OUTPUT_TOKENS = 2000;
+
+// ⑥ The time budgets (PLAN.md 9.3): the whole answer, the model's first chunk, and a tool call on a no-auth lane.
+export const ANSWER_TIMEOUT_MS = 50_000;
+export const FIRST_CHUNK_TIMEOUT_MS = 10_000;
+export const TOOL_TIMEOUT_MS = 8000;
+
+// ⑦ Each call to Open-Meteo: 3 s a try, two tries, a short random wait between; a 429 is retried only when its
+// Retry-After fits in the tool's budget.
+export const OPEN_METEO_TRY_TIMEOUT_MS = 3000;
+export const OPEN_METEO_TRIES = 2;
+export const RETRY_WAIT_MAX_MS = 500;
+export const RETRY_AFTER_MAX_MS = 1500;
+
+// ⑧ How long Open-Meteo's answers stay in the Runtime Cache (PLAN.md 7.6): 30 days, 10 minutes, 30 minutes.
+export const GEOCODE_CACHE_TTL_SECONDS = 2_592_000;
+export const CURRENT_WEATHER_CACHE_TTL_SECONDS = 600;
+export const FORECAST_CACHE_TTL_SECONDS = 1800;
+export const AIR_QUALITY_CACHE_TTL_SECONDS = 1800;
+
+// ⑨ The tools' limits: places per search, forecast days, the days an hourly forecast covers, and coordinates.
+export const DEFAULT_PLACE_COUNT = 5;
+export const MAX_PLACE_COUNT = 10;
+export const MAX_QUERY_CHARS = 100;
+export const MAX_FORECAST_DAYS = 16;
+export const MAX_HOURLY_DAYS = 3;
+export const COORDINATE_DECIMALS = 2;
+export const MAX_LATITUDE_DEGREES = 90;
+export const MAX_LONGITUDE_DEGREES = 180;
+
+// ⑩ Open-Meteo's three APIs (PLAN.md 7.6).
+export const OPEN_METEO_GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
+export const OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+export const OPEN_METEO_AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality";
+
+// ⑪ The app's own addresses: the chat, and the nearby city for a suggested question. The chat marks its own error
+// responses with a header, so the page can tell them from Vercel's.
+export const CHAT_API_PATH = "/api/chat";
+export const NEARBY_CITY_API_PATH = "/api/nearby-city";
+export const OWN_ERROR_HEADER = "x-nimbus-error";
+
+// ⑫ "Use my location": a position the browser found in the last 10 minutes will do; give up after 10 s.
+export const LOCATION_MAX_AGE_MS = 600_000;
+export const LOCATION_TIMEOUT_MS = 10_000;

@@ -1,5 +1,6 @@
 /*
- * components/side-menu.tsx: the menu on the left: the chat, the documentation, and which build is running.
+ * components/side-menu.tsx: the menu on the left: the chat, the documentation, the issues log, and which build is
+ * running.
  */
 "use client";
 
@@ -12,6 +13,7 @@ type SideMenuProps = { buildLabel: string };
 const MENU_ITEMS = [
   { href: "/", label: "Chat" },
   { href: "/docs", label: "Documentation" },
+  { href: "/issues", label: "Issues and fixes" },
 ] as const;
 
 /** How a menu link relates to the address: it's the page itself, a section the page is in, or neither. */

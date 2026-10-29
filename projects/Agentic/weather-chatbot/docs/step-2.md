@@ -4,6 +4,9 @@
 tool chips with their path labels and wire views, the weather card, the 2×2 lane picker and the compare view. Nothing
 calls a model or a weather service yet; that starts in step 3.
 
+> **Since step 3,** the chat is live, so the sample conversation is gone; the components, the lane picker and the
+> compare view remain, and [step 3](step-3.md) says what changed.
+
 ## What you see
 
 - **The sample conversation:** the plan's question, "Do I need an umbrella in Paris tomorrow afternoon?", answered with

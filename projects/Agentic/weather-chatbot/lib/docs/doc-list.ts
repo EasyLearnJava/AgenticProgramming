@@ -22,7 +22,18 @@ export const DOC_PAGES: readonly DocEntry[] = [
       "The chat page from a sample conversation: tool chips with their wire views, the 2×2 lane picker, the weather " +
       "card, the compare view, and end-to-end tests in a real browser.",
   },
+  {
+    slug: "step-3",
+    step: 3,
+    title: "The Live Chat, Through REST · No Auth",
+    summary:
+      "Gemini answers with our four weather tools, which call Open-Meteo directly: the chat route, the tools, the " +
+      "ambiguity rule, time limits, retries and the cache, Stop, the location pin, and the golden questions.",
+  },
 ];
+
+// ② The issues log, docs/issues.md: the problems met in each step, and their fixes; it has its own menu link.
+export const ISSUES_SLUG = "issues";
 
 /** Finds a documentation page by its slug. */
 export function findDoc(slug: string): DocEntry | undefined {

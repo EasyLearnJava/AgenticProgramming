@@ -1,8 +1,9 @@
 /*
- * tests/unit/constants.test.ts: the four lanes are described once each, and the 2×2 grid holds each of them once.
+ * tests/unit/constants.test.ts: the four lanes are described once each, the 2×2 grid holds each of them once, and a
+ * chat starts on a live lane.
  */
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LANE_ID, LANE_BY_ID, LANE_GRID, LANE_IDS } from "@/lib/constants";
+import { DEFAULT_LANE_ID, LANE_BY_ID, LANE_GRID, LANE_IDS, LIVE_LANE_IDS } from "@/lib/constants";
 
 describe("the lanes", () => {
   it("describes each lane under its own id", () => {
@@ -19,7 +20,14 @@ describe("the lanes", () => {
     }
   });
 
-  it("starts a new chat on MCP without auth", () => {
-    expect(DEFAULT_LANE_ID).toBe("mcp-no-auth");
+  it("starts a new chat on REST · no auth, the only live lane until step 4 makes MCP · no auth live", () => {
+    expect(LIVE_LANE_IDS).toEqual(["rest-no-auth"]);
+    expect(LIVE_LANE_IDS).toContain(DEFAULT_LANE_ID);
+  });
+
+  it("marks each live lane with a step that's already built", () => {
+    for (const id of LIVE_LANE_IDS) {
+      expect(LANE_BY_ID[id].builtInStep).toBeLessThanOrEqual(3);
+    }
   });
 });

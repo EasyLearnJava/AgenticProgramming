@@ -2,7 +2,8 @@
  * components/compare-grid.tsx: the compare view: the same forecast call through all four lanes, side by side.
  */
 import type { ReactNode } from "react";
-import type { CompareCell } from "@/lib/types";
+import { LIVE_LANE_IDS } from "@/lib/constants";
+import type { CompareCell, LaneId } from "@/lib/types";
 import { toWireText } from "@/lib/utils";
 
 type CompareGridProps = { cells: readonly CompareCell[] };
@@ -26,7 +27,9 @@ export function CompareGrid({ cells }: CompareGridProps): ReactNode {
             </p>
             <pre>{toWireText(cell.wire)}</pre>
             <p className="compare-note">
-              The answer, its time and its cost: live once this lane is built, in step {cell.lane.builtInStep}.
+              {(LIVE_LANE_IDS as readonly LaneId[]).includes(cell.lane.id)
+                ? "Live: ask in the chat on this lane, then open the forecast chip to see the request it really sent."
+                : `Live from step ${cell.lane.builtInStep}; until then, this is the request it will send.`}
             </p>
           </article>
         ))}

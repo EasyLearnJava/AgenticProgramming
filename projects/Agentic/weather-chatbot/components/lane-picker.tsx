@@ -1,16 +1,22 @@
 /*
- * components/lane-picker.tsx: the 2×2 lane picker: REST or MCP, without or with auth.
+ * components/lane-picker.tsx: the 2×2 lane picker: REST or MCP, without or with auth. A lane that isn't live yet is
+ * shown, switched off, with the build step that makes it live.
  */
 import { Fragment, type ReactNode } from "react";
-import { LANE_BY_ID, LANE_GRID } from "@/lib/constants";
-import type { LaneId } from "@/lib/types";
+import { LANE_BY_ID, LANE_GRID, LIVE_LANE_IDS } from "@/lib/constants";
+import type { LaneId, LiveLaneId } from "@/lib/types";
 
-type LanePickerProps = { value: LaneId; onChange: (laneId: LaneId) => void };
+type LanePickerProps = { value: LiveLaneId; onChange: (laneId: LiveLaneId) => void };
 
 const ROW_LABELS = ["REST", "MCP"] as const;
 const COLUMN_LABELS = ["No auth", "With auth"] as const;
 
-/** Radio buttons laid out as the plan's 2×2; the arrow keys move between them. */
+/** Whether a lane answers for real yet. */
+function isLive(laneId: LaneId): laneId is LiveLaneId {
+  return (LIVE_LANE_IDS as readonly LaneId[]).includes(laneId);
+}
+
+/** Radio buttons laid out as the plan's 2×2; the arrow keys move between the live ones. */
 export function LanePicker({ value, onChange }: LanePickerProps): ReactNode {
   return (
     <fieldset className="lane-picker">
@@ -36,11 +42,14 @@ export function LanePicker({ value, onChange }: LanePickerProps): ReactNode {
                     name="lane"
                     value={laneId}
                     checked={value === laneId}
-                    onChange={() => onChange(laneId)}
+                    disabled={!isLive(laneId)}
+                    onChange={() => (isLive(laneId) ? onChange(laneId) : undefined)}
                   />
                   <span className="lane-option-text">
                     <span>{lane.label}</span>
-                    <span className="lane-option-step">live from step {lane.builtInStep}</span>
+                    <span className="lane-option-step">
+                      {isLive(laneId) ? "live" : `live from step ${lane.builtInStep}`}
+                    </span>
                   </span>
                 </label>
               );

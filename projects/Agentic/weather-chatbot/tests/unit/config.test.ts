@@ -24,4 +24,16 @@ describe("parseConfig", () => {
   it("rejects an environment name Vercel doesn't use", () => {
     expect(() => parseConfig({ VERCEL_ENV: "staging" })).toThrow();
   });
+
+  it("uses gemini-3.5-flash-lite unless CHAT_MODEL names another model, and has no key unless one is set", () => {
+    expect(parseConfig({}).chat).toEqual({ googleApiKey: undefined, model: "gemini-3.5-flash-lite" });
+    expect(parseConfig({ GOOGLE_API_KEY: "", CHAT_MODEL: "" }).chat).toEqual({
+      googleApiKey: undefined,
+      model: "gemini-3.5-flash-lite",
+    });
+    expect(parseConfig({ GOOGLE_API_KEY: "test-key", CHAT_MODEL: "gemini-other" }).chat).toEqual({
+      googleApiKey: "test-key",
+      model: "gemini-other",
+    });
+  });
 });
