@@ -237,7 +237,7 @@ def test_a_questions_trace_holds_every_stage_and_line_in_timeline_order(traced):
     assert (trace["trace_id"], trace["dropped"]) == (response.headers["x-trace-id"], 0)
     assert [(event["span"], event["depth"]) for event in events if event["span"]] == [
         ("pipeline.query", 0), ("retrieval.retrieve", 1), ("embeddings.embed_query", 2), ("vectordb.search", 2),
-        ("llm.generate", 1)]
+        ("prompts.build", 1), ("llm.generate", 1)]
     messages = [event["message"] for event in events]
     assert messages[0] == "Request started" and messages[-1] == "Request finished"
     assert [message for message in messages if message in ("Question", "Prompt", "Answer")] == [
@@ -260,6 +260,9 @@ def test_a_trace_shows_the_chunks_found_the_prompt_and_the_models_tokens(traced)
     generate = next(event for event in events if event["span"] == "llm.generate")
     assert {key: generate["fields"][key] for key in ("input_tokens", "output_tokens", "finish_reason")} == {
         "input_tokens": 950, "output_tokens": 12, "finish_reason": "STOP"}
+    build = next(event for event in events if event["span"] == "prompts.build")       # filling in the prompt
+    assert (build["fields"]["chunks"], build["fields"]["prompt_version"]) == (5, "answer-v1")
+    assert build["fields"]["prompt_chars"] == sum(len(message["content"]) for message in prompt["messages"])
 
 
 def test_a_failed_questions_trace_shows_where_it_failed_and_why(traced, monkeypatch):
@@ -326,7 +329,13 @@ def test_the_request_line_is_written_before_the_last_bytes_go_out(logs):
     assert logs.messages().count("Request finished") == 1
 
 
-def test_the_page_reads_each_answers_trace():
+def test_the_page_reads_each_answers_trace_into_its_boxes():
     script = (PROJECT_DIR / "static" / "app.js").read_text(encoding="utf-8")
     assert "fetch(`/api/v1/traces/${encodeURIComponent(traceId)}`)" in script
-    assert "info.build_trace_id" in script and "Behind the scenes" in script
+    assert "info.build_trace_id" in script
+    for title in ("The answer", "What went wrong", "Pipeline", "Time per step", "Calls", "Logs",
+                  "What the model was given"):
+        assert f'"{title}"' in script                  # each box's title
+    styles = (PROJECT_DIR / "static" / "styles.css").read_text(encoding="utf-8")
+    assert ".boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));" in styles   # two per row
+    assert "@media (max-width: 960px)" in styles                                                     # one, narrow

@@ -103,8 +103,8 @@ def test_every_line_of_a_question_carries_its_trace_id_stage_by_stage(engine, lo
         asyncio.run(engine.aquery("My VPN won't connect"))
     lines = [record for record in logs.records if record.getMessage().endswith(" ok")]
     assert [record.getMessage() for record in lines] == [
-        "embeddings.embed_query ok", "vectordb.search ok", "retrieval.retrieve ok", "llm.generate ok",
-        "pipeline.query ok"]
+        "embeddings.embed_query ok", "vectordb.search ok", "retrieval.retrieve ok", "prompts.build ok",
+        "llm.generate ok", "pipeline.query ok"]
     assert {record.trace_id for record in logs.records} == {trace_id}
     query = logs.find("pipeline.query ok")
     assert (query.question_chars, query.sources, query.prompt_version) == (20, 3, "answer-v1")
@@ -117,6 +117,13 @@ def test_the_question_and_answer_text_are_logged_only_at_debug(engine, logs):
 
 
 # --- The parts config.yaml names ---
+
+def test_making_the_engine_is_a_stage_of_its_own(logs):
+    create_engine(load_settings(), SecretStr("fake-key"))
+    record = logs.find("pipeline.create ok")
+    assert (record.embedding_model, record.chat_model) == ("gemini-embedding-001", "gemini-3.5-flash-lite")
+    assert (record.embeddings, record.llm, record.vectordb) == ("google", "google", "qdrant")
+
 
 def test_the_factory_wires_the_parts_config_yaml_names():
     engine = create_engine(load_settings(), SecretStr("fake-key"))      # nothing is read and no call is made

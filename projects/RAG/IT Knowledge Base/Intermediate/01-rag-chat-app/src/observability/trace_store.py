@@ -3,7 +3,7 @@ IT Knowledge Base: The Trace Store
 ==================================
 
 Keeps the log lines of the newest traces in memory, so each one can be read back by its trace ID: the chat page shows
-every answer's trace under it ("Behind the scenes"), from GET /api/v1/traces/{trace_id}. It handles:
+each request's trace in boxes beside its answer, from GET /api/v1/traces/{trace_id}. It handles:
   1. Collecting each log line under its trace, as one more handler of the logging system: whatever module or library
      wrote it, from any task or worker thread. The app's lines are kept from DEBUG up, the libraries' from INFO up
   2. Keeping the newest max_traces traces, and up to MAX_EVENTS lines each; a pinned trace (the start-up build's) is

@@ -98,8 +98,8 @@ def test_the_printed_trace_id_finds_the_questions_lines_in_the_log(config, stand
     printed = capsys.readouterr()
     trace_id = printed.out.split("trace ID: ")[1].split()[0]
     traced = [line.split(": ", 1)[1].split("  ")[0] for line in printed.err.splitlines() if f"[{trace_id}]" in line]
-    assert traced == ["embeddings.embed_query ok", "vectordb.search ok", "retrieval.retrieve ok", "llm.generate ok",
-                      "pipeline.query ok"]
+    assert traced == ["embeddings.embed_query ok", "vectordb.search ok", "retrieval.retrieve ok", "prompts.build ok",
+                      "llm.generate ok", "pipeline.query ok"]
     build = {line.split("[")[1].split("]")[0] for line in printed.err.splitlines() if "pipeline.build ok" in line}
     assert len(build) == 1 and trace_id not in build          # the build has a trace ID of its own
     assert not (tmp_path / "app.log").exists()                # the log file is the server's: ask writes the console
@@ -151,7 +151,7 @@ def test_serve_keeps_traces_and_the_builds_for_good(config, stand_ins, restore_l
     store, engine = calls[0].state.trace_store, calls[0].state.engine
     assert isinstance(store, TraceStore) and store.max_traces == 200
     build = store.get(engine.build_trace_id)["events"]
-    assert next(event["span"] for event in build if event["span"]) == "pipeline.build"
+    assert [event["span"] for event in build if event["span"]][:2] == ["pipeline.create", "pipeline.build"]
     for trace_id in (f"later-{number}" for number in range(201)):      # 201 more traces: the build's stays
         with trace_context(trace_id):
             logging.getLogger("src.test").info("A request")

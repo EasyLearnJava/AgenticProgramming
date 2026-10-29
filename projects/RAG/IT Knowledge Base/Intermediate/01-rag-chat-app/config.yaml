@@ -62,8 +62,8 @@ logging:
   backup_count: 5                        # ...keeping app.log.1 to app.log.5
 
 tracing:
-  enabled: true                          # keep each API request's log lines in memory, for the page's "Behind the
-                                         # scenes" panels (GET /api/v1/traces/{trace_id}). Anyone with a trace ID can
+  enabled: true                          # keep each API request's log lines in memory, for the page's boxes
+                                         # (GET /api/v1/traces/{trace_id}). Anyone with a trace ID can
                                          # read that trace: the question, the prompt, the answer, any error. Turn it
                                          # off, or put the API behind a login, before the app is shared
   max_traces: 200                        # the newest kept; the start-up build's is always kept

@@ -134,13 +134,16 @@ class RAGEngine:
 
     @staticmethod
     def _messages(found: list[Document], question: str) -> list:
-        """What the model gets: the prompt, filled in with the chunks found and the question; logged at DEBUG, so a
-        trace shows exactly what the model was given."""
-        messages = ANSWER_PROMPT.format_messages(context=format_context(found), question=question)
-        logger.debug("Prompt", extra={"prompt_version": PROMPT_VERSION, "chunks": len(found),
-                                      "messages": [{"role": message.type, "content": message.content}
-                                                   for message in messages]})
-        return messages
+        """What the model gets: the prompt, filled in with the chunks found and the question. A stage of its own, so
+        it has its place in the trace's order; the messages are logged at DEBUG, so a trace shows exactly what the
+        model was given."""
+        with span("prompts.build", prompt_version=PROMPT_VERSION, chunks=len(found)) as fields:
+            messages = ANSWER_PROMPT.format_messages(context=format_context(found), question=question)
+            fields["prompt_chars"] = sum(len(message.content) for message in messages)
+            logger.debug("Prompt", extra={"prompt_version": PROMPT_VERSION, "chunks": len(found),
+                                          "messages": [{"role": message.type, "content": message.content}
+                                                       for message in messages]})
+            return messages
 
     def _result(self, found: list[Document], response: LLMResponse, fields: dict) -> QueryResult:
         """The answer, and the first max_sources different articles among the chunks found."""

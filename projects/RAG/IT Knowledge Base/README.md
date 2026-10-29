@@ -71,7 +71,7 @@ Models and Embeddings in RAGs.
 
 | Project | What it adds to Basic 10's app | Run it |
 |---|---|---|
-| `01-rag-chat-app` | The same answers, from a production-grade codebase: one package per layer behind interfaces, chosen in one place (`factory.py`); every setting in `config.yaml`, checked at start-up; typed errors, answered in one JSON shape; a trace ID on every log line of each request, a timed span per stage, and JSON logs in `logs/app.log`; under each answer on the page, a "Behind the scenes" panel with that request's trace: each stage on a timeline, each call to Gemini, the chunks found, the prompt and every log line; timeouts, retries and a deadline on every call to Gemini; health checks and a content security policy | `python main.py` |
+| `01-rag-chat-app` | The same answers, from a production-grade codebase: one package per layer behind interfaces, chosen in one place (`factory.py`); every setting in `config.yaml`, checked at start-up; typed errors, answered in one JSON shape; a trace ID on every log line of each request, a timed span per stage, and JSON logs in `logs/app.log`; on the page, each request as a row of boxes: the answer, its pipeline (each step in order, with its time), its time per step, its calls counted by kind, its logs and what the model was given; timeouts, retries and a deadline on every call to Gemini; health checks and a content security policy | `python main.py` |
 
 ### Advanced
 

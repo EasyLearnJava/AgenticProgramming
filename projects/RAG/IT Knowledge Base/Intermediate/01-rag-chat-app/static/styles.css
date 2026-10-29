@@ -20,6 +20,9 @@
   --error-soft: rgba(207, 51, 80, 0.09);
   --warn: #b26a00;
   --ok: #148a63;
+  --kind-model: #6d5efc;          /* a call to a model */
+  --kind-store: #19b5cc;          /* a call to the vector store */
+  --kind-app: #a3a9b8;            /* the app's own work */
   --shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 18px 40px -18px rgba(17, 24, 39, 0.25);
   --radius: 20px;
   --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -43,6 +46,9 @@
     --error-soft: rgba(255, 112, 136, 0.12);
     --warn: #f2b14c;
     --ok: #4ad6a0;
+    --kind-model: #7f72f5;
+    --kind-store: #1a9cb0;
+    --kind-app: #5d6479;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 22px 48px -20px rgba(0, 0, 0, 0.7);
   }
 }
@@ -84,10 +90,12 @@ body::after {
   mask-image: linear-gradient(to bottom, #000, transparent 75%);
 }
 
-main { max-width: 780px; margin: 0 auto; padding: 56px 16px 72px; }
+main { max-width: 1360px; margin: 0 auto; padding: 56px 16px 72px; }
+main > header, .composer, .meta, .samples, #empty, footer { max-width: 780px; margin-left: auto; margin-right: auto; }
 
 /* The header: the mark, the title, and the line about the knowledge base */
-header { text-align: center; margin-bottom: 30px; }
+main > header { text-align: center; margin-bottom: 30px; }
+.composer { max-width: 780px; }
 .mark {
   display: inline-grid;
   place-items: center;
@@ -189,7 +197,8 @@ h1 span {
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  margin: 12px 6px 0;
+  margin: 12px auto 0;
+  padding: 0 6px;
   color: var(--faint);
   font-size: 0.88rem;
 }
@@ -207,8 +216,8 @@ h1 span {
 #counter { flex: none; font-variant-numeric: tabular-nums; }
 
 /* The sample questions: click one to ask it */
-.samples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 22px 0 34px; }
-.chip {
+.samples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 22px auto 34px; }
+.chip-button {
   padding: 7px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -220,13 +229,13 @@ h1 span {
   backdrop-filter: blur(10px);
   transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s;
 }
-.chip:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+.chip-button:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
 
 /* Before the first answer */
-#empty { margin: 40px 0; color: var(--faint); text-align: center; }
+#empty { margin: 40px auto; color: var(--faint); text-align: center; }
 
-/* One card per answer, newest first */
-#answers { display: grid; gap: 18px; }
+/* One request per row of boxes, newest first */
+#answers { display: grid; gap: 22px; }
 .card { padding: 24px 26px; animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(0.99); } }
 .card-label {
@@ -301,113 +310,258 @@ h1 span {
 
 footer { margin-top: 48px; color: var(--faint); font-size: 0.82rem; text-align: center; }
 
-/* Under each answer: its trace ID, to find its log lines by, and how long it took */
-.card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 18px 0 0;
-  color: var(--faint);
-  font-size: 0.8rem;
-}
+/* Under each answer's head: its trace ID, to find its log lines by */
 .trace-id {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   user-select: all;
 }
 #status .trace-id { margin-left: 6px; }
 
-/* A failed question's card: what went wrong, in the error colour */
-.card-error { margin: 0; color: var(--error); font-size: 1rem; }
-
-/* Behind the scenes: a request's trace, at the end of its card (and the build's, under the header) */
-#build { max-width: 640px; margin: 14px auto 0; text-align: left; }
-.trace { margin-top: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-solid); }
-#build .trace { margin-top: 0; }
-.trace > summary {
+/* ---------------------------------------------------------------------------------------------------------------
+   One request: a head (the question, how it went), then its boxes, two side by side
+   --------------------------------------------------------------------------------------------------------------- */
+.request { margin: 0; animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#build .request { margin-bottom: 26px; }
+.request-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  padding: 10px 14px;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 10px 4px 12px;
   cursor: pointer;
   list-style: none;
-  font-size: 0.85rem;
 }
-.trace > summary::-webkit-details-marker { display: none; }
-.trace > summary::before { content: "▸"; color: var(--accent); transition: transform 0.15s; }
-.trace[open] > summary::before { transform: rotate(90deg); }
-.trace-title { margin-right: 4px; font-weight: 700; }
-.trace-badge {
-  padding: 1px 9px;
-  border-radius: 999px;
-  background: var(--accent-soft);
+.request-head::-webkit-details-marker { display: none; }
+.request-head::before { content: "▸"; color: var(--accent); transition: transform 0.15s; }
+.request[open] > .request-head::before { transform: rotate(90deg); }
+.request-label {
   color: var(--accent);
   font-size: 0.74rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
-.trace-body { padding: 0 14px 14px; }
-.trace-help { margin: 0 0 10px; color: var(--faint); font-size: 0.8rem; }
-.trace-waiting { margin: 14px 0 0; color: var(--faint); font-size: 0.85rem; }
-
-/* The timeline: one row per stage, indented under the stage it's part of, with a bar on one time scale */
-.steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.step { padding-left: calc(var(--depth, 0) * 18px); }
-.step-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 0.86rem; }
-.step-name { font-weight: 600; overflow-wrap: anywhere; }
-.step-kind {
-  padding: 0 7px;
+.request-question { font-size: 1.18rem; font-weight: 650; letter-spacing: -0.01em; }
+.request-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.chip {
+  padding: 2px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
+  background: var(--card-solid);
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.78rem;
 }
-.step-span { color: var(--faint); font-size: 0.72rem; }
-.step-time { margin-left: auto; color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
-.step-bar { position: relative; height: 6px; margin: 4px 0 2px; border-radius: 3px; background: var(--line); }
-.step-bar span {
+.chip-ok { border-color: var(--ok); }
+.chip-failed { border-color: var(--error); }
+.chip-ok::before { content: "✓ "; color: var(--ok); }
+.chip-failed::before { content: "✕ "; color: var(--error); }
+
+/* Two boxes per row on a wide screen, one on a narrow one; each row as tall as its taller box */
+.boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.boxes > .box:only-child { grid-column: 1 / -1; }
+.box {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card-solid);
+  box-shadow: var(--shadow);
+}
+.box-head { display: flex; align-items: center; gap: 10px; }
+.box-number {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.box-title { margin: 0; font-size: 1rem; letter-spacing: -0.01em; }
+.box-help { margin: 6px 0 12px; color: var(--faint); font-size: 0.82rem; line-height: 1.5; }
+.headline { margin: 0 0 10px; font-size: 0.9rem; font-weight: 600; }
+.failure { display: flex; gap: 8px; margin: 4px 0 8px; font-size: 1.02rem; }
+.failure .outcome-icon { color: var(--error); font-weight: 700; }
+.where { margin: 4px 0 8px; font-size: 0.9rem; }
+.source-score { margin-left: auto; color: var(--faint); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+
+/* The colours of the three kinds of work: a swatch beside a label, never the colour alone */
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 12px; }
+.kind-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.74rem; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--kind-app); }
+[data-kind="model"] { --kind: var(--kind-model); }
+[data-kind="store"] { --kind: var(--kind-store); }
+[data-kind="app"] { --kind: var(--kind-app); }
+.swatch[data-kind] { background: var(--kind); }
+.outcome-label { display: inline-flex; align-items: center; gap: 4px; color: var(--text); font-size: 0.74rem; font-weight: 600; }
+.outcome-label[data-status="failed"] .outcome-icon { color: var(--error); }
+.outcome-label[data-status="cancelled"] .outcome-icon { color: var(--warn); }
+
+/* A bar on one time scale: a hairline track, and a thin fill with a rounded end */
+.track { position: relative; display: block; height: 8px; border-radius: 4px; background: var(--line); }
+.fill { position: absolute; top: 0; bottom: 0; min-width: 3px; border-radius: 4px; background: var(--kind, var(--kind-app)); }
+.fill[data-status="failed"] { background: var(--error); }
+.fill[data-status="cancelled"] { background: var(--warn); }
+
+/* 2. The pipeline: numbered steps down a line, in the order they ran */
+.pipeline { position: relative; display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.pipe-step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; }
+.pipe-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  bottom: -14px;
+  left: 13px;
+  width: 2px;
+  background: var(--line);
+}
+.pipe-marker {
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--kind, var(--kind-app));
+  box-shadow: 0 0 0 2px var(--card-solid);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.pipe-step[data-status="failed"] .pipe-marker { background: var(--error); }
+.pipe-step[data-status="cancelled"] .pipe-marker { background: var(--warn); }
+.pipe-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-bottom: 5px; }
+.pipe-name { font-size: 0.9rem; font-weight: 650; }
+.pipe-time { margin-left: auto; color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.pipe-detail { margin: 5px 0 0; color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+
+/* 3. The time per step: a name column, the time scale, a duration column */
+.gantt { display: grid; gap: 7px; margin-bottom: 12px; }
+.gantt-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 40%) minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+.gantt-name { color: var(--text); line-height: 1.3; overflow-wrap: anywhere; }
+.gantt-row[data-status="failed"] .gantt-name::after { content: " ✕"; color: var(--error); }
+.gantt-time { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.slowest {
+  display: block;
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.gantt-axis { margin-bottom: 2px; }
+.ticks { height: 16px; background: none; }
+.tick {
   position: absolute;
   top: 0;
-  bottom: 0;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: var(--faint);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
-.step[data-status="failed"] .step-bar span, .step[data-status="error"] .step-bar span { background: var(--error); }
-.step[data-status="cancelled"] .step-bar span, .step[data-status="warning"] .step-bar span { background: var(--warn); }
-.step[data-status="failed"] .step-name, .step[data-status="error"] .step-name { color: var(--error); }
-.step[data-status="cancelled"] .step-name, .step[data-status="warning"] .step-name { color: var(--warn); }
-.step-detail { margin: 2px 0 0; color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+.tick:first-child { transform: none; }
+.tick:last-child { transform: translateX(-100%); }
 
-/* The parts under the timeline: the chunks found, the prompt, every log line */
-.trace-part { margin-top: 12px; }
-.trace-part > summary { color: var(--accent); font-size: 0.84rem; font-weight: 600; cursor: pointer; }
-.chunks-table { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 0.82rem; }
+/* 4. The calls: one tile per kind, with its count, a dot per call, and what they were */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.tile-label { margin: 0; color: var(--muted); font-size: 0.76rem; }
+.tile-value { margin: 2px 0 4px; font-size: 1.6rem; font-weight: 650; line-height: 1.1; }
+.tile-dots { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--kind, var(--kind-app));
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.dot[data-status="failed"] { background: var(--error); }
+.tile-detail { margin: 0; color: var(--faint); font-size: 0.74rem; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
+
+/* 5. The logs: one line each, numbered, with the step it belongs to */
+.log-lines {
+  display: grid;
+  gap: 2px;
+  max-height: 420px;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  list-style: none;
+  font: 0.72rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.log-line {
+  display: grid;
+  grid-template-columns: 22px 70px 20px 58px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 6px;
+}
+.log-line:hover { background: var(--accent-soft); }
+.log-index, .log-time { color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
+.log-step {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--kind, var(--kind-app));
+  color: #fff;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+.log-level { color: var(--muted); }
+.log-text { color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.log-line[data-level="DEBUG"] .log-text, .log-line[data-level="DEBUG"] .log-level { color: var(--faint); }
+.log-line[data-level="WARNING"] .log-level::before { content: "⚠ "; color: var(--warn); }
+.log-line[data-level="ERROR"] .log-level::before, .log-line[data-level="CRITICAL"] .log-level::before {
+  content: "✕ ";
+  color: var(--error);
+}
+
+/* 6. What the model was given: the chunks found, then the prompt */
+.chunks-table { width: 100%; margin-bottom: 4px; border-collapse: collapse; font-size: 0.82rem; }
 .chunks-table th, .chunks-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; }
 .chunks-table th { color: var(--faint); font-weight: 600; }
 .chunks-table td:last-child { font-variant-numeric: tabular-nums; }
 .prompt-role {
-  margin: 10px 0 4px;
+  margin: 12px 0 4px;
   color: var(--faint);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.prompt-text, .log-lines {
-  max-height: 340px;
-  margin: 6px 0 0;
+.prompt-text {
+  max-height: 260px;
+  margin: 0;
   padding: 10px 12px;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--bg);
-  font: 0.74rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font: 0.72rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.log-lines { list-style: none; }
-.log-line[data-level="DEBUG"] { color: var(--faint); }
-.log-line[data-level="WARNING"] { color: var(--warn); }
-.log-line[data-level="ERROR"], .log-line[data-level="CRITICAL"] { color: var(--error); }
+
+@media (max-width: 960px) {
+  .boxes { grid-template-columns: minmax(0, 1fr); }
+}
 
 @media (max-width: 560px) {
   main { padding-top: 36px; }

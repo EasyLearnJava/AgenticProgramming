@@ -8,7 +8,7 @@ What the server answers at each address. The routes get the engine, the settings
   2. Two health checks: alive (the process answers) and ready (the engine is built and holds every chunk)
   3. The engine's info for the page: what it holds, the question's limit, the sample questions, the build's trace
   4. One question: answered within api.request_timeout_seconds, or a 504
-  5. One request's trace: each of its log lines, for the page's "Behind the scenes" panel
+  5. One request's trace: each of its log lines, for the page's boxes (its pipeline, times, calls and logs)
 
     GET  /                      ->  the chat page (static/index.html; its script and styles are under /static/)
     GET  /health/live           ->  {"status": "alive"}

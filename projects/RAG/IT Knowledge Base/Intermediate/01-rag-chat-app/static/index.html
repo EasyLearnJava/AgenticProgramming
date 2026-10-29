@@ -12,7 +12,8 @@
   <!--
     IT Knowledge Base: Chat Page. Served at /; its styles and script are under /static/ (the server's content
     security policy allows no inline ones). The script calls GET /api/v1/info, POST /api/v1/query, and
-    GET /api/v1/traces/{trace_id} for what happened behind the scenes.
+    GET /api/v1/traces/{trace_id}: each request is shown as a row of boxes, the answer and what happened behind
+    the scenes (its pipeline, the time per step, its calls, its logs, what the model was given).
   -->
   <main>
     <header>
@@ -26,7 +27,6 @@
       <h1>IT <span>Knowledge Base</span></h1>
       <p class="tagline">Ask the help desk. Each answer comes from the articles the search finds.</p>
       <p id="stats">Loading…</p>
-      <div id="build"></div>
     </header>
 
     <form id="form" class="composer">
@@ -47,7 +47,9 @@
 
     <div id="samples" class="samples" aria-label="Sample questions"></div>
 
-    <p id="empty">Your answers appear here, newest first, each with the articles it came from.</p>
+    <div id="build"></div>
+    <p id="empty">Your answers appear here, newest first: each with the articles it came from, and what happened
+      behind the scenes.</p>
     <div id="answers" aria-live="polite"></div>
 
     <footer>The model is asked to use only the articles shown; check what matters before you act on it.</footer>

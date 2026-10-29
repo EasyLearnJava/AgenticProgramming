@@ -25,10 +25,12 @@ memory), **Pydantic** and Python's `logging`.
 - **Times each stage**: one log line per stage (load, split, embed, store, search, retrieve, generate, the whole
   question) with its duration and what it did: the chunks found with their scores, the tokens in and out, why the
   model stopped
-- **Shows what happened behind the scenes, on the page**: under each answer, and each failed question, a panel
-  with that request's trace: every stage on a timeline with how long it took, each call to Gemini (its HTTP request
-  and status, its tokens), the chunks the search found with their scores, the exact prompt the model was given, and
-  every log line the server wrote for it. Under the title, another panel shows how the knowledge base was built
+- **Shows what happened behind the scenes, on the page**: each request gets a row of numbered boxes, two side by
+  side: the answer (or what went wrong, and where); the pipeline, its steps numbered in the order they ran, each with
+  its time and its share of the request; the time per step on one time scale, the slowest marked; every call it made,
+  counted by kind (model calls, HTTP requests, vector store calls, retries, tool calls, failures), a dot per call; every
+  log line, in order, each tagged with its step; and the chunks and the prompt the model was given. The build at
+  start-up gets the same boxes
 - **Logs to two places**: readable text on the console, and one JSON object per line in `logs/app.log`, rotated at
   5 MB. The API key is masked in both, and a question's text is logged there only at `DEBUG`
 - **Fails clearly**: one hierarchy of errors, each with a stable code. Every API error answers in one JSON shape,
@@ -46,7 +48,7 @@ memory), **Pydantic** and Python's `logging`.
   calls no model, so a load balancer asking every few seconds costs no quota), a content security policy on the page
   (its script and styles are files of their own: nothing inline), and security headers on every response
 
-**Try it:** start it, open http://127.0.0.1:8000, click **Ask**, and read **Behind the scenes** under the answer.
+**Try it:** start it, open http://127.0.0.1:8000, click **Ask**, and read the boxes beside the answer.
 
 ### What Changed From Basic 10
 
@@ -56,7 +58,7 @@ The same articles, chunks, prompt and sources; everything around them is new:
 |---|---|---|
 | Starting it | `uvicorn main:app` | `python main.py` (the server) or `python main.py ask` (the terminal) |
 | Settings | constants in `pipeline.py` | `config.yaml`, every value checked at start-up |
-| The page | `/` and `/index.html`, one file | `/`, with its script and styles under `/static/`; a **Behind the scenes** panel under each answer |
+| The page | `/` and `/index.html`, one file | `/`, with its script and styles under `/static/`; each request as a row of boxes: the answer, its pipeline, its time per step, its calls, its logs, what the model was given |
 | The API | `POST /api/query`, `GET /api/stats`, `GET /api/health` | `POST /api/v1/query`, `GET /api/v1/info`, `GET /api/v1/traces/{trace_id}`, `GET /health/live`, `GET /health/ready` |
 | A question's body | the question | the question and nothing else: another field is a 422 |
 | An answer | the answer and up to 3 sources | the same, each source with its score too, and the answer's outer spaces trimmed |
@@ -94,11 +96,12 @@ POST /api/v1/query  {"question": "How do I fix VPN connection timeouts?"}
      ├─ retrieval.retrieve    the 5 closest chunks, each with its score
      │  ├─ embeddings.embed_query    the question's vector                   (1 call to Gemini)
      │  └─ vectordb.search           Qdrant, in a worker thread
+     ├─ prompts.build         the chunks and the question, into the prompt
      └─ llm.generate          the answer, its tokens, why it stopped          (1 call to Gemini)
   Request finished            method, path, status code, duration
 ← 200 {"answer": "...", "sources": [...]}    with the header X-Trace-ID: 67464f61fb33c2bd
 
-GET /api/v1/traces/67464f61fb33c2bd           the page, right after: every line above, on one timeline
+GET /api/v1/traces/67464f61fb33c2bd           the page, right after: every line above, for its boxes
 ```
 
 A span's line is written when the stage ends, so in the log the inner stages come first; the trace puts each stage
@@ -115,7 +118,7 @@ where it started.
 ├── .env.example                      # copy to .env and put your Gemini key in it; .env never goes into git
 ├── data/sample_it_kb.csv             # the knowledge base: 10 IT support articles
 ├── logs/                             # app.log (JSON lines) and its rotated copies, written at run time
-├── static/                           # the chat page: index.html, app.js (its "Behind the scenes" panels too), styles.css
+├── static/                           # the chat page: index.html, app.js (each request's boxes too), styles.css
 ├── src/
 │   ├── exceptions.py                 # AppError and its subclasses; upstream_error() for any provider's error
 │   ├── config/settings.py            # Settings (one section per layer), load_settings(), load_api_key()
@@ -140,7 +143,7 @@ where it started.
 │   │   ├── errors.py                 # every failure → the one error shape, logged once
 │   │   └── middleware.py             # TraceMiddleware: trace ID, request log line, headers, last-resort 500
 │   └── utils/helpers.py              # elapsed_ms(), truncate(), print_result()
-├── tests/                            # 159 tests: one file per layer, plus the API and main.py
+├── tests/                            # 160 tests: one file per layer, plus the API and main.py
 ├── requirements.txt                  # the packages, each pinned to an exact version
 ├── requirements-dev.txt              # requirements.txt plus pytest and httpx2, for the tests
 ├── pytest.ini                        # lets the tests import main and src, and finds them in tests/
@@ -230,7 +233,7 @@ then starts the server. When it prints `Uvicorn running on http://127.0.0.1:8000
 
 Open http://127.0.0.1:8000. The question box already holds the first sample question: click **Ask**. The answer
 shows up under the box, with up to 3 articles the search found, then its trace ID and how long it took, then
-**Behind the scenes**: what the server did to answer it (see On the Page: Behind the Scenes). Any [1], [2] in an
+the boxes that show what the server did to answer it (see On the Page: Each Request's Boxes). Any [1], [2] in an
 answer number the 5 chunks in the prompt, not the articles under **Found by the search**.
 
 In GitHub Codespaces, `127.0.0.1` is your own computer, not the codespace: open the **Ports** tab next to
@@ -336,6 +339,7 @@ scores and token counts are Gemini's, so yours will differ):
 2026-10-29T16:02:55.412Z INFO    [67464f61fb33c2bd] src.embeddings: embeddings.embed_query ok  duration_ms=<ms> model=gemini-embedding-001
 2026-10-29T16:02:55.413Z INFO    [67464f61fb33c2bd] src.vectordb: vectordb.search ok  duration_ms=<ms> collection=it_knowledge_base top_k=5 hits=5 top_score=<score>
 2026-10-29T16:02:55.414Z INFO    [67464f61fb33c2bd] src.retrieval: retrieval.retrieve ok  duration_ms=<ms> top_k=5 found=[<5 chunks, as "doc_id#chunk_index">] scores=[<their scores, highest first>]
+2026-10-29T16:02:55.415Z INFO    [67464f61fb33c2bd] src.prompts: prompts.build ok  duration_ms=<ms> prompt_version=answer-v1 chunks=5 prompt_chars=<n>
 2026-10-29T16:02:55.432Z INFO    [67464f61fb33c2bd] src.llm: llm.generate ok  duration_ms=<ms> model=gemini-3.5-flash-lite finish_reason=STOP input_tokens=<n> output_tokens=<n>
 2026-10-29T16:02:55.432Z INFO    [67464f61fb33c2bd] src.pipeline: pipeline.query ok  duration_ms=<ms> question_chars=37 sources=3 answer_chars=<n> prompt_version=answer-v1
 2026-10-29T16:02:55.433Z INFO    [67464f61fb33c2bd] src.api.middleware: Request finished  method=POST path=/api/v1/query status_code=200 duration_ms=<ms>
@@ -353,6 +357,7 @@ What each line tells you:
 |---|---|
 | `embeddings.embed_query` | how long Gemini took to embed the question |
 | `vectordb.search` | how many chunks came back, and the best score |
+| `prompts.build` | the prompt filled in: how many chunks went into it, and how long it is |
 | `retrieval.retrieve` | which chunks the model was given (`3#1` = article 3, its second chunk) and how close each was |
 | `llm.generate` | how long Gemini took to answer, the tokens it read and wrote (the cost), and why it stopped (`STOP`; `MAX_TOKENS` means the answer was cut off, and logs a warning) |
 | `pipeline.query` | the whole question, and the prompt's version: when an answer changes, whether the prompt did |
@@ -360,40 +365,46 @@ What each line tells you:
 
 A stage that fails writes `<stage> failed` with its `error_type`, and one stopped by the deadline writes
 `<stage> cancelled`; then one `Request failed` line gives the error's code and full detail. The build at start-up
-has a trace ID of its own, so its lines (`ingestion.load`, `chunking.split`, `embeddings.embed_documents`,
-`vectordb.recreate`, `vectordb.upsert`, `pipeline.build`) group together too. Lines written outside any trace,
+has a trace ID of its own, so its lines (`pipeline.create`, the engine's parts made; `ingestion.load`,
+`chunking.split`, `embeddings.embed_documents`, `vectordb.recreate`, `vectordb.upsert`, `pipeline.build`) group
+together too. Lines written outside any trace,
 such as uvicorn's `Uvicorn running on ...`, show `[-]`.
 
 ---
 
-### On the Page: Behind the Scenes
+### On the Page: Each Request's Boxes
 
 Every request the page sends to the API gets a trace, and with `tracing.enabled` on, the server keeps its log lines in
 memory, in a trace store. Right after an answer (or a failure) arrives, the page reads that request's trace from
-`GET /api/v1/traces/{trace_id}` and shows it under the card:
+`GET /api/v1/traces/{trace_id}` and lays the request out as a row of numbered boxes, two side by side (one under the
+other on a screen narrower than 960 px). Its head says what you asked, how it went (`✓ answered · 200` or
+`✕ failed · 503`), how long it took, its trace ID, and how many steps, model calls and log lines it had:
 
-| Part | What it shows |
+| Box | What it shows |
 |---|---|
-| The summary | how many stages ran, how many calls went to a model, how many log lines were written, how long it all took |
-| The timeline | the whole request, then each stage, indented under the stage it's part of: what it did and how long it took, on one time scale, so the longest bar is where the time went. Each call to Gemini shows its HTTP request (`Call to generativelanguage.googleapis.com`, `POST /v1beta/models/gemini-embedding-001:batchEmbedContents: answered 200 OK`), and a failed stage, a retry or a warning shows in red or amber with why |
-| The chunks the search found | each chunk's rank, article, place in the article (`3#1`: article 3, its second chunk) and score |
-| The prompt the model was given | the system message (the rules, then the chunks, numbered) and the human message (the question), exactly as sent |
-| Every log line the server wrote | each line of the request, in the order it was written, as the console shows it, with how many ms into the request it came |
+| 1 · The answer | what the model wrote, and the articles the search found, each with its score. For a failure, **What went wrong**: the server's message, its code, whether trying again may work, then which step failed, after how long, and the server log's reason |
+| 2 · Pipeline | each step, numbered in the order it ran: receive the request, turn the question into a vector, search the vector store, fill in the prompt, ask the chat model, send the response. Each has its time, its share of the whole request as a bar, and a line on what it did (the model, the chunks back, the tokens) |
+| 3 · Time per step | every stage on one time scale, from 0 to the whole request: when it started and how long it took, a stage's own steps indented under it, the slowest one marked, and a line saying where most of the time went |
+| 4 · Calls | how many calls the request made, of each kind: model calls (by model), HTTP requests (by status, and to which host), vector store calls, tokens, retries, tool calls (none: the model is given no tools, only the prompt) and failed steps. Each dot is one call; a red one failed |
+| 5 · Logs | every line the server wrote for the request, numbered, in the order it wrote them, each with how many ms into the request it came and, in a circle, the pipeline step it belongs to |
+| 6 · What the model was given | the chunks the search found (rank, article, place in the article: `3#1` is article 3, its second chunk, and score), then the prompt: the system message (the rules, then the chunks, numbered) and the human message (the question), exactly as sent |
 
-Under the title, **How the knowledge base was built** does the same for the build at start-up: reading the file,
-cutting the chunks, embedding them (one call to Gemini) and storing them. Only the newest panel is open; click a
-summary to open or close one.
+The colours say what kind of work a step is, and a label beside each says it too: purple, a call to a model; teal,
+a call to the vector store; gray, the app's own work. Red with ✕ is a step that failed, amber with ■ one that a
+deadline or Ctrl+C stopped. Below the sample questions, **How the knowledge base was built** shows boxes 2 to 5 for
+the build at start-up: making the engine's parts, reading the file, cutting the chunks, embedding them (one call to
+Gemini) and storing them. Only the newest request stays open; click a request's head to open or close it.
 
 The trace store keeps the app's own lines from `DEBUG` up whatever `logging.level` is (the question, the chunks found,
 the prompt and the answer are `DEBUG` lines), and the libraries' from `INFO` up (httpx's line for each HTTP call,
-Google's retries), so the panel tells the whole story while the console and the file stay at their level. It keeps
+Google's retries), so the boxes tell the whole story while the console and the file stay at their level. It keeps
 the newest `tracing.max_traces` API requests (200), each up to 300 lines, and the build's for good; the page's own
 files, the health checks and reading a trace aren't kept. The key is masked there too, and an error's traceback stays
 in the log file: the trace has its type and message only.
 
 Anyone who has a trace ID can read that trace, and a trace holds the question, the prompt, the answer and any error's
 detail. That's what makes it useful while you learn and debug, and why `tracing.enabled` should be `false` (or the API
-behind a login) before the app is shared with other people. With it off, the page shows no panels, and
+behind a login) before the app is shared with other people. With it off, the page shows only each answer's box, and
 `GET /api/v1/traces/{trace_id}` answers 404.
 
 You can read a trace yourself, too:
@@ -476,7 +487,7 @@ with its raw name and fields.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 157 passed, 2 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 158 passed, 2 deselected  (add -v for one line per test)
 ```
 
 The plain tests need no key and make no calls: they use stand-ins for Gemini, and Google's own client faked at the
@@ -666,16 +677,19 @@ port 8000.
 
 ## 💡 Ideas to Try
 
-- Ask a question and read **Behind the scenes** under its answer: which stage took longest? Then open **The prompt
-  the model was given** and find the chunks the answer used.
+- Ask a question and read its boxes: which step took longest (box 3), and how many calls went to Gemini (box 4)?
+  Then find, in box 6, the chunks the answer used.
+- Ask "Is the VPN busy?" while Gemini is rate limiting your key, and read where box 2 turns red and why box 1 says it
+  failed.
 - Ask a question, copy the trace ID under its answer, and find its lines in `logs/app.log`.
-- Read a trace with `curl http://127.0.0.1:8000/api/v1/traces/<trace ID>`, and compare its events with the panel.
+- Read a trace with `curl http://127.0.0.1:8000/api/v1/traces/<trace ID>`, and compare its events with box 5.
 - Click **Ask** with an empty box: the message under it ends in a trace ID too. Find its `Request refused` line.
 - Start it with `python main.py --log-level DEBUG`, ask a question, and read the question, the answer and each chunk
   found, with its title, in the log.
 - Set `logging.console_format: json` in `config.yaml` and watch the console.
 - Set `api.request_timeout_seconds: 0.5` and ask: the page says the question took too long, and **Behind the
   scenes** shows which stage was `cancelled`.
-- Set `tracing.enabled: false`, start it again, and ask: no panels, and the console and the file log as before.
+- Set `tracing.enabled: false`, start it again, and ask: only the answer's box, and the console and the file log as
+  before.
 - Put a typo in `config.yaml`, such as `chunk_szie: 400`, and start it.
 - Open http://127.0.0.1:8000/docs to try the API, and read each route's error shapes there.
