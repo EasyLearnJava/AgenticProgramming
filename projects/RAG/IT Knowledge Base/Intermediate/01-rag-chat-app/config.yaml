@@ -1,0 +1,69 @@
+# IT Knowledge Base: the RAG chat app's settings.
+# Every value the app runs with, except the API key, which goes in .env. One section per layer, named like its
+# package in src/ (logging: and tracing: are read by src/observability). Paths are found from this file's folder. An
+# unknown key, a missing one or a value out of range stops the start, with a message naming it. Another file:
+# python main.py --config other.yaml
+
+app:
+  name: IT Knowledge Base
+  sample_questions:                      # the page's buttons, and what `python main.py ask` answers
+    - How do I fix VPN connection timeouts?
+    - I can't set up MFA on my mobile device
+    - My laptop is running very slow
+
+ingestion:
+  path: data/sample_it_kb.csv
+  encoding: utf-8
+  text_columns: [title, problem, resolution, notes]              # searched, and read by the model
+  metadata_columns: [title, system, category, priority, tags]    # shown with each answer's sources
+  required_columns: [title, problem, resolution]                 # a row without one stops the start
+
+chunking:
+  chunk_size: 512                        # characters: the articles are 569 to 716, so 2 or 3 chunks each
+  chunk_overlap: 50
+
+embeddings:
+  provider: google
+  model: gemini-embedding-001
+  dimensions: 768                        # gemini-embedding-001 gives 128 to 3072; 768 is a size Google recommends
+  batch_size: 100                        # texts per call; Gemini takes at most 100
+  timeout_seconds: 30                    # for each attempt
+  max_attempts: 3                        # the first included: a timeout, a 429 or a 5xx is tried again
+
+vectordb:
+  provider: qdrant
+  location: ":memory:"                   # inside the app: the points are gone when it stops, and built again at start
+  collection: it_knowledge_base
+
+retrieval:
+  top_k: 5                               # chunks found for each question
+
+llm:
+  provider: google
+  model: gemini-3.5-flash-lite
+  max_output_tokens: 500                 # a cap on each answer's length, and so on its cost
+  timeout_seconds: 30
+  max_attempts: 3
+
+pipeline:
+  max_sources: 3                         # different articles shown with each answer
+  snippet_length: 200                    # characters of each source's text shown
+
+api:
+  host: 127.0.0.1                        # this computer only; 0.0.0.0 takes requests from other machines too
+  port: 8000
+  request_timeout_seconds: 60            # a question not answered by then gets a 504
+
+logging:
+  level: INFO                            # DEBUG adds each question, answer and chunk found: not for production
+  console_format: text                   # text, to read; or json, for a log collector
+  file: logs/app.log                     # one JSON object per line; null for no file
+  max_bytes: 5000000                     # a new file after 5 MB...
+  backup_count: 5                        # ...keeping app.log.1 to app.log.5
+
+tracing:
+  enabled: true                          # keep each API request's log lines in memory, for the page's "Behind the
+                                         # scenes" panels (GET /api/v1/traces/{trace_id}). Anyone with a trace ID can
+                                         # read that trace: the question, the prompt, the answer, any error. Turn it
+                                         # off, or put the API behind a login, before the app is shared
+  max_traces: 200                        # the newest kept; the start-up build's is always kept

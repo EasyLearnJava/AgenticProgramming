@@ -30,6 +30,7 @@ COMMANDS = {
     "Basic/08-rag-engine": ["pipeline.py"],
     "Basic/09-api": ["-m", "uvicorn", "main:app"],
     "Basic/10-chat-page": ["-m", "uvicorn", "main:app"],
+    "Intermediate/01-rag-chat-app": ["main.py"],
     "Advanced/01-read-the-knowledge-base": ["knowledge_base_loader.py"],
 }
 

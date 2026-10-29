@@ -1,0 +1,421 @@
+/* IT Knowledge Base: the chat page's styles. Served at /static/styles.css; index.html links it. */
+
+/* The colours, light by default; the dark ones follow the system's dark mode */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6fb;
+  --text: #111827;
+  --muted: #5d6579;
+  --faint: #8a91a5;
+  --card: rgba(255, 255, 255, 0.74);
+  --card-solid: #ffffff;
+  --line: rgba(17, 24, 39, 0.09);
+  --accent: #6d5efc;
+  --accent-2: #19b5cc;
+  --accent-soft: rgba(109, 94, 252, 0.11);
+  --glow-1: rgba(109, 94, 252, 0.24);
+  --glow-2: rgba(25, 181, 204, 0.22);
+  --dots: rgba(17, 24, 39, 0.08);
+  --error: #cf3350;
+  --error-soft: rgba(207, 51, 80, 0.09);
+  --warn: #b26a00;
+  --ok: #148a63;
+  --shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 18px 40px -18px rgba(17, 24, 39, 0.25);
+  --radius: 20px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0c16;
+    --text: #eceef8;
+    --muted: #a2a9bd;
+    --faint: #737b91;
+    --card: rgba(21, 24, 40, 0.72);
+    --card-solid: #151828;
+    --line: rgba(255, 255, 255, 0.08);
+    --accent: #8d80ff;
+    --accent-2: #3fd3e6;
+    --accent-soft: rgba(141, 128, 255, 0.15);
+    --glow-1: rgba(141, 128, 255, 0.28);
+    --glow-2: rgba(63, 211, 230, 0.16);
+    --dots: rgba(255, 255, 255, 0.07);
+    --error: #ff7088;
+    --error-soft: rgba(255, 112, 136, 0.12);
+    --warn: #f2b14c;
+    --ok: #4ad6a0;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 22px 48px -20px rgba(0, 0, 0, 0.7);
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+/* Soft glows behind everything, drifting slowly, under a faint dot grid that fades out downwards */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(60vmax 42vmax at 8% -6%, var(--glow-1), transparent 62%),
+    radial-gradient(52vmax 40vmax at 96% 4%, var(--glow-2), transparent 62%),
+    radial-gradient(64vmax 46vmax at 50% 118%, var(--glow-1), transparent 62%);
+  animation: drift 26s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  from { transform: scale(1.08); }
+  to { transform: translate3d(2vmax, -1.5vmax, 0) scale(1.12); }
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(var(--dots) 1px, transparent 1.3px);
+  background-size: 22px 22px;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 75%);
+  mask-image: linear-gradient(to bottom, #000, transparent 75%);
+}
+
+main { max-width: 780px; margin: 0 auto; padding: 56px 16px 72px; }
+
+/* The header: the mark, the title, and the line about the knowledge base */
+header { text-align: center; margin-bottom: 30px; }
+.mark {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 12px 30px -10px var(--accent);
+  color: #fff;
+}
+h1 {
+  margin: 18px 0 6px;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 750;
+}
+h1 span {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tagline { margin: 0 auto; max-width: 600px; color: var(--muted); font-size: 1.05rem; }
+#stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  min-height: 30px;
+  color: var(--faint);
+  font-size: 0.9rem;
+}
+.pill {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.82rem;
+  backdrop-filter: blur(10px);
+}
+
+/* The question box and the Ask button, on one glass card */
+.card, .composer {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 18px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.composer:focus-within { border-color: var(--accent); box-shadow: var(--shadow), 0 0 0 5px var(--accent-soft); }
+.composer svg { flex: none; color: var(--faint); }
+#question {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.05rem;
+}
+#question::placeholder { color: var(--faint); }
+#ask {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -10px var(--accent);
+  transition: transform 0.15s, filter 0.15s, opacity 0.15s;
+}
+#ask:hover { filter: brightness(1.08); transform: translateY(-1px); }
+#ask:active { transform: translateY(0); }
+#ask:disabled { opacity: 0.55; cursor: progress; transform: none; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Under the box: what's happening, and how much of the 500 characters the question uses */
+.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 12px 6px 0;
+  color: var(--faint);
+  font-size: 0.88rem;
+}
+.meta p { margin: 0; }
+#status[data-state="busy"] { color: var(--accent); }
+#status[data-state="busy"]::after { content: ""; animation: dots 1.2s steps(4) infinite; }
+#status[data-state="error"] {
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: var(--error-soft);
+  color: var(--error);
+}
+#status[data-state="done"] { color: var(--ok); }
+@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+#counter { flex: none; font-variant-numeric: tabular-nums; }
+
+/* The sample questions: click one to ask it */
+.samples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 22px 0 34px; }
+.chip {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.chip:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+
+/* Before the first answer */
+#empty { margin: 40px 0; color: var(--faint); text-align: center; }
+
+/* One card per answer, newest first */
+#answers { display: grid; gap: 18px; }
+.card { padding: 24px 26px; animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes rise { from { opacity: 0; transform: translateY(12px) scale(0.99); } }
+.card-label {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.card-question { margin: 0 0 14px; font-size: 1.22rem; line-height: 1.35; letter-spacing: -0.01em; }
+.card-answer { margin: 0; white-space: pre-wrap; font-size: 1.02rem; line-height: 1.7; }
+.sources-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 10px;
+  color: var(--faint);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sources-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.sources { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: source; }
+.source {
+  position: relative;
+  padding: 12px 14px 12px 50px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card-solid);
+  counter-increment: source;
+}
+.source::before {
+  content: counter(source);
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.source-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.source-title { font-weight: 650; }
+.tag {
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.source-snippet { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
+
+/* While the model answers: a card with shimmering lines in the answer's place */
+.pending .line {
+  height: 12px;
+  margin-top: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--line) 25%, var(--accent-soft) 50%, var(--line) 75%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.pending .line:nth-child(4) { width: 70%; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -200% 0; } }
+
+footer { margin-top: 48px; color: var(--faint); font-size: 0.82rem; text-align: center; }
+
+/* Under each answer: its trace ID, to find its log lines by, and how long it took */
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 18px 0 0;
+  color: var(--faint);
+  font-size: 0.8rem;
+}
+.trace-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  user-select: all;
+}
+#status .trace-id { margin-left: 6px; }
+
+/* A failed question's card: what went wrong, in the error colour */
+.card-error { margin: 0; color: var(--error); font-size: 1rem; }
+
+/* Behind the scenes: a request's trace, at the end of its card (and the build's, under the header) */
+#build { max-width: 640px; margin: 14px auto 0; text-align: left; }
+.trace { margin-top: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-solid); }
+#build .trace { margin-top: 0; }
+.trace > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.85rem;
+}
+.trace > summary::-webkit-details-marker { display: none; }
+.trace > summary::before { content: "▸"; color: var(--accent); transition: transform 0.15s; }
+.trace[open] > summary::before { transform: rotate(90deg); }
+.trace-title { margin-right: 4px; font-weight: 700; }
+.trace-badge {
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.trace-body { padding: 0 14px 14px; }
+.trace-help { margin: 0 0 10px; color: var(--faint); font-size: 0.8rem; }
+.trace-waiting { margin: 14px 0 0; color: var(--faint); font-size: 0.85rem; }
+
+/* The timeline: one row per stage, indented under the stage it's part of, with a bar on one time scale */
+.steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.step { padding-left: calc(var(--depth, 0) * 18px); }
+.step-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 0.86rem; }
+.step-name { font-weight: 600; overflow-wrap: anywhere; }
+.step-kind {
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.step-span { color: var(--faint); font-size: 0.72rem; }
+.step-time { margin-left: auto; color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.step-bar { position: relative; height: 6px; margin: 4px 0 2px; border-radius: 3px; background: var(--line); }
+.step-bar span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+.step[data-status="failed"] .step-bar span, .step[data-status="error"] .step-bar span { background: var(--error); }
+.step[data-status="cancelled"] .step-bar span, .step[data-status="warning"] .step-bar span { background: var(--warn); }
+.step[data-status="failed"] .step-name, .step[data-status="error"] .step-name { color: var(--error); }
+.step[data-status="cancelled"] .step-name, .step[data-status="warning"] .step-name { color: var(--warn); }
+.step-detail { margin: 2px 0 0; color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+
+/* The parts under the timeline: the chunks found, the prompt, every log line */
+.trace-part { margin-top: 12px; }
+.trace-part > summary { color: var(--accent); font-size: 0.84rem; font-weight: 600; cursor: pointer; }
+.chunks-table { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 0.82rem; }
+.chunks-table th, .chunks-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.chunks-table th { color: var(--faint); font-weight: 600; }
+.chunks-table td:last-child { font-variant-numeric: tabular-nums; }
+.prompt-role {
+  margin: 10px 0 4px;
+  color: var(--faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.prompt-text, .log-lines {
+  max-height: 340px;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  font: 0.74rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.log-lines { list-style: none; }
+.log-line[data-level="DEBUG"] { color: var(--faint); }
+.log-line[data-level="WARNING"] { color: var(--warn); }
+.log-line[data-level="ERROR"], .log-line[data-level="CRITICAL"] { color: var(--error); }
+
+@media (max-width: 560px) {
+  main { padding-top: 36px; }
+  .composer { padding-left: 14px; }
+  .composer svg { display: none; }
+  #ask span { display: none; }
+  .card { padding: 20px 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

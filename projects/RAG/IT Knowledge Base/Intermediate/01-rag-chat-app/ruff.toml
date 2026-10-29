@@ -1,0 +1,11 @@
+# The linter's settings: `ruff check .` checks the code against them (pip install ruff first: it isn't needed to run
+# the app or the tests). N is the PEP 8 naming rules: snake_case functions and modules, PascalCase classes, ...
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[lint]
+select = ["E", "W", "F", "I", "N", "B", "UP", "SIM", "RUF"]
+
+[lint.isort]
+known-first-party = ["src", "main"]

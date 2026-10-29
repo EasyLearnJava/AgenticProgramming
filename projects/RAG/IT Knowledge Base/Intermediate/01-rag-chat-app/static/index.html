@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IT Knowledge Base</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%236d5efc'/%3E%3Cpath d='M10 11h12M10 16h12M10 21h7' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <!--
+    IT Knowledge Base: Chat Page. Served at /; its styles and script are under /static/ (the server's content
+    security policy allows no inline ones). The script calls GET /api/v1/info, POST /api/v1/query, and
+    GET /api/v1/traces/{trace_id} for what happened behind the scenes.
+  -->
+  <main>
+    <header>
+      <div class="mark" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <h1>IT <span>Knowledge Base</span></h1>
+      <p class="tagline">Ask the help desk. Each answer comes from the articles the search finds.</p>
+      <p id="stats">Loading…</p>
+      <div id="build"></div>
+    </header>
+
+    <form id="form" class="composer">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <label for="question" class="sr-only">Your question</label>
+      <input id="question" maxlength="500" autocomplete="off" placeholder="Ask about VPN, MFA, printers, email…">
+      <button id="ask">
+        <span>Ask</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <div class="meta">
+      <p id="status" role="status">The model is asked to answer from the articles the search finds in the knowledge base.</p>
+      <span id="counter" aria-hidden="true"></span>
+    </div>
+
+    <div id="samples" class="samples" aria-label="Sample questions"></div>
+
+    <p id="empty">Your answers appear here, newest first, each with the articles it came from.</p>
+    <div id="answers" aria-live="polite"></div>
+
+    <footer>The model is asked to use only the articles shown; check what matters before you act on it.</footer>
+  </main>
+</body>
+</html>

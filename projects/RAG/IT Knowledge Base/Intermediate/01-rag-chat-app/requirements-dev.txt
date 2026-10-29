@@ -1,0 +1,5 @@
+# Extra packages for running the tests. `pip install -r requirements-dev.txt` installs these and requirements.txt.
+-r requirements.txt
+pytest==9.1.1          # runs the tests in tests/
+httpx2==2.14.0         # FastAPI's TestClient sends the tests' requests to the app with it, without starting a server
+httpx==0.28.1          # what Google's client sends with: the tests stop it, so no plain test reaches Google

@@ -1,0 +1,11 @@
+# The API key: never in git (.env.example, with no key in it, is)
+.env
+.env.*
+!.env.example
+
+# What running and testing the app makes
+logs/*
+!logs/.gitkeep
+.venv/
+__pycache__/
+.pytest_cache/

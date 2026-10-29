@@ -20,18 +20,21 @@ LlamaIndex, Gemini in place of OpenAI, and a plain HTML page served by FastAPI i
 
 ## The projects
 
-The projects come in four levels:
+The projects come in five levels:
 
 - **`Entry/`**: the idea in three short Jupyter notebooks, before any of the app, with small models that run on the
   CPU, and Chroma. No API key.
 - **`Basic/`**: the whole app, 01 to 10, one step at a time, each on the happy path: the data is assumed to be good.
+- **`Intermediate/`**: the whole app built again as a production-grade codebase: one package per layer, each
+  replaceable; every setting in `config.yaml`; errors that answer in one shape; and logs in which one trace ID follows
+  each request through every layer, shown on the page under each answer. 01 is built.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
   and reports it. 01 is built; 02 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
 - **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
   [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
 
-Each Basic folder, and Advanced/01, is a project of its own: it holds the app as built so far plus one new piece, runs
+Each Basic folder, Intermediate/01 and Advanced/01 is a project of its own: it holds the app as built so far plus one new piece, runs
 on its own, and has its own tests. Projects 01 to 05 are the ingestion half (also called indexing): they get the
 knowledge base ready to be searched (read, label, chunk, embed, store), once per run, with no question anywhere. 06
 and 07 are the query half, which runs for each question: the user's question comes in at 06, and 07 onward answer it.
@@ -64,6 +67,12 @@ Models and Embeddings in RAGs.
 | `09-api` | A FastAPI server: `POST /api/query`, `GET /api/stats`, `GET /api/health` | `uvicorn main:app` |
 | `10-chat-page` | A chat page at http://127.0.0.1:8000, served by the same server | `uvicorn main:app` |
 
+### Intermediate
+
+| Project | What it adds to Basic 10's app | Run it |
+|---|---|---|
+| `01-rag-chat-app` | The same answers, from a production-grade codebase: one package per layer behind interfaces, chosen in one place (`factory.py`); every setting in `config.yaml`, checked at start-up; typed errors, answered in one JSON shape; a trace ID on every log line of each request, a timed span per stage, and JSON logs in `logs/app.log`; under each answer on the page, a "Behind the scenes" panel with that request's trace: each stage on a timeline, each call to Gemini, the chunks found, the prompt and every log line; timeouts, retries and a deadline on every call to Gemini; health checks and a content security policy | `python main.py` |
+
 ### Advanced
 
 | Project | What it adds to the basic one | Run it |
@@ -75,15 +84,15 @@ Models and Embeddings in RAGs.
 
 - **Python 3.11 or newer** (3.12 or newer for `Entry/V1`, `Entry/V3` and `RAG series`, for the NumPy they pin), and
   in each project: `python -m venv .venv`, activate it, then `pip install -r requirements-dev.txt`. Each project pins
-  the packages it names to exact versions. On Windows with long paths off, keep the path of the repo root to 91
-  characters or fewer: a path in a Basic project's `.venv` can be 168 characters longer (in 07), and Windows refuses
-  a path of 260 characters or more.
+  the packages it names to exact versions. On Windows with long paths off, keep the path of the repo root to 87
+  characters or fewer: a path in a project's `.venv` can be 172 characters longer (in Intermediate/01; 168 in Basic
+  07), and Windows refuses a path of 260 characters or more.
 - **For `Entry`, a GitHub Codespace**: on Windows with long paths off, its Jupyter packages can fail to install when
   the repo sits deep in your folders (a path of 260 characters or more; each version's README has the details). It
   needs no key.
 - **For `RAG series`, a browser and a Google account**: its notebooks open in Google Colab from their README's
   **Open in Colab** button.
-- **A Gemini API key, from project 04 on**, set up as in the tutorials (`tutorials/09-gemini-key`): copy the project's
+- **A Gemini API key, from project 04 on (and for Intermediate/01)**, set up as in the tutorials (`tutorials/09-gemini-key`): copy the project's
   `.env.example` to `.env` and put the key after `GOOGLE_API_KEY=`. Every call to Gemini uses your key's quota.
   Without a key, the scripts stop with a message that says what to do. On the free tier, Gemini embeds at most 100
   texts a minute, and each text in a batch counts: a run of 04 to 10 embeds about 30.
@@ -112,12 +121,12 @@ as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every pr
 ## Built with
 
 LangChain (`langchain-core`, `langchain-text-splitters`, `langchain-google-genai`, `langchain-qdrant`), Gemini,
-Qdrant, FastAPI and pytest. `Entry` uses sentence-transformers, Chroma and Jupyter in place of LangChain, Gemini,
+Qdrant, FastAPI and pytest; `Intermediate` also uses Pydantic and PyYAML for its settings. `Entry` uses sentence-transformers, Chroma and Jupyter in place of LangChain, Gemini,
 Qdrant and FastAPI. `RAG series` uses sentence-transformers and scikit-learn.
 
 ## The data
 
-Every Basic and Advanced project uses the same knowledge base, `data/sample_it_kb.csv`: 10 made-up IT support
+Every Basic, Intermediate and Advanced project uses the same knowledge base, `data/sample_it_kb.csv`: 10 made-up IT support
 articles (VPN, MFA, Wi-Fi, printers and more) with no real people's details. It comes unchanged from the course repo,
 [Brianletort/KBs-For-RAGs](https://github.com/Brianletort/KBs-For-RAGs/tree/main/Clip1-v2/data), whose README marks
 its contents for educational use. The `Entry` and `RAG series` notebooks use a few sentences of their own, written
