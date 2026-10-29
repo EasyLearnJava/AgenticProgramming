@@ -3,7 +3,7 @@ Shared test set-up for this folder. pytest reads a file named conftest.py by its
 code runs first and decides once whether the live tests can run:
 
     a real key (in .env or the environment)  ->  every test runs, the @pytest.mark.live ones too (real Gemini calls)
-    no key                                   ->  models.py gets a fake key so it can be imported; live tests are skipped
+    no key                                   ->  a fake key, so pipeline.py can be imported; live tests are skipped
 """
 import os
 
@@ -15,7 +15,7 @@ try:
     load_api_key()                                         # a real key, in .env or the environment
     HAVE_KEY = True
 except MissingKeyError:
-    # No key: give models.py a fake one so it can build the models. The plain tests never call Gemini.
+    # No key: give pipeline.py a fake one so it can build the models. The plain tests never call Gemini.
     os.environ["GOOGLE_API_KEY"] = "fake-key-for-tests"
     HAVE_KEY = False
 

@@ -2,8 +2,8 @@
 IT Knowledge Base: The API and the Chat Page
 ============================================
 
-The RAG engine served by FastAPI, plus index.html, a page to ask questions in. The engine is built once, when the
-server starts, and each request answers one question. It handles:
+The RAG engine from pipeline.py, served by FastAPI, plus index.html, a page to ask questions in. The engine is
+built once, when the server starts, and each request answers one question. It handles:
   1. Building the engine at start-up
   2. Serving the chat page
   3. Checking each question before it costs a call to Gemini, then answering it
@@ -25,7 +25,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from rag_engine import RAGEngine
+from pipeline import RAGEngine
 
 # getLogger() comes from Python's logging module: the logger by that name
 logger = logging.getLogger("uvicorn.error")        # prints in the same terminal as uvicorn's own messages

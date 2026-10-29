@@ -14,7 +14,7 @@ from fakes import SIZE, FakeListChatModel, KeywordEmbeddings
 from fastapi.testclient import TestClient
 
 import main
-from rag_engine import RAGEngine
+from pipeline import RAGEngine
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 

@@ -20,6 +20,8 @@ in memory.
   with the question before it
 - **Shows what went wrong** when a question is bad or can't be answered
 - **Keeps the API**: `/docs`, `/api/query`, `/api/stats` and `/api/health` answer as before
+- **Keeps the engine in `pipeline.py`**, which holds all the code, as in 09; the server is `main.py`, and two
+  helpers are apart: `config.py`, which checks the key, and `utils.py`, which prints answers in the terminal
 
 **Try it:** start the server, open http://127.0.0.1:8000, and click **Ask**.
 
@@ -40,7 +42,7 @@ the browser
 └────────────────────────┬─────────────────────────┘
                          ↓
 ┌──────────────────────────────────────────────────┐
-│  RAGEngine, built at start-up                    │  ← the 5 closest chunks, then Gemini's answer
+│  RAGEngine, from pipeline.py                     │  ← built at start-up; the 5 closest chunks, then Gemini's answer
 └──────────────────────────────────────────────────┘
 ```
 
@@ -49,7 +51,7 @@ the browser
 1. **Start** → `uvicorn main:app` builds the engine once: the chunks are embedded and stored (one call to Gemini)
 2. **Open the page** → `GET /` sends `index.html`; the page asks `GET /api/stats` for its first line
 3. **Ask** → the page sends the question to `POST /api/query`
-4. **Answer** → the engine finds the 5 closest chunks and has Gemini answer from them (2 calls)
+4. **Answer** → the engine's retriever finds the 5 closest chunks (1 call), then Gemini answers from them (1 call)
 5. **Show** → the page adds the question, the answer and up to 3 sources above the earlier answers
 
 ---
@@ -138,20 +140,23 @@ server. Then open the page as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 57 passed, 9 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 55 passed, 9 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. For the page, they check that it's
 served at `/` and `/index.html` as HTML, with `Cache-Control: no-cache`, and that it calls `/api/query` and
 `/api/stats`; and that it handles an unexpected status and never puts the server's text in as HTML. For the API, they
 check each route, the 422 for a bad question, the 502 for a failed answer, with the traceback in the log, and that
-with no key the server stops with the message, not a traceback. For `pipeline.py`, they check that it builds the
-engine, then answers each question, or one of your own; and that no other file runs anything in the terminal.
+with no key the server stops with the message, not a traceback. For `pipeline.py`, they check the engine and its
+parts, as in 09, and that `aquery()` gives what `query()` gives; that it builds the engine, then answers each
+question, or one of your own; and that no other file runs anything in the terminal.
 
 The 9 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
 with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Together they embed
-more than 100 texts, the free tier's limit for a minute, so on the free tier, run them one file at a time, a minute
-apart: `python -m pytest -m live tests/test_main.py`.
+176 texts, more than the free tier's limit of 100 a minute, so on the free tier, run them in three goes, a minute
+apart: `python -m pytest -m live tests/test_main.py` (29 texts), then
+`python -m pytest -m live -k answer tests/test_pipeline.py` (59), then
+`python -m pytest -m live -k "not answer" tests/test_pipeline.py` (88).
 
 ---
 
@@ -195,6 +200,21 @@ can't add HTML to the page.
 
 A 422 shows which field is wrong and why, a 502 shows the server's short message, and anything else shows
 `Something went wrong:` with the reason. The page never stays silent.
+
+### 5. The Code in One File, the Server and the Helpers Apart
+
+```python
+from pipeline import RAGEngine                     # main.py: the server's engine, from pipeline.py
+from config import MissingKeyError, load_api_key   # pipeline.py: checks the key, before the models are built
+from utils import print_result                     # pipeline.py: a helper, showing each answer in the terminal
+```
+
+`pipeline.py` holds the project's code, as in 09: the settings, the parts from the loader to the prompt, `RAGEngine`
+and `main()`, the terminal's way in (`python pipeline.py`). Three files stay apart. `main.py` is the server's way in
+(`uvicorn main:app`): it makes the engine, builds it at start-up, serves the page and answers each request with the
+engine. `utils.py` holds `print_result()`, which needs nothing from `pipeline.py`. `config.py` holds the key check,
+because the tests need it before `pipeline.py` is imported: `tests/conftest.py` asks it whether there's a real key,
+and gives the models a fake one when there isn't.
 
 ---
 
