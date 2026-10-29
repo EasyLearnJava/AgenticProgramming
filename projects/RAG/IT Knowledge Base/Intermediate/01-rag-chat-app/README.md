@@ -250,17 +250,39 @@ Each answer is printed with its sources and its trace ID; the log goes to the co
 `logs/app.log` is the server's, so `ask` can run while the server does. Each question is bounded by each call's
 timeout and attempts; the 60-second deadline is the API's.
 
-### Or: Run It in One Command
+### Or: Run It in One Command, in GitHub Codespaces Too
 
-With your key in `.env` (Step 4), this one command does Steps 2, 3 and 5 for you:
+From the repo root (where a codespace's terminal opens), this one command does Steps 2 to 5 for you:
 
 ```bash
-python "projects/RAG/IT Knowledge Base/run.py" Intermediate/01-rag-chat-app         # from the repo root
+python "projects/RAG/IT Knowledge Base/run.py" Intermediate/01-rag-chat-app         # the server
 python "projects/RAG/IT Knowledge Base/run.py" Intermediate/01-rag-chat-app ask    # options go to main.py
 ```
 
-It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, then runs `main.py` in
-this folder with the venv's Python, so there's nothing to activate.
+It creates this folder's `.venv` the first time, installs `requirements-dev.txt` into it, and copies `.env.example`
+to `.env` if there's no `.env` yet; then it runs `main.py` in this folder with the venv's Python, so there's nothing
+to activate. A new `.env` holds only the placeholder, so when `GOOGLE_API_KEY` isn't in the environment either, the
+first run stops there and says where your key goes (it never prints a key):
+
+```text
+ERROR Open <this folder>/.env, put your key after GOOGLE_API_KEY=, save it, then run this command again. (In GitHub Codespaces, a Codespaces secret named GOOGLE_API_KEY works too: then .env isn't needed.)
+```
+
+In GitHub Codespaces, step by step:
+
+1. On the repo's GitHub page, click **Code**, then **Codespaces**, then **Create codespace on main**. Its terminal
+   opens at the repo root.
+2. Give it your key, one of two ways:
+   - **A Codespaces secret**, so the key is in no file: on GitHub, **Settings** > **Codespaces** > **Secrets** >
+     **New secret**, named `GOOGLE_API_KEY`, with access to this repository. A codespace gets it when it starts, so
+     start a new one, or stop and restart the one you have.
+   - **Or `.env`**: run the command once (it makes `.env` and stops), open the file with
+     `code "projects/RAG/IT Knowledge Base/Intermediate/01-rag-chat-app/.env"`, put your key after `GOOGLE_API_KEY=`,
+     and save it.
+3. Run the command. The first time takes about a minute, for the install. When it prints
+   `Uvicorn running on http://127.0.0.1:8000`, open the **Ports** tab next to **Terminal** and click the globe icon
+   on port 8000: the chat page opens in a new browser tab.
+4. Ctrl+C stops the server.
 
 ---
 
@@ -612,6 +634,11 @@ learns that deadline from `/api/v1/info`, and waits 30 seconds more, so the serv
 **Fix**: Windows PowerShell blocks scripts until you allow them. Allow local ones once, with
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or for this window only, with
 `Set-ExecutionPolicy -Scope Process Bypass`, then activate again (Step 2). The one command needs no activating.
+
+**Issue**: `ERROR Open <this folder>/.env, put your key after GOOGLE_API_KEY=, save it, then run this command again. ...`
+**Fix**: The one command made `.env` from `.env.example`, which holds only a placeholder. Put your key in it and run
+the command again, or set a Codespaces secret named `GOOGLE_API_KEY` (see Or: Run It in One Command, in GitHub
+Codespaces Too).
 
 **Issue**: `Can't start: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
 **Fix**: Put your key in `.env` (Step 4), and start it again.

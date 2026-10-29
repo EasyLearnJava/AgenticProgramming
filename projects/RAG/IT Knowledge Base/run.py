@@ -1,6 +1,10 @@
 """
-Run one IT Knowledge Base project in one step: create its .venv the first time, install its packages into it, then
-run it from its own folder with the venv's Python, so there's nothing to activate.
+Run one IT Knowledge Base project in one step: create its .venv the first time, install its packages into it, make
+its .env from its .env.example if it has none, then run it from its own folder with the venv's Python, so there's
+nothing to activate. Works the same on Windows, macOS, Linux and GitHub Codespaces.
+
+A new .env holds only the example's placeholder. If the setting it names (GOOGLE_API_KEY) isn't in the environment
+either, such as from a Codespaces secret, the run stops there and says where to put the key; a key is never printed.
 
 Usage (from the repo root):
     python "projects/RAG/IT Knowledge Base/run.py" Basic/01-read-the-knowledge-base
@@ -9,6 +13,8 @@ Usage (from the repo root):
 """
 import argparse
 import logging
+import os
+import shutil
 import subprocess
 import sys
 import venv
@@ -38,6 +44,26 @@ COMMANDS = {
 def venv_python(project: Path) -> Path:
     """The Python inside a project's .venv."""
     return project / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+
+
+def make_env_file(folder: Path) -> bool:
+    """Copy the project's .env.example to .env when it has none. Returns False when the settings the example names
+    aren't in the environment either: the new .env holds only placeholders, so the user must fill it in first."""
+    example, env_file = folder / ".env.example", folder / ".env"
+    if not example.is_file() or env_file.exists():
+        return True
+    shutil.copyfile(example, env_file)
+    logger.info("Created %s from .env.example (.env is in .gitignore: it never goes into git)", env_file)
+    names = [line.split("=", 1)[0].strip() for line in example.read_text(encoding="utf-8").splitlines()
+             if "=" in line and not line.lstrip().startswith("#")]
+    missing = [name for name in names if not os.environ.get(name, "").strip()]
+    if missing:
+        logger.error("Open %s, put your key after %s=, save it, then run this command again. (In GitHub Codespaces, "
+                     "a Codespaces secret named %s works too: then .env isn't needed.)", env_file,
+                     "= and ".join(missing), " and ".join(missing))
+        return False
+    logger.info("%s is set in the environment, which wins over .env", ", ".join(names))
+    return True
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -70,7 +96,11 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("Installing the packages failed: pip's message is above")
         return install.returncode
 
-    # Step 3: Run it from its own folder, as its README does
+    # Step 3: Make its .env from its .env.example, the first time only; stop if the key must be put in first
+    if not make_env_file(folder):
+        return 1
+
+    # Step 4: Run it from its own folder, as its README does
     command = COMMANDS[args.project] + args.options
     logger.info("Running %s in %s", " ".join(command), args.project)
     try:

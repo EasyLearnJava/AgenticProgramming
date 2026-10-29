@@ -111,11 +111,13 @@ python "projects/RAG/IT Knowledge Base/run.py" Basic/01-read-the-knowledge-base
 python "projects/RAG/IT Knowledge Base/run.py" Advanced/01-read-the-knowledge-base --log-level DEBUG   # options go to the project
 ```
 
-It does a project's setup steps for you, the same on Windows, macOS, Linux and Codespaces: it creates the project's
-`.venv` the first time (about a minute, with the install), installs its `requirements-dev.txt` into it, then runs the
-project's command from the table above, in the project's folder, with the venv's Python, so there's nothing to
-activate. After the first time it takes a few seconds. It doesn't set up a Gemini key: do that first,
-as above. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every project's name. `Entry` and
+It does a project's setup steps for you, the same on Windows, macOS, Linux and GitHub Codespaces: it creates the
+project's `.venv` the first time (about a minute, with the install), installs its `requirements-dev.txt` into it,
+copies its `.env.example` to `.env` if the project has one and no `.env` yet, then runs the project's command from the
+table above, in the project's folder, with the venv's Python, so there's nothing to activate. After the first time it
+takes a few seconds. It doesn't know your Gemini key: a new `.env` holds only a placeholder, so when `GOOGLE_API_KEY`
+isn't in the environment either (from a Codespaces secret, say), it stops there and says to put your key in `.env`,
+then run it again. `python "projects/RAG/IT Knowledge Base/run.py" --help` lists every project's name. `Entry` and
 `RAG series` aren't in it: their projects are notebooks, run in VS Code or Colab, as their READMEs say.
 
 ## Built with
