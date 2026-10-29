@@ -6,7 +6,7 @@ Loads the Gemini API key and checks it before anything else runs. It handles:
   1. Reading GOOGLE_API_KEY from the environment, or from the .env file next to this one
   2. Stopping with a clear MissingKeyError when there's no usable key
 
-Usage (models.py calls it, before it builds the models):
+Usage (pipeline.py calls it, before it builds the models):
     load_api_key()   ->  the key; or MissingKeyError, saying how to set one (the key itself is never printed)
 """
 import os
