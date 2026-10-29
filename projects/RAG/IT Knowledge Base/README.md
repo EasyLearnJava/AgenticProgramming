@@ -24,7 +24,7 @@ The projects come in four levels:
 
 - **`Entry/`**: the idea in three short Jupyter notebooks, before any of the app, with small models that run on the
   CPU, and Chroma. No API key.
-- **`Basic/`**: the whole app, 01 to 12, one step at a time, each on the happy path: the data is assumed to be good.
+- **`Basic/`**: the whole app, 01 to 10, one step at a time, each on the happy path: the data is assumed to be good.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
   and reports it. 01 is built; 02 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
@@ -63,8 +63,6 @@ Models and Embeddings in RAGs.
 | `08-rag-engine` | Everything so far in one class: build once, then answer each question with up to 3 sources | `python pipeline.py` |
 | `09-api` | A FastAPI server: `POST /api/query`, `GET /api/stats`, `GET /api/health` | `uvicorn main:app` |
 | `10-chat-page` | A chat page at http://127.0.0.1:8000, served by the same server | `uvicorn main:app` |
-| `11-qdrant-on-disk` | The chunks kept on disk between runs, in `qdrant_data/`, so they're embedded only once | `uvicorn main:app` |
-| `12-tuning` | The search scored on 10 test questions for three chunk sizes and three values of k, raced against keywords (common words left out) and a random order; then, for each size, the questions whose fact wasn't in the first chunk Gemini's search found. With `--answers`, one of those questions answered from 1 chunk and from 5 | `python tuning.py` |
 
 ### Advanced
 
@@ -88,9 +86,8 @@ Models and Embeddings in RAGs.
 - **A Gemini API key, from project 04 on**, set up as in the tutorials (`tutorials/09-gemini-key`): copy the project's
   `.env.example` to `.env` and put the key after `GOOGLE_API_KEY=`. Every call to Gemini uses your key's quota.
   Without a key, the scripts stop with a message that says what to do. On the free tier, Gemini embeds at most 100
-  texts a minute, and each text in a batch counts: a run of 04 to 11 embeds about 30, and 12's `tuning.py` 97.
-- **No Docker and no database server**: Qdrant runs inside the scripts. Projects 11 and 12 save its points in a
-  `qdrant_data/` folder (in `.gitignore`); the others keep them in memory.
+  texts a minute, and each text in a batch counts: a run of 04 to 10 embeds about 30.
+- **No Docker and no database server**: Qdrant runs inside the scripts and keeps its points in memory.
 - **Tests**: `python -m pytest -m "not live"` in a project's folder runs the plain tests: they use stand-ins for
   Gemini, so they need no key. The live tests call the real Gemini and run only when a key is set. From 07 on, a
   project's live tests together embed more than 100 texts, so on the free tier run them one file at a time, a minute
