@@ -17,13 +17,13 @@ That is RAG: retrieval first, then generation. It handles:
   8. Making a retriever that embeds and searches in one call, and returns TOP_K chunks
   9. Turning the chunks into one numbered, titled text for a prompt
   10. The prompt: the rules and the chunks, then the question
-  11. The chain: retriever, prompt, chat model and parser, keeping the chunks found as the sources
-  12. Running the steps: main() names them, runs them, then prints the prompt Gemini got, the answer and the sources
+  11. Running the steps: main() names them and runs them: the retriever finds the chunks, the prompt is filled in
+      with them and the question, and Gemini answers it. It prints the prompt Gemini got, the answer and the sources
       with utils.py's print_answer(); then, for comparison, it asks Gemini the same question alone, with no articles,
       and prints that answer with print_answer_alone()
 
-    question ──┬──> retriever ─────────────> docs ──┐
-               └──> passed through ──────> question ┴─> prompt -> chat model -> parser -> answer
+    question -> retriever -> found (the chunks) ──┐
+    question ─────────────────────────────────────┴─> prompt -> chat model -> parser -> answer
 
 Building a model makes no call to Gemini: each embed_... and each invoke does, and uses your key's quota.
 
@@ -44,8 +44,6 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.retrievers import BaseRetriever
-from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthrough
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
@@ -210,20 +208,6 @@ prompt = ChatPromptTemplate.from_messages([
 ])
 
 
-def make_rag_chain(retriever: BaseRetriever, model: BaseChatModel) -> Runnable:
-    """The chain: question -> {"docs": the chunks found, "question": ..., "answer": Gemini's answer}."""
-    answer = (
-        (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]})
-        | prompt
-        | model
-        # StrOutputParser comes from langchain_core: it turns the model's reply into plain text
-        | StrOutputParser()
-    )
-    # Retrieve and pass the question through side by side, then add the answer, keeping "docs" for the sources
-    # RunnableParallel, RunnablePassthrough and assign() come from LangChain (langchain_core.runnables)
-    return RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
-
-
 # The tests pass stand-ins for Gemini as `embeddings` and `model`, with the embeddings' vector size
 def main(question: str = QUESTION, embeddings: Embeddings = embeddings, model: BaseChatModel = chat_model,
          size: int = EMBEDDING_SIZE) -> None:
@@ -239,16 +223,20 @@ def main(question: str = QUESTION, embeddings: Embeddings = embeddings, model: B
     # count() comes from qdrant_client's QdrantClient: how many points the collection holds
     print(f"Step 4: Store: {store.client.count(store.collection_name).count} points, in Qdrant in memory")
     print("Step 5: Retrieve and answer")
-    chain = make_rag_chain(make_retriever(store), model)
-    # invoke() comes from LangChain's Runnable: it runs the whole chain on one input
-    result = chain.invoke(question)                # retrieval, prompt and answer, all in this one call
-    # What Gemini got: the chain's own prompt, filled in with the chunks it found and the question
+    # The retriever turns the question into a vector, from the same model as the chunks so the two can be compared
+    # (one call to Gemini), then Qdrant gives back the TOP_K closest chunks, closest first
+    # invoke() comes from LangChain's Runnable: the retriever embeds the question and searches, in one call
+    found = make_retriever(store).invoke(question)
+    # What Gemini gets: the prompt, filled in with the chunks found and the question
     # format_messages() comes from LangChain's ChatPromptTemplate: the prompt's messages, filled in
-    messages = prompt.format_messages(context=format_docs(result["docs"]), question=question)
-    print_answer(question, messages, result)
-    # For comparison: the same question to Gemini alone, with no retriever and no articles (one more call)
+    messages = prompt.format_messages(context=format_docs(found), question=question)
+    # | joins the chat model and the parser into one Runnable, used for both answers
     # StrOutputParser comes from langchain_core: it turns the model's reply into plain text
-    print_answer_alone((model | StrOutputParser()).invoke(question))
+    chat = model | StrOutputParser()
+    answer = chat.invoke(messages)                 # Gemini answers from the chunks found (one call)
+    print_answer(question, messages, found, answer)
+    # For comparison: the same question to Gemini alone, with no retriever and no articles (one more call)
+    print_answer_alone(chat.invoke(question))
 
 
 if __name__ == "__main__":

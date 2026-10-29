@@ -23,7 +23,7 @@ with **LangChain**, **Gemini** (`gemini-embedding-001` and `gemini-3.5-flash-lit
   answer used
 - **Asks Gemini the same question alone**, with no articles, for comparison
 - **All the code in one file**, `pipeline.py`: the loader, the splitter, the models, the embedding, the vector store,
-  the retriever, the prompt and the chain, and `main()`, which names each step, then runs it. Two files are apart:
+  the retriever and the prompt, and `main()`, which names each step, then runs it. Two files are apart:
   `config.py`, which checks the key, and `utils.py`, which prints the answers
 
 "Grounded" means the answer is meant to come from the knowledge base, not from what the model learned in training.
@@ -48,19 +48,19 @@ data/sample_it_kb.csv                 10 articles
   question ────┤ Step 5: Retrieve and answer
                ↓
 ┌──────────────────────────────┐
-│  make_rag_chain()            │
-│  ├─ docs: the retriever      │  ← embeds the question (1 call), finds the 5 closest chunks
-│  ├─ question: passed through │
-│  └─ answer: prompt → Gemini  │  ← the 5 chunks and the question in one prompt (1 call)
+│  make_retriever(store)       │  ← embeds the question (1 call), finds the 5 closest chunks: found
+│    .invoke(question)         │
+│  prompt.format_messages()    │  ← the 5 chunks and the question in one prompt: messages
+│  chat.invoke(messages)       │  ← chat = model | StrOutputParser(): Gemini's answer (1 call)
 └──────────────┬───────────────┘
-               │ {"docs", "question", "answer"}
+               │ found, messages, answer
                ↓
-      print_answer(), in utils.py: the prompt as Gemini got it (prompt.format_messages()),
+      print_answer(), in utils.py: the prompt as Gemini got it (messages),
                                    the answer, then the articles of the chunks found
                │
   question ────┤ for comparison, with no retriever and no articles
                ↓
-      model | StrOutputParser(): Gemini alone (1 call); print_answer_alone() prints it
+      chat.invoke(question): Gemini alone (1 call); print_answer_alone() prints it
 ```
 
 ### The Pipeline in This Project
@@ -70,9 +70,12 @@ data/sample_it_kb.csv                 10 articles
 3. **Chunk** → `split_documents()` cuts them into 28 chunks of at most 512 characters
 4. **Embed** → `embed_chunks()` embeds the 28 chunks in one call to Gemini
 5. **Store** → `store_vectors()` stores them in Qdrant, each with its vector
-6. **Retrieve** → the retriever embeds the question (one call) and finds the 5 closest chunks
-7. **Prompt** → `format_docs()` numbers the chunks and titles them; they go into the prompt with the question
-8. **Answer** → `gemini-3.5-flash-lite` writes the answer (one call), and `StrOutputParser` turns it into plain text
+6. **Retrieve** → `found = make_retriever(store).invoke(question)`: the retriever embeds the question (one call)
+   and finds the 5 closest chunks
+7. **Prompt** → `format_docs()` numbers the chunks and titles them, and `prompt.format_messages()` puts them into the
+   prompt with the question: `messages`
+8. **Answer** → `gemini-3.5-flash-lite` writes the answer from `messages` (one call), and `StrOutputParser` turns it
+   into plain text
 9. **Print** → `print_answer()`, from `utils.py`: the question, the prompt as Gemini got it, the answer, then the
    articles the chunks came from, each once
 10. **Compare** → the same question goes to Gemini alone (one call), and `print_answer_alone()` prints its answer
@@ -153,14 +156,14 @@ goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 36 passed, 7 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 35 passed, 7 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini (`KeywordEmbeddings` for the embeddings, LangChain's `FakeListChatModel`
 for the answers), so they need no key and make no calls. They check:
 
-- **The chain**: the prompt holds the rules and the articles, then the question; the chain gives back the chunks, the
-  question and the answer; and the model gets the chunks it found as the articles
+- **The prompt**: it holds the rules and the articles, then the question; and the model gets the chunks found as the
+  articles
 - **The printing**: what `print_answer()` prints, the prompt as Gemini got it too, and what `print_answer_alone()`
   prints
 - **The pipeline**: it embeds the chunks, then the question, once each, and prints the steps, the prompt, the answer,
@@ -172,7 +175,8 @@ with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs on
 to bake bread: the answer must say the knowledge base doesn't cover it ("cover") and have no "flour" or "yeast" (no
 recipe from what Gemini knows). Together they embed 118 texts, more than the free tier's limit of 100 a minute, so on
 the free tier, run them in two goes, a minute apart: `python -m pytest -m live -k "vpn_question or off_topic"` (the
-chain's two, 30 texts), then `python -m pytest -m live -k "not vpn_question and not off_topic"` (the other five, 88).
+two answers from the chunks, 30 texts), then `python -m pytest -m live -k "not vpn_question and not off_topic"`
+(the other five, 88).
 
 ---
 
@@ -211,8 +215,8 @@ make up a confident answer instead (a hallucination).
 ```
 
 The system message holds the rules and the articles (`{context}`); the human message holds the question. The run
-prints the prompt filled in, with `prompt.format_messages()`, the chain's own template, so what you read is what
-Gemini got. For the Building C question, the articles start:
+fills in the prompt with `prompt.format_messages()`, then hands Gemini those very messages and prints them, so what
+you read is what Gemini got. For the Building C question, the articles start:
 
 ```text
 Articles:
@@ -252,39 +256,38 @@ the chunks the search found, and a search always finds 5 chunks, here from 5 dif
 question, from 3). And Gemini alone, asked the same question, wrote a bread recipe, until it reached
 `MAX_OUTPUT_TOKENS`, 500.
 
-### 4. One Chain That Keeps the Chunks
+### 4. Retrieve, Then Answer, One Step at a Time
 
 ```python
-RunnableParallel(docs=retriever, question=RunnablePassthrough()).assign(answer=answer)
+found = make_retriever(store).invoke(question)                    # the 5 closest chunks (1 call)
+messages = prompt.format_messages(context=format_docs(found), question=question)
+answer = chat.invoke(messages)                                    # Gemini's answer from them (1 call)
 ```
 
-`RunnableParallel` runs the retriever on the question and passes the question through, side by side. `.assign()`
-then adds the answer. Because `"docs"` stays in the result, `print_answer()` can list the articles of the chunks the
-search found, which Gemini was given.
+Step 5 runs one step at a time, as 06 does, and gives each result a name: `found`, the chunks the search found;
+`messages`, the prompt filled in with them and the question; `answer`, Gemini's reply. Gemini gets `messages` itself,
+so the prompt the run prints is exactly what Gemini got, and `print_answer()` lists the articles of `found` as the
+sources.
 
 ### 5. Runnables Joined With `|`
 
 ```python
-answer = (
-    (lambda x: {"context": format_docs(x["docs"]), "question": x["question"]})
-    | prompt
-    | model
-    | StrOutputParser()
-)
-model | StrOutputParser()   # the question alone: no retriever, no prompt, so no articles
+chat = model | StrOutputParser()
+chat.invoke(messages)   # with the articles: the prompt, filled in
+chat.invoke(question)   # alone: just the question, no prompt, so no articles
 ```
 
-Each part is, or becomes, a Runnable, and `|` passes one part's output to the next: the chunks become one text for the
-prompt, the prompt goes to the model, and the parser turns the model's reply into plain text. The lambda isn't a
-Runnable itself; when `|` joins it to one, LangChain wraps it in a `RunnableLambda`. One `invoke()` runs it all.
+The chat model and the parser are both Runnables, and `|` joins them into one: the model's reply goes to the parser,
+which turns it into plain text, and one `invoke()` runs both. The same `chat` gives both answers; only what it's
+given changes.
 
 ### 6. One File Runs the Steps
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 4, printing a line each, then Step 5,
-the chain, and `print_answer()`, from `utils.py`, prints its result with the prompt; then the question alone, which
-`print_answer_alone()` prints. `config.py` and `utils.py` only define what it uses, and building the models makes no
-call, so importing any of them makes no call. The question and the two models are parameters of `main()`, so the
-tests pass stand-ins for Gemini.
+the search and the answer, which `print_answer()`, from `utils.py`, prints with the prompt; then the question alone,
+which `print_answer_alone()` prints. `config.py` and `utils.py` only define what it uses, and building the models
+makes no call, so importing any of them makes no call. The question and the two models are parameters of `main()`,
+so the tests pass stand-ins for Gemini.
 
 ### 7. The Code in One File, the Helpers Apart
 
@@ -296,7 +299,7 @@ from utils import print_answer, print_answer_alone   # helpers: showing the two 
 `pipeline.py` holds the project's code, top to bottom: the settings (the data file, the column lists, the chunk size
 and overlap, the two models' names and settings, the collection's name, `TOP_K`, the sample questions and
 `QUESTION`), the loader, the splitter, the two models, `embed_chunks()`, the vector store (`make_vector_store()` and
-`store_vectors()`), the retriever (`make_retriever()` and `format_docs()`), the prompt and `make_rag_chain()`, then
+`store_vectors()`), the retriever (`make_retriever()` and `format_docs()`), the prompt, then
 `main()`, which runs them. Two files stay apart. `utils.py` holds `print_answer()` and `print_answer_alone()`, which
 print what `main()` hands them, so `utils.py` needs nothing from `pipeline.py`. `config.py` holds the key check,
 because the tests need it before `pipeline.py` is imported: `tests/conftest.py` asks it whether there's a real key,

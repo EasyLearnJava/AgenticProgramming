@@ -22,11 +22,11 @@ def test_print_answer_prints_the_question_the_prompt_the_answer_then_each_articl
     question = QUESTIONS[0]
     docs = stand_in_retriever().invoke(question)
     messages = prompt.format_messages(context=format_docs(docs), question=question)
-    print_answer(question, messages, {"docs": docs, "question": question, "answer": "An answer."})
+    print_answer(question, messages, docs, "An answer.")
     titles = dict.fromkeys(doc.metadata["title"] for doc in docs)          # each title once, closest first
     assert capsys.readouterr().out == (
         f"Question: {question}\n\n"
-        "What Gemini got: the chain's prompt, filled in with the 5 chunks found and the question\n"
+        "What Gemini got: the prompt, filled in with the 5 chunks found and the question\n"
         f"--- system message ---\n{messages[0].content}\n"
         f"--- human message ---\n{question}\n"
         "\nAnswer (Gemini's, asked to use only the chunks found):\nAn answer.\n"

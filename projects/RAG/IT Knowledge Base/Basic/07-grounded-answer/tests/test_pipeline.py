@@ -4,9 +4,9 @@ articles cut into chunks, each no longer than the chunk size, each keeping its a
 article it starts; the two models' names and settings, and that every script stops with a clear message when there
 is no key; the 28 chunks embedded in one call, one vector each, in order, from their text only; the collection,
 storing the 28 chunks with their vectors, and what each stored point holds; the retriever as a Runnable (invoke,
-batch, k), finding the closest chunks, closest first, and the chunks formatted for a prompt; the prompt, and the
-chain's three results (the chunks, the question, the answer); and the steps it runs and what it prints, and that
-it's the only file that runs anything.
+batch, k), finding the closest chunks, closest first, and the chunks formatted for a prompt; the prompt, with the
+rules, the chunks found and the question; and the steps it runs and what it prints, and that it's the only file that
+runs anything.
 
 The plain tests use stand-ins for Gemini (tests/fakes.py) and Qdrant in memory; the live tests ask the real Gemini.
 """
@@ -25,8 +25,8 @@ from qdrant_client.models import Distance
 
 from pipeline import (CHAT_MODEL, CHUNK_OVERLAP, CHUNK_SIZE, COLLECTION, EMBEDDING_MODEL, EMBEDDING_SIZE, KB_FILE,
                       MAX_OUTPUT_TOKENS, QUESTION, QUESTIONS, TOP_K, KBLoader, chat_model, embed_chunks, embeddings,
-                      format_docs, load_documents, main, make_rag_chain, make_retriever, make_vector_store, prompt,
-                      split_documents, store_vectors)
+                      format_docs, load_documents, main, make_retriever, make_vector_store, prompt, split_documents,
+                      store_vectors)
 
 FOLDER = Path(__file__).resolve().parent.parent   # the project folder (this file sits in its tests/ folder)
 SCRIPTS = ["pipeline.py"]
@@ -277,13 +277,7 @@ def test_live_the_sample_questions_find_their_articles():
         "VPN Connection Timeout", "MFA Setup Failure", "Laptop Performance Degradation"]
 
 
-# --- The chain ---
-
-def stand_in_retriever():
-    store = make_vector_store(KeywordEmbeddings(), SIZE)
-    store_vectors(store, CHUNKS, VECTORS)
-    return make_retriever(store)
-
+# --- The prompt ---
 
 def test_the_prompt_has_the_rules_and_articles_then_the_question():
     system, human = prompt.invoke({"context": "[1] An article\nIts text", "question": "Why?"}).to_messages()
@@ -294,47 +288,28 @@ def test_the_prompt_has_the_rules_and_articles_then_the_question():
     assert human.content == "Why?"
 
 
-def test_the_chain_gives_the_chunks_the_question_and_the_answer():
-    chain = make_rag_chain(stand_in_retriever(), FakeListChatModel(responses=["Open UDP ports 500 and 4500."]))
-    result = chain.invoke("My VPN won't connect")
-    assert set(result) == {"docs", "question", "answer"}
-    assert result["question"] == "My VPN won't connect"
-    assert result["answer"] == "Open UDP ports 500 and 4500."
-    assert result["docs"][0].metadata["title"] == "VPN Connection Timeout"
-
-
-def test_the_model_gets_the_chunks_it_found_as_the_articles():
-    seen = []
-
-    def stand_in_model(prompt_value):            # takes the model's place, and keeps what it was given
-        seen.append(prompt_value.to_messages())
-        return AIMessage(content="An answer.")
-
-    make_rag_chain(stand_in_retriever(), RunnableLambda(stand_in_model)).invoke("My VPN won't connect")
-    system, human = seen[0]
-    assert "Articles:\n[1] VPN Connection Timeout\nTitle: VPN Connection Timeout" in system.content
-    assert human.content == "My VPN won't connect"
-
-
 @pytest.fixture(scope="module")
-def live_chain():
-    """The chain on the real Gemini, built once for the two live tests below: the 28 chunks embedded in one call."""
+def live_retriever():
+    """The retriever on the real Gemini, built once for the two live tests below: the 28 chunks embedded in one call."""
     store = make_vector_store(embeddings, EMBEDDING_SIZE)
     store_vectors(store, CHUNKS, embed_chunks(CHUNKS, embeddings))
-    return make_rag_chain(make_retriever(store), chat_model)
+    return make_retriever(store)
 
 
 @pytest.mark.live
-def test_live_the_vpn_question_finds_the_vpn_article_first_and_gets_an_answer(live_chain):
-    result = live_chain.invoke(QUESTIONS[0])
-    assert result["docs"][0].metadata["title"] == "VPN Connection Timeout"
-    assert result["answer"].strip()
+def test_live_the_vpn_question_finds_the_vpn_article_first_and_gets_an_answer(live_retriever):
+    found = live_retriever.invoke(QUESTIONS[0])
+    messages = prompt.format_messages(context=format_docs(found), question=QUESTIONS[0])
+    assert found[0].metadata["title"] == "VPN Connection Timeout"
+    assert chat_model.invoke(messages).text.strip()
 
 
 @pytest.mark.live
-def test_live_an_off_topic_question_is_answered_as_not_covered(live_chain):
+def test_live_an_off_topic_question_is_answered_as_not_covered(live_retriever):
     # The prompt asks for "the knowledge base doesn't cover it". A model mostly does as it's asked, not always.
-    answer = live_chain.invoke("How do I bake bread?")["answer"].lower()
+    question = "How do I bake bread?"
+    messages = prompt.format_messages(context=format_docs(live_retriever.invoke(question)), question=question)
+    answer = chat_model.invoke(messages).text.lower()
     assert "cover" in answer
     assert "flour" not in answer and "yeast" not in answer        # and no recipe from what Gemini knows
 
@@ -343,7 +318,7 @@ def test_live_an_off_topic_question_is_answered_as_not_covered(live_chain):
 
 def test_the_pipeline_retrieves_answers_from_the_chunks_found_then_asks_gemini_alone(capsys):
     stand_in = KeywordEmbeddings()
-    model = FakeListChatModel(responses=["In Q2.", "I can't know that."])     # the chain's reply, then the alone one
+    model = FakeListChatModel(responses=["In Q2.", "I can't know that."])     # the first answer, then the alone one
     main(embeddings=stand_in, model=model, size=SIZE)
     printed = capsys.readouterr().out
     assert stand_in.calls == [("documents", 28), ("query", QUESTION)]    # the chunks, then the question, once each
@@ -353,8 +328,8 @@ def test_the_pipeline_retrieves_answers_from_the_chunks_found_then_asks_gemini_a
                               "Step 4: Store: 28 points, in Qdrant in memory\n"
                               "Step 5: Retrieve and answer\n"
                               f"Question: {QUESTION}\n\n"
-                              "What Gemini got: the chain's prompt, filled in with the 5 chunks found and the "
-                              "question\n--- system message ---\n")
+                              "What Gemini got: the prompt, filled in with the 5 chunks found and the question\n"
+                              "--- system message ---\n")
     assert f"\n--- human message ---\n{QUESTION}\n\nAnswer (Gemini's, asked to use only the chunks found):\n" \
            "In Q2.\n\nSources (the articles of the chunks found, closest first):\n" in printed
     assert printed.endswith("\nFor comparison, the same question to Gemini alone, with no articles:\n"
@@ -370,9 +345,22 @@ def test_the_printed_prompt_is_exactly_what_the_model_got(capsys):
 
     main(embeddings=KeywordEmbeddings(), model=RunnableLambda(stand_in_model), size=SIZE)
     printed = capsys.readouterr().out
-    system, human = seen[0].to_messages()        # the chain's call: the filled-in prompt
+    system, human = seen[0]                      # the first call: the filled-in prompt's messages
     assert f"--- system message ---\n{system.content}\n--- human message ---\n{human.content}\n" in printed
     assert seen[1] == QUESTION                   # alone: the question, and nothing else
+
+
+def test_the_model_gets_the_chunks_found_as_the_articles():
+    seen = []
+
+    def stand_in_model(model_input):             # takes the model's place, and keeps what it was given
+        seen.append(model_input)
+        return AIMessage(content="An answer.")
+
+    main("My VPN won't connect", embeddings=KeywordEmbeddings(), model=RunnableLambda(stand_in_model), size=SIZE)
+    system, human = seen[0]
+    assert "Articles:\n[1] VPN Connection Timeout\nTitle: VPN Connection Timeout" in system.content
+    assert human.content == "My VPN won't connect"
 
 
 def test_a_question_of_your_own(capsys):
