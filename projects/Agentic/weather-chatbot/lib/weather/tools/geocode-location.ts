@@ -43,8 +43,8 @@ export const geocodeLocation: WeatherTool<"geocode_location", GeocodeInput, Geoc
     "Finds places by name. Returns the candidates (name, region, country, coordinates, time zone, population) and " +
     "isAmbiguous: true when the name could mean more than one place. An empty list means no place has that name.",
   inputSchema: GeocodeInputSchema,
-  async run({ query, count = DEFAULT_PLACE_COUNT, countryCode }, { openMeteo, signal }) {
-    const answer = await openMeteo.searchPlaces({ query, count, countryCode }, signal);
+  async run({ query, count = DEFAULT_PLACE_COUNT, countryCode }, { openMeteo, signal, log }) {
+    const answer = await openMeteo.searchPlaces({ query, count, countryCode }, { signal, log });
     const output = { candidates: answer.data, isAmbiguous: isAmbiguousPlace(answer.data) };
     return { output, request: answer.request, cache: answer.cache };
   },

@@ -21,8 +21,8 @@ export const getCurrentWeather: WeatherTool<"get_current_weather", CurrentWeathe
     "Gives the weather now at a point: temperature, feels-like temperature, wind, the condition, day or night, and " +
     "when it was observed, in the place's local time.",
   inputSchema: CurrentWeatherInputSchema,
-  async run(input, { openMeteo, signal }) {
-    const answer = await openMeteo.getCurrentWeather(input, signal);
+  async run(input, { openMeteo, signal, log }) {
+    const answer = await openMeteo.getCurrentWeather(input, { signal, log });
     const { weatherCode, ...now } = answer.data;
     const condition = toCondition(weatherCode);
     const output: CurrentWeather = {

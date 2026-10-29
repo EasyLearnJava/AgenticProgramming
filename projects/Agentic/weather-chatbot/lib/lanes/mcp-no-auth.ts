@@ -5,10 +5,10 @@
 import "server-only";
 import { type CallToolResult, createMCPClient, type MCPClient, type MCPClientConfig } from "@ai-sdk/mcp";
 import type { JSONValue, Tool } from "ai";
-import { MCP_API_PATH, MCP_CONNECT_TIMEOUT_MS } from "@/lib/constants";
+import { MCP_API_PATH, MCP_CONNECT_TIMEOUT_MS, REQUEST_ID_HEADER } from "@/lib/constants";
 import { ContractError, toAppErrorByName, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
 import type { Lane } from "@/lib/lanes/lane";
-import { logError } from "@/lib/logger";
+import { type Logger, logger } from "@/lib/logger";
 import type { ToolResult, WireRequest } from "@/lib/types";
 import { once, timeoutSignal, toAbortKind } from "@/lib/utils";
 import { OPEN_METEO_TOOLS } from "@/lib/weather/open-meteo-tools";
@@ -23,6 +23,8 @@ type McpConnection = Pick<MCPClient, "listTools" | "callTool" | "close">;
 
 type McpNoAuthOptions = {
   origin: string;
+  requestId: string;
+  log?: Logger;
   bypassSecret?: string;
   signal?: AbortSignal;
   fetch?: typeof fetch;
@@ -34,6 +36,8 @@ type McpNoAuthOptions = {
 /** Opens MCP · no auth: connects to /api/mcp, checks its tool list, and hands the model our four, called through it. */
 export async function openMcpNoAuthLane({
   origin,
+  requestId,
+  log = logger,
   bypassSecret,
   signal,
   fetch: fetchMcp = fetch,
@@ -44,8 +48,11 @@ export async function openMcpNoAuthLane({
   // ① Where: /api/mcp on this same deployment, so a preview talks to its own MCP server.
   const url = `${origin}${MCP_API_PATH}`;
   // ② Auth: none. The bypass secret, when the project has one, gets the call past Vercel's Deployment Protection; it
-  // isn't MCP auth.
-  const headers: Record<string, string> = bypassSecret ? { [BYPASS_HEADER]: bypassSecret } : {};
+  // isn't MCP auth. Every request also carries the chat's request id, so the server's log lines carry it too.
+  const headers: Record<string, string> = {
+    [REQUEST_ID_HEADER]: requestId,
+    ...(bypassSecret ? { [BYPASS_HEADER]: bypassSecret } : {}),
+  };
   // Every request the transport sends goes through this fetch, which keeps it for the chips' wire views.
   const sent: WireRequest[] = [];
   const recordingFetch = ((input: string | URL | Request, init?: RequestInit) => {
@@ -53,23 +60,32 @@ export async function openMcpNoAuthLane({
     return fetchMcp(input, init);
   }) as typeof fetch;
   // ③ Tools: connect within 3 s; the server's list must hold our four, and a tool it adds never reaches the model.
-  const connectSignal = timeoutSignal(connectTimeoutMs, signal);
+  // Either way, one lane.connect line with the time it took; a failure's own line is the chat route's, which answers.
+  const connect: ConnectState = {
+    connectSignal: timeoutSignal(connectTimeoutMs, signal),
+    connectTimeoutMs,
+    signal,
+    logConnect: ((startedAt) => (fields) => {
+      log.info({ event: "lane.connect", ms: Math.round(now() - startedAt), ...fields });
+    })(now()),
+  };
   const client = await createClient({
     transport: { type: "http", url, headers, fetch: recordingFetch },
-    initializationOptions: { signal: connectSignal },
+    initializationOptions: { signal: connect.connectSignal },
   }).catch((error: unknown) => {
-    throw toConnectError(error, connectSignal, connectTimeoutMs, signal);
+    throw toConnectError(error, connect);
   });
   const close = once(() => client.close());
   try {
-    const { tools: listed } = await client.listTools({ options: { signal: connectSignal } });
+    const { tools: listed } = await client.listTools({ options: { signal: connect.connectSignal } });
     const missing = Object.keys(OPEN_METEO_TOOLS).filter((name) => !listed.some((tool) => tool.name === name));
     if (missing.length > 0) {
       throw new ContractError(`Our MCP server doesn't list ${missing.join(", ")}.`);
     }
+    connect.logConnect({ status: "ok", tools: listed.length });
   } catch (error) {
     await close();
-    throw toConnectError(error, connectSignal, connectTimeoutMs, signal);
+    throw toConnectError(error, connect);
   }
   const tools = {
     geocode_location: toMcpTool(OPEN_METEO_TOOLS.geocode_location, client, sent, now),
@@ -81,27 +97,38 @@ export async function openMcpNoAuthLane({
   return { id: LANE_ID, tools, close };
 }
 
+/** Connecting: its own time limit, the request's signal, and the lane.connect line, which knows when it started. */
+type ConnectState = {
+  connectSignal: AbortSignal;
+  connectTimeoutMs: number;
+  signal: AbortSignal | undefined;
+  logConnect: (fields: Record<string, unknown>) => void;
+};
+
 /**
- * A failure to connect or list the tools, as one of our classes, keeping the original as its cause, and logged with
- * its own class and message (a preview's 401 from Deployment Protection, say). A stop is passed on as it is.
+ * A failure to connect or list the tools, as one of our classes, keeping the original as its cause (a preview's 401
+ * from Deployment Protection, say), which the chat route logs; lane.connect says it failed. A stop is passed on as it
+ * is.
  */
 function toConnectError(
   error: unknown,
-  connectSignal: AbortSignal,
-  connectTimeoutMs: number,
-  signal?: AbortSignal,
+  { connectSignal, connectTimeoutMs, signal, logConnect }: ConnectState,
 ): unknown {
   if (toAbortKind(signal) === "stop") {
     return error;
   }
-  logError("lane.connect.failed", error, { lane: LANE_ID });
+  let failure: ContractError | UpstreamTimeoutError | UpstreamUnavailableError;
   if (error instanceof ContractError) {
-    return error;
+    failure = error;
+  } else if (connectSignal.aborted) {
+    failure = new UpstreamTimeoutError(`Our MCP server didn't connect within ${connectTimeoutMs} ms.`, {
+      cause: error,
+    });
+  } else {
+    failure = new UpstreamUnavailableError("Our MCP server can't be reached.", { cause: error });
   }
-  if (connectSignal.aborted) {
-    return new UpstreamTimeoutError(`Our MCP server didn't connect within ${connectTimeoutMs} ms.`, { cause: error });
-  }
-  return new UpstreamUnavailableError("Our MCP server can't be reached.", { cause: error });
+  logConnect({ status: "failed", errorClass: failure.name });
+  return failure;
 }
 
 /** A request as the MCP transport sends it, with the bypass secret masked: what a chip's wire view shows. */
@@ -163,13 +190,12 @@ function toMcpTool<Name extends string, Input, Output extends JSONValue>(
         })
         .catch((error: unknown) => {
           // The server didn't answer: a stop is passed on as the signal's own reason, as on REST (the MCP client wraps
-          // it); anything else is logged here (a tool that failed on the server is logged there), then becomes one of
-          // our classes, as on REST.
+          // it); anything else becomes one of our classes, as on REST, which the chat logs, as for every lane (a tool
+          // that failed on the server is logged there too, by the server).
           const abortKind = toAbortKind(abortSignal);
           if (abortKind === "stop") {
             throw abortSignal?.reason;
           }
-          logError("tool.failed", error, { tool: definition.name, lane: LANE_ID });
           throw abortKind === "timeout"
             ? new UpstreamTimeoutError("Our MCP server didn't answer within the tool's time budget.", { cause: error })
             : new UpstreamUnavailableError("Our MCP server can't be reached.", { cause: error });

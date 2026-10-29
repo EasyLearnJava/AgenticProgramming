@@ -2,7 +2,7 @@
  * tests/unit/chat/chat-request.test.ts: what POST /api/chat accepts, and the rule each refused body breaks.
  */
 import { describe, expect, it } from "vitest";
-import { parseChatRequest } from "@/lib/chat/chat-request";
+import { parseChatRequest, toQuestion } from "@/lib/chat/chat-request";
 import { InputError } from "@/lib/errors";
 
 /** A user message, as useChat sends it. */
@@ -25,11 +25,19 @@ async function refusal(body: unknown): Promise<string> {
 }
 
 describe("parseChatRequest", () => {
-  it("accepts useChat's body, with the lane and the locale", async () => {
+  it("accepts useChat's body, with the chat's id, the lane and the locale", async () => {
     const chatRequest = await parseChatRequest({ ...VALID, trigger: "submit-message" });
+    expect(chatRequest.chatId).toBe("chat-1");
     expect(chatRequest.laneId).toBe("rest-no-auth");
     expect(chatRequest.locale).toBe("en-GB");
     expect(chatRequest.messages).toHaveLength(1);
+  });
+
+  it("refuses a chat id the page wouldn't make, since it's logged", async () => {
+    expect(await refusal({ ...VALID, id: "me@example.com" })).toBe(
+      "That message can't be sent: its chat id isn't one the page makes.",
+    );
+    expect(await refusal({ ...VALID, id: "x".repeat(101) })).toContain("chat id");
   });
 
   it("refuses a lane that isn't live yet, and one that doesn't exist", async () => {
@@ -107,5 +115,19 @@ describe("parseChatRequest", () => {
     };
     const messages = [userMessage("u1", "Weather?"), badCall, userMessage("u2", "And tomorrow?")];
     expect(await refusal({ ...VALID, messages })).toContain("shape the chat sends");
+  });
+});
+
+describe("toQuestion", () => {
+  it("gives the text of the last message, the one being asked", async () => {
+    const chatRequest = await parseChatRequest({
+      ...VALID,
+      messages: [
+        userMessage("u1", "Weather in Paris?"),
+        { id: "a1", role: "assistant", parts: [{ type: "text", text: "Sunny." }], metadata: { createdAt: 2 } },
+        userMessage("u2", "And tomorrow?"),
+      ],
+    });
+    expect(toQuestion(chatRequest)).toBe("And tomorrow?");
   });
 });

@@ -6,6 +6,10 @@ import type { WireRequest } from "@/lib/types";
 const MS_PER_SECOND = 1000;
 const SHORTEST_SHOWN_MS = 50;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+const REQUEST_ID_CHARS = 16;
+// A request id we take from a header: letters, digits and : . _ -, as in Vercel's "iad1::abcde-1730211234567-f3c2b1".
+const REQUEST_ID_PATTERN = /^[\w:.-]{1,128}$/;
+const REF_CHARS = 8;
 
 /** Writes a request as it goes over the wire: the request line, the headers, then a blank line and the body. */
 export function toWireText(request: WireRequest): string {
@@ -41,6 +45,23 @@ export function formatLocalTime(isoTime: string, timeZone: string): string {
 export function toWeekday(isoDate: string): string {
   const day = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
   return WEEKDAYS[day] ?? "";
+}
+
+/** A new request id, for a request that didn't bring one: 16 random hex characters. */
+export function newRequestId(): string {
+  return crypto.randomUUID().replaceAll("-", "").slice(0, REQUEST_ID_CHARS);
+}
+
+/** The id to log a request with: the first of these header values that looks like a request id, else a new one. */
+export function toRequestId(...headerValues: (string | null)[]): string {
+  return (
+    headerValues.find((value): value is string => value !== null && REQUEST_ID_PATTERN.test(value)) ?? newRequestId()
+  );
+}
+
+/** A request id as a short ref for people, its last 8 letters and digits: "iad1::abc-1730-7f3a9c01" → "7f3a9c01". */
+export function toRef(requestId: string): string {
+  return requestId.replace(/[^a-z0-9]/gi, "").slice(-REF_CHARS);
 }
 
 /** Wraps a function so it runs only the first time it's called; later calls get the first call's result. */

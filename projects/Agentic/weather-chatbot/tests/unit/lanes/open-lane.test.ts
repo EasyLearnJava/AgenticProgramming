@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { toSelfOrigin } from "@/lib/lanes/open-lane";
 
 const ON_VERCEL = {
+  id: "dpl_abc123",
   url: "weather-chatbot-abc123-silverado.vercel.app",
   hosts: [
     "weather-chatbot-abc123-silverado.vercel.app",
@@ -31,6 +32,8 @@ describe("toSelfOrigin", () => {
   });
 
   it("off Vercel (a laptop), uses the request's own origin", () => {
-    expect(toSelfOrigin("http://localhost:3000/api/chat", { url: undefined, hosts: [] })).toBe("http://localhost:3000");
+    expect(toSelfOrigin("http://localhost:3000/api/chat", { id: undefined, url: undefined, hosts: [] })).toBe(
+      "http://localhost:3000",
+    );
   });
 });

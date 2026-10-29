@@ -1,23 +1,34 @@
 /*
  * tests/unit/lanes/mcp-no-auth.test.ts: MCP · no auth against our own MCP server, run in this process: what a call
- * gives the page, the bypass secret (sent, never shown), and every way a call or the connection can end.
+ * gives the page, the request id and the bypass secret (sent; the secret never shown), the lane.connect line, and
+ * every way a call or the connection can end.
  */
 import type { MCPClient } from "@ai-sdk/mcp";
 import { createMcpHandler } from "mcp-handler";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ContractError, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
 import type { Lane } from "@/lib/lanes/lane";
 import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
 import type { ToolResult } from "@/lib/types";
+import { createTestLog } from "@/tests/stubs/log-stand-ins";
 import { createMcpServerFetch, TEST_ORIGIN } from "@/tests/stubs/mcp-stand-ins";
 import { type FakeAnswer, hangingFetch } from "@/tests/stubs/open-meteo-stand-ins";
+
+const REQUEST_ID = "iad1::iad1::abcde-1730211234567-f3c2b1a0d9e8";
 
 /** The lane, wired to our MCP server in-process, whose Open-Meteo calls get these answers (or this fetch). */
 async function openWith(answers: FakeAnswer[] | typeof fetch, bypassSecret?: string) {
   const server = createMcpServerFetch(answers);
-  const lane = await openMcpNoAuthLane({ origin: TEST_ORIGIN, bypassSecret, fetch: server.fetch });
-  return { lane, requests: server.requests };
+  const { log, lines } = createTestLog();
+  const lane = await openMcpNoAuthLane({
+    origin: TEST_ORIGIN,
+    requestId: REQUEST_ID,
+    log,
+    bypassSecret,
+    fetch: server.fetch,
+  });
+  return { lane, requests: server.requests, lines };
 }
 
 /** Runs one of the lane's tools, as streamText would, with this abort signal. */
@@ -29,18 +40,9 @@ async function call(lane: Lane, name: string, input: unknown, abortSignal?: Abor
   return tool.execute(input, { toolCallId: "t1", messages: [], abortSignal, context: {} });
 }
 
-/** The events logged so far, read back from the JSON lines. */
-function loggedEvents(written: { mock: { calls: unknown[][] } }): Record<string, unknown>[] {
-  return written.mock.calls.map((each) => JSON.parse(String(each[0])));
-}
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe("openMcpNoAuthLane", () => {
-  it("connects to /api/mcp at this deployment's origin, and hands the model our four tools", async () => {
-    const { lane, requests } = await openWith([]);
+  it("connects to /api/mcp at this deployment's origin, hands the model our four tools, and logs how long it took", async () => {
+    const { lane, requests, lines } = await openWith([]);
     expect(Object.keys(lane.tools).sort()).toEqual([
       "geocode_location",
       "get_air_quality",
@@ -48,6 +50,9 @@ describe("openMcpNoAuthLane", () => {
       "get_forecast",
     ]);
     expect(new Set(requests.map((request) => request.url))).toEqual(new Set([`${TEST_ORIGIN}/api/mcp`]));
+    expect(lines).toEqual([
+      expect.objectContaining({ level: "info", event: "lane.connect", status: "ok", tools: 4, ms: expect.any(Number) }),
+    ]);
     await lane.close();
   });
 
@@ -79,6 +84,14 @@ describe("openMcpNoAuthLane", () => {
     await lane.close();
   });
 
+  it("sends the chat's request id with every request, so the server's lines carry it too", async () => {
+    const { lane, requests } = await openWith([{ fixture: "geocode-paris" }]);
+    const result = await call(lane, "geocode_location", { query: "Paris" });
+    expect(requests.every((request) => request.headers.get("x-request-id") === REQUEST_ID)).toBe(true);
+    expect(result.call.wire.headers["x-request-id"]).toBe(REQUEST_ID);
+    await lane.close();
+  });
+
   it("sends the bypass secret with every request, and never shows it", async () => {
     const { lane, requests } = await openWith([{ fixture: "geocode-paris" }], "s3cret-bypass");
     const result = await call(lane, "geocode_location", { query: "Paris" });
@@ -93,54 +106,53 @@ describe("openMcpNoAuthLane", () => {
 
 describe("how a call through MCP · no auth can end", () => {
   it("a tool that failed on the server becomes the same error class as on REST", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const fail = () => new Response("", { status: 503 });
     const { lane } = await openWith([fail, fail]);
     await expect(call(lane, "geocode_location", { query: "Paris" })).rejects.toBeInstanceOf(UpstreamUnavailableError);
     await lane.close();
   });
 
-  it("past the tool's time budget: UpstreamTimeoutError, logged, as on REST", async () => {
-    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("past the tool's time budget: UpstreamTimeoutError, as on REST, keeping the MCP client's error as its cause", async () => {
     const { lane } = await openWith(hangingFetch);
-    await expect(call(lane, "geocode_location", { query: "Paris" }, AbortSignal.timeout(50))).rejects.toBeInstanceOf(
-      UpstreamTimeoutError,
+    const error = await call(lane, "geocode_location", { query: "Paris" }, AbortSignal.timeout(50)).catch(
+      (caught: unknown) => caught,
     );
-    expect(loggedEvents(written)).toContainEqual(
-      expect.objectContaining({ event: "tool.failed", lane: "mcp-no-auth" }),
-    );
+    expect(error).toBeInstanceOf(UpstreamTimeoutError);
+    expect((error as Error).cause).toBeDefined();
     await lane.close();
   });
 
-  it("a stop is passed on as it is, and not logged", async () => {
-    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("a stop is passed on as it is", async () => {
     const { lane } = await openWith(hangingFetch);
     const controller = new AbortController();
     const pending = call(lane, "geocode_location", { query: "Paris" }, controller.signal);
     setTimeout(() => controller.abort(Object.assign(new Error("Closed."), { name: "ResponseAborted" })), 30);
     await expect(pending).rejects.toMatchObject({ name: "ResponseAborted" });
-    expect(written).not.toHaveBeenCalled();
     await lane.close();
   });
 });
 
 describe("how connecting to MCP · no auth can fail", () => {
-  it("a server that doesn't connect in time, or can't be reached; logged with the original error", async () => {
-    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("a server that doesn't connect in time, or can't be reached; lane.connect says it failed, the cause is kept", async () => {
+    const { log, lines } = createTestLog();
     await expect(
-      openMcpNoAuthLane({ origin: TEST_ORIGIN, fetch: hangingFetch, connectTimeoutMs: 50 }),
+      openMcpNoAuthLane({ origin: TEST_ORIGIN, requestId: REQUEST_ID, log, fetch: hangingFetch, connectTimeoutMs: 50 }),
     ).rejects.toBeInstanceOf(UpstreamTimeoutError);
     const refusing = (async () => {
       throw new TypeError("fetch failed");
     }) as typeof fetch;
-    const error = await openMcpNoAuthLane({ origin: TEST_ORIGIN, fetch: refusing }).catch((caught: unknown) => caught);
+    const error = await openMcpNoAuthLane({ origin: TEST_ORIGIN, requestId: REQUEST_ID, log, fetch: refusing }).catch(
+      (caught: unknown) => caught,
+    );
     expect(error).toBeInstanceOf(UpstreamUnavailableError);
     expect((error as Error).cause).toBeDefined();
-    expect(loggedEvents(written).map((line) => line.event)).toEqual(["lane.connect.failed", "lane.connect.failed"]);
+    expect(lines.map((line) => [line.level, line.event, line.status, line.errorClass])).toEqual([
+      ["info", "lane.connect", "failed", "UpstreamTimeoutError"],
+      ["info", "lane.connect", "failed", "UpstreamUnavailableError"],
+    ]);
   });
 
-  it("a server without one of our tools: ContractError, logged", async () => {
-    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("a server without one of our tools: ContractError", async () => {
     const partial = createMcpHandler((server) => {
       server.registerTool("geocode_location", { inputSchema: z.object({ query: z.string() }) }, async () => ({
         content: [{ type: "text", text: "no places" }],
@@ -148,16 +160,21 @@ describe("how connecting to MCP · no auth can fail", () => {
     });
     const serverFetch = (async (input: string | URL | Request, init?: RequestInit) =>
       partial(new Request(input, init))) as typeof fetch;
-    const error = await openMcpNoAuthLane({ origin: TEST_ORIGIN, fetch: serverFetch }).catch((caught) => caught);
+    const { log, lines } = createTestLog();
+    const error = await openMcpNoAuthLane({
+      origin: TEST_ORIGIN,
+      requestId: REQUEST_ID,
+      log,
+      fetch: serverFetch,
+    }).catch((caught) => caught);
     expect(error).toBeInstanceOf(ContractError);
     expect((error as Error).message).toBe(
       "Our MCP server doesn't list get_current_weather, get_forecast, get_air_quality.",
     );
-    expect(loggedEvents(written)).toEqual([expect.objectContaining({ event: "lane.connect.failed" })]);
+    expect(lines).toEqual([expect.objectContaining({ event: "lane.connect", errorClass: "ContractError" })]);
   });
 
   it("closes the client when listing the tools fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
     let closings = 0;
     const failingClient = {
       listTools: async () => {
@@ -168,7 +185,7 @@ describe("how connecting to MCP · no auth can fail", () => {
       },
     } as unknown as MCPClient;
     await expect(
-      openMcpNoAuthLane({ origin: TEST_ORIGIN, createClient: async () => failingClient }),
+      openMcpNoAuthLane({ origin: TEST_ORIGIN, requestId: REQUEST_ID, createClient: async () => failingClient }),
     ).rejects.toBeInstanceOf(UpstreamUnavailableError);
     expect(closings).toBe(1);
   });

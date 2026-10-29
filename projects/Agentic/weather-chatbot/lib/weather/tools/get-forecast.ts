@@ -31,8 +31,8 @@ export const getForecast: WeatherTool<"get_forecast", ForecastInput, Forecast> =
     "Gives the forecast for a point, per day (condition, lowest and highest temperature, the highest chance of " +
     "rain, sunrise, sunset) and, if asked, per hour. The first day is today in that place; times are local.",
   inputSchema: ForecastInputSchema,
-  async run(input, { openMeteo, signal }) {
-    const answer = await openMeteo.getForecast(input, signal);
+  async run(input, { openMeteo, signal, log }) {
+    const answer = await openMeteo.getForecast(input, { signal, log });
     const { data } = answer;
     const output: Forecast = {
       latitude: roundCoordinate(input.latitude),

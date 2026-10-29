@@ -7,10 +7,14 @@ import { type Config, config } from "@/lib/config";
 import type { Lane } from "@/lib/lanes/lane";
 import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
 import { openRestNoAuthLane } from "@/lib/lanes/rest-no-auth";
+import type { Logger } from "@/lib/logger";
 import type { LiveLaneId } from "@/lib/types";
 
-/** What opening a lane needs: the chat request's address (to find this deployment's /api/mcp), and its signal. */
-export type OpenLaneOptions = { requestUrl: string; signal: AbortSignal };
+/**
+ * What opening a lane needs: the chat request's address (to find this deployment's /api/mcp), its signal, its id
+ * (which the MCP lane passes on to /api/mcp), and its logger.
+ */
+export type OpenLaneOptions = { requestUrl: string; signal: AbortSignal; requestId: string; log: Logger };
 
 /**
  * This deployment's own origin, for the MCP lane's call to /api/mcp. On Vercel it's the address the chat request came
@@ -27,10 +31,12 @@ export function toSelfOrigin(requestUrl: string, deployment: Config["deployment"
 }
 
 const OPEN_BY_LANE: Readonly<Record<LiveLaneId, (options: OpenLaneOptions) => Promise<Lane>>> = {
-  "rest-no-auth": async () => openRestNoAuthLane(),
-  "mcp-no-auth": ({ requestUrl, signal }) =>
+  "rest-no-auth": async ({ log }) => openRestNoAuthLane({ log }),
+  "mcp-no-auth": ({ requestUrl, signal, requestId, log }) =>
     openMcpNoAuthLane({
       origin: toSelfOrigin(requestUrl, config.deployment),
+      requestId,
+      log,
       signal,
       bypassSecret: config.mcp.bypassSecret,
     }),

@@ -109,3 +109,10 @@ export const OWN_ERROR_HEADER = "x-nimbus-error";
 // ⑫ "Use my location": a position the browser found in the last 10 minutes will do; give up after 10 s.
 export const LOCATION_MAX_AGE_MS = 600_000;
 export const LOCATION_TIMEOUT_MS = 10_000;
+
+// ⑬ Request ids (PLAN.md 9.1): Vercel's own id for a request, and the header that carries ours on to /api/mcp and back
+// to the page. In a log line, a failure's cause is cut to 300 characters, and a bug's stack to its first 8 lines.
+export const VERCEL_ID_HEADER = "x-vercel-id";
+export const REQUEST_ID_HEADER = "x-request-id";
+export const MAX_LOGGED_CAUSE_CHARS = 300;
+export const MAX_LOGGED_STACK_LINES = 8;

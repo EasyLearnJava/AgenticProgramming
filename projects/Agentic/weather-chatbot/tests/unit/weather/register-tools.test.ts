@@ -1,26 +1,27 @@
 /*
  * tests/unit/weather/register-tools.test.ts: our MCP server's four tools, through a real MCP client: the list, pinned
- * to our definitions (the contract test), a call's answer, and a failure's class.
+ * to our definitions (the contract test), a call's answer, a failure's class, and the server's own log lines.
  */
 import { createMCPClient, type MCPClient } from "@ai-sdk/mcp";
 import { createMcpHandler } from "mcp-handler";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import type { Logger } from "@/lib/logger";
 import type { OpenMeteoClient } from "@/lib/upstream/open-meteo";
 import { OPEN_METEO_TOOLS } from "@/lib/weather/open-meteo-tools";
 import { registerTools } from "@/lib/weather/register-tools";
+import { createTestLog } from "@/tests/stubs/log-stand-ins";
 import { createMcpServerFetch, TEST_ORIGIN } from "@/tests/stubs/mcp-stand-ins";
 import type { FakeAnswer } from "@/tests/stubs/open-meteo-stand-ins";
 
-/** An MCP client connected to our server, in-process, whose Open-Meteo calls get these answers. */
-async function connect(answers: FakeAnswer[] = []): Promise<MCPClient> {
-  const { fetch } = createMcpServerFetch(answers);
-  return createMCPClient({ transport: { type: "http", url: `${TEST_ORIGIN}/api/mcp`, fetch } });
+/**
+ * An MCP client connected to our server, in-process, whose Open-Meteo calls get these answers; the server logs to the
+ * logger given, and the client sends these headers.
+ */
+async function connect(answers: FakeAnswer[] = [], log?: Logger, headers?: Record<string, string>): Promise<MCPClient> {
+  const { fetch } = createMcpServerFetch(answers, log);
+  return createMCPClient({ transport: { type: "http", url: `${TEST_ORIGIN}/api/mcp`, headers, fetch } });
 }
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
 
 describe("registerTools, through an MCP client", () => {
   it("names itself, and lists exactly our four tools, read-only, each with our own input schema", async () => {
@@ -54,30 +55,58 @@ describe("registerTools, through an MCP client", () => {
     await client.close();
   });
 
-  it("answers a failed call with isError, our message and the error's class, and logs it on the server", async () => {
-    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("logs each call on the server: mcp.call, under the id the chat's MCP lane sent, and the request's own", async () => {
+    const { log, lines } = createTestLog();
+    // On Vercel, x-vercel-id is the platform's own id for this request to /api/mcp; here the test sends it.
+    const client = await connect([{ fixture: "geocode-paris" }], log, {
+      "x-request-id": "iad1::abcde-1730-7f3a9c01",
+      "x-vercel-id": "iad1::iad1::fghij-1730-0b1c2d3e",
+    });
+    await client.callTool({ name: "geocode_location", arguments: { query: "Paris" } });
+    expect(lines.map((line) => line.event)).toEqual(["upstream.http", "mcp.call"]);
+    expect(lines.at(-1)).toMatchObject({
+      level: "info",
+      requestId: "iad1::abcde-1730-7f3a9c01",
+      invocationId: "iad1::iad1::fghij-1730-0b1c2d3e",
+      route: "/api/mcp",
+      tool: "geocode_location",
+      status: "ok",
+      cache: "miss",
+    });
+    expect(lines[0]?.requestId).toBe("iad1::abcde-1730-7f3a9c01");
+    await client.close();
+  });
+
+  it("answers a failed call with isError, our message and the error's class, and logs it at the class's level", async () => {
+    const { log, lines } = createTestLog();
     const fail = () => new Response("", { status: 503 });
-    const client = await connect([fail, fail]);
+    const client = await connect([fail, fail], log);
     const result = await client.callTool({ name: "geocode_location", arguments: { query: "Paris" } });
     expect(result).toMatchObject({
       isError: true,
       content: [{ type: "text", text: "Open-Meteo answered 503." }],
       _meta: { errorClass: "UpstreamUnavailableError" },
     });
-    expect(JSON.parse(String(written.mock.calls[0]?.[0]))).toMatchObject({ event: "tool.failed", door: "mcp" });
+    expect(lines.at(-1)).toMatchObject({
+      level: "warn",
+      event: "mcp.call",
+      status: "failed",
+      errorClass: "UpstreamUnavailableError",
+      requestId: expect.stringMatching(/^[0-9a-f]{16}$/),
+    });
     await client.close();
   });
 });
 
 describe("registerTools, for an error that isn't ours", () => {
-  it("sends a fixed sentence, not the error's own text, since any MCP client can read it", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("sends a fixed sentence, not the error's own text, since any MCP client can read it, and logs a bug", async () => {
+    const { log, lines } = createTestLog();
     const broken = {
       searchPlaces: async () => {
         throw new TypeError("Cannot read properties of undefined (reading 'secret')");
       },
     } as unknown as OpenMeteoClient;
-    const handler = createMcpHandler((server) => registerTools(server, { openMeteo: broken }));
+    const handler = createMcpHandler((server) => registerTools(server, { openMeteo: broken, log }));
     const serverFetch = (async (input: string | URL | Request, init?: RequestInit) =>
       handler(new Request(input, init))) as typeof fetch;
     const client = await createMCPClient({
@@ -90,6 +119,14 @@ describe("registerTools, for an error that isn't ours", () => {
       _meta: { errorClass: "UnexpectedError" },
     });
     expect(JSON.stringify(result)).not.toContain("secret");
+    expect(lines).toEqual([
+      expect.objectContaining({
+        level: "error",
+        event: "mcp.call",
+        errorClass: "UnexpectedError",
+        causeClass: "TypeError",
+      }),
+    ]);
     await client.close();
   });
 });

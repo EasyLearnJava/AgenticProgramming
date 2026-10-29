@@ -37,15 +37,17 @@ describe("parseConfig", () => {
     });
   });
 
-  it("lists the deployment's own addresses Vercel sets, and none off Vercel", () => {
-    expect(parseConfig({}).deployment).toEqual({ url: undefined, hosts: [] });
+  it("lists the deployment's id and own addresses Vercel sets, and none off Vercel", () => {
+    expect(parseConfig({}).deployment).toEqual({ id: undefined, url: undefined, hosts: [] });
     expect(
       parseConfig({
+        VERCEL_DEPLOYMENT_ID: "dpl_abc123",
         VERCEL_URL: "weather-chatbot-abc123-silverado.vercel.app",
         VERCEL_BRANCH_URL: "weather-chatbot-git-main-silverado.vercel.app",
         VERCEL_PROJECT_PRODUCTION_URL: "weather-chatbot-hazel.vercel.app",
       }).deployment,
     ).toEqual({
+      id: "dpl_abc123",
       url: "weather-chatbot-abc123-silverado.vercel.app",
       hosts: [
         "weather-chatbot-abc123-silverado.vercel.app",
@@ -53,6 +55,12 @@ describe("parseConfig", () => {
         "weather-chatbot-hazel.vercel.app",
       ],
     });
+  });
+
+  it("logs at info unless LOG_LEVEL says otherwise, and refuses a level pino doesn't have", () => {
+    expect(parseConfig({}).log.level).toBe("info");
+    expect(parseConfig({ LOG_LEVEL: "silent" }).log.level).toBe("silent");
+    expect(() => parseConfig({ LOG_LEVEL: "loud" })).toThrow();
   });
 
   it("reads the bypass secret Vercel sets for Protection Bypass for Automation, when it's there", () => {

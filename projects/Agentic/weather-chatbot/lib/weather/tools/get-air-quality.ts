@@ -19,8 +19,8 @@ export const getAirQuality: WeatherTool<"get_air_quality", AirQualityInput, AirQ
     "Gives the air quality now at a point: PM2.5 and PM10 in μg/m³, the European AQI and the US AQI, and when it was " +
     "observed, in the place's local time.",
   inputSchema: AirQualityInputSchema,
-  async run(input, { openMeteo, signal }) {
-    const answer = await openMeteo.getAirQuality(input, signal);
+  async run(input, { openMeteo, signal, log }) {
+    const answer = await openMeteo.getAirQuality(input, { signal, log });
     const output: AirQuality = {
       ...answer.data,
       latitude: roundCoordinate(input.latitude),

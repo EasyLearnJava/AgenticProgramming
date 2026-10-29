@@ -1,7 +1,8 @@
 # Weather Chatbot (Nimbus)
 
-> **Status:** steps 1 to 3 of the [plan](PLAN.md) are done: the project skeleton, the chat page, and the live chat
-> through `REST · no auth`. Step 4, `MCP · no auth` through our own MCP server, is built and waits for its live check.
+> **Status:** steps 1 to 4 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
+> through `REST · no auth`, and `MCP · no auth` through our own MCP server. Step 5, errors and logs, is built and
+> waits for its live check.
 > Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings:
 > [Deploy it on Vercel](#deploy-it-on-vercel)).
 
@@ -34,7 +35,7 @@ one page per build step: what it built, how it works, and how to check it. **Iss
 | `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the issues log (`issues/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
 | `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
 | `hooks/` | The React hook that asks for the nearby city |
-| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error classes and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo (`upstream/`), the weather tools (`weather/`), and the documentation's list and reader (`docs/`) |
+| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo (`upstream/`), the weather tools (`weather/`), and the documentation's list and reader (`docs/`) |
 | `docs/` | The documentation pages, one Markdown file per step, and the issues log (`issues.md`) |
 | `tests/` | The unit tests (`unit/`), Open-Meteo's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
@@ -79,26 +80,26 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 91 files in 471ms. No fixes applied.
+Checked 94 files in 366ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  26 passed (26)
-      Tests  129 passed (129)
+ Test Files  27 passed (27)
+      Tests  160 passed (160)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 207ms
+✓ Running next.config.ts took 127ms
   Creating an optimized production build ...
-✓ Compiled successfully in 3.8s
+✓ Compiled successfully in 1647ms
   Running TypeScript ...
-  Finished TypeScript in 1232ms ...
+  Finished TypeScript in 1027ms ...
   Collecting page data using 10 workers ...
-  Generating static pages using 10 workers (0/12) ...
-✓ Generating static pages using 10 workers (12/12) in 2.3s
+  Generating static pages using 10 workers (0/13) ...
+✓ Generating static pages using 10 workers (13/13) in 2.7s
   Finalizing page optimization ...
 
 Route (app)
@@ -112,7 +113,7 @@ Route (app)
 │ ├ ● /docs/step-1
 │ ├ ● /docs/step-2
 │ ├ ● /docs/step-3
-│ └ ● /docs/step-4
+│ └ ● [+2 more paths]
 └ ○ /issues
 
 ○  (Static)   prerendered as static content
@@ -120,7 +121,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  42 passed (19.4s)
+  44 passed (18.0s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -150,6 +151,15 @@ HTTPS goes through its own certificate, add `NODE_OPTIONS=--use-system-ca` so No
    then redeploy, since a deployment keeps the settings it was built with. Without it, the chat answers that it isn't
    set up yet.
 
+## Read the logs
+
+Each request logs a few JSON lines (pino, to stdout), which Vercel shows under **Logs** in the project's dashboard:
+one when it starts (`chat.request`), one per hop (connecting to MCP, each tool call, each call to Open-Meteo, each
+model step), and one when it ends (`chat.done`, or how it stopped or failed). Every line carries the request's id;
+`MCP · no auth` sends it on to `/api/mcp`, so the server's lines carry it too. When the page shows an error, its
+sentence ends with the ref, the id's last 8 characters: search the logs for it. `LOG_LEVEL` (`info` unless set) says
+how much to log. A line never holds your question (only its length), a token or a key.
+
 ## Use the MCP server
 
 `/api/mcp` is a public MCP server with the four weather tools; any MCP client that speaks Streamable HTTP can use it,
@@ -161,5 +171,5 @@ for example in Claude or Cursor:
 
 ## Next
 
-Step 5 in [PLAN.md](PLAN.md): errors and logs: the full error map, request ids passed on to `/api/mcp`, and the logger
-with its lane fields and redaction.
+Step 6 in [PLAN.md](PLAN.md): `REST · with auth`: Apify's weather Actor through its REST API, with a token, and its
+fallback to `REST · no auth`.

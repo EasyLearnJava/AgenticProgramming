@@ -1,46 +1,25 @@
 /*
  * tests/unit/chat/run-chat.test.ts: one whole chat turn, on REST · no auth and through MCP · no auth, with AI SDK's
  * mock model in place of Gemini and Open-Meteo's recorded answers in place of the network: what the page receives,
- * and what the model reads.
+ * what the model reads, and the lines the turn logs.
  */
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
+import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ChatRequest } from "@/lib/chat/chat-request";
 import { type AnswerBudgets, runChat } from "@/lib/chat/run-chat";
 import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
 import { openRestNoAuthLane } from "@/lib/lanes/rest-no-auth";
 import { createOpenMeteoClient } from "@/lib/upstream/open-meteo";
+import { createTestLog } from "@/tests/stubs/log-stand-ins";
 import { createMcpServerFetch, TEST_ORIGIN } from "@/tests/stubs/mcp-stand-ins";
+import { step, textStep, toChunks, toolCall } from "@/tests/stubs/model-stand-ins";
 import { createFakeFetch, createMemoryCache, type FakeAnswer } from "@/tests/stubs/open-meteo-stand-ins";
 
 const NOW = new Date("2026-10-29T16:00:00Z");
 const QUESTION = "Do I need an umbrella in Paris tomorrow afternoon?";
 const ANSWER = "No umbrella needed: a 0% chance of rain all afternoon.";
-const USAGE = {
-  inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-  outputTokens: { total: 5, text: 5, reasoning: 0 },
-};
-
-/** One model step: it streams these parts, then finishes for the given reason. */
-function step(parts: LanguageModelV4StreamPart[], reason: "tool-calls" | "stop") {
-  return {
-    stream: new ReadableStream<LanguageModelV4StreamPart>({
-      start(controller) {
-        for (const part of [{ type: "stream-start", warnings: [] }, ...parts] as LanguageModelV4StreamPart[]) {
-          controller.enqueue(part);
-        }
-        controller.enqueue({ type: "finish", usage: USAGE, finishReason: { unified: reason, raw: undefined } });
-        controller.close();
-      },
-    }),
-  };
-}
-
-/** A tool call, as a model streams it: the input as JSON text. */
-function toolCall(toolCallId: string, toolName: string, input: unknown): LanguageModelV4StreamPart {
-  return { type: "tool-call", toolCallId, toolName, input: JSON.stringify(input) };
-}
 
 /** The mock model's three steps for the Paris question: geocode, forecast, then the answer. */
 function parisModel(): MockLanguageModelV4 {
@@ -59,19 +38,15 @@ function parisModel(): MockLanguageModelV4 {
         ],
         "tool-calls",
       ),
-      step(
-        [
-          { type: "text-start", id: "text-1" },
-          { type: "text-delta", id: "text-1", delta: ANSWER },
-          { type: "text-end", id: "text-1" },
-        ],
-        "stop",
-      ),
+      textStep(ANSWER),
     ],
   });
 }
 
+const REQUEST_ID = "iad1::iad1::abcde-1730211234567-f3c2b1a0d9e8";
+
 const CHAT_REQUEST: ChatRequest = {
+  chatId: "chat-1",
   laneId: "rest-no-auth",
   locale: "en-GB",
   messages: [
@@ -79,7 +54,10 @@ const CHAT_REQUEST: ChatRequest = {
   ],
 };
 
-/** Runs one turn: the UI message stream's chunks as the page receives them, and how often the lane was closed. */
+/**
+ * Runs one turn: the UI message stream's chunks as the page receives them, the lines it logged, and how often the lane
+ * was closed.
+ */
 async function runTurn(model: MockLanguageModelV4, answers: FakeAnswer[], budgets?: AnswerBudgets) {
   const fake = createFakeFetch(answers);
   const openMeteo = createOpenMeteoClient({
@@ -88,25 +66,26 @@ async function runTurn(model: MockLanguageModelV4, answers: FakeAnswer[], budget
     now: () => NOW,
     random: () => 0,
   });
+  const { log, lines, events } = createTestLog();
   let closings = 0;
   const lane = {
-    ...openRestNoAuthLane({ openMeteo }),
+    ...openRestNoAuthLane({ openMeteo, log }),
     close: async () => {
       closings += 1;
     },
   };
   const signal = new AbortController().signal;
-  const response = await runChat(CHAT_REQUEST, { model, lane, signal, now: () => NOW, budgets });
+  const response = await runChat(CHAT_REQUEST, {
+    model,
+    lane,
+    signal,
+    requestId: REQUEST_ID,
+    log,
+    now: () => NOW,
+    budgets,
+  });
   const chunks = toChunks(await response.text());
-  return { response, chunks, urls: fake.urls, closings: () => closings };
-}
-
-/** A UI message stream's chunks, from its response body: one `data:` line each, then `[DONE]`. */
-function toChunks(body: string) {
-  return body
-    .split("\n")
-    .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
-    .map((line) => JSON.parse(line.slice("data: ".length)));
+  return { response, chunks, lines, events, urls: fake.urls, closings: () => closings };
 }
 
 describe("runChat on REST · no auth", () => {
@@ -151,6 +130,46 @@ describe("runChat on REST · no auth", () => {
     expect(sent).not.toContain("durationMs");
   });
 
+  it("logs each tool call, each model step, then the answer's end: its time, steps, tool calls and tokens", async () => {
+    const { response, events, lines } = await runTurn(parisModel(), [
+      { fixture: "geocode-paris" },
+      { fixture: "forecast-paris" },
+    ]);
+    expect(response.headers.get("x-request-id")).toBe(REQUEST_ID);
+    expect(events()).toEqual([
+      "info upstream.http",
+      "info tool.call",
+      "info model.step",
+      "info upstream.http",
+      "info tool.call",
+      "info model.step",
+      "info model.step",
+      "info chat.done",
+    ]);
+    expect(lines.find((line) => line.event === "tool.call")).toMatchObject({
+      tool: "geocode_location",
+      status: "ok",
+      cache: "miss",
+      ms: expect.any(Number),
+    });
+    expect(lines.find((line) => line.event === "model.step")).toMatchObject({
+      step: 0,
+      model: "mock-model-id",
+      finishReason: "tool-calls",
+      inputTokens: 10,
+      outputTokens: 5,
+      toolCalls: 1,
+    });
+    expect(lines.at(-1)).toMatchObject({
+      event: "chat.done",
+      steps: 3,
+      toolCalls: 2,
+      inputTokens: 30,
+      outputTokens: 15,
+      finishReason: "stop",
+    });
+  });
+
   it("streams a failed tool call to the page as our sentence, without Open-Meteo's own text", async () => {
     const fail = () => new Response("upstream says: internal details", { status: 503 });
     const { chunks } = await runTurn(parisModel(), [fail, fail, { fixture: "forecast-paris" }]);
@@ -164,14 +183,7 @@ describe("runChat on REST · no auth", () => {
 
   it("lets the last of its 5 steps only write, so an answer never ends on tool calls alone", async () => {
     const geocode = (n: number) => step([toolCall(`call-${n}`, "geocode_location", { query: "Paris" })], "tool-calls");
-    const answer = step(
-      [
-        { type: "text-start", id: "text-1" },
-        { type: "text-delta", id: "text-1", delta: ANSWER },
-        { type: "text-end", id: "text-1" },
-      ],
-      "stop",
-    );
+    const answer = textStep(ANSWER);
     const model = new MockLanguageModelV4({ doStream: [geocode(1), geocode(2), geocode(3), geocode(4), answer] });
     await runTurn(model, [{ fixture: "geocode-paris" }]);
     expect(model.doStreamCalls).toHaveLength(5);
@@ -179,46 +191,79 @@ describe("runChat on REST · no auth", () => {
     expect(model.doStreamCalls[4]?.toolChoice).toEqual({ type: "none" });
   });
 
-  it("marks an answer a time budget cut short, so the page can say so, and closes the lane", async () => {
+  it("marks an answer a time budget cut short, so the page can say so, logs it, and closes the lane", async () => {
     const silent = { stream: new ReadableStream<LanguageModelV4StreamPart>({ start: () => undefined }) };
     const model = new MockLanguageModelV4({ doStream: [silent] });
-    const { chunks, closings } = await runTurn(model, [], { totalMs: 60_000, firstChunkMs: 50, toolMs: 8000 });
+    const { chunks, events, closings } = await runTurn(model, [], { totalMs: 60_000, firstChunkMs: 50, toolMs: 8000 });
     expect(chunks).toContainEqual({
       type: "message-metadata",
       messageMetadata: { createdAt: NOW.getTime(), isCutShort: true },
     });
+    expect(events()).toEqual(["warn budget.exceeded"]);
     expect(closings()).toBe(1);
   });
 
-  it("logs a model failure, gives the page only our sentence, and closes the lane", async () => {
-    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("logs Gemini's failure as a ModelError, gives the page our sentence with the ref, and closes the lane", async () => {
     const model = new MockLanguageModelV4({
       doStream: async () => {
-        throw new Error("API key not valid. Please pass a valid API key.");
+        throw new APICallError({
+          message: "API key not valid. Please pass a valid API key.",
+          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini:streamGenerateContent",
+          requestBodyValues: {},
+          statusCode: 400,
+        });
       },
     });
-    const { chunks, closings } = await runTurn(model, []);
-    expect(chunks).toContainEqual({ type: "error", errorText: "The assistant didn't answer. Please try again." });
-    const logged = written.mock.calls.map((call) => JSON.parse(String(call[0])));
-    expect(logged).toContainEqual({
-      level: "error",
-      event: "chat.failed",
-      lane: "rest-no-auth",
-      errorClass: "Error",
+    const { chunks, lines, events, closings } = await runTurn(model, []);
+    expect(chunks).toContainEqual({
+      type: "error",
+      errorText: "The assistant didn't answer. Please try again. (ref b1a0d9e8)",
+    });
+    expect(events()).toEqual(["error chat.failed"]);
+    expect(lines[0]).toMatchObject({
+      status: "failed",
+      errorClass: "ModelError",
       message: "API key not valid. Please pass a valid API key.",
+      isRetryable: true,
+      causeClass: "AI_APICallError",
     });
     expect(closings()).toBe(1);
+  });
+});
+
+describe("runChat, when the model fails after a finished step", () => {
+  it("ends the answer once, with chat.failed, and no chat.done after it", async () => {
+    // The first call asks for a tool; the second fails as Gemini does, with an HTTP error AI SDK doesn't retry.
+    let calls = 0;
+    const model = new MockLanguageModelV4({
+      doStream: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return step([toolCall("call-1", "geocode_location", { query: "Paris" })], "tool-calls");
+        }
+        throw new APICallError({
+          message: "API key expired. Please renew the API key.",
+          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini:streamGenerateContent",
+          requestBodyValues: {},
+          statusCode: 400,
+        });
+      },
+    });
+    const { events, lines } = await runTurn(model, [{ fixture: "geocode-paris" }]);
+    expect(events()).toEqual(["info upstream.http", "info tool.call", "info model.step", "error chat.failed"]);
+    expect(lines.at(-1)).toMatchObject({ errorClass: "ModelError", causeClass: "AI_APICallError" });
   });
 });
 
 describe("runChat through MCP · no auth", () => {
   it("streams the same answer, each chip with its lane and the tools/call request it really sent", async () => {
     const server = createMcpServerFetch([{ fixture: "geocode-paris" }, { fixture: "forecast-paris" }]);
-    const lane = await openMcpNoAuthLane({ origin: TEST_ORIGIN, fetch: server.fetch });
+    const { log } = createTestLog();
+    const lane = await openMcpNoAuthLane({ origin: TEST_ORIGIN, requestId: REQUEST_ID, log, fetch: server.fetch });
     const signal = new AbortController().signal;
     const response = await runChat(
       { ...CHAT_REQUEST, laneId: "mcp-no-auth" },
-      { model: parisModel(), lane, signal, now: () => NOW },
+      { model: parisModel(), lane, signal, requestId: REQUEST_ID, log, now: () => NOW },
     );
     const chunks = toChunks(await response.text());
     const outputs = chunks.filter((chunk) => chunk.type === "tool-output-available");
@@ -232,8 +277,4 @@ describe("runChat through MCP · no auth", () => {
     const text = chunks.filter((chunk) => chunk.type === "text-delta").map((chunk) => chunk.delta);
     expect(text.join("")).toBe(ANSWER);
   });
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
 });

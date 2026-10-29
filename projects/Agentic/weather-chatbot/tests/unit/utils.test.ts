@@ -5,11 +5,14 @@ import { describe, expect, it } from "vitest";
 import {
   formatDuration,
   formatLocalTime,
+  newRequestId,
   once,
   roundCoordinate,
   timeoutSignal,
   toAbortKind,
   toHost,
+  toRef,
+  toRequestId,
   toRetryAfterMs,
   toWeekday,
   toWireText,
@@ -188,5 +191,27 @@ describe("toAbortKind", () => {
     const closed = new AbortController();
     closed.abort(Object.assign(new Error("The browser closed the connection."), { name: "ResponseAborted" }));
     expect(toAbortKind(closed.signal)).toBe("stop");
+  });
+});
+
+describe("request ids", () => {
+  it("makes a new id of 16 hex characters, a different one each time", () => {
+    expect(newRequestId()).toMatch(/^[0-9a-f]{16}$/);
+    expect(newRequestId()).not.toBe(newRequestId());
+  });
+
+  it("takes the first header value that looks like a request id, and makes one when none does", () => {
+    const vercelId = "iad1::iad1::abcde-1730211234567-f3c2b1a0d9e8";
+    expect(toRequestId(vercelId)).toBe(vercelId);
+    expect(toRequestId(null, vercelId)).toBe(vercelId);
+    expect(toRequestId("chat-7f3a", vercelId)).toBe("chat-7f3a");
+    expect(toRequestId("not an id\nevent=forged")).toMatch(/^[0-9a-f]{16}$/);
+    expect(toRequestId("x".repeat(129))).toMatch(/^[0-9a-f]{16}$/);
+    expect(toRequestId(null)).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("shows a request id as its ref, its last 8 letters and digits", () => {
+    expect(toRef("iad1::iad1::abcde-1730211234567-f3c2b1a0d9e8")).toBe("b1a0d9e8");
+    expect(toRef("7f3a9c01aa55bb66")).toBe("aa55bb66");
   });
 });

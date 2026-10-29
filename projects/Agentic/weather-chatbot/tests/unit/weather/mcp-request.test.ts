@@ -28,7 +28,7 @@ describe("checkMcpRequest", () => {
     expect(await checkMcpRequest(get)).toBe(get);
   });
 
-  it("refuses a batch of messages, which could carry thousands of tool calls", async () => {
+  it("refuses a batch of messages, which could carry up to 100 tool calls", async () => {
     expect(await refusal(await checkMcpRequest(post(`[${ONE_MESSAGE},${ONE_MESSAGE}]`)))).toEqual([
       400,
       { code: -32_600, message: "This server takes one message at a time." },

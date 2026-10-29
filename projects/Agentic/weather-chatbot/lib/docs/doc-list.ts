@@ -38,6 +38,14 @@ export const DOC_PAGES: readonly DocEntry[] = [
       "The same four tools on our own MCP server at /api/mcp; the chat reaches them as an MCP client: the handshake, " +
       "what each MCP answer carries, the bypass secret, and using the server from any MCP client.",
   },
+  {
+    slug: "step-5",
+    step: 5,
+    title: "Errors and Logs",
+    summary:
+      "One error map for every failure (its sentence, its log level, its retry rule), a request id that both " +
+      "functions log under, the ref at the end of an error's sentence, and the lines a question writes.",
+  },
 ];
 
 // ② The issues log, docs/issues.md: the problems met in each step, and their fixes; it has its own menu link.

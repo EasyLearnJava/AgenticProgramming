@@ -1,6 +1,6 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
-> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 3 are done, step 4 is built and waits for its
+> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 4 are done, step 5 is built and waits for its
 > live check, and each finished step has a page in the app's documentation. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
@@ -696,7 +696,7 @@ weather-chatbot/
 │   ├── types.ts                     shared types: LaneId, Place, Forecast, ToolStatus, ...
 │   ├── config.ts                    the only file that reads process.env; checked with Zod at start-up
 │   ├── errors.ts                    the error classes, toAppError(), the user messages (9.2)
-│   ├── logger.ts                    one JSON line per failure (step 3); then pino, redaction, the request id, Axiom (9.1)
+│   ├── logger.ts                    pino: one JSON line per event, redaction, the request id and lane fields (step 5); Axiom (9.1)
 │   ├── chat/
 │   │   ├── chat-request.ts          the Zod schema for POST /api/chat, and parseChatRequest()
 │   │   ├── model.ts                 the model: Gemini through @ai-sdk/google; the one file to change it
@@ -734,7 +734,7 @@ weather-chatbot/
 │       └── check-lanes.ts           the health check, per lane (9.5)
 ├── docs/                            the in-app documentation: step-1.md, step-2.md, ... one per finished step; issues.md
 └── tests/
-    ├── stubs/                       stand-ins the unit tests need (server-only; Open-Meteo's fetch and the cache)
+    ├── stubs/                       stand-ins the unit tests need (server-only; Open-Meteo's fetch and the cache; our MCP server; the mock model's steps; a logger to read)
     ├── unit/                        one test file per lib file, at the same path: utils.test.ts, lanes/rest-auth.test.ts, ...
     ├── fixtures/                    recorded Open-Meteo and Apify answers
     ├── e2e/                         Playwright: the page, with /api/chat answered by a recorded stream
@@ -814,8 +814,9 @@ helpers planned so far:
 | `truncate(text, maxChars)` | shortens text, ending it with "…" | chip previews |
 | `maskSecret(text)` | replaces a token in a header or URL with `<APIFY_TOKEN>` | the wire view, logs |
 | `celsiusToFahrenheit(c)`, `kmhToMph(kmh)`, `mmToInches(mm)` | unit conversions | `actor-items.ts`: the Actor answers in one set of units |
-| `hashText(text)` | a SHA-256 hash, with Web Crypto, so it works in the browser and on the server | the logs' message hash |
-| `newRequestId()` | a random id, for when `x-vercel-id` is missing | the logger |
+| `newRequestId()`, `toRequestId(...headerValues)` | a random id; the first header value that looks like a request id, else a new one (step 5) | the chat route, the MCP server |
+| `toRef(requestId)` | a request id's last 8 letters and digits: the ref an error's sentence ends with (step 5) | `errors.ts` |
+| `toAbortKind(signal)` | why a signal fired: a time limit, a stop, or not at all (step 4) | the lanes, `open-meteo.ts`, `errors.ts` |
 | `timeoutSignal(ms, parentSignal?)` | an abort signal that fires at the time limit, or when the parent aborts | MCP connections, HTTP calls |
 | `withRetry(task, { tries, waitMs, shouldRetry, signal })` | runs a task again after a wait, when `shouldRetry` says so; stops with the signal's reason once it fires (the caller picks the random wait, so tests can make it 0) | `open-meteo.ts`, `apify.ts` |
 | `once(fn)` | wraps a function so it runs only the first time it's called | closing a lane |
@@ -943,26 +944,29 @@ lost when the function ends; on Pro, a log drain does it with no code.
 | Field | Example | Notes |
 |---|---|---|
 | `ts`, `level`, `event` | `"lane.fallback"` | events from a fixed list, named `area.action` |
-| `requestId` | `"7f3a9c…"` | the chat request's `x-vercel-id` header (Vercel's id for it), else random; sent on to `/api/mcp` as `x-request-id`, so both functions log the same id; shown to the user as "ref" |
+| `requestId` | `"7f3a9c…"` | the chat request's `x-vercel-id` header (Vercel's id for it), else random; sent on to `/api/mcp` as `x-request-id`, so both functions log the same id; shown to the user as "ref". On `/api/mcp`, `invocationId` is Vercel's id for that request, since any caller can send `x-request-id` |
 | `chatId` | random per browser tab | not tied to a person |
 | `lane`, `transport`, `auth` | `"rest-auth"`, `"rest"`, `"bearer"` | on every line about a lane; `transport` is `rest` or `mcp`, `auth` is `none` or `bearer` |
 | `tool` | `"get_forecast"` | |
 | `status`, `ms`, `httpStatus` | `"ok"`, `587`, `200` | |
-| `errorClass`, `isRetryable`, `attempt` | `"AuthError"`, `false`, `1` | from the error map |
+| `errorClass`, `isRetryable`, `attempts` | `"AuthError"`, `false`, `1` | from the error map; `attempts` on `upstream.http` |
 | `cache` | `"hit"` or `"miss"` | |
 | `model`, `inputTokens`, `outputTokens`, `costUsd` | | from the model's usage report |
 | `env`, `deploymentId`, `commit` | from `VERCEL_ENV`, `VERCEL_DEPLOYMENT_ID`, `VERCEL_GIT_COMMIT_SHA` | which build did it |
 
 **Events:** `chat.request`, `chat.rejected` (bad input, failed bot check), `lane.connect` (MCP lanes), `lane.fallback`,
-`tool.call`, `upstream.http` (each call to Open-Meteo or Apify, with status, time and cache; the token masked),
-`model.step` (tokens per step), `chat.done` (total time, steps, tool calls, fallback, cost), `chat.aborted`,
-`budget.exceeded`. Requests the WAF rate-limits never reach our code; they show in Vercel's Firewall tab.
+`tool.call`, `mcp.call` (our MCP server's own line for each call, from any MCP client), `upstream.http` (each request
+to Open-Meteo or Apify that goes out, with status, time and tries; the token masked), `model.step` (tokens per step),
+`chat.done` (total time, steps, tool calls, fallback, cost), `chat.aborted`, `budget.exceeded`, and `chat.failed` (an
+answer that failed). A failure is logged at its class's level once in each function, by the code that handles it; the
+hops it passed write their usual line, saying it failed (step 5). The cost waits for the paid model path (step 11). Requests the WAF rate-limits never reach our code; they show in Vercel's Firewall tab.
 
 **Levels:** `debug` only on a laptop; `info` for the normal path, including an ambiguous or unknown place; `warn` for
 trouble we handled (a retry, a fallback); `error` for a failure the user saw, or one we didn't expect.
 
-**Never logged:** tokens and secret headers (pino's `redact`, and `maskSecret` for URLs), the message text (its length
-and a hash instead; the full text only on a laptop), IP addresses, coordinates finer than 2 decimals.
+**Never logged:** tokens and secret headers (pino's `redact`, and `maskSecret` for URLs), the message text (only its
+length, on a laptop too: a hash of a short question can be found by hashing likely ones), the input of a tool call the
+model got wrong (AI SDK's message quotes it), IP addresses, coordinates finer than 2 decimals.
 
 ### 9.2 The Error Map
 
@@ -974,19 +978,20 @@ alert are decided once. "Its twin" is the no-auth lane behind the same door.
 | `InputError` | an empty message, over 2,000 characters, over 20 messages | the rule, under the input box | no | — | info | no |
 | `RateLimitedError` | the WAF rule answers `429` before our code runs | "You're sending messages quickly. Try again in a minute." | after `Retry-After` | — | — (the Firewall tab) | no |
 | `BotBlockedError` | the BotID check failed | "We couldn't verify this browser. Please reload the page." | no | — | warn | on spikes |
-| `UpstreamTimeoutError` | Open-Meteo or a lane past its budget; Apify's `408` (a run over 300 s) | the chip turns amber: "slow, retrying" | once | an auth lane: its twin; else the cache | warn | over 5% of calls in 10 min |
-| `UpstreamRateLimitedError` | `429` from Open-Meteo or Apify | "The weather service is busy", plus cached data with its age | after `Retry-After` | the cache | warn | yes |
+| `UpstreamTimeoutError` | Open-Meteo or a lane past its budget; Apify's `408` (a run over 300 s) | the chip turns amber: "slow, retrying" (step 10; until then, the chip's sentence) | once | an auth lane: its twin; else the cache (step 10) | warn | over 5% of calls in 10 min |
+| `UpstreamRateLimitedError` | `429` from Open-Meteo or Apify | "The weather service is busy", plus cached data with its age (step 10) | after `Retry-After` | the cache (step 10) | warn | yes |
 | `UpstreamUnavailableError` | `5xx`, DNS, a dropped connection | as for a timeout | once | an auth lane: its twin; else the cache | warn | if it lasts 5 min |
 | `AuthError` | the token is rejected: `401` (MCP door: a `WWW-Authenticate` header; REST door: a `user-or-token-not-found` body) or `403`; or `402` from Apify's REST door, which means no token was sent | "MCP · with auth is unavailable: Apify didn't accept our token. Answered through MCP · no auth instead." (with the lane's own label) | no | its twin | error | on the first one |
 | `BudgetExceededError` | Apify's credit is gone | as `AuthError` | no | its twin | warn | yes |
 | `ContractError` | a tool missing or renamed; output that fails its schema | as for an unavailable lane | no | an auth lane: its twin; else the cache | error | yes |
 | `ModelError` | Gemini times out or answers `5xx`, or `429` when the free tier's quota is used up | "The assistant didn't answer. Try again." with a button | 2 (AI SDK) | none for now: one model | error | if it lasts 5 min |
+| `BadToolCallError` | the model calls a tool that doesn't exist, or with input the tool doesn't take (added in step 5) | on the chip: "The assistant called a weather tool the wrong way." The model is told, and tries again | the model's next step | — | warn | no |
 | `ConfigError` | a setting the app needs is missing, such as `GOOGLE_API_KEY` (step 3) | "The assistant isn't set up on this deployment yet." (`503`) | no | — | error | on the first one |
 | `AbortedError` | the user pressed Stop or closed the tab | nothing | — | — | info | no |
-| `UnexpectedError` | a bug | "Something went wrong (ref 7f3a9c)." | no | — | error | yes |
+| `UnexpectedError` | a bug | "Something went wrong. (ref 7f3a9c01)" | no | — | error | yes |
 
-Every class logged at `error` also goes to Sentry, grouped by class and lane. The user always gets a sentence, and with
-an error, the ref. Raw status codes, stack traces and upstream error text never reach the page, and the model never
+Every class logged at `error` also goes to Sentry (step 9), grouped by class and lane. The user always gets a sentence,
+and with a failure logged at `error`, the ref: the request id's last 8 characters. Raw status codes, stack traces and upstream error text never reach the page, and the model never
 fills a gap with a guess.
 
 **Not errors:** no place found, an ambiguous place, and a date more than 16 days ahead. The tools say so in their
@@ -1145,15 +1150,17 @@ each adds one thing to the one before.
    step 4 makes `MCP · no auth` live, a chat starts on `REST · no auth`, the only live lane. **Done
    when:** the Paris question shows two chips labelled `REST · no auth` and an answer built from them on preview, and 5
    golden questions pass (`npm run evals`).
-4. [ ] **MCP · no auth:** `/api/mcp` with `mcp-handler`, registering the same four tool definitions; and
+4. [x] **MCP · no auth:** `/api/mcp` with `mcp-handler`, registering the same four tool definitions; and
    `lib/lanes/mcp-no-auth.ts`, with the bypass header (the request-id header comes with step 5's logger, which logs
    it). **Done when:** the same question gets the same answer through MCP, an MCP client (the MCP Inspector, or
    `tests/evals/mcp-server.eval.ts`) lists and calls the tools on the deployed URL, and the handshake and the hop have
-   measured times.
+   measured times. *Done 29 October 2026: from a laptop, connecting took 192 ms, the tool list 78 ms, a call about
+   100 ms (`docs/step-4.md`).*
 5. [ ] **Errors and logs:** the error map, request ids (passed on to `/api/mcp`), pino with redaction and the `lane`,
-   `transport` and `auth` fields, Sentry, messages with the ref. **Done when:** a test triggers each class in 9.2 except
-   `RateLimitedError` and `BotBlockedError` (step 8), and each shows the right message, log line and, at `error`
-   level, Sentry event.
+   `transport` and `auth` fields, messages with the ref. **Done when:** a test triggers each class in 9.2 except
+   `RateLimitedError` and `BotBlockedError` (step 8) and `AuthError` and `BudgetExceededError` (step 6, the first code
+   that can raise them), and each shows the right message and log line. Sentry, planned here, needs an account and a
+   project key only you can create: it moves to step 9.
 6. [ ] **REST · auth:** `lib/upstream/apify.ts` (the run with `build`, `timeout` and `maxTotalChargeUsd`, and the token
    check), the Actor tool definition, `lib/weather/actor-items.ts`, and `lib/lanes/rest-auth.ts` with its fallback to
    `rest-no-auth`. **Done when:** a Dallas question runs the Actor through the REST door on preview, and with a fake
@@ -1165,11 +1172,12 @@ each adds one thing to the one before.
 8. [ ] **Protection:** BotID, the two WAF rules, the security headers. **Done when:** a script
    without BotID's token is refused, the 21st request in a minute gets `429`, the chat route's own calls to
    `/api/mcp` aren't limited, and the headers show on a response.
-9. [ ] **Observability:** shipping to Axiom, traces, dashboards, alerts, `/api/health` for the four lanes, the status
-   dots, the uptime monitor. **Done when:** one request id finds the logs of both functions, the trace and the Sentry
+9. [ ] **Observability:** shipping to Axiom, Sentry (moved from step 5) for every class logged at `error`, traces,
+   dashboards, alerts, `/api/health` for the four lanes, the status dots, the uptime monitor. **Done when:** one request id finds the logs of both functions, the trace and the Sentry
    event, and a forced `AuthError` plays out the rest of 5.5: the alert, and both auth lanes' red dots.
 10. [ ] **Evals, failure tests and the load test:** the golden questions on all four lanes (with the comparison
-    report), the `CHAOS` cases and Playwright on previews in CI; the daily contract check for `mcp-auth`; the load
+    report), the `CHAOS` cases and Playwright on previews in CI; the no-auth lanes' cache fallback and the amber "slow,
+    retrying" chip (moved from step 5), which the `CHAOS` cases exercise; the daily contract check for `mcp-auth`; the load
     test before launch. **Done when:** they pass at the bars in section 10.
 11. [ ] **Launch:** production settings; the paid model path before the URL is public (a paid Gemini key, or Vercel AI
     Gateway: decision 3); the README, finished in project 01's shape; the runbook (section 12); the demo

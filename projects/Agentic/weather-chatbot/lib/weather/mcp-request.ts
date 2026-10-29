@@ -1,6 +1,6 @@
 /*
  * lib/weather/mcp-request.ts: what our public MCP server accepts before any tool runs: one JSON-RPC message at a time
- * (a batch could carry thousands of tool calls in one request, past any per-request rate limit), of at most 8 KB.
+ * (a batch could carry up to 100 tool calls in one request, past any per-request rate limit), of at most 8 KB.
  */
 import "server-only";
 import { MAX_MCP_BODY_BYTES } from "@/lib/constants";

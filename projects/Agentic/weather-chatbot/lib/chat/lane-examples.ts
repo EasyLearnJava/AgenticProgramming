@@ -46,7 +46,10 @@ function toToolsCallBody(tool: string, input: unknown): string {
   });
 }
 
-/** A tools/call to our MCP server, as AI SDK's MCP client sends it: its headers and its JSON-RPC text. */
+/**
+ * A tools/call to our MCP server, as AI SDK's MCP client sends it: its headers (with the chat request's id, which the
+ * lane adds) and its JSON-RPC text.
+ */
 function toOurToolsCall(tool: string, input: unknown): WireRequest {
   return {
     method: "POST",
@@ -57,6 +60,7 @@ function toOurToolsCall(tool: string, input: unknown): WireRequest {
       "mcp-method": "tools/call",
       "mcp-name": tool,
       "mcp-protocol-version": MCP_PROTOCOL_VERSION,
+      "x-request-id": "<this chat request's id>",
     },
     body: JSON.stringify({
       method: "tools/call",

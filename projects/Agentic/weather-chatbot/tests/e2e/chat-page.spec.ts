@@ -10,6 +10,8 @@ import {
   ANSWER,
   CUT_SHORT_STREAM_BODY,
   FORECAST_URL,
+  LEAK_IMAGE_URL,
+  MARKDOWN_STREAM_BODY,
   MCP_PARIS_STREAM_BODY,
   MCP_URL,
   PARIS_STREAM_BODY,
@@ -122,19 +124,19 @@ test("answers: two chips with their lane and request, the answer, and the weathe
   await expect(card.getByText("6 to 15 °C")).toBeVisible();
 });
 
-test("shows the server's sentence when the chat can't answer, with Try again", async ({ page }) => {
+test("shows the server's sentence when the chat can't answer, with its ref and Try again", async ({ page }) => {
   await page.route("**/api/chat", (route) =>
     route.fulfill({
       status: 503,
       contentType: "text/plain",
-      headers: { "x-nimbus-error": "1" },
-      body: "The assistant isn't set up on this deployment yet.",
+      headers: { "x-nimbus-error": "1", "x-request-id": "iad1::iad1::abcde-1730211234567-f3c2b1a0d9e8" },
+      body: "The assistant isn't set up on this deployment yet. (ref b1a0d9e8)",
     }),
   );
   await page.getByRole("button", { name: PARIS_QUESTION }).click();
   // Ours: Next.js's route announcer is an alert too.
   const alert = page.getByRole("alert").filter({ hasText: "isn't set up" });
-  await expect(alert).toContainText("The assistant isn't set up on this deployment yet.");
+  await expect(alert).toContainText("The assistant isn't set up on this deployment yet. (ref b1a0d9e8)");
   await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
@@ -166,6 +168,24 @@ test("says when a time budget cut an answer short, and shows its unfinished tool
   await expect(chip).toHaveClass(/tool-chip-stopped/);
   await expect(chip.locator("summary")).toContainText("Stopped:");
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
+});
+
+test("never shows or fetches an image from an answer's Markdown, and opens its links in a new tab", async ({
+  page,
+}) => {
+  const requested: string[] = [];
+  page.on("request", (request) => requested.push(request.url()));
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ status: 200, headers: STREAM_HEADERS, body: MARKDOWN_STREAM_BODY }),
+  );
+  await page.getByRole("button", { name: PARIS_QUESTION }).click();
+  const conversation = page.getByRole("list", { name: "Conversation" });
+  await expect(conversation.getByText("Sunny in Paris.")).toBeVisible();
+  await expect(conversation.locator("img")).toHaveCount(0);
+  const link = conversation.getByRole("link", { name: "Open-Meteo" });
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  expect(requested.filter((url) => url.startsWith(new URL(LEAK_IMAGE_URL).origin))).toEqual([]);
 });
 
 test("shows one plain sentence for an error page that isn't the chat's own", async ({ page }) => {

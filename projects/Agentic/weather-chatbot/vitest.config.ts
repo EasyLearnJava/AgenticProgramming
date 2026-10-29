@@ -14,8 +14,10 @@ export default defineConfig({
     },
   },
   test: {
-    // ③ The unit tests, in tests/unit/, run in Node.
+    // ③ The unit tests, in tests/unit/, run in Node; the app's own logger is silent (a test that reads the lines
+    // passes its own).
     include: ["tests/unit/**/*.test.ts"],
     environment: "node",
+    env: { LOG_LEVEL: "silent" },
   },
 });

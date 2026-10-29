@@ -1,10 +1,11 @@
 /*
  * tests/unit/upstream/open-meteo.test.ts: the Open-Meteo client against Open-Meteo's recorded answers (29 October
- * 2026): the requests it sends, our names for the fields, the cache, the retry and every failure.
+ * 2026): the requests it sends, our names for the fields, the cache, the retry, every failure, and its log lines.
  */
 import { describe, expect, it } from "vitest";
 import { ContractError, UpstreamRateLimitedError, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
 import { createOpenMeteoClient, toForecastRequest } from "@/lib/upstream/open-meteo";
+import { createTestLog } from "@/tests/stubs/log-stand-ins";
 import { createFakeFetch, createMemoryCache, hangingFetch } from "@/tests/stubs/open-meteo-stand-ins";
 
 const NOW = new Date("2026-10-29T16:00:00Z");
@@ -176,7 +177,7 @@ describe("the failures", () => {
   it("turns the tool's own time budget into UpstreamTimeoutError, as for any slow answer", async () => {
     const client = createOpenMeteoClient({ fetch: hangingFetch, cache: createMemoryCache(), random: () => 0 });
     const error = await client
-      .searchPlaces({ query: "Paris", count: 5 }, AbortSignal.timeout(20))
+      .searchPlaces({ query: "Paris", count: 5 }, { signal: AbortSignal.timeout(20) })
       .catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(UpstreamTimeoutError);
     expect((error as Error).message).toBe("Open-Meteo didn't answer within the tool's time budget.");
@@ -185,8 +186,52 @@ describe("the failures", () => {
   it("passes a stop from the user on as it is, without retrying", async () => {
     const controller = new AbortController();
     const client = createOpenMeteoClient({ fetch: hangingFetch, cache: createMemoryCache(), random: () => 0 });
-    const pending = client.searchPlaces({ query: "Paris", count: 5 }, controller.signal);
+    const pending = client.searchPlaces({ query: "Paris", count: 5 }, { signal: controller.signal });
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("the log lines", () => {
+  it("writes one upstream.http line for each request that goes out: the host, the status, the time, the tries", async () => {
+    const { client } = clientWith([{ fixture: "geocode-paris" }]);
+    const { log, lines } = createTestLog();
+    await client.searchPlaces({ query: "Paris", count: 5 }, { log });
+    await client.searchPlaces({ query: "Paris", count: 5 }, { log });
+    expect(lines).toEqual([
+      expect.objectContaining({
+        level: "info",
+        event: "upstream.http",
+        upstream: "open-meteo",
+        host: "geocoding-api.open-meteo.com",
+        status: "ok",
+        httpStatus: 200,
+        attempts: 1,
+        ms: expect.any(Number),
+      }),
+    ]);
+  });
+
+  it("makes a retry a warning, and says only a failure's class (the tool's line says the rest)", async () => {
+    const fail = () => new Response("", { status: 503 });
+    const { log, lines } = createTestLog();
+    await clientWith([fail, { fixture: "geocode-paris" }]).client.searchPlaces({ query: "Paris", count: 5 }, { log });
+    await clientWith([fail, fail])
+      .client.searchPlaces({ query: "Paris", count: 5 }, { log })
+      .catch(() => undefined);
+    expect(lines.map((line) => [line.level, line.status, line.attempts, line.errorClass])).toEqual([
+      ["warn", "ok", 2, undefined],
+      ["info", "failed", 2, "UpstreamUnavailableError"],
+    ]);
+  });
+
+  it("logs nothing for a stop", async () => {
+    const controller = new AbortController();
+    const client = createOpenMeteoClient({ fetch: hangingFetch, cache: createMemoryCache(), random: () => 0 });
+    const { log, lines } = createTestLog();
+    const pending = client.searchPlaces({ query: "Paris", count: 5 }, { signal: controller.signal, log });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(lines).toEqual([]);
   });
 });

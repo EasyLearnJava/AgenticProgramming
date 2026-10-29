@@ -1,7 +1,8 @@
 /*
  * lib/upstream/open-meteo.ts: the calls to Open-Meteo's three APIs (geocoding, forecast, air quality), with fetch:
- * rounded coordinates, timezone=auto, 3 s a try and one retry, Retry-After on a 429, and the Runtime Cache. Open-Meteo's
- * own field names (temperature_2m, country_code) stay in this file: its schemas rename them once, to ours.
+ * rounded coordinates, timezone=auto, 3 s a try and one retry, Retry-After on a 429, and the Runtime Cache; each request
+ * that goes out writes one upstream.http line. Open-Meteo's own field names (temperature_2m, country_code) stay in this
+ * file: its schemas rename them once, to ours.
  */
 import "server-only";
 import { getCache } from "@vercel/functions";
@@ -22,8 +23,9 @@ import {
   RETRY_WAIT_MAX_MS,
 } from "@/lib/constants";
 import { ContractError, UpstreamRateLimitedError, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
+import { type Logger, logger } from "@/lib/logger";
 import type { Place, Units, WireRequest } from "@/lib/types";
-import { roundCoordinate, timeoutSignal, toAbortKind, toRetryAfterMs, withRetry } from "@/lib/utils";
+import { roundCoordinate, timeoutSignal, toAbortKind, toHost, toRetryAfterMs, withRetry } from "@/lib/utils";
 
 const HOURS_PER_DAY = 24;
 const HTTP_TOO_MANY_REQUESTS = 429;
@@ -228,18 +230,21 @@ export type UpstreamAnswer<T> = { data: T; request: WireRequest; cache: "hit" | 
 
 type ForecastQuery = Coordinates & { days: number; includeHourly: boolean; units: Units };
 
-/** The client's four calls. Each takes the tool's abort signal, so Stop and the tool's time budget cancel it. */
+/** What a call takes besides its input: the tool's abort signal (Stop, the tool's budget), and the request's logger. */
+export type CallOptions = { signal?: AbortSignal; log?: Logger };
+
+/** The client's four calls. */
 export type OpenMeteoClient = {
   searchPlaces: (
     input: { query: string; count: number; countryCode?: string },
-    signal?: AbortSignal,
+    options?: CallOptions,
   ) => Promise<UpstreamAnswer<Place[]>>;
-  getForecast: (input: ForecastQuery, signal?: AbortSignal) => Promise<UpstreamAnswer<ForecastData>>;
+  getForecast: (input: ForecastQuery, options?: CallOptions) => Promise<UpstreamAnswer<ForecastData>>;
   getCurrentWeather: (
     input: Coordinates & { units: Units },
-    signal?: AbortSignal,
+    options?: CallOptions,
   ) => Promise<UpstreamAnswer<CurrentData>>;
-  getAirQuality: (input: Coordinates, signal?: AbortSignal) => Promise<UpstreamAnswer<AirQualityData>>;
+  getAirQuality: (input: Coordinates, options?: CallOptions) => Promise<UpstreamAnswer<AirQualityData>>;
 };
 
 type OpenMeteoOptions = {
@@ -265,7 +270,7 @@ export function createOpenMeteoClient({
     request: WireRequest,
     schema: z.ZodType<T>,
     ttlSeconds: number,
-    signal?: AbortSignal,
+    { signal, log = logger }: CallOptions = {},
   ): Promise<UpstreamAnswer<T>> {
     if (signal?.aborted) {
       throw toAbortedError(signal);
@@ -276,17 +281,43 @@ export function createOpenMeteoClient({
     if (cached.success && cachedData?.success) {
       return { data: cachedData.data, request, cache: "hit", fetchedAt: cached.data.fetchedAt };
     }
-    const body = await withRetry(() => fetchOnce(request, signal), {
-      tries: OPEN_METEO_TRIES,
-      shouldRetry: isWorthRetrying,
-      waitMs: (error) =>
-        error instanceof UpstreamRateLimitedError && error.retryAfterMs !== undefined
-          ? error.retryAfterMs
-          : random() * RETRY_WAIT_MAX_MS,
-      signal,
-    }).catch((error: unknown) => {
-      throw signal?.aborted ? toAbortedError(signal) : error;
+    // The request goes out: one line when it's done, with the host, the time and the tries; a retry is a warning,
+    // and a failure says only its class here (the tool's line says the rest). A stop isn't logged.
+    const startedAt = now().getTime();
+    let attempts = 0;
+    const toHttpFields = () => ({
+      event: "upstream.http",
+      upstream: "open-meteo",
+      host: toHost(request.url),
+      ms: now().getTime() - startedAt,
+      attempts,
     });
+    const { body, status } = await withRetry(
+      () => {
+        attempts += 1;
+        return fetchOnce(request, signal);
+      },
+      {
+        tries: OPEN_METEO_TRIES,
+        shouldRetry: isWorthRetrying,
+        waitMs: (error) =>
+          error instanceof UpstreamRateLimitedError && error.retryAfterMs !== undefined
+            ? error.retryAfterMs
+            : random() * RETRY_WAIT_MAX_MS,
+        signal,
+      },
+    ).catch((error: unknown) => {
+      const failure = signal?.aborted ? toAbortedError(signal) : error;
+      if (toAbortKind(signal) !== "stop") {
+        log.info({
+          ...toHttpFields(),
+          status: "failed",
+          errorClass: failure instanceof Error ? failure.name : "unknown",
+        });
+      }
+      throw failure;
+    });
+    log[attempts > 1 ? "warn" : "info"]({ ...toHttpFields(), status: "ok", httpStatus: status });
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       throw new ContractError("Open-Meteo's answer doesn't have the fields we asked for.");
@@ -296,8 +327,8 @@ export function createOpenMeteoClient({
     return { data: parsed.data, request, cache: "miss", fetchedAt };
   }
 
-  /** One try: 3 s at most, with every failure turned into one of our error classes. */
-  async function fetchOnce(request: WireRequest, signal?: AbortSignal): Promise<unknown> {
+  /** One try: 3 s at most, with every failure turned into one of our error classes; the body and its status. */
+  async function fetchOnce(request: WireRequest, signal?: AbortSignal): Promise<{ body: unknown; status: number }> {
     const trySignal = timeoutSignal(tryTimeoutMs, signal);
     let response: Response;
     try {
@@ -318,26 +349,26 @@ export function createOpenMeteoClient({
       throw new ContractError(`Open-Meteo refused the request with ${response.status}.`);
     }
     try {
-      return await response.json();
+      return { body: await response.json(), status: response.status };
     } catch (error) {
       throw toFetchError(error, trySignal, tryTimeoutMs, signal);
     }
   }
 
   return {
-    searchPlaces: ({ query, count, countryCode }, signal) =>
-      get(toGeocodingRequest(query, count, countryCode), GeocodingResponseSchema, GEOCODE_CACHE_TTL_SECONDS, signal),
-    getForecast: async (input, signal) => {
+    searchPlaces: ({ query, count, countryCode }, options) =>
+      get(toGeocodingRequest(query, count, countryCode), GeocodingResponseSchema, GEOCODE_CACHE_TTL_SECONDS, options),
+    getForecast: async (input, options) => {
       const request = toForecastRequest(input, input);
-      const answer = await get(request, ForecastResponseSchema, FORECAST_CACHE_TTL_SECONDS, signal);
+      const answer = await get(request, ForecastResponseSchema, FORECAST_CACHE_TTL_SECONDS, options);
       // An hourly forecast covers the first 3 days at most, so a long one doesn't flood the model.
       const hours = answer.data.hours?.slice(0, MAX_HOURLY_DAYS * HOURS_PER_DAY);
       return { ...answer, data: { ...answer.data, hours } };
     },
-    getCurrentWeather: (input, signal) =>
-      get(toCurrentRequest(input, input.units), CurrentResponseSchema, CURRENT_WEATHER_CACHE_TTL_SECONDS, signal),
-    getAirQuality: (input, signal) =>
-      get(toAirQualityRequest(input), AirQualityResponseSchema, AIR_QUALITY_CACHE_TTL_SECONDS, signal),
+    getCurrentWeather: (input, options) =>
+      get(toCurrentRequest(input, input.units), CurrentResponseSchema, CURRENT_WEATHER_CACHE_TTL_SECONDS, options),
+    getAirQuality: (input, options) =>
+      get(toAirQualityRequest(input), AirQualityResponseSchema, AIR_QUALITY_CACHE_TTL_SECONDS, options),
   };
 }
 

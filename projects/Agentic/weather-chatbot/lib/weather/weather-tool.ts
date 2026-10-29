@@ -5,6 +5,7 @@
 import "server-only";
 import { z } from "zod";
 import { MAX_LATITUDE_DEGREES, MAX_LONGITUDE_DEGREES } from "@/lib/constants";
+import type { Logger } from "@/lib/logger";
 import type { WireRequest } from "@/lib/types";
 import type { OpenMeteoClient } from "@/lib/upstream/open-meteo";
 
@@ -12,8 +13,8 @@ import type { OpenMeteoClient } from "@/lib/upstream/open-meteo";
 export const LatitudeSchema = z.number().min(-MAX_LATITUDE_DEGREES).max(MAX_LATITUDE_DEGREES);
 export const LongitudeSchema = z.number().min(-MAX_LONGITUDE_DEGREES).max(MAX_LONGITUDE_DEGREES);
 
-/** What a tool needs to run: the Open-Meteo client, and the call's abort signal. */
-export type ToolContext = { openMeteo: OpenMeteoClient; signal?: AbortSignal };
+/** What a tool needs to run: the Open-Meteo client, the call's abort signal, and the request's logger. */
+export type ToolContext = { openMeteo: OpenMeteoClient; signal?: AbortSignal; log?: Logger };
 
 /** A tool's answer, and the request to Open-Meteo behind it. */
 export type ToolRun<Output> = { output: Output; request: WireRequest; cache: "hit" | "miss" };

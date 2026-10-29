@@ -11,7 +11,8 @@ import { InputError } from "@/lib/errors";
 import type { ChatMessage, LiveLaneId } from "@/lib/types";
 import { OPEN_METEO_TOOLS } from "@/lib/weather/open-meteo-tools";
 
-const MAX_CHAT_ID_CHARS = 100;
+// A chat's id, which useChat makes up: letters, digits, _ and -. It's logged, so it can't be anything else.
+const CHAT_ID_PATTERN = /^[\w-]{1,100}$/;
 const MAX_LOCALE_CHARS = 35;
 
 /** Whether a lane id is one that answers for real. */
@@ -31,7 +32,7 @@ function isLanguageTag(locale: string): boolean {
 // ① The body useChat sends: the chat's id and messages, plus what the page adds: the lane, and the browser's locale,
 // which goes into the system prompt, so it must be a language tag and nothing else.
 const ChatRequestSchema = z.object({
-  id: z.string().min(1).max(MAX_CHAT_ID_CHARS),
+  id: z.string().regex(CHAT_ID_PATTERN),
   messages: z.array(z.unknown()).min(1).max(MAX_MESSAGES),
   laneId: z.string().refine(isLiveLaneId),
   locale: z.string().max(MAX_LOCALE_CHARS).refine(isLanguageTag).optional(),
@@ -54,16 +55,23 @@ const SENT_PART_TYPES: ReadonlySet<string> = new Set([
 
 /** What to tell the user when the body's own fields break a rule, by the field that broke it. */
 const RULE_BY_FIELD: Readonly<Record<string, string>> = {
+  id: "its chat id isn't one the page makes.",
   messages: `a chat can carry 1 to ${MAX_MESSAGES} messages.`,
   laneId: "that lane isn't live yet.",
   locale: "the browser's language isn't a language tag.",
 };
 
-export type ChatRequest = { messages: ChatMessage[]; laneId: LiveLaneId; locale: string | undefined };
+export type ChatRequest = { chatId: string; messages: ChatMessage[]; laneId: LiveLaneId; locale: string | undefined };
 
 /** The text of a message, its text parts joined. */
 function toMessageText(message: ChatMessage): string {
   return message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
+}
+
+/** The question this request asks: the text of its last message, which is always yours. */
+export function toQuestion(chatRequest: ChatRequest): string {
+  const last = chatRequest.messages.at(-1);
+  return last === undefined ? "" : toMessageText(last);
 }
 
 /** Checks a chat request's body; throws InputError, saying which rule it breaks. */
@@ -106,5 +114,5 @@ export async function parseChatRequest(body: unknown): Promise<ChatRequest> {
   if (yours.some((text) => text.trim() === "")) {
     throw new InputError("a message can't be empty.");
   }
-  return { messages, laneId: parsed.data.laneId, locale: parsed.data.locale };
+  return { chatId: parsed.data.id, messages, laneId: parsed.data.laneId, locale: parsed.data.locale };
 }

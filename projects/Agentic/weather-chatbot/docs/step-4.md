@@ -55,6 +55,20 @@ AI SDK's MCP client and `mcp-handler` speak MCP's 2026-07-28 version, which keep
 - **A cached answer still makes the call:** the `tools/call` goes out, and the server answers from its cache without
   asking Open-Meteo; the chip says "cached", and keeps the call's time.
 
+### Measured on the live site
+
+One run each, on 29 October 2026, once this step was live; so read them as sizes, not a benchmark.
+
+| What | Time | Measured by |
+|---|---|---|
+| Connecting: `server/discover` | 192 ms | `tests/evals/mcp-server.eval.ts`, from a laptop |
+| Listing the tools: `tools/list` | 78 ms | the same run |
+| Three `tools/call` requests | 166, 98 and 97 ms | the same run |
+| A tool call in a chat answer, through MCP, with Open-Meteo asked | 544 ms (geocoding), 446 ms (forecast) | the chips of one live answer to the Paris question |
+
+So from a laptop, a request to `/api/mcp` takes about 100 ms before any tool runs, and a question pays for two of
+them (connecting, then the tool list) before its first tool call.
+
 ### Where it connects, and the bypass secret
 
 The lane calls `/api/mcp` on this same deployment (`toSelfOrigin` in `lib/lanes/open-lane.ts`): at the address the
@@ -71,7 +85,7 @@ own URL, which Standard Protection guards: so turn on Protection Bypass for Auto
 ### What the public server accepts
 
 `/api/mcp` is open to anyone, so `lib/weather/mcp-request.ts` checks each request before the MCP server sees it: one
-JSON-RPC message at a time (a batch could carry thousands of tool calls in one request, past any per-request rate
+JSON-RPC message at a time (a batch could carry up to 100 tool calls in one request, past any per-request rate
 limit), of at most 8 KB; anything else gets a JSON-RPC error with `400` or `413`. A tool that fails for a reason that
 isn't ours sends a fixed sentence, never the error's own text.
 

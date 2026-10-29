@@ -4,6 +4,7 @@
  */
 import { createMcpHandler } from "mcp-handler";
 import { MCP_SERVER_INFO } from "@/lib/constants";
+import type { Logger } from "@/lib/logger";
 import { createOpenMeteoClient } from "@/lib/upstream/open-meteo";
 import { registerTools } from "@/lib/weather/register-tools";
 import { createFakeFetch, createMemoryCache, type FakeAnswer } from "@/tests/stubs/open-meteo-stand-ins";
@@ -13,9 +14,12 @@ export const TEST_ORIGIN = "https://nimbus.test";
 
 /**
  * A fetch that serves our MCP server in-process, and records every request it was given. Its Open-Meteo calls get the
- * recorded answers given, or go to the fetch given (one that never answers, say).
+ * recorded answers given, or go to the fetch given (one that never answers, say); the server logs to the logger given.
  */
-export function createMcpServerFetch(answers: FakeAnswer[] | typeof fetch): {
+export function createMcpServerFetch(
+  answers: FakeAnswer[] | typeof fetch,
+  log?: Logger,
+): {
   fetch: typeof fetch;
   requests: Request[];
 } {
@@ -24,7 +28,9 @@ export function createMcpServerFetch(answers: FakeAnswer[] | typeof fetch): {
     cache: createMemoryCache(),
     random: () => 0,
   });
-  const handler = createMcpHandler((server) => registerTools(server, { openMeteo }), { serverInfo: MCP_SERVER_INFO });
+  const handler = createMcpHandler((server) => registerTools(server, { openMeteo, log }), {
+    serverInfo: MCP_SERVER_INFO,
+  });
   const requests: Request[] = [];
   const serverFetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const request = new Request(input, init);

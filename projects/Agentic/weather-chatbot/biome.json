@@ -71,7 +71,7 @@
       }
     },
     {
-      "includes": ["lib/config.ts", "tests/unit/config.test.ts"],
+      "includes": ["lib/config.ts", "tests/unit/config.test.ts", "vitest.config.ts"],
       "linter": {
         "rules": {
           "style": {
@@ -144,16 +144,6 @@
                 ]
               }
             }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["lib/logger.ts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noConsole": "off"
           }
         }
       }
