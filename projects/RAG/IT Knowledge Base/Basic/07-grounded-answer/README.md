@@ -22,7 +22,9 @@ with **LangChain**, **Gemini** (`gemini-embedding-001` and `gemini-3.5-flash-lit
 - **Lists the articles of the chunks found**, closest first: what the search found, not a checked list of what the
   answer used
 - **Asks Gemini the same question alone**, with no articles, for comparison
-- **Runs from one file**, `pipeline.py`, which names each step, then runs it
+- **All the code in one file**, `pipeline.py`: the loader, the splitter, the models, the embedding, the vector store,
+  the retriever, the prompt and the chain, and `main()`, which names each step, then runs it. Two files are apart:
+  `config.py`, which checks the key, and `utils.py`, which prints the answers
 
 "Grounded" means the answer is meant to come from the knowledge base, not from what the model learned in training.
 The prompt asks for that; nothing here checks it.
@@ -34,7 +36,7 @@ The prompt asks for that; nothing here checks it.
 ## 🏗️ Architecture
 
 ```text
-pipeline.py: main(), the one file to run, calls each step in order:
+pipeline.py: main(), the one file to run: it holds the steps below, and calls each in order:
 data/sample_it_kb.csv                 10 articles
           │ Steps 1 and 2: load_documents(), split_documents()
           │ Step 3: embed_chunks(): the 28 chunks, embedded by Gemini (1 call)
@@ -151,7 +153,7 @@ goes to `pipeline.py`.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 37 passed, 7 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 36 passed, 7 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini (`KeywordEmbeddings` for the embeddings, LangChain's `FakeListChatModel`
@@ -168,8 +170,9 @@ for the answers), so they need no key and make no calls. They check:
 The 7 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
 with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. One live test asks how
 to bake bread: the answer must say the knowledge base doesn't cover it ("cover") and have no "flour" or "yeast" (no
-recipe from what Gemini knows). Together they embed more than 100 texts, the free tier's limit for a minute, so on
-the free tier, run them one file at a time, a minute apart: `python -m pytest -m live tests/test_rag_chain.py`.
+recipe from what Gemini knows). Together they embed 118 texts, more than the free tier's limit of 100 a minute, so on
+the free tier, run them in two goes, a minute apart: `python -m pytest -m live -k "vpn_question or off_topic"` (the
+chain's two, 30 texts), then `python -m pytest -m live -k "not vpn_question and not off_topic"` (the other five, 88).
 
 ---
 
@@ -223,7 +226,8 @@ The search put the one chunk with the answer first. The other 4 are there too: t
 chunks, and some are about something else (a printer, a Salesforce role). The 10 articles, 6,621 characters in all,
 would fit whole in the prompt, but many real knowledge bases don't: a model reads only so much at once (its context
 window), and sending all of it would cost more tokens with every question (a token is a piece of a word, about 4
-characters of English). Answers are counted in tokens too: `MAX_OUTPUT_TOKENS`, in `models.py`, caps each one at 500.
+characters of English). Answers are counted in tokens too: `MAX_OUTPUT_TOKENS`, in `pipeline.py`, caps each one at
+500.
 
 ### 3. Asked, Not Guaranteed
 
@@ -278,9 +282,25 @@ Runnable itself; when `|` joins it to one, LangChain wraps it in a `RunnableLamb
 
 `pipeline.py` is the only file that runs anything: `main()` runs Steps 1 to 4, printing a line each, then Step 5,
 the chain, and `print_answer()`, from `utils.py`, prints its result with the prompt; then the question alone, which
-`print_answer_alone()` prints. The other files only define the steps and that
-helper, so importing them makes no call. The question and the two models are parameters of `main()`, so the tests
-pass stand-ins for Gemini.
+`print_answer_alone()` prints. `config.py` and `utils.py` only define what it uses, and building the models makes no
+call, so importing any of them makes no call. The question and the two models are parameters of `main()`, so the
+tests pass stand-ins for Gemini.
+
+### 7. The Code in One File, the Helpers Apart
+
+```python
+from config import MissingKeyError, load_api_key     # checks the key, before the models are built
+from utils import print_answer, print_answer_alone   # helpers: showing the two answers
+```
+
+`pipeline.py` holds the project's code, top to bottom: the settings (the data file, the column lists, the chunk size
+and overlap, the two models' names and settings, the collection's name, `TOP_K`, the sample questions and
+`QUESTION`), the loader, the splitter, the two models, `embed_chunks()`, the vector store (`make_vector_store()` and
+`store_vectors()`), the retriever (`make_retriever()` and `format_docs()`), the prompt and `make_rag_chain()`, then
+`main()`, which runs them. Two files stay apart. `utils.py` holds `print_answer()` and `print_answer_alone()`, which
+print what `main()` hands them, so `utils.py` needs nothing from `pipeline.py`. `config.py` holds the key check,
+because the tests need it before `pipeline.py` is imported: `tests/conftest.py` asks it whether there's a real key,
+and gives the models a fake one when there isn't.
 
 ---
 
@@ -318,8 +338,8 @@ message ends with "Please retry in" and a number of seconds. Wait that long, the
 **Fix**: `.env` was saved in another encoding, often UTF-16 by Windows PowerShell 5's `echo ... > .env`. Save it
 again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
-**Issue**: `python rag_chain.py` prints nothing
-**Fix**: That file only defines the step. Run `python pipeline.py` (Step 5), which runs every step.
+**Issue**: `python utils.py` or `python config.py` prints nothing
+**Fix**: Those files only define what `pipeline.py` uses. Run `python pipeline.py` (Step 5), which runs every step.
 
 ---
 
@@ -327,7 +347,7 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
 
 - Ask how long a Salesforce role change takes to work: `python pipeline.py "how long until my new Salesforce role
   works?"`. The SaaS article says up to 30 minutes. Does Gemini alone guess?
-- In `rag_chain.py`, cut both rules from the prompt: "using only the knowledge base articles below" and "If they don't
+- In `pipeline.py`, cut both rules from the prompt: "using only the knowledge base articles below" and "If they don't
   cover the question, say that the knowledge base doesn't cover it." Then ask the bread question again. In one run,
   Gemini still declined, in its own words: "I'm sorry, but I can only assist with IT-related issues based on the
   available articles. For password resets, VPN, printing, database connections, or SaaS access, please let me know."
@@ -336,5 +356,5 @@ again as UTF-8, or make it with `copy .env.example .env` and edit it.
   and without the rules. The label above the answer, "asked to use only the chunks found", is fixed text in
   `print_answer()`, whatever the prompt says. Tests check the prompt has both rules, and the live bread test looks for
   "cover", so put them back before you run the tests.
-- Change `TOP_K` in `retriever.py` from 5 to 1, and see how the prompt, the answer and the sources change. Tests check
+- Change `TOP_K` in `pipeline.py` from 5 to 1, and see how the prompt, the answer and the sources change. Tests check
   for 5, so put it back before you run the tests.

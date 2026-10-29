@@ -4,13 +4,9 @@ prints. They use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and 
 """
 from fakes import SIZE, KeywordEmbeddings
 
-from chunking import split_documents
-from embed_chunks import embed_chunks
-from knowledge_base import load_documents
-from rag_chain import prompt
-from retriever import QUESTIONS, format_docs, make_retriever
+from pipeline import (QUESTIONS, embed_chunks, format_docs, load_documents, make_retriever, make_vector_store, prompt,
+                      split_documents, store_vectors)
 from utils import print_answer, print_answer_alone
-from vector_store import make_vector_store, store_vectors
 
 CHUNKS = split_documents(load_documents())
 VECTORS = embed_chunks(CHUNKS, KeywordEmbeddings())     # a stand-in vector for each chunk, in order
