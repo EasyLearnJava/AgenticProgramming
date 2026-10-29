@@ -2,8 +2,8 @@
 IT Knowledge Base: The API
 ==========================
 
-The RAG engine served by FastAPI: the engine is built once, when the server starts, and each request answers one
-question. It handles:
+The RAG engine from pipeline.py, served by FastAPI: the engine is built once, when the server starts, and each
+request answers one question. It handles:
   1. Building the engine at start-up
   2. Checking each question before it costs a call to Gemini
   3. Answering, and reporting a 502 if answering fails (often a failed call to Gemini)
@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from rag_engine import RAGEngine
+from pipeline import RAGEngine
 
 # getLogger() comes from Python's logging module: the logger by that name
 logger = logging.getLogger("uvicorn.error")        # prints in the same terminal as uvicorn's own messages

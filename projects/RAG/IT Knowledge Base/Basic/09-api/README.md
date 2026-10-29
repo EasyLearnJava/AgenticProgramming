@@ -22,6 +22,8 @@ memory.
   422 error without calling Gemini
 - **Keeps errors' details from the caller**: if a question can't be answered, the caller gets a 502 error with the
   error's type, and the full error, with its traceback, goes to the server's terminal
+- **Keeps the engine in `pipeline.py`**, which holds all the code, as in 08; the server is `main.py`, and two
+  helpers are apart: `config.py`, which checks the key, and `utils.py`, which prints answers in the terminal
 
 **Try it:** start the server, open http://127.0.0.1:8000/docs, and ask a question from the page FastAPI makes.
 
@@ -41,7 +43,7 @@ a program, curl, or the /docs page
 └────────────────┬──────────────────┘
                  ↓
 ┌───────────────────────────────────┐
-│  RAGEngine, built at start-up     │  ← the 5 closest chunks, then Gemini's answer (2 calls)
+│  RAGEngine, from pipeline.py      │  ← built at start-up; the 5 closest chunks, then Gemini's answer (2 calls)
 └────────────────┬──────────────────┘
                  ↓
    {"answer": "...", "sources": [{"title", "system", "category", "snippet"}, ...]}
@@ -49,10 +51,11 @@ a program, curl, or the /docs page
 
 ### The Pipeline in This Project
 
-1. **Start** → `uvicorn main:app` imports `main.py`, which makes `RAGEngine()`: settings only
+1. **Start** → `uvicorn main:app` imports `main.py`, which makes `RAGEngine()`, from `pipeline.py`: settings only
 2. **Build** → before the first request, `lifespan()` runs `engine.build()` once: one call to Gemini for the chunks
 3. **Check** → each request's JSON is checked against `QueryIn`; a bad question gets a 422 and no call
-4. **Answer** → `query()` runs `engine.aquery(question)`: the question's embedding and the answer, 2 calls
+4. **Answer** → `query()` runs `engine.aquery(question)`: the retriever finds the 5 closest chunks (1 call), then
+   Gemini answers from them (1 call)
 5. **Reply** → the answer goes back shaped as `QueryOut`; if answering fails (often Gemini), a 502 goes back instead
 
 ---
@@ -152,20 +155,23 @@ server. Then ask it a question as in Step 6.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 54 passed, 9 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 52 passed, 9 deselected  (add -v for one line per test)
 ```
 
 The plain tests use stand-ins for Gemini, so they need no key and make no calls. FastAPI's `TestClient` sends their
 requests to the app without starting a server. For the API, they check `/api/health`; that the engine is built at
 start-up; that a question gets the answer and its sources; that a bad question gets a 422 and no call; that a failed
 answer gets a 502 without the details, and the traceback in the log; and that without a key the server stops with
-the message, not a traceback. For `pipeline.py`, they check that it builds the engine, then answers each
-question, or one of your own; and that no other file runs anything in the terminal.
+the message, not a traceback. For `pipeline.py`, they check the engine and its parts, as in 08, and that `aquery()`
+gives what `query()` gives; that it builds the engine, then answers each question, or one of your own; and that no
+other file runs anything in the terminal.
 
 The 9 deselected tests are live tests, marked `live`: they call the real Gemini, so they need your key in `.env`;
 with no key, `tests/conftest.py` skips them, so plain `python -m pytest` runs only the others. Together they embed
-more than 100 texts, the free tier's limit for a minute, so on the free tier, run them one file at a time, a minute
-apart: `python -m pytest -m live tests/test_main.py`.
+176 texts, more than the free tier's limit of 100 a minute, so on the free tier, run them in three goes, a minute
+apart: `python -m pytest -m live tests/test_main.py` (29 texts), then
+`python -m pytest -m live -k answer tests/test_pipeline.py` (59), then
+`python -m pytest -m live -k "not answer" tests/test_pipeline.py` (88).
 
 ---
 
@@ -202,7 +208,8 @@ return await engine.aquery(body.question)
 ```
 
 `engine.aquery()` does what `engine.query()` does, with `await`: while Gemini works on one question, the server can
-take other requests.
+take other requests. Both run the same three steps, as 08 does: the retriever finds the chunks, the prompt is filled
+in with them, and Gemini answers; `aquery()` awaits the retriever and Gemini with `ainvoke()`.
 
 ### 4. Errors: the Detail for the Terminal, a Short Message for the Caller
 
@@ -210,6 +217,21 @@ When answering fails, `query()` logs the full error, with its traceback (`logger
 terminal, and sends the caller only a 502 with the error's type: `{"detail":"Couldn't answer the question
 (...)."}`. It's usually Gemini (a quota or a network problem), but not always, so the message doesn't say
 it was. The caller learns the question wasn't answered, without the details of how.
+
+### 5. The Code in One File, the Server and the Helpers Apart
+
+```python
+from pipeline import RAGEngine                     # main.py: the server's engine, from pipeline.py
+from config import MissingKeyError, load_api_key   # pipeline.py: checks the key, before the models are built
+from utils import print_result                     # pipeline.py: a helper, showing each answer in the terminal
+```
+
+`pipeline.py` holds the project's code, as in 08: the settings, the parts from the loader to the prompt, `RAGEngine`
+and `main()`, the terminal's way in (`python pipeline.py`). Three files stay apart. `main.py` is the server's way in
+(`uvicorn main:app`): it makes the engine, builds it at start-up and answers each request with it. `utils.py` holds
+`print_result()`, which needs nothing from `pipeline.py`. `config.py` holds the key check, because the tests need it
+before `pipeline.py` is imported: `tests/conftest.py` asks it whether there's a real key, and gives the models a fake
+one when there isn't.
 
 ---
 
