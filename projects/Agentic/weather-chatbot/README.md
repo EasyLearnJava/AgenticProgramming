@@ -1,40 +1,38 @@
 # Weather Chatbot (Nimbus)
 
-> **Status:** step 1 of the [plan](PLAN.md): a hello page in the chat's design, so the project can be connected to
-> Vercel. The chat itself comes in the next steps.
+> **Status:** step 1 of the [plan](PLAN.md) is done: the project skeleton. The chat itself comes in the next steps.
+> Live at https://weather-chatbot-hazel.vercel.app/.
 
 Nimbus is a weather chatbot on Vercel. You'll ask about the weather in plain words and see every tool call it makes,
-through four lanes: REST or MCP, with or without auth. Today it's one page: a card in the mint-and-teal design, with a
-hello message from the bot.
+through four lanes: REST or MCP, with or without auth. Today it has the chat page's hello card, a left menu, and
+documentation for each finished build step.
 
-**In one line:** `npm run dev` → Next.js renders `app/page.tsx` inside `app/layout.tsx` → the hello card, styled by
-`app/globals.css`.
+**In one line:** a visit → Vercel serves pages Next.js built ahead of time → `app/layout.tsx` puts the left menu
+beside the page → the chat page (`app/page.tsx`) or a documentation page (`app/docs/`).
 
-## What you'll build
+## Documentation
 
-A Next.js 16 app with one static page, set up the way the rest of the build will be: TypeScript 7 in strict mode,
-Biome for formatting and linting (the naming and coding rules in [PLAN.md](PLAN.md), sections 7.9 and 7.10), and
-dependencies pinned to exact versions.
+The app explains itself: open **Documentation** in its left menu, or read the same pages in [`docs/`](docs/). There's
+one page per build step: what it built, how it works, and how to check it.
 
 ## Before you start
 
 - Node.js 22: the version Vercel runs this project on (`engines` in `package.json`)
 - npm
 
-## Files
+## How it's organised
 
-| File | What it is |
+| Folder or file | What's in it |
 |---|---|
-| `app/page.tsx` | The hello page: the chat card, with one message from the bot |
-| `app/layout.tsx` | The shell around every page: its language, its title and the global styles |
-| `app/globals.css` | The design tokens read from the shared image (PLAN.md, section 6), and the base styles |
-| `next.config.ts` | Next.js settings: no `X-Powered-By` header, React's strict mode, no `AGENTS.md` written by `next dev` |
-| `tsconfig.json` | TypeScript, strict, with the `@/` import alias |
-| `biome.json` | Formatting and lint rules, naming included |
-| `package.json`, `package-lock.json`, `.npmrc` | The dependencies, pinned to exact versions |
-| `.gitignore` | Next.js's build output and the types it generates |
-| `.gitattributes` | Keeps LF line endings on every OS, as Biome expects |
+| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`) |
+| `components/` | The React components: the left menu, the Markdown viewer |
+| `lib/` | The settings (`config.ts`, the only reader of environment variables) and the documentation's list and reader (`docs/`) |
+| `docs/` | The documentation pages, one Markdown file per step |
+| `tests/` | The unit tests (`unit/`) and a stand-in they need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
+| Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `next.config.ts`, `.npmrc`, `.gitignore`, `.gitattributes` |
+
+CI lives at the repository's root, in `.github/workflows/weather-chatbot.yml`.
 
 ## Run it
 
@@ -53,48 +51,55 @@ npm run dev
 ✓ Running next.config.ts took 54ms
 ```
 
-(A `Network:` line with your machine's address is left out.) Open http://localhost:3000 to see the mint page with the
-hello card. `npm run dev` reloads the page as you edit;
-`npm run build`, then `npm run start`, serves the production build instead.
+(A `Network:` line with your machine's address is left out.) Open http://localhost:3000: the hello card, with the menu
+on the left and `Build: local` at its foot. `npm run build`, then `npm run start`, serves the production build instead.
 
 ## Test it
 
 ```bash
-npm run lint        # Biome: formatting and lint rules, naming included
+npm run lint        # Biome: formatting, and the naming and coding rules; a warning fails it too
 npm run typecheck   # Next.js's route types, then TypeScript in strict mode
+npm test            # the unit tests, with Vitest
 npm run build       # the production build
 ```
 
 ```text
 $ npm run lint
-Checked 7 files in 1092ms. No fixes applied.
+Checked 20 files in 1238ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
+$ npm test
+ Test Files  3 passed (3)
+      Tests  7 passed (7)
+
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 89ms
-
+✓ Running next.config.ts took 233ms
   Creating an optimized production build ...
-✓ Compiled successfully in 829ms
+✓ Compiled successfully in 4.5s
   Running TypeScript ...
-  Finished TypeScript in 2.7s ...
-  Collecting page data using 4 workers ...
-  Generating static pages using 4 workers (0/3) ...
-✓ Generating static pages using 4 workers (3/3) in 5.6s
+  Finished TypeScript in 724ms ...
+  Collecting page data using 6 workers ...
+  Generating static pages using 6 workers (0/5) ...
+✓ Generating static pages using 6 workers (5/5) in 1085ms
   Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
-└ ○ /_not-found
+├ ○ /_not-found
+├ ○ /docs
+└   /docs/[slug]
+  └ ● /docs/step-1
 
 ○  (Static)  prerendered as static content
+●  (SSG)     prerendered as static HTML (uses generateStaticParams)
 ```
 
-npm also prints each script's name and command first; that's left out here. The times change from run to run. There
-are no tests yet: they start with the build (PLAN.md, section 10).
+npm also prints each script's name and command first, and Vitest a start time and duration; those are left out here.
+The times change from run to run. GitHub runs the same four checks on every push that touches this folder.
 
 ## Deploy it on Vercel
 
@@ -102,10 +107,12 @@ are no tests yet: they start with the build (PLAN.md, section 10).
 2. Set **Root Directory** to `projects/Agentic/weather-chatbot`. Vercel detects Next.js; keep the default build
    settings.
 3. Choose **Deploy**. The Node.js version comes from `package.json` (`22.x`).
-4. In the project's settings, set **Ignored Build Step** to `git diff HEAD^ HEAD --quiet -- .`, so commits elsewhere
-   in the repo don't redeploy this project. The command runs in the Root Directory; when nothing changed there, it
-   exits with 0, which skips the build.
+4. In the project's settings, set **Ignored Build Step** to `git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" HEAD -- .`.
+   Vercel runs it in the Root Directory: it exits with 0 (skip the build) only when nothing in this folder changed
+   since the last successful deployment. On the first deployment the variable is empty, so `git` fails, and Vercel
+   builds.
 
 ## Next
 
-[PLAN.md](PLAN.md): the rest of step 1 (tests and CI), then the chat page and the four lanes.
+Step 2 in [PLAN.md](PLAN.md): the chat page, drawn from sample messages, with its tool chips, weather card, lane picker
+and compare view.

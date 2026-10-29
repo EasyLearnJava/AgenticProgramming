@@ -1,5 +1,5 @@
 /*
- * app/page.tsx: the home page. For now, a hello card in the chat's design; the chat itself comes in the next steps.
+ * app/page.tsx: the chat page. For now, a hello card in the chat's design; the chat itself comes in the next steps.
  */
 import type { ReactNode } from "react";
 
@@ -14,7 +14,10 @@ export default function HomePage(): ReactNode {
         <p className="bubble bubble-bot">
           Hello! I’m Nimbus. Soon you’ll ask me about the weather here, and see every tool call I make to answer.
         </p>
-        <p className="note">Coming next: the chat, through four lanes: REST or MCP, with or without auth.</p>
+        <p className="note">
+          Coming next: the chat, through four lanes: REST or MCP, with or without auth. See Documentation in the menu
+          for what each step built.
+        </p>
       </section>
     </main>
   );

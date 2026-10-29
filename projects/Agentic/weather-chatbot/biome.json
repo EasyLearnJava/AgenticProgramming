@@ -61,11 +61,28 @@
   },
   "overrides": [
     {
-      "includes": ["app/**/page.tsx", "app/**/layout.tsx", "next.config.ts"],
+      "includes": ["app/**/page.tsx", "app/**/layout.tsx", "app/**/not-found.tsx", "*.config.ts"],
       "linter": {
         "rules": {
           "style": {
             "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["lib/config.ts", "tests/unit/config.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": {
+              "level": "error",
+              "options": {
+                "conventions": [
+                  { "selector": { "kind": "objectLiteralProperty" }, "formats": ["camelCase", "CONSTANT_CASE"] }
+                ]
+              }
+            }
           }
         }
       }

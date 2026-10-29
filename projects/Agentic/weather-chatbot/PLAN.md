@@ -393,7 +393,8 @@ the bottom, a rounded input, "Type something…", with an icon at each end.
   - **A Compare switch** that sends one question through all four lanes at once and shows the four answers in the same
     2×2, each with its time and cost. Compare skips the cache, so every door pays the same upstream cost.
 - **What else the image doesn't have:** the tool chips (5.3), the weather card, a Stop button while an answer streams,
-  a Try again button on errors, the Open-Meteo credit, and a one-line privacy note.
+  a Try again button on errors, the Open-Meteo credit, a one-line privacy note, a left menu (Chat and Documentation,
+  with the running build at its foot), and the in-app documentation: one page per build step, from `docs/`.
 - **Accessibility:** new messages are announced through an `aria-live="polite"` region; everything works by keyboard,
   with a visible focus ring; `prefers-reduced-motion` turns off the typing animation; each chip is a button with a
   label.
@@ -472,7 +473,8 @@ The latest versions on npm on 2026-10-29. Step 1 pins them exactly and checks th
 | REST calls (the REST lanes, and our MCP server) | The built-in `fetch` | — | No SDK between us and the API, so every URL and header is in our code; that's why Apify's `apify-client` package isn't used |
 | The model | Gemini `gemini-3.5-flash-lite`, the model the repo's other projects use, through `@ai-sdk/google` with `GOOGLE_API_KEY`; the model id in `CHAT_MODEL` | 4.0.107 | Decided on 2026-10-29 (decision 3). Its sampling is fixed, so no temperature is set, as in the other projects. `lib/chat/model.ts` is the one file to change for another model, or for Vercel AI Gateway |
 | Validation | Zod | 4.6.7 | Request bodies, tool inputs and outputs, settings |
-| Styling | Tailwind CSS | 4.3.3 | The design tokens as CSS variables |
+| Styling | Plain CSS in `app/globals.css` | — | The design tokens as CSS custom properties, with section 6's names; no CSS framework to learn |
+| Documentation | `react-markdown`, `remark-gfm` | 10.1.0, 4.0.1 | The in-app docs, rendered from `docs/*.md` at build time, with tables; raw HTML never rendered |
 | Cache and platform helpers | `@vercel/functions` | 3.10.4 | `getCache` (Runtime Cache, all plans), `waitUntil`, `getDeadline`, `geolocation`, `metric` |
 | Bot check | Vercel BotID (`botid`) | 1.5.12 | An invisible check on `/api/chat`; Basic is free |
 | Rate limit | Vercel WAF rules | — | A bypass rule for our own traffic, then Hobby's one rate-limit rule on `/api/*` (9.4) |
@@ -649,14 +651,20 @@ weather-chatbot/
 ├── instrumentation.ts               OpenTelemetry and Sentry start-up
 ├── instrumentation-client.ts        BotID's browser side
 ├── app/                             routes and pages only, each one thin
-│   ├── layout.tsx
+│   ├── layout.tsx                   the shell: the left menu, the page beside it, the build line
 │   ├── page.tsx                     the chat page
-│   ├── globals.css                  the design tokens (section 6)
+│   ├── not-found.tsx                the 404 page, inside the shell
+│   ├── globals.css                  the design tokens (section 6) and every style, as plain CSS
+│   ├── docs/
+│   │   ├── page.tsx                 the documentation's first page: one link per finished step
+│   │   └── [slug]/page.tsx          one documentation page, rendered from docs/<slug>.md at build time
 │   └── api/
 │       ├── chat/route.ts            POST: check, parse, then runChat()
 │       ├── mcp/route.ts             mcp-no-auth's server: registerTools() mounted with mcp-handler
 │       └── health/route.ts          GET: checkLanes()
 ├── components/                      one React component per file; display only
+│   ├── side-menu.tsx                the left menu: Chat, Documentation, the running build
+│   ├── markdown-doc.tsx             shows a Markdown document; raw HTML never rendered
 │   ├── chat-window.tsx
 │   ├── chat-input.tsx
 │   ├── message-bubble.tsx
@@ -701,9 +709,14 @@ weather-chatbot/
 │   │   ├── actor-items.ts           the Actor's items to a Forecast, for both auth lanes
 │   │   ├── ambiguity.ts             the ambiguity rule (7.6)
 │   │   └── wmo-codes.ts             WMO code to words and an icon
+│   ├── docs/
+│   │   ├── doc-list.ts              the documentation pages, one per finished step
+│   │   └── read-doc.ts              reads a page's Markdown from docs/
 │   └── health/
 │       └── check-lanes.ts           the health check, per lane (9.5)
+├── docs/                            the in-app documentation: step-1.md, step-2.md, ... one per finished step
 └── tests/
+    ├── stubs/                       stand-ins the unit tests need (server-only)
     ├── unit/                        one test file per lib file, at the same path: utils.test.ts, lanes/rest-auth.test.ts, ...
     ├── fixtures/                    recorded Open-Meteo and Apify answers
     ├── e2e/                         Playwright, one run per lane
@@ -1070,7 +1083,9 @@ grounding and safety, 95% overall, on every lane.
 
 ## 11. The Build Plan
 
-Each step builds on the one before and ends with a check that only uses what's built by then. Every step also keeps
+Each step builds on the one before and ends with a check that only uses what's built by then. Every step adds its page
+to the in-app documentation (`docs/step-N.md`, under Documentation in the left menu): what it built, how it works, and
+how to check it. Every step also keeps
 the code rules in 7.8 to 7.10: new files go where the layout says, a new helper goes in `lib/utils.ts` with its tests
 in the step whose code first uses it, and Biome and `tsc` pass with no warnings. The lanes come in teaching order:
 each adds one thing to the one before.
@@ -1083,7 +1098,8 @@ each adds one thing to the one before.
    questions in section 3 (rows 4, 6 and 14) are answered, and the auth lanes' budget in 9.3 has a measured number.
 1. [ ] **Scaffold** `projects/Agentic/weather-chatbot/` (a folder name without spaces keeps Vercel's Root Directory and
    shell commands simple) with the layout in 7.8: Next.js; TypeScript with the settings in 7.10 and the `@/` alias;
-   Tailwind; Biome with the rules in 7.10; Vitest; exact versions (`.npmrc`); the README's first version. A Vercel
+   Biome with the rules in 7.10; Vitest; exact versions (`.npmrc`); the README's first version; the left menu and the
+   in-app documentation, with this step's page. A Vercel
    project with this folder as its Root Directory, an Ignored Build Step so commits elsewhere in the repo don't
    redeploy it, and Protection Bypass for Automation turned on; CI in GitHub Actions running lint, type check and
    tests. **Done when:** an empty page is live on a Vercel URL, CI passes, and CI fails on a test branch that adds a

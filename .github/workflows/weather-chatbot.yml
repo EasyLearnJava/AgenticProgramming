@@ -1,0 +1,32 @@
+# The weather chatbot's checks: lint, types, unit tests and the production build. They run on every push, on any
+# branch, that touches projects/Agentic/weather-chatbot.
+name: Weather chatbot
+
+on:
+  push:
+    paths:
+      - "projects/Agentic/weather-chatbot/**"
+      - ".github/workflows/weather-chatbot.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: projects/Agentic/weather-chatbot
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: projects/Agentic/weather-chatbot/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
