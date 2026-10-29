@@ -3,8 +3,8 @@ Tests for pipeline.py: the CSV file read into 10 Documents, with each article's 
 articles cut into chunks, each no longer than the chunk size, each keeping its article's metadata and where in the
 article it starts; the embedding model's name and size, and that every script stops with a clear message when there
 is no key; the 28 chunks embedded in one call, one vector each, in order, from their text only; the collection,
-storing the 28 chunks with their vectors, and what each stored point holds; the question's vector searched in the
-store, the retriever as a Runnable (invoke, batch, k), and the chunks formatted for a prompt; and the steps it runs
+storing the 28 chunks with their vectors, and what each stored point holds; the retriever as a Runnable (invoke,
+batch, k), finding the closest chunks, closest first, and the chunks formatted for a prompt; and the steps it runs
 and what it prints, and that it's the only file that runs anything.
 
 The plain tests use KeywordEmbeddings, a stand-in for Gemini (tests/fakes.py), and Qdrant in memory; the live tests
@@ -220,18 +220,6 @@ def filled_store(stand_in=None):
     return store
 
 
-def test_searching_with_the_questions_vector_gives_the_closest_chunks_and_scores():
-    stand_in = KeywordEmbeddings()
-    store = filled_store(stand_in)
-    question_vector = stand_in.embed_query("My VPN won't connect")
-    results = store.similarity_search_with_score_by_vector(question_vector, k=TOP_K)
-    assert len(results) == 5
-    assert results[0][0].metadata["title"] == "VPN Connection Timeout"
-    scores = [score for _, score in results]
-    assert scores == sorted(scores, reverse=True)
-    assert {"doc_id", "title", "system", "category", "start_index"} <= set(results[0][0].metadata)
-
-
 def test_invoke_gives_the_k_closest_chunks_closest_first():
     assert TOP_K == 5
     chunks = make_retriever(filled_store()).invoke("My VPN won't connect")
@@ -277,20 +265,18 @@ def test_live_the_sample_questions_find_their_articles():
 
 # --- Running it ---
 
-def test_the_pipeline_embeds_the_chunks_then_the_question_by_hand_then_through_the_retriever(capsys):
+def test_the_pipeline_embeds_the_chunks_then_the_question_once_through_the_retriever(capsys):
     stand_in = KeywordEmbeddings()
     main(embeddings=stand_in, size=SIZE)
     printed = capsys.readouterr().out
     question = QUESTIONS[0]
-    assert stand_in.calls == [("documents", 28), ("query", question), ("query", question)]
+    assert stand_in.calls == [("documents", 28), ("query", question)]
     assert printed.startswith("Step 1: Read the knowledge base: 10 documents\n"
                               "Step 2: Chunk: 28 chunks of at most 512 characters\n"
                               f"Step 3: Embed: 28 vectors of {SIZE} numbers\n"
                               "Step 4: Store: 28 points, in Qdrant in memory\n"
                               "Step 5: Retrieve\n"
-                              f"Question: {question}\nThe question became {SIZE} numbers: [")
-    assert ("\n\nThe top score, worked out by hand from the question's vector and the top chunk's stored one:\n"
-            in printed)
+                              f"Question: {question}\n\nThe 5 closest chunks the retriever found, closest first:\n")
     assert ("\n\nA sample of what a prompt gets: the first 2 of the 5 chunks, as one text (format_docs):\n[1] "
             in printed)
 
@@ -298,7 +284,7 @@ def test_the_pipeline_embeds_the_chunks_then_the_question_by_hand_then_through_t
 def test_a_question_of_your_own(capsys):
     stand_in = KeywordEmbeddings()
     main("my email bounced", embeddings=stand_in, size=SIZE)
-    assert stand_in.calls[1:] == [("query", "my email bounced")] * 2
+    assert stand_in.calls[1:] == [("query", "my email bounced")]
     assert "\nQuestion: my email bounced\n" in capsys.readouterr().out
 
 

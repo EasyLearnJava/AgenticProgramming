@@ -21,7 +21,7 @@ Building the model makes no call to Gemini: each embed_... does, and uses your k
 
 Usage:
     python pipeline.py                      # each step for "How do I fix VPN connection timeouts?"
-    python pipeline.py "my email bounced"   # each step for your question (3 calls to Gemini)
+    python pipeline.py "my email bounced"   # each step for your question (2 calls to Gemini)
 """
 import csv
 import sys
@@ -167,8 +167,8 @@ def make_retriever(store: QdrantVectorStore, k: int = TOP_K) -> VectorStoreRetri
     # None of them checks that a chunk answers the question: each only changes which close chunks come back.
     #
     # 1. A minimum score: drops chunks that aren't close enough, so a question the articles don't cover gets fewer
-    #    than k chunks, or none. score_threshold isn't the cosine pipeline.py prints: LangChain turns the cosine
-    #    into (cosine + 1) / 2, so 0.8 keeps chunks with a cosine of 0.6 or more.
+    #    than k chunks, or none. score_threshold isn't the cosine itself: LangChain turns the cosine into
+    #    (cosine + 1) / 2, so 0.8 keeps chunks with a cosine of 0.6 or more.
     # return store.as_retriever(search_type="similarity_score_threshold",
     #                           search_kwargs={"k": k, "score_threshold": 0.8})
     #
@@ -201,20 +201,12 @@ def main(question: str = QUESTIONS[0], embeddings: Embeddings = embeddings, size
     # count() comes from qdrant_client's QdrantClient: how many points the collection holds
     print(f"Step 4: Store: {store.client.count(store.collection_name).count} points, in Qdrant in memory")
     print("Step 5: Retrieve")
-    # The question becomes a vector from the same model as the chunks, so the two can be compared (one call)
-    # embed_query() comes from LangChain's Embeddings (Gemini's, here): one text in, one vector out
-    question_vector = embeddings.embed_query(question)
-    # similarity_search_with_score_by_vector() comes from langchain_qdrant's QdrantVectorStore: k closest, scored
-    scored = store.similarity_search_with_score_by_vector(question_vector, k=TOP_K)
-    # The retriever does both in one call (one more call to Gemini), without the scores
+    # The retriever turns the question into a vector, from the same model as the chunks so the two can be compared
+    # (one call to Gemini), then Qdrant gives back the TOP_K closest chunks, closest first
     # invoke() comes from LangChain's Runnable: the retriever embeds the question and searches, in one call
     found = make_retriever(store).invoke(question)
-    # The top chunk's vector, read back from Qdrant by its point's id, so its score can be worked out by hand
-    # langchain_qdrant puts each found point's id in the chunk's metadata, under "_id"
-    # retrieve() comes from qdrant_client's QdrantClient: points by id, with their vectors when asked
-    top_point = store.client.retrieve(store.collection_name, [scored[0][0].metadata["_id"]], with_vectors=True)[0]
     # A sample of what a prompt gets: the first 2 chunks, as one text
-    print_retrieval(question, question_vector, scored, found, top_point.vector, format_docs(found[:2]))
+    print_retrieval(question, found, format_docs(found[:2]))
 
 
 if __name__ == "__main__":
