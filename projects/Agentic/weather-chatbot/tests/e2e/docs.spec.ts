@@ -37,7 +37,7 @@ test("answers an unknown address with the app's own 404 page", async ({ page }) 
 });
 
 test("has no accessibility violations on a documentation page, or on the issues log", async ({ page }) => {
-  for (const address of ["/docs/step-3", "/issues"]) {
+  for (const address of ["/docs/step-4", "/issues"]) {
     await page.goto(address);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, address).toEqual([]);
@@ -45,7 +45,7 @@ test("has no accessibility violations on a documentation page, or on the issues 
 });
 
 test("fits a documentation page, tables included, on the screen without scrolling sideways", async ({ page }) => {
-  for (const address of ["/docs/step-1", "/docs/step-2", "/docs/step-3", "/issues"]) {
+  for (const address of ["/docs/step-1", "/docs/step-2", "/docs/step-3", "/docs/step-4", "/issues"]) {
     await page.goto(address);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, address).toBeLessThanOrEqual(0);

@@ -1,7 +1,8 @@
 /*
  * lib/chat/lane-examples.ts: one forecast call, for the plan's Paris question, as each lane sends it: what the compare
- * view shows. The REST · no auth request comes from the code that sends it; the others are written out as the plan
- * gives them (PLAN.md 4.3), until their lanes are live.
+ * view shows. The live lanes' requests are the ones they send: REST · no auth's from the code that builds it, MCP · no
+ * auth's as AI SDK's MCP client sends it (MCP 2026-07-28); the auth lanes' are the plan's (PLAN.md 4.3), until they're
+ * live.
  */
 import "server-only";
 import { LANE_BY_ID, LANE_IDS } from "@/lib/constants";
@@ -27,8 +28,15 @@ const ACTOR_INPUT = {
 const MCP_HEADERS = { "Content-Type": "application/json", Accept: "application/json, text/event-stream" };
 const TOKEN_HEADER = { Authorization: "Bearer <APIFY_TOKEN>" };
 const FORECAST_CALL_ID = 3;
+// AI SDK's MCP client, under MCP 2026-07-28: the method and tool in headers, and who's asking in the call's _meta.
+const MCP_PROTOCOL_VERSION = "2026-07-28";
+const MCP_CLIENT_META = {
+  "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+  "io.modelcontextprotocol/clientCapabilities": {},
+  "io.modelcontextprotocol/clientInfo": { name: "ai-sdk-mcp-client", version: "1.0.0" },
+};
 
-/** An MCP tools/call message, as JSON-RPC text. */
+/** An MCP tools/call message, as JSON-RPC text, in the plan's (2025) form. */
 function toToolsCallBody(tool: string, input: unknown): string {
   return JSON.stringify({
     jsonrpc: "2.0",
@@ -38,18 +46,31 @@ function toToolsCallBody(tool: string, input: unknown): string {
   });
 }
 
+/** A tools/call to our MCP server, as AI SDK's MCP client sends it: its headers and its JSON-RPC text. */
+function toOurToolsCall(tool: string, input: unknown): WireRequest {
+  return {
+    method: "POST",
+    url: "https://<this deployment>/api/mcp",
+    headers: {
+      accept: "application/json, text/event-stream",
+      "content-type": "application/json",
+      "mcp-method": "tools/call",
+      "mcp-name": tool,
+      "mcp-protocol-version": MCP_PROTOCOL_VERSION,
+    },
+    body: JSON.stringify({
+      method: "tools/call",
+      params: { name: tool, arguments: input, _meta: MCP_CLIENT_META },
+      jsonrpc: "2.0",
+      id: FORECAST_CALL_ID,
+    }),
+  };
+}
+
 // ③ The forecast call through each lane: within a pair, the same tool and input; only the door changes.
 const FORECAST_BY_LANE: Readonly<Record<LaneId, { tool: string; wire: WireRequest }>> = {
   "rest-no-auth": { tool: "get_forecast", wire: toForecastRequest(FORECAST_INPUT, FORECAST_INPUT) },
-  "mcp-no-auth": {
-    tool: "get_forecast",
-    wire: {
-      method: "POST",
-      url: "https://<this deployment>/api/mcp",
-      headers: MCP_HEADERS,
-      body: toToolsCallBody("get_forecast", FORECAST_INPUT),
-    },
-  },
+  "mcp-no-auth": { tool: "get_forecast", wire: toOurToolsCall("get_forecast", FORECAST_INPUT) },
   "rest-auth": {
     tool: ACTOR_TOOL,
     wire: {

@@ -8,6 +8,7 @@ import type { Lane } from "@/lib/lanes/lane";
 import { logError } from "@/lib/logger";
 import type { ToolResult } from "@/lib/types";
 import { createOpenMeteoClient, type OpenMeteoClient } from "@/lib/upstream/open-meteo";
+import { toAbortKind } from "@/lib/utils";
 import { OPEN_METEO_TOOLS } from "@/lib/weather/open-meteo-tools";
 import type { WeatherTool } from "@/lib/weather/weather-tool";
 
@@ -33,18 +34,6 @@ export function openRestNoAuthLane({
   return { id: LANE_ID, tools, close: async () => undefined };
 }
 
-/**
- * Whether the tool was stopped (Stop, or the answer's end): its signal fired for any reason but the tool's own time
- * budget. A stop isn't a failure to log; Next.js marks a closed browser with its own error, not an AbortError.
- */
-function wasStopped(signal: AbortSignal | undefined): boolean {
-  if (signal?.aborted !== true) {
-    return false;
-  }
-  const reason: unknown = signal.reason;
-  return !(reason instanceof Error && reason.name === "TimeoutError");
-}
-
 /** One of our tools as an AI SDK tool: it runs the tool, times it, and records the request for the page. */
 function toAiTool<Name extends string, Input, Output extends JSONValue>(
   definition: WeatherTool<Name, Input, Output>,
@@ -67,7 +56,7 @@ function toAiTool<Name extends string, Input, Output extends JSONValue>(
         };
       } catch (error) {
         // A failure goes to the logs, then on to the model and the chip as our sentence; a stop isn't a failure.
-        if (!wasStopped(abortSignal)) {
+        if (toAbortKind(abortSignal) !== "stop") {
           logError("tool.failed", error, { tool: definition.name, lane: LANE_ID });
         }
         throw error;

@@ -5,8 +5,10 @@ import { describe, expect, it } from "vitest";
 import {
   formatDuration,
   formatLocalTime,
+  once,
   roundCoordinate,
   timeoutSignal,
+  toAbortKind,
   toHost,
   toRetryAfterMs,
   toWeekday,
@@ -158,5 +160,33 @@ describe("withRetry", () => {
       { tries: 2, ...always, signal: controller.signal },
     );
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("once", () => {
+  it("runs the function the first time only, and gives every call the first call's result", () => {
+    let runs = 0;
+    const closeOnce = once(() => {
+      runs += 1;
+      return `closed ${runs}`;
+    });
+    expect([closeOnce(), closeOnce(), closeOnce()]).toEqual(["closed 1", "closed 1", "closed 1"]);
+    expect(runs).toBe(1);
+  });
+});
+
+describe("toAbortKind", () => {
+  it("tells a time limit from a stop, whatever the stop's error is called", () => {
+    expect(toAbortKind(undefined)).toBe("none");
+    expect(toAbortKind(new AbortController().signal)).toBe("none");
+    const timedOut = new AbortController();
+    timedOut.abort(new DOMException("The operation timed out.", "TimeoutError"));
+    expect(toAbortKind(timedOut.signal)).toBe("timeout");
+    const stopped = new AbortController();
+    stopped.abort();
+    expect(toAbortKind(stopped.signal)).toBe("stop");
+    const closed = new AbortController();
+    closed.abort(Object.assign(new Error("The browser closed the connection."), { name: "ResponseAborted" }));
+    expect(toAbortKind(closed.signal)).toBe("stop");
   });
 });

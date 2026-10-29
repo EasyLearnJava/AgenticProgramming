@@ -4,11 +4,17 @@
 import "server-only";
 import { z } from "zod";
 
-// ① What the app reads from the environment. Vercel sets the first two on deployments made from Git; you set the
-// Gemini key, in Vercel's project settings or in .env.local on a laptop.
+// ① What the app reads from the environment. Vercel sets the commit and the environment on deployments made from
+// Git, the deployment's own addresses (its URL, its branch's, the project's production domain) on every deployment,
+// and the bypass secret when the project's Protection Bypass for Automation is on; you set the Gemini key, in Vercel's
+// project settings or in .env.local on a laptop.
 const EnvSchema = z.object({
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
+  VERCEL_URL: z.string().optional(),
+  VERCEL_BRANCH_URL: z.string().optional(),
+  VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
+  VERCEL_AUTOMATION_BYPASS_SECRET: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),
   CHAT_MODEL: z.string().optional(),
 });
@@ -16,6 +22,8 @@ const EnvSchema = z.object({
 export type Config = {
   build: { commit: string | undefined; environment: string };
   chat: { googleApiKey: string | undefined; model: string };
+  mcp: { bypassSecret: string | undefined };
+  deployment: { url: string | undefined; hosts: string[] };
 };
 
 const SHORT_COMMIT_LENGTH = 7;
@@ -36,6 +44,13 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
       environment: parsed.VERCEL_ENV ?? "local",
     },
     chat: { googleApiKey: parsed.GOOGLE_API_KEY, model: parsed.CHAT_MODEL ?? DEFAULT_CHAT_MODEL },
+    mcp: { bypassSecret: parsed.VERCEL_AUTOMATION_BYPASS_SECRET },
+    deployment: {
+      url: parsed.VERCEL_URL,
+      hosts: [parsed.VERCEL_URL, parsed.VERCEL_BRANCH_URL, parsed.VERCEL_PROJECT_PRODUCTION_URL].filter(
+        (host): host is string => host !== undefined,
+      ),
+    },
   };
 }
 

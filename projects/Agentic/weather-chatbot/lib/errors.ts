@@ -56,6 +56,29 @@ export class ContractError extends AppError {
   override readonly userMessage = "The weather service answered in a way we didn't expect. Please try again later.";
 }
 
+/**
+ * One of our errors, from its class's name and message, as an MCP server sends a failed tool's; an unknown name is an
+ * AppError. The names are the classes' own `name` fields, which minifying the code can't change.
+ */
+export function toAppErrorByName(name: string | undefined, message: string): AppError {
+  switch (name) {
+    case "InputError":
+      return new InputError(message);
+    case "ConfigError":
+      return new ConfigError(message);
+    case "UpstreamTimeoutError":
+      return new UpstreamTimeoutError(message);
+    case "UpstreamUnavailableError":
+      return new UpstreamUnavailableError(message);
+    case "UpstreamRateLimitedError":
+      return new UpstreamRateLimitedError(message, undefined);
+    case "ContractError":
+      return new ContractError(message);
+    default:
+      return new AppError(message);
+  }
+}
+
 const BAD_TOOL_CALL_MESSAGE = "The assistant called a weather tool the wrong way. Please try again.";
 
 /** The sentence the page shows for an error: the class's own for ours, a general one for anything else. */

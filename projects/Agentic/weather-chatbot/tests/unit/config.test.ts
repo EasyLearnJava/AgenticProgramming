@@ -36,4 +36,29 @@ describe("parseConfig", () => {
       model: "gemini-other",
     });
   });
+
+  it("lists the deployment's own addresses Vercel sets, and none off Vercel", () => {
+    expect(parseConfig({}).deployment).toEqual({ url: undefined, hosts: [] });
+    expect(
+      parseConfig({
+        VERCEL_URL: "weather-chatbot-abc123-silverado.vercel.app",
+        VERCEL_BRANCH_URL: "weather-chatbot-git-main-silverado.vercel.app",
+        VERCEL_PROJECT_PRODUCTION_URL: "weather-chatbot-hazel.vercel.app",
+      }).deployment,
+    ).toEqual({
+      url: "weather-chatbot-abc123-silverado.vercel.app",
+      hosts: [
+        "weather-chatbot-abc123-silverado.vercel.app",
+        "weather-chatbot-git-main-silverado.vercel.app",
+        "weather-chatbot-hazel.vercel.app",
+      ],
+    });
+  });
+
+  it("reads the bypass secret Vercel sets for Protection Bypass for Automation, when it's there", () => {
+    expect(parseConfig({}).mcp).toEqual({ bypassSecret: undefined });
+    expect(parseConfig({ VERCEL_AUTOMATION_BYPASS_SECRET: "test-secret" }).mcp).toEqual({
+      bypassSecret: "test-secret",
+    });
+  });
 });

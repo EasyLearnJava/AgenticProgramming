@@ -1,6 +1,6 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
-> **Status:** 🚧 Being built, step by step (section 11): steps 1 and 2 are done, step 3 is built and waits for its
+> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 3 are done, step 4 is built and waits for its
 > live check, and each finished step has a page in the app's documentation. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
@@ -206,7 +206,8 @@ Accept: application/json, text/event-stream
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"gochujang--open-meteo-weather-forecast","arguments":{"locations":[{"name":"Dallas","latitude":32.78,"longitude":-96.8}],"forecastDays":2,"mode":"daily"}}}
 ```
 
-Before its first `tools/call`, each MCP door also sends `initialize` and `tools/list` (the handshake); the REST doors
+Before its first `tools/call`, each MCP door also opens with a handshake (MCP 2026-07-28, since step 4: one
+`server/discover`, then `tools/list`; the 2025 version sent `initialize` instead); the REST doors
 don't. Note also `timezone=auto` and `wind_speed_unit=mph`, which your example didn't have (section 3, row 12).
 
 ### 4.4 What Changes Between the Doors
@@ -215,7 +216,7 @@ don't. Note also `timezone=auto` and `wind_speed_unit=mph`, which your example d
 |---|---|---|
 | Where a tool is defined | In our code | On the server; we find it with `tools/list` |
 | Who names it and shapes its input | We do | The server does; we pin what we expect (7.4, rule 3) |
-| Round trips before the first call | None | The handshake: `initialize` and `tools/list` |
+| Round trips before the first call | None | The handshake: `server/discover` (2025: `initialize`) and `tools/list` |
 | What one call looks like | An HTTPS request to the API | A JSON-RPC `tools/call` message over Streamable HTTP |
 | A bad token, at Apify (real answers, section 3) | `401` with a JSON body: `user-or-token-not-found`; no token at all: `402` with an x402 payment demand | `401` with `WWW-Authenticate: Bearer ... error="invalid_token"`, token or not |
 | The Actor's run limits | In the URL: `build`, `timeout`, `maxTotalChargeUsd` | Whatever Apify's tool accepts (step 0 checks) |
@@ -439,7 +440,7 @@ sequenceDiagram
   participant O as Open-Meteo
   P->>R: messages and lane, with the BotID token
   R->>R: check BotID, validate, take the request id
-  R->>S: initialize and tools/list (3 s budget)
+  R->>S: server/discover and tools/list (3 s budget)
   S-->>R: tools, filtered by our allowlist
   R->>M: messages and tools, streaming
   M-->>R: call geocode_location("Paris")
@@ -461,7 +462,8 @@ sequenceDiagram
 
 On `rest-no-auth` the picture is the same without the MCP server: the chat route runs the tool itself, so the
 handshake (steps 3 and 4) and the hop to `/api/mcp` disappear; that difference is what the compare view and the evals
-measure. The auth lanes look the same, with Apify's REST API or Apify's MCP server in place of our server.
+measure. Since step 4, AI SDK's client and `mcp-handler` speak MCP 2026-07-28, which keeps no session: the handshake is
+one `server/discover`, then `tools/list`, in place of `initialize` (the server still answers 2025-era clients). The auth lanes look the same, with Apify's REST API or Apify's MCP server in place of our server.
 
 ### 7.3 The Tech Stack
 
@@ -505,10 +507,11 @@ The latest versions on npm on 2026-10-29. Step 1 pins them exactly and checks th
 6. **Tool output is data, not instructions.** All tools are read-only. The page renders Markdown with raw HTML off.
 7. **Lane URLs come from settings, never from user input**, and the MCP transport keeps `redirect: 'error'` (the
    default, which blocks redirect tricks).
-8. **`mcp-no-auth` is called at its own deployment's URL** (`https://` + `VERCEL_URL` + `/api/mcp`), so a preview
-   talks to its own MCP server. Each call carries the project's bypass secret (`x-vercel-protection-bypass`, from
-   `VERCEL_AUTOMATION_BYPASS_SECRET`), which gets it through Deployment Protection on previews and past the WAF rate
-   limit (9.4), and the request id (`x-request-id`), so both functions log the same id. Neither is MCP auth.
+8. **`mcp-no-auth` is called at its own deployment,** at the address the chat request came to (not `VERCEL_URL`,
+   the deployment's own address, which Deployment Protection guards), so a preview talks to its own MCP server. Each
+   call carries the project's bypass secret (`x-vercel-protection-bypass`, from `VERCEL_AUTOMATION_BYPASS_SECRET`),
+   which gets it through Deployment Protection on previews and past the WAF rate limit (9.4), and, from step 5, the
+   request id (`x-request-id`), so both functions log the same id. Neither is MCP auth.
 9. **Within a pair, the model sees the same tools.** The no-auth pair shares one set of tool definitions (7.6); the
    auth pair shares the Actor tool's name and schema. Switching doors changes how calls travel, never what the model
    is asked to do.
@@ -735,7 +738,7 @@ weather-chatbot/
     ├── unit/                        one test file per lib file, at the same path: utils.test.ts, lanes/rest-auth.test.ts, ...
     ├── fixtures/                    recorded Open-Meteo and Apify answers
     ├── e2e/                         Playwright: the page, with /api/chat answered by a recorded stream
-    └── evals/                       the golden questions, run on all four lanes
+    └── evals/                       against a deployment: the golden questions per lane, and the MCP server
 ```
 
 - **Routes and components stay thin.** A route checks its input, calls one function in `lib/` and returns; a component
@@ -996,7 +999,7 @@ Starting values; steps 0, 3 and 4 measure the real times, and these are set from
 | Hop | Budget | How |
 |---|---|---|
 | The whole answer | 50 s; the function stops at 60 s | `timeout.totalMs`; `export const maxDuration = 60` |
-| Connecting to an MCP lane (`initialize` and `tools/list`) | 3 s | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
+| Connecting to an MCP lane (the handshake and `tools/list`) | 3 s | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
 | A tool call on a no-auth lane, REST or MCP | 8 s: two tries of 3 s, with a short random wait between | `timeout.toolMs`, and `open-meteo.ts`'s own HTTP timeout |
 | A tool call on an auth lane, REST or MCP | 20 s | `timeout.tools`, per tool; the REST door also sends Apify `timeout=18`, so the run stops before we give up instead of running on without us |
 | The model's first chunk | 10 s | `timeout.firstChunkMs` |
@@ -1135,7 +1138,7 @@ each adds one thing to the one before.
    health check's status dots in step 9) and the compare grid, from a sample conversation worked out per lane; and
    the end-to-end tests (Playwright, on a desktop and a 360 px phone screen, with axe). **Done when:** it matches the
    image (with the contrast fix), works at 360 px wide, and passes axe and keyboard checks.
-3. [ ] **REST · no auth, and the chat route:** the four tool definitions in `lib/weather/tools/`,
+3. [x] **REST · no auth, and the chat route:** the four tool definitions in `lib/weather/tools/`,
    `lib/upstream/open-meteo.ts` (time limits, a retry, the Runtime Cache, `timezone=auto`), the ambiguity rule,
    `lib/lanes/rest-no-auth.ts`; then `streamText` with Gemini (`lib/chat/model.ts`, your key from `.env.local`), the system prompt, input
    limits, the step and token caps, the time budgets, Stop, the location pin and the nearby-city suggestion. Until
@@ -1143,9 +1146,10 @@ each adds one thing to the one before.
    when:** the Paris question shows two chips labelled `REST · no auth` and an answer built from them on preview, and 5
    golden questions pass (`npm run evals`).
 4. [ ] **MCP · no auth:** `/api/mcp` with `mcp-handler`, registering the same four tool definitions; and
-   `lib/lanes/mcp-no-auth.ts`, with the bypass and request-id headers. **Done when:** the same question gets the same
-   answer through MCP, the MCP Inspector lists and calls the tools on the preview URL, and the handshake and the hop
-   have measured times.
+   `lib/lanes/mcp-no-auth.ts`, with the bypass header (the request-id header comes with step 5's logger, which logs
+   it). **Done when:** the same question gets the same answer through MCP, an MCP client (the MCP Inspector, or
+   `tests/evals/mcp-server.eval.ts`) lists and calls the tools on the deployed URL, and the handshake and the hop have
+   measured times.
 5. [ ] **Errors and logs:** the error map, request ids (passed on to `/api/mcp`), pino with redaction and the `lane`,
    `transport` and `auth` fields, Sentry, messages with the ref. **Done when:** a test triggers each class in 9.2 except
    `RateLimitedError` and `BotBlockedError` (step 8), and each shows the right message, log line and, at `error`

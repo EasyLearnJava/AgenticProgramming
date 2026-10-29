@@ -4,13 +4,20 @@
  */
 import type { ReactNode } from "react";
 import { LANE_BY_ID } from "@/lib/constants";
-import type { ToolCallView } from "@/lib/types";
+import type { LaneId, ToolCallView } from "@/lib/types";
 import { formatDuration, toHost, toWireText } from "@/lib/utils";
 
 type ToolChipProps = { call: ToolCallView };
 
 const MARK_BY_STATUS = { running: "…", done: "✓", failed: "✗", stopped: "■" } as const;
 const WORD_BY_STATUS = { running: "Running", done: "Done", failed: "Failed", stopped: "Stopped" } as const;
+
+/** What a cache hit means on a lane: on REST no request went out; on MCP the call did, and the server's cache answered. */
+function toCacheNote(laneId: LaneId): string {
+  return LANE_BY_ID[laneId].transport === "rest"
+    ? "Answered from the cache: no request went out this time. This is the request that fetched it."
+    : "Our MCP server answered from its cache: this request went out, and Open-Meteo wasn't asked again.";
+}
 
 /** Shows a JSON value, or a sentence as it is. */
 function toDisplayText(value: unknown): string {
@@ -31,8 +38,8 @@ export function ToolChip({ call }: ToolChipProps): ReactNode {
         <span className="tool-chip-input">{call.inputSummary}</span>
         {record ? (
           <span className="tool-chip-lane">
-            {LANE_BY_ID[record.laneId].label} · {toHost(record.wire.url)} ·{" "}
-            {record.cache === "hit" ? "from the cache" : formatDuration(record.durationMs)}
+            {LANE_BY_ID[record.laneId].label} · {toHost(record.wire.url)} · {formatDuration(record.durationMs)}
+            {record.cache === "hit" ? " · cached" : ""}
           </span>
         ) : null}
       </summary>
@@ -42,11 +49,7 @@ export function ToolChip({ call }: ToolChipProps): ReactNode {
         {record ? (
           <>
             <p className="tool-chip-label">On the wire</p>
-            {record.cache === "hit" ? (
-              <p className="tool-chip-note">
-                Answered from the cache: no request went out this time. This is the request that fetched it.
-              </p>
-            ) : null}
+            {record.cache === "hit" ? <p className="tool-chip-note">{toCacheNote(record.laneId)}</p> : null}
             <pre>{toWireText(record.wire)}</pre>
           </>
         ) : null}

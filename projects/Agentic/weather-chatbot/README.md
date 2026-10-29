@@ -1,17 +1,19 @@
 # Weather Chatbot (Nimbus)
 
-> **Status:** steps 1 and 2 of the [plan](PLAN.md) are done: the project skeleton and the chat page. Step 3, the live
-> chat through the first lane, `REST · no auth`, is built and waits for its live check. Live at
-> https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings:
+> **Status:** steps 1 to 3 of the [plan](PLAN.md) are done: the project skeleton, the chat page, and the live chat
+> through `REST · no auth`. Step 4, `MCP · no auth` through our own MCP server, is built and waits for its live check.
+> Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings:
 > [Deploy it on Vercel](#deploy-it-on-vercel)).
 
 Nimbus is a weather chatbot on Vercel. You ask about the weather in plain words and see every tool call it makes,
-through four lanes: REST or MCP, with or without auth. Today one lane is live: Gemini calls our four weather tools,
-which call Open-Meteo's API directly. Each call shows as a chip that opens to show its request, and a forecast gets a
+through four lanes: REST or MCP, with or without auth. Today the two no-auth lanes are live: Gemini calls our four
+weather tools, either directly (`REST · no auth`) or through our own MCP server at `/api/mcp` (`MCP · no auth`, the
+default), and they call Open-Meteo. Each call shows as a chip that opens to show its request, and a forecast gets a
 weather card. A left menu leads to the documentation, one page per finished build step.
 
 **In one line:** a question → `useChat` posts it to `/api/chat` → the route checks it → Gemini, with our four tools →
-each tool calls Open-Meteo → the answer streams back, with a chip per tool call.
+each tool calls Open-Meteo, itself (REST) or through `/api/mcp` (MCP) → the answer streams back, with a chip per tool
+call.
 
 ## Documentation
 
@@ -29,7 +31,7 @@ one page per build step: what it built, how it works, and how to check it. **Iss
 
 | Folder or file | What's in it |
 |---|---|
-| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the issues log (`issues/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`) and the nearby city (`nearby-city/`) |
+| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the issues log (`issues/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
 | `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
 | `hooks/` | The React hook that asks for the nearby city |
 | `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error classes and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo (`upstream/`), the weather tools (`weather/`), and the documentation's list and reader (`docs/`) |
@@ -72,43 +74,45 @@ npm run typecheck   # Next.js's route types, then TypeScript in strict mode
 npm test            # the unit tests, with Vitest
 npm run build       # the production build
 npm run e2e         # the end-to-end tests: Playwright, in a real browser, on a desktop and a phone screen
-npm run evals       # the golden questions, against a running deployment (EVAL_BASE_URL); skipped without it
+npm run evals       # against a running deployment (EVAL_BASE_URL): the golden questions, and the MCP server
 ```
 
 ```text
 $ npm run lint
-Checked 80 files in 398ms. No fixes applied.
+Checked 91 files in 471ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  21 passed (21)
-      Tests  100 passed (100)
+ Test Files  26 passed (26)
+      Tests  129 passed (129)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 73ms
+✓ Running next.config.ts took 207ms
   Creating an optimized production build ...
-✓ Compiled successfully in 903ms
+✓ Compiled successfully in 3.8s
   Running TypeScript ...
-  Finished TypeScript in 571ms ...
-  Collecting page data using 9 workers ...
-  Generating static pages using 9 workers (0/10) ...
-✓ Generating static pages using 9 workers (10/10) in 1517ms
+  Finished TypeScript in 1232ms ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/12) ...
+✓ Generating static pages using 10 workers (12/12) in 2.3s
   Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
 ├ ○ /_not-found
 ├ ƒ /api/chat
+├ ƒ /api/mcp
 ├ ƒ /api/nearby-city
 ├ ○ /docs
 ├   /docs/[slug]
 │ ├ ● /docs/step-1
 │ ├ ● /docs/step-2
-│ └ ● /docs/step-3
+│ ├ ● /docs/step-3
+│ └ ● /docs/step-4
 └ ○ /issues
 
 ○  (Static)   prerendered as static content
@@ -116,7 +120,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  38 passed (15.8s)
+  42 passed (19.4s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -127,7 +131,9 @@ made and tests it in Playwright's Chromium (install it once: `npx playwright ins
 `E2E_BROWSER_CHANNEL=msedge` to use an installed Edge). With `BASE_URL` set (for example
 `https://weather-chatbot-hazel.vercel.app`) it tests that site instead. GitHub runs all five on every push that
 touches this folder. `npm run evals` asks a running deployment the golden questions, so its real model answers
-(`EVAL_BASE_URL=https://weather-chatbot-hazel.vercel.app npm run evals`); it runs by hand, not in CI.
+(`EVAL_BASE_URL=https://weather-chatbot-hazel.vercel.app npm run evals`), on each lane in `EVAL_LANES` (both no-auth
+lanes by default), and checks the MCP server as any MCP client would; it runs by hand, not in CI. On a machine whose
+HTTPS goes through its own certificate, add `NODE_OPTIONS=--use-system-ca` so Node trusts the system's certificates.
 
 ## Deploy it on Vercel
 
@@ -144,7 +150,16 @@ touches this folder. `npm run evals` asks a running deployment the golden questi
    then redeploy, since a deployment keeps the settings it was built with. Without it, the chat answers that it isn't
    set up yet.
 
+## Use the MCP server
+
+`/api/mcp` is a public MCP server with the four weather tools; any MCP client that speaks Streamable HTTP can use it,
+for example in Claude or Cursor:
+
+```json
+{ "nimbus-weather": { "url": "https://weather-chatbot-hazel.vercel.app/api/mcp" } }
+```
+
 ## Next
 
-Step 4 in [PLAN.md](PLAN.md): `MCP · no auth`. Our own MCP server at `/api/mcp` registers the same four tools, and
-the chat reaches them through MCP instead.
+Step 5 in [PLAN.md](PLAN.md): errors and logs: the full error map, request ids passed on to `/api/mcp`, and the logger
+with its lane fields and redaction.

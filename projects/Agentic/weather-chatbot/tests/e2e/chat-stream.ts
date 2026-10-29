@@ -4,7 +4,7 @@
  * the page's /api/chat with it, so they test the page without calling a model.
  */
 import type { UIMessageChunk } from "ai";
-import type { Forecast, GeocodeResult, MessageMetadata, ToolResult } from "@/lib/types";
+import type { Forecast, GeocodeResult, MessageMetadata, ToolResult, WireRequest } from "@/lib/types";
 
 const CREATED_AT = Date.parse("2026-10-29T16:00:00Z");
 const GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search?name=Paris&count=5&language=en&format=json";
@@ -84,6 +84,49 @@ const FORECAST_OUTPUT: ToolResult<Forecast> = {
 
 const METADATA: MessageMetadata = { createdAt: CREATED_AT };
 
+// The same answer through MCP · no auth: each call a JSON-RPC tools/call to our MCP server, as AI SDK's MCP client
+// sends it (MCP 2026-07-28), recorded by the lane.
+export const MCP_URL = "https://weather-chatbot-hazel.vercel.app/api/mcp";
+
+/** A tools/call to our MCP server, as the MCP lane records it. */
+function toMcpWire(tool: string, input: unknown, id: number): WireRequest {
+  return {
+    method: "POST",
+    url: MCP_URL,
+    headers: {
+      accept: "application/json, text/event-stream",
+      "content-type": "application/json",
+      "mcp-method": "tools/call",
+      "mcp-name": tool,
+      "mcp-protocol-version": "2026-07-28",
+      "user-agent": "ai-sdk/2.0.86 node.js/22",
+    },
+    body: JSON.stringify({ method: "tools/call", params: { name: tool, arguments: input }, jsonrpc: "2.0", id }),
+  };
+}
+
+const MCP_GEOCODE_OUTPUT: ToolResult<GeocodeResult> = {
+  ...GEOCODE_OUTPUT,
+  call: {
+    laneId: "mcp-no-auth",
+    wire: toMcpWire("geocode_location", { query: "Paris" }, 2),
+    cache: "miss",
+    durationMs: 612,
+  },
+};
+
+const MCP_FORECAST_INPUT = { latitude: 48.85341, longitude: 2.3488, days: 2, includeHourly: true, units: "metric" };
+
+const MCP_FORECAST_OUTPUT: ToolResult<Forecast> = {
+  ...FORECAST_OUTPUT,
+  call: {
+    laneId: "mcp-no-auth",
+    wire: toMcpWire("get_forecast", MCP_FORECAST_INPUT, 3),
+    cache: "hit",
+    durationMs: 143,
+  },
+};
+
 const PARIS_CHUNKS: UIMessageChunk[] = [
   { type: "start", messageId: "answer-1", messageMetadata: METADATA },
   { type: "start-step" },
@@ -121,8 +164,17 @@ function toStreamBody(chunks: readonly UIMessageChunk[]): string {
   return `${chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("")}data: [DONE]\n\n`;
 }
 
-/** The Paris answer, and the answer a time budget cut short, as /api/chat sends them. */
+// The Paris answer through MCP · no auth: the same chunks, with the MCP lane's records.
+const MCP_PARIS_CHUNKS: UIMessageChunk[] = PARIS_CHUNKS.map((chunk) => {
+  if (chunk.type !== "tool-output-available") {
+    return chunk;
+  }
+  return { ...chunk, output: chunk.toolCallId === "call-1" ? MCP_GEOCODE_OUTPUT : MCP_FORECAST_OUTPUT };
+});
+
+/** The Paris answer (REST · no auth, then MCP · no auth), and an answer a time budget cut short, as /api/chat sends them. */
 export const PARIS_STREAM_BODY = toStreamBody(PARIS_CHUNKS);
+export const MCP_PARIS_STREAM_BODY = toStreamBody(MCP_PARIS_CHUNKS);
 export const CUT_SHORT_STREAM_BODY = toStreamBody(CUT_SHORT_CHUNKS);
 
 /** The headers /api/chat sends with a stream. */

@@ -23,7 +23,7 @@ import {
 } from "@/lib/constants";
 import { ContractError, UpstreamRateLimitedError, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
 import type { Place, Units, WireRequest } from "@/lib/types";
-import { roundCoordinate, timeoutSignal, toRetryAfterMs, withRetry } from "@/lib/utils";
+import { roundCoordinate, timeoutSignal, toAbortKind, toRetryAfterMs, withRetry } from "@/lib/utils";
 
 const HOURS_PER_DAY = 24;
 const HTTP_TOO_MANY_REQUESTS = 429;
@@ -346,10 +346,9 @@ export function createOpenMeteoClient({
  * slow answer; a stop (Stop, or the answer's end) is passed on as it is.
  */
 function toAbortedError(signal: AbortSignal): unknown {
-  const reason: unknown = signal.reason;
-  return reason instanceof Error && reason.name === "TimeoutError"
+  return toAbortKind(signal) === "timeout"
     ? new UpstreamTimeoutError("Open-Meteo didn't answer within the tool's time budget.")
-    : reason;
+    : signal.reason;
 }
 
 /** A failed fetch or body read, as one of our classes. A stop from the user is passed on as it is. */

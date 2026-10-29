@@ -96,7 +96,11 @@
               "level": "error",
               "options": {
                 "conventions": [
-                  { "selector": { "kind": "objectLiteralProperty" }, "formats": ["camelCase", "PascalCase"] }
+                  {
+                    "selector": { "kind": "objectLiteralProperty" },
+                    "match": "_?(.+)",
+                    "formats": ["camelCase", "PascalCase"]
+                  }
                 ]
               }
             }
@@ -122,7 +126,12 @@
       }
     },
     {
-      "includes": ["lib/types.ts", "lib/weather/open-meteo-tools.ts", "lib/lanes/rest-no-auth.ts"],
+      "includes": [
+        "lib/types.ts",
+        "lib/weather/open-meteo-tools.ts",
+        "lib/lanes/rest-no-auth.ts",
+        "lib/lanes/mcp-no-auth.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

@@ -7,6 +7,7 @@ import {
   ConfigError,
   ContractError,
   InputError,
+  toAppErrorByName,
   toErrorResponse,
   toUserMessage,
   UpstreamRateLimitedError,
@@ -68,5 +69,22 @@ describe("toUserMessage, for the model's own mistakes", () => {
     const badInput = new InvalidToolInputError({ toolName: "get_forecast", toolInput: "{}", cause: "bad" });
     expect(toUserMessage(badInput)).toBe(sentence);
     expect(toUserMessage(new NoSuchToolError({ toolName: "get_tides" }))).toBe(sentence);
+  });
+});
+
+describe("toAppErrorByName", () => {
+  it("turns a class's name and message, as an MCP server sends them, back into that class", () => {
+    const error = toAppErrorByName("UpstreamTimeoutError", "Open-Meteo didn't answer within 3000 ms.");
+    expect(error).toBeInstanceOf(UpstreamTimeoutError);
+    expect(error.message).toBe("Open-Meteo didn't answer within 3000 ms.");
+    expect(toAppErrorByName("ContractError", "x")).toBeInstanceOf(ContractError);
+    expect(toAppErrorByName("UpstreamRateLimitedError", "x")).toBeInstanceOf(UpstreamRateLimitedError);
+  });
+
+  it("gives a plain AppError, with the general sentence, for a name it doesn't know, or none", () => {
+    expect(toAppErrorByName("TypeError", "x is undefined").userMessage).toBe(
+      "The assistant didn't answer. Please try again.",
+    );
+    expect(toAppErrorByName(undefined, "x").name).toBe("AppError");
   });
 });

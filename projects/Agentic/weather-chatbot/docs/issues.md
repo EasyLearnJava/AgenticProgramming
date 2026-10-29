@@ -21,7 +21,7 @@ reviewer before its commit, **reading a package's code**, or **deploying**.
 ## Step 1 · The Project Skeleton
 
 4. **Empty settings failed the settings check.** *Review.* `vercel env pull` writes some variables as empty strings,
-   and an empty `VERCEL_ENV` broke the settings check that runs when the app starts. **Fix:** an empty value counts as
+   and an empty `VERCEL_GIT_COMMIT_SHA` broke the settings check that runs when the app starts. **Fix:** an empty value counts as
    missing (`lib/config.ts`). **Check:** `tests/unit/config.test.ts`.
 5. **Lint passed with warnings.** *Review.* Biome exits with success when it finds only warnings, so a rule set to
    warn would never fail CI. **Fix:** `npm run lint` runs `biome check --error-on-warnings`.
@@ -123,7 +123,60 @@ reviewer before its commit, **reading a package's code**, or **deploying**.
 37. **A README output mixed two runs.** *Checking our work* (the docs). The build output pasted into the README had
     times from one run and lines from another, and its route tree from before a new page. **Fix:** outputs are copied
     whole from one captured run.
-38. **The key had to be set up on Vercel.** *Deploying.* The chat reads `GOOGLE_API_KEY` from Vercel's settings. It
+38. **Node couldn't check HTTPS certificates on this laptop.** *Deploying* (the live checks). The golden questions
+    failed before reaching the model: `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. This machine's HTTPS goes through a
+    certificate that Windows trusts but Node's own list doesn't (pip has the same trouble here); the browser and Python
+    use Windows' list, which is why they worked. **Fix:** on such a machine, run Node with
+    `NODE_OPTIONS=--use-system-ca`, which trusts Windows' list. Vercel's servers don't need it.
+39. **A golden question's check was stricter than the rule.** *Deploying* (the live checks). Tokyo's answer gave
+    11.9 °C, the tool's exact value; the check wanted the rounded 12, though the plan's rule allows either. **Fix:**
+    the check accepts the value as it is or rounded. One more model call went on re-asking, because an edit to the
+    check hadn't saved first.
+40. **The key had to be set up on Vercel.** *Deploying.* The chat reads `GOOGLE_API_KEY` from Vercel's settings. It
     was added as a Sensitive variable, so its value can't be read back from the dashboard, for Production only. We
     checked it by name, not by value. Preview deployments won't have it: tick Preview too, to chat on them. A setting
     reaches the next deployment, not the running one.
+
+## Step 4 · MCP · No Auth, Through Our Own MCP Server
+
+41. **The plan's MCP handshake is now one request.** *Reading the requests.* AI SDK's MCP client and `mcp-handler`
+    speak MCP's 2026-07-28 version, which keeps no session: the client opens with one `server/discover`, not
+    `initialize` and its follow-up notice, and every request names its method and tool in headers (`mcp-method`,
+    `mcp-name`) and carries the protocol version and the client's name in `_meta`. **Fix:** the docs and the compare
+    view show the request as it's really sent; the server still answers 2025-era clients.
+42. **An MCP tool result may have no content list.** *Checking our work* (the type check). The client types a tool
+    result as a union of the current form and older ones, some without `content`. **Fix:** the lane reads the text
+    only when `content` is a list.
+43. **Error classes by name.** *Checking our work* (lint). The MCP server sends a failed tool's class by name; a map
+    keyed by class names broke the naming rule, and a class's own constructor name can change when the code is
+    minified. **Fix:** a `switch` over the names each class sets itself (`toAppErrorByName`).
+44. **MCP's `_meta` key broke a naming rule.** *Checking our work* (lint). `_meta` is MCP's name, not ours, and its
+    leading underscore failed the file's naming rule. **Fix:** that file's rule ignores one leading underscore.
+45. **One request could carry thousands of tool calls.** *Review, high.* `/api/mcp` is public, and the MCP SDK takes
+    a JSON-RPC batch, up to 4 MB, on its 2025-era path: one POST could make thousands of Open-Meteo calls from our
+    servers, past any per-request rate limit. **Fix:** each request is checked first: one message at a time, at most
+    8 KB (`lib/weather/mcp-request.ts`). **Check:** `tests/unit/weather/mcp-request.test.ts`.
+46. **MCP undid a time-limit fix.** *Review.* On MCP · no auth, a tool past its 8 s budget came through as a raw abort
+    ("The assistant didn't answer"), unlogged on both sides: entry 34's problem again, on the default lane. **Fix:**
+    one helper, `toAbortKind`, tells a time limit from a stop for every lane; a time limit is logged and becomes
+    `UpstreamTimeoutError`. **Check:** `tests/unit/lanes/mcp-no-auth.test.ts`.
+47. **The MCP call's address came from the request's Host header.** *Review.* Safe on Vercel, which only routes its
+    own domains here; but on any other host, a forged `Host` could send the call, and the bypass secret, elsewhere.
+    **Fix:** on Vercel, the lane uses the request's address only if it's one of the deployment's own (Vercel lists them),
+    else the deployment's own URL. **Check:** `tests/unit/lanes/open-lane.test.ts`.
+48. **A cached MCP answer said no request went out.** *Review.* On MCP the `tools/call` does go out; only the server's
+    call to Open-Meteo is skipped. **Fix:** the chip says "cached", keeps the call's time, and explains per lane.
+49. **A failed connection lost its cause.** *Review.* A preview's `401` from Deployment Protection became "can't be
+    reached", and only that was logged. **Fix:** the original error is kept as the cause and logged with its own class.
+50. **The public server could send a bug's own text.** *Review.* A failure that wasn't ours (a `TypeError`, say) went
+    to any MCP client as it was. **Fix:** a fixed sentence, "The weather tool failed unexpectedly."
+51. **MCP's untested paths.** *Review.* Stop, the tool's time budget, two calls at once, a missing tool and a failed
+    tool list had no test on MCP, and one test waited 3 real seconds. **Fix:** a test for each; the connect budget can
+    be passed in.
+52. **A failed connection was logged twice, and a Stop once.** *Review.* The lane logged a failed MCP connection, then
+    the chat route logged it again, and the route also logged a Stop during connecting as a failure. **Fix:** a failure
+    is logged once, where it happens: the lanes log their own; the route logs only a missing setting and anything
+    unexpected, and never a stop.
+53. **Only one production domain is known.** *Review.* Vercel names the shortest production domain only; with a custom
+    domain added, chats through the `vercel.app` address would call the protected deployment URL. **Fix:** the deploy
+    notes say to turn on Protection Bypass for Automation along with adding a domain.

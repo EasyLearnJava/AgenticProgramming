@@ -43,6 +43,31 @@ export function toWeekday(isoDate: string): string {
   return WEEKDAYS[day] ?? "";
 }
 
+/** Wraps a function so it runs only the first time it's called; later calls get the first call's result. */
+export function once<T>(fn: () => T): () => T {
+  let hasRun = false;
+  let result: T;
+  return () => {
+    if (!hasRun) {
+      hasRun = true;
+      result = fn();
+    }
+    return result;
+  };
+}
+
+/**
+ * Why a signal fired: "timeout" when a time limit fired it (a TimeoutError), "stop" for any other reason (Stop, a closed
+ * browser, which Next.js marks with its own error, or the answer's end), "none" when it hasn't fired.
+ */
+export function toAbortKind(signal: AbortSignal | undefined): "none" | "timeout" | "stop" {
+  if (signal?.aborted !== true) {
+    return "none";
+  }
+  const reason: unknown = signal.reason;
+  return reason instanceof Error && reason.name === "TimeoutError" ? "timeout" : "stop";
+}
+
 /** An abort signal that fires after `ms`, or as soon as the parent signal does. */
 export function timeoutSignal(ms: number, parentSignal?: AbortSignal): AbortSignal {
   const timeout = AbortSignal.timeout(ms);

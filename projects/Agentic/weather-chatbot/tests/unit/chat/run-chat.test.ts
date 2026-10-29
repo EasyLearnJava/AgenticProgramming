@@ -1,14 +1,17 @@
 /*
- * tests/unit/chat/run-chat.test.ts: one whole chat turn on REST · no auth, with AI SDK's mock model in place of Gemini
- * and Open-Meteo's recorded answers in place of the network: what the page receives, and what the model reads.
+ * tests/unit/chat/run-chat.test.ts: one whole chat turn, on REST · no auth and through MCP · no auth, with AI SDK's
+ * mock model in place of Gemini and Open-Meteo's recorded answers in place of the network: what the page receives,
+ * and what the model reads.
  */
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatRequest } from "@/lib/chat/chat-request";
 import { type AnswerBudgets, runChat } from "@/lib/chat/run-chat";
+import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
 import { openRestNoAuthLane } from "@/lib/lanes/rest-no-auth";
 import { createOpenMeteoClient } from "@/lib/upstream/open-meteo";
+import { createMcpServerFetch, TEST_ORIGIN } from "@/tests/stubs/mcp-stand-ins";
 import { createFakeFetch, createMemoryCache, type FakeAnswer } from "@/tests/stubs/open-meteo-stand-ins";
 
 const NOW = new Date("2026-10-29T16:00:00Z");
@@ -94,12 +97,16 @@ async function runTurn(model: MockLanguageModelV4, answers: FakeAnswer[], budget
   };
   const signal = new AbortController().signal;
   const response = await runChat(CHAT_REQUEST, { model, lane, signal, now: () => NOW, budgets });
-  const body = await response.text();
-  const chunks = body
+  const chunks = toChunks(await response.text());
+  return { response, chunks, urls: fake.urls, closings: () => closings };
+}
+
+/** A UI message stream's chunks, from its response body: one `data:` line each, then `[DONE]`. */
+function toChunks(body: string) {
+  return body
     .split("\n")
     .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
     .map((line) => JSON.parse(line.slice("data: ".length)));
-  return { response, chunks, urls: fake.urls, closings: () => closings };
 }
 
 describe("runChat on REST · no auth", () => {
@@ -201,6 +208,29 @@ describe("runChat on REST · no auth", () => {
       message: "API key not valid. Please pass a valid API key.",
     });
     expect(closings()).toBe(1);
+  });
+});
+
+describe("runChat through MCP · no auth", () => {
+  it("streams the same answer, each chip with its lane and the tools/call request it really sent", async () => {
+    const server = createMcpServerFetch([{ fixture: "geocode-paris" }, { fixture: "forecast-paris" }]);
+    const lane = await openMcpNoAuthLane({ origin: TEST_ORIGIN, fetch: server.fetch });
+    const signal = new AbortController().signal;
+    const response = await runChat(
+      { ...CHAT_REQUEST, laneId: "mcp-no-auth" },
+      { model: parisModel(), lane, signal, now: () => NOW },
+    );
+    const chunks = toChunks(await response.text());
+    const outputs = chunks.filter((chunk) => chunk.type === "tool-output-available");
+    expect(outputs.map((chunk) => chunk.output.call.laneId)).toEqual(["mcp-no-auth", "mcp-no-auth"]);
+    expect(outputs.map((chunk) => JSON.parse(chunk.output.call.wire.body).params.name)).toEqual([
+      "geocode_location",
+      "get_forecast",
+    ]);
+    expect(outputs[0].output.summary).toBe("Paris, Île-de-France Region, FR · 48.85, 2.35");
+    expect(outputs[1].output.result).toMatchObject({ timeZone: "Europe/Paris" });
+    const text = chunks.filter((chunk) => chunk.type === "text-delta").map((chunk) => chunk.delta);
+    expect(text.join("")).toBe(ANSWER);
   });
 });
 

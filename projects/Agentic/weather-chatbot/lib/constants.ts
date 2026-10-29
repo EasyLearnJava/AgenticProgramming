@@ -48,10 +48,9 @@ export const LANE_GRID: readonly (readonly [LaneId, LaneId])[] = [
 
 export const LANE_IDS: readonly LaneId[] = LANE_GRID.flat();
 
-// ③ The lanes that answer for real, and the one a new chat starts on. The plan's default is MCP · no auth
-// (PLAN.md 4.5); until step 4 makes it live, a chat starts on the only live lane.
-export const LIVE_LANE_IDS: readonly LiveLaneId[] = ["rest-no-auth"];
-export const DEFAULT_LANE_ID: LiveLaneId = "rest-no-auth";
+// ③ The lanes that answer for real, and the one a new chat starts on: MCP · no auth (PLAN.md 4.5).
+export const LIVE_LANE_IDS: readonly LiveLaneId[] = ["rest-no-auth", "mcp-no-auth"];
+export const DEFAULT_LANE_ID: LiveLaneId = "mcp-no-auth";
 
 // ④ What one chat request may carry (PLAN.md 9.2, InputError): messages, each of yours, and the whole history.
 export const MAX_MESSAGES = 20;
@@ -66,6 +65,8 @@ export const MAX_OUTPUT_TOKENS = 2000;
 export const ANSWER_TIMEOUT_MS = 50_000;
 export const FIRST_CHUNK_TIMEOUT_MS = 10_000;
 export const TOOL_TIMEOUT_MS = 8000;
+// Connecting to an MCP lane: the handshake and the tool list, before the model starts.
+export const MCP_CONNECT_TIMEOUT_MS = 3000;
 
 // ⑦ Each call to Open-Meteo: 3 s a try, two tries, a short random wait between; a 429 is retried only when its
 // Retry-After fits in the tool's budget.
@@ -99,6 +100,10 @@ export const OPEN_METEO_AIR_QUALITY_URL = "https://air-quality-api.open-meteo.co
 // responses with a header, so the page can tell them from Vercel's.
 export const CHAT_API_PATH = "/api/chat";
 export const NEARBY_CITY_API_PATH = "/api/nearby-city";
+// Our MCP server (MCP · no auth's door), the largest message it takes, and the name and version it gives MCP clients.
+export const MCP_API_PATH = "/api/mcp";
+export const MAX_MCP_BODY_BYTES = 8192;
+export const MCP_SERVER_INFO = { name: "nimbus-weather", version: "1.0.0" } as const;
 export const OWN_ERROR_HEADER = "x-nimbus-error";
 
 // ⑫ "Use my location": a position the browser found in the last 10 minutes will do; give up after 10 s.

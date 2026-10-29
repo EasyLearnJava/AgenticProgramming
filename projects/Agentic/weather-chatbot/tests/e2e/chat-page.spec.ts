@@ -10,6 +10,8 @@ import {
   ANSWER,
   CUT_SHORT_STREAM_BODY,
   FORECAST_URL,
+  MCP_PARIS_STREAM_BODY,
+  MCP_URL,
   PARIS_STREAM_BODY,
   STREAM_HEADERS,
 } from "@/tests/e2e/chat-stream";
@@ -49,10 +51,12 @@ test("shows the welcome and the questions to try, with the menu and the build li
   await expect(page.getByText(/^Build/)).toBeVisible();
 });
 
-test("starts on REST · no auth; the lanes that aren't live yet are switched off, with their step", async ({ page }) => {
-  await expect(page.getByLabel(/REST · no auth/)).toBeChecked();
+test("starts on MCP · no auth, the plan's default; REST · no auth is live too; the auth lanes wait", async ({
+  page,
+}) => {
+  await expect(page.getByLabel(/MCP · no auth/)).toBeChecked();
+  await expect(page.getByLabel(/REST · no auth/)).toBeEnabled();
   for (const [label, step] of [
-    ["MCP · no auth", 4],
     ["REST · with auth", 6],
     ["MCP · with auth", 7],
   ] as const) {
@@ -62,8 +66,40 @@ test("starts on REST · no auth; the lanes that aren't live yet are switched off
   }
 });
 
+test("moves between the two live lanes with the arrow keys, skipping the ones that wait", async ({ page }) => {
+  const mcpNoAuth = page.getByLabel(/MCP · no auth/);
+  await mcpNoAuth.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByLabel(/REST · no auth/)).toBeChecked();
+  await page.keyboard.press("ArrowRight");
+  await expect(mcpNoAuth).toBeChecked();
+});
+
+test("answers through MCP · no auth: each chip says so, and shows its JSON-RPC request", async ({ page }) => {
+  const bodies: unknown[] = [];
+  await page.route("**/api/chat", async (route) => {
+    bodies.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, headers: STREAM_HEADERS, body: MCP_PARIS_STREAM_BODY });
+  });
+  await askParis(page);
+  expect(bodies[0]).toMatchObject({ laneId: "mcp-no-auth" });
+  const chips = page.locator("details.tool-chip");
+  await expect(chips.nth(0).locator("summary")).toContainText(
+    "MCP · no auth · weather-chatbot-hazel.vercel.app · 0.6 s",
+  );
+  // The forecast came from the server's cache: the call still went out, and the chip says so, with its time.
+  await expect(chips.nth(1).locator("summary")).toContainText(
+    "MCP · no auth · weather-chatbot-hazel.vercel.app · 0.1 s · cached",
+  );
+  await chips.nth(1).locator("summary").click();
+  await expect(chips.nth(1).getByText(/Our MCP server answered from its cache: this request went out/)).toBeVisible();
+  await expect(chips.nth(1).getByText(`POST ${MCP_URL}`)).toBeVisible();
+  await expect(chips.nth(1).getByText(/"method":"tools\/call"/)).toBeVisible();
+});
+
 test("answers: two chips with their lane and request, the answer, and the weather card", async ({ page }) => {
   const bodies = await answerWithParis(page);
+  await page.getByLabel(/REST · no auth/).check();
   await askParis(page);
   // The request carried the lane and the browser's locale.
   expect(bodies[0]).toMatchObject({ laneId: "rest-no-auth", messages: [{ role: "user" }] });
@@ -173,6 +209,9 @@ test("shows the same forecast call through the four lanes, side by side", async 
   await expect(cells).toHaveCount(4);
   await expect(cells.nth(0).getByText(`GET ${FORECAST_URL}`)).toBeVisible();
   await expect(cells.nth(0)).toContainText("Live: ask in the chat on this lane");
+  await expect(cells.nth(1)).toContainText("Live from step 6");
+  await expect(cells.nth(2)).toContainText("Live: ask in the chat on this lane");
+  await expect(cells.nth(2).getByText("mcp-method: tools/call")).toBeVisible();
   await expect(cells.nth(3)).toContainText("Live from step 7");
 });
 

@@ -20,14 +20,14 @@ describe("the lanes", () => {
     }
   });
 
-  it("starts a new chat on REST · no auth, the only live lane until step 4 makes MCP · no auth live", () => {
-    expect(LIVE_LANE_IDS).toEqual(["rest-no-auth"]);
-    expect(LIVE_LANE_IDS).toContain(DEFAULT_LANE_ID);
+  it("starts a new chat on MCP · no auth, the plan's default; both no-auth lanes are live", () => {
+    expect(LIVE_LANE_IDS).toEqual(["rest-no-auth", "mcp-no-auth"]);
+    expect(DEFAULT_LANE_ID).toBe("mcp-no-auth");
   });
 
   it("marks each live lane with a step that's already built", () => {
     for (const id of LIVE_LANE_IDS) {
-      expect(LANE_BY_ID[id].builtInStep).toBeLessThanOrEqual(3);
+      expect(LANE_BY_ID[id].builtInStep).toBeLessThanOrEqual(4);
     }
   });
 });

@@ -33,7 +33,7 @@ describe("parseChatRequest", () => {
   });
 
   it("refuses a lane that isn't live yet, and one that doesn't exist", async () => {
-    expect(await refusal({ ...VALID, laneId: "mcp-no-auth" })).toBe(
+    expect(await refusal({ ...VALID, laneId: "mcp-auth" })).toBe(
       "That message can't be sent: that lane isn't live yet.",
     );
     expect(await refusal({ ...VALID, laneId: "fax" })).toContain("that lane isn't live yet");

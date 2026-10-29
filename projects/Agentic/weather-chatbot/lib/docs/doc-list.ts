@@ -30,6 +30,14 @@ export const DOC_PAGES: readonly DocEntry[] = [
       "Gemini answers with our four weather tools, which call Open-Meteo directly: the chat route, the tools, the " +
       "ambiguity rule, time limits, retries and the cache, Stop, the location pin, and the golden questions.",
   },
+  {
+    slug: "step-4",
+    step: 4,
+    title: "MCP · No Auth, Through Our Own MCP Server",
+    summary:
+      "The same four tools on our own MCP server at /api/mcp; the chat reaches them as an MCP client: the handshake, " +
+      "what each MCP answer carries, the bypass secret, and using the server from any MCP client.",
+  },
 ];
 
 // ② The issues log, docs/issues.md: the problems met in each step, and their fixes; it has its own menu link.

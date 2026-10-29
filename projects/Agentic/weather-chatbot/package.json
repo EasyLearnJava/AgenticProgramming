@@ -20,9 +20,12 @@
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.107",
+    "@ai-sdk/mcp": "2.0.86",
     "@ai-sdk/react": "4.0.160",
+    "@modelcontextprotocol/server": "2.4.0",
     "@vercel/functions": "3.10.4",
     "ai": "7.0.156",
+    "mcp-handler": "2.3.0",
     "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",

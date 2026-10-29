@@ -8,7 +8,7 @@ import type { UIMessage } from "ai";
 export type LaneId = "rest-no-auth" | "rest-auth" | "mcp-no-auth" | "mcp-auth";
 
 /** The lanes that answer for real so far; each build step adds the lane it makes live. */
-export type LiveLaneId = Extract<LaneId, "rest-no-auth">;
+export type LiveLaneId = Extract<LaneId, "rest-no-auth" | "mcp-no-auth">;
 
 /** One lane, as the page describes it. */
 export type LaneInfo = {
