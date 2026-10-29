@@ -23,9 +23,9 @@ left menu and documentation, a build line that says which version is running, th
    itself beside it.
 3. `app/page.tsx` is the chat page, and `app/docs/` holds these pages. The colours come from `app/globals.css`, whose
    tokens were read from the design image (PLAN.md, section 6).
-4. The menu is the only component of ours that runs in the browser (it starts with `"use client"`): it needs to know
-   which page you're on, to highlight it. Next.js also adds its small router script to every page, so moving between
-   pages doesn't reload them.
+4. In this step, the menu was the only component of ours that ran in the browser (it starts with `"use client"`): it
+   needs to know which page you're on, to highlight it. Next.js also adds its small router script to every page, so
+   moving between pages doesn't reload them.
 
 ### Where this documentation comes from
 

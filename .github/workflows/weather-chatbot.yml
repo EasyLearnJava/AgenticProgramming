@@ -1,5 +1,5 @@
-# The weather chatbot's checks: lint, types, unit tests and the production build. They run on every push, on any
-# branch, that touches projects/Agentic/weather-chatbot.
+# The weather chatbot's checks: lint, types, unit tests, the production build, and the end-to-end tests in a real
+# browser. They run on every push, on any branch, that touches projects/Agentic/weather-chatbot.
 name: Weather chatbot
 
 on:
@@ -30,3 +30,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e

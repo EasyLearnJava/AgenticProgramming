@@ -667,7 +667,7 @@ weather-chatbot/
 │   ├── markdown-doc.tsx             shows a Markdown document; raw HTML never rendered
 │   ├── chat-window.tsx
 │   ├── chat-input.tsx
-│   ├── message-bubble.tsx
+│   ├── chat-message.tsx             one message: who and when, its tool chips, its text, its weather card
 │   ├── tool-chip.tsx                one tool call: its path label and its wire view
 │   ├── weather-card.tsx
 │   ├── lane-picker.tsx              the 2×2: REST or MCP, without or with auth
@@ -685,6 +685,7 @@ weather-chatbot/
 │   ├── chat/
 │   │   ├── chat-request.ts          the Zod schema for POST /api/chat, and parseChatRequest()
 │   │   ├── model.ts                 the model: Gemini through @ai-sdk/google; the one file to change it
+│   │   ├── sample-conversation.ts   step 2's sample, worked out per lane, shown until the live chat arrives in step 3
 │   │   ├── system-prompt.ts         the system prompt (7.7)
 │   │   └── run-chat.ts              one chat turn: the lane, the model, the stream
 │   ├── lanes/                       the four paths, one file each (7.11)
@@ -729,8 +730,9 @@ weather-chatbot/
   job is split.
 - **Imports point one way:** `app/` → `lib/chat/` → `lib/lanes/` → `lib/weather/` and `lib/upstream/`; and
   `app/api/mcp/` → `lib/weather/` → `lib/upstream/`. Any file may use the shared files. `utils.ts`, `constants.ts` and
-  `types.ts` import nothing from the project, and components and hooks import only those three (components also use
-  hooks). Biome's `noImportCycles` fails any cycle.
+  `types.ts` import nothing from the project but types from `types.ts` (`import type`, gone after the build), and
+  components and hooks import only those three, plus other components and hooks. Data a component needs from a
+  server file comes in as props from the page. Biome's `noImportCycles` fails any cycle.
 - **Server code stays on the server.** Every file in `lib/` except `utils.ts`, `constants.ts` and `types.ts` starts
   with `import "server-only"`, so the build fails if browser code imports it.
 - **Growth means new files, not bigger ones.** A fifth lane (MCPBundles, say) is one new file in `lib/lanes/` that
@@ -766,7 +768,10 @@ weather-chatbot/
 
 Names from outside keep their spelling only where they come in. Open-Meteo's `temperature_2m` and `country_code`
 appear only in the schemas in `lib/upstream/open-meteo.ts`, which map them once to our names (`temperature`,
-`countryCode`); Biome's naming rule is relaxed for that file alone. The Actor's tool keeps Apify's name,
+`countryCode`); Biome's naming rule is relaxed for that file alone. The same goes for environment variable names
+(`VERCEL_ENV`, in `lib/config.ts`), HTTP header names (`Authorization`), and Playwright's own `baseURL`: `biome.json`
+lists each file that takes such names, and nothing else. Test files may use plain numbers as test data. The Actor's
+tool keeps Apify's name,
 `gochujang--open-meteo-weather-forecast`, in both auth lanes, so both doors send the same call: it's the one tool name
 we don't choose.
 
@@ -816,7 +821,8 @@ anything skipped is shown). `toAppError()` runs at the edges: the routes, the st
 **Async.** Every promise is awaited or returned; work after the response goes in `waitUntil`; every network call gets
 a `timeoutSignal`.
 
-**Settings and numbers.** `process.env` is read only in `config.ts`. Limits, time budgets and cache times live in
+**Settings and numbers.** In the app, `process.env` is read only in `config.ts`; test settings
+(`playwright.config.ts`) read their own. Limits, time budgets and cache times live in
 `constants.ts`, named with their unit; no unexplained numbers in the code.
 
 **Logging.** Only through `lib/logger.ts`; no `console.log`.
@@ -1105,9 +1111,10 @@ each adds one thing to the one before.
    tests. **Done when:** an empty page is live on a Vercel URL, CI passes, and CI fails on a test branch that adds a
    misnamed file, an `any` and a `console.log`.
 2. [ ] **The page, with sample data:** the tokens, card, bubbles, input (the mic hidden), chips with path labels and
-   wire views, the weather card, the 2×2 lane picker, the compare grid and the status dots, from fixed messages.
-   **Done when:** it matches the image (with the contrast fix), works at 360 px wide, and passes axe and keyboard
-   checks.
+   wire views, the weather card, the 2×2 lane picker (each lane marked with the step that makes it live, until the
+   health check's status dots in step 9) and the compare grid, from a sample conversation worked out per lane; and
+   the end-to-end tests (Playwright, on a desktop and a 360 px phone screen, with axe). **Done when:** it matches the
+   image (with the contrast fix), works at 360 px wide, and passes axe and keyboard checks.
 3. [ ] **REST · no auth, and the chat route:** the four tool definitions in `lib/weather/tools/`,
    `lib/upstream/open-meteo.ts` (time limits, a retry, the Runtime Cache, `timezone=auto`), the ambiguity rule,
    `lib/lanes/rest-no-auth.ts`; then `streamText` with Gemini (`lib/chat/model.ts`, your key from `.env.local`), the system prompt, input

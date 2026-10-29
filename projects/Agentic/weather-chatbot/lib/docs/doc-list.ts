@@ -14,6 +14,14 @@ export const DOC_PAGES: readonly DocEntry[] = [
     summary:
       "The Next.js app, this left menu and documentation, the build line, the checks, CI, and how Vercel deploys it.",
   },
+  {
+    slug: "step-2",
+    step: 2,
+    title: "The Chat Page, From a Sample",
+    summary:
+      "The chat page from a sample conversation: tool chips with their wire views, the 2×2 lane picker, the weather " +
+      "card, the compare view, and end-to-end tests in a real browser.",
+  },
 ];
 
 /** Finds a documentation page by its slug. */

@@ -17,6 +17,7 @@
   --fail: #b91c1c;
   --line: rgb(5 59 48 / 12%);
   --code-bg: #f1f5f4;
+  --shadow: 0 20px 50px rgb(5 59 48 / 12%);
   --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 
@@ -30,6 +31,24 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--user-text);
   background: linear-gradient(160deg, var(--bg-top), var(--bg-mid) 55%, var(--bg-bottom));
+}
+
+/* Text only screen readers announce. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* The shell: the menu on the left, the page beside it. On a phone, the menu becomes a bar on top. */
@@ -86,67 +105,177 @@ body {
   font-weight: 600;
 }
 
-.side-menu-link:focus-visible,
-.doc a:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .side-menu-build {
   margin: auto 12px 0;
   font-size: 0.75rem;
   color: var(--muted);
 }
 
-@media (max-width: 720px) {
-  .shell {
-    grid-template-columns: 1fr;
-  }
-
-  .side-menu {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 12px 16px;
-    border-right: none;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .side-menu-brand {
-    margin: 0 8px 0 0;
-  }
-
-  .side-menu-items {
-    flex-direction: row;
-  }
-
-  .side-menu-build {
-    margin: 0 0 0 auto;
-  }
+/* The chat page: the chat card, and the compare view below it. */
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  padding: 32px 16px 48px;
 }
 
-/* The chat page. */
-.page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-}
-
-.card {
+.chat-card,
+.compare {
   width: 100%;
-  max-width: 480px;
-  padding: 24px;
   border-radius: 24px;
   background: var(--card);
-  box-shadow: 0 20px 50px rgb(5 59 48 / 12%);
+  box-shadow: var(--shadow);
 }
 
-.card-title {
-  margin: 0 0 16px;
-  font-size: 1rem;
-  font-weight: 600;
+.chat-card {
+  max-width: 760px;
+  padding: 24px;
+}
+
+.chat-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.chat-title {
+  margin: 0;
+  font-size: 1.125rem;
+  color: var(--bot-text);
+}
+
+.sample-note {
+  max-width: 52ch;
+  margin: 4px 0 0;
+  font-size: 0.875rem;
   color: var(--muted);
+}
+
+.compare-toggle,
+.send-button {
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.compare-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--card);
+}
+
+.lane-picker {
+  margin: 16px 0 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.lane-picker legend {
+  padding: 0 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.lane-grid {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.lane-grid-head {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lane-option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.lane-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--bg-mid);
+}
+
+.lane-option input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.lane-option-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.875rem;
+}
+
+.lane-option-step {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Muted grey on the selected lane's mint is 4.45:1, below the 4.5:1 minimum, so it turns dark teal there. */
+.lane-option:has(input:checked) .lane-option-step {
+  color: var(--bot-text);
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 92%;
+}
+
+.message-user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bot-bubble);
+  color: var(--bot-text);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .bubble {
@@ -162,10 +291,247 @@ body {
   color: var(--bot-text);
 }
 
-.note {
-  margin: 16px 0 0;
+.bubble-user {
+  border-top-right-radius: 6px;
+  background: var(--user-bubble);
+  color: var(--user-text);
+}
+
+/* Tool chips: one per tool call; each opens to show the request on the wire, the input and the output. */
+.tool-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tool-chip {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
   font-size: 0.875rem;
+}
+
+.tool-chip summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+/* The summary is a flex row, which hides the browser's open/closed arrow, so the chip draws its own. */
+.tool-chip summary::after {
+  content: "▸" / "";
   color: var(--muted);
+}
+
+.tool-chip[open] summary::after {
+  content: "▾" / "";
+}
+
+.tool-chip-mark {
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.tool-chip-name {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.tool-chip-lane {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--accent);
+}
+
+.tool-chip-body {
+  padding: 0 12px 12px;
+}
+
+.tool-chip-result {
+  margin: 0 0 8px;
+}
+
+.tool-chip-label {
+  margin: 10px 0 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tool-chip pre,
+.compare-cell pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--code-bg);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The weather card under a forecast answer. */
+.weather-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.weather-card p {
+  margin: 0;
+}
+
+.weather-card-place {
+  font-weight: 700;
+  color: var(--bot-text);
+}
+
+.weather-card-period,
+.weather-card-credit {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.weather-card .weather-card-summary {
+  margin-top: 6px;
+}
+
+.rain-bars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rain-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.75rem;
+}
+
+.rain-bar-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--bg-mid);
+}
+
+.rain-bar-fill {
+  width: 100%;
+  min-height: 2px;
+  background: var(--bot-bubble);
+}
+
+.rain-bar-hour {
+  color: var(--muted);
+}
+
+.weather-card-credit a {
+  color: var(--accent);
+}
+
+/* The input at the bottom of the chat. */
+.chat-input-area {
+  margin-top: 20px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.chat-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  font: inherit;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-mid);
+  color: var(--bot-text);
+}
+
+.chat-input :disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.chat-input-note {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* The compare view: the same call through each lane. */
+.compare {
+  max-width: 1040px;
+  padding: 24px;
+}
+
+.compare h2 {
+  margin: 0 0 8px;
+  font-size: 1.125rem;
+  color: var(--bot-text);
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.compare-cell {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.compare-cell h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.compare-door,
+.compare-note {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.compare-door {
+  margin: 0 0 8px;
+}
+
+.compare-note {
+  margin: 8px 0 0;
 }
 
 /* The documentation: on the card colour, so muted text keeps its contrast. */
@@ -175,7 +541,7 @@ body {
   padding: 32px 40px 48px;
   border-radius: 24px;
   background: var(--card);
-  box-shadow: 0 20px 50px rgb(5 59 48 / 8%);
+  box-shadow: var(--shadow);
   line-height: 1.6;
 }
 
@@ -209,11 +575,12 @@ body {
 }
 
 .doc pre {
-  overflow-x: auto;
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--code-bg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .doc pre code {
@@ -221,9 +588,10 @@ body {
   background: none;
 }
 
+/* Tables fit the page and wrap long cells, so nothing scrolls sideways, on a phone either. */
 .doc table {
-  display: block;
-  overflow-x: auto;
+  width: 100%;
+  margin: 12px 0;
   border-collapse: collapse;
   font-size: 0.95rem;
 }
@@ -234,6 +602,7 @@ body {
   border: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .doc th {
@@ -257,6 +626,48 @@ body {
 }
 
 @media (max-width: 720px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .side-menu {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 12px 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .side-menu-brand {
+    margin: 0 8px 0 0;
+  }
+
+  .side-menu-items {
+    flex-direction: row;
+  }
+
+  .side-menu-build {
+    margin: 0 0 0 auto;
+  }
+
+  .chat-page {
+    padding: 16px 12px 32px;
+  }
+
+  .chat-card,
+  .compare {
+    padding: 16px;
+  }
+
+  .message {
+    max-width: 100%;
+  }
+
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+
   .doc {
     margin: 12px;
     padding: 24px 20px 32px;

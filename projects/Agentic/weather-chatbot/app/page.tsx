@@ -1,24 +1,16 @@
 /*
- * app/page.tsx: the chat page. For now, a hello card in the chat's design; the chat itself comes in the next steps.
+ * app/page.tsx: the chat page. It hands the chat window the sample conversation, already worked out for each lane on
+ * the server; the live chat replaces it in step 3.
  */
 import type { ReactNode } from "react";
+import { ChatWindow } from "@/components/chat-window";
+import { SAMPLE_COMPARE_CELLS, SAMPLE_MESSAGES_BY_LANE } from "@/lib/chat/sample-conversation";
 
-/** The hello page: the chat card, with one message from the bot. */
-export default function HomePage(): ReactNode {
+/** The chat page: the chat window, centred on the mint background. */
+export default function ChatPage(): ReactNode {
   return (
-    <main className="page">
-      <section className="card" aria-labelledby="card-title">
-        <h1 id="card-title" className="card-title">
-          Nimbus (Weather)
-        </h1>
-        <p className="bubble bubble-bot">
-          Hello! I’m Nimbus. Soon you’ll ask me about the weather here, and see every tool call I make to answer.
-        </p>
-        <p className="note">
-          Coming next: the chat, through four lanes: REST or MCP, with or without auth. See Documentation in the menu
-          for what each step built.
-        </p>
-      </section>
+    <main className="chat-page">
+      <ChatWindow messagesByLane={SAMPLE_MESSAGES_BY_LANE} compareCells={SAMPLE_COMPARE_CELLS} />
     </main>
   );
 }
