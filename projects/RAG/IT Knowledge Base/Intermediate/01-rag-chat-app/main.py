@@ -12,23 +12,30 @@ answers questions in the terminal. It handles:
      build's, kept for good. The log file is the server's: ask logs to the console only
   4. Serving with uvicorn under the app's logging: uvicorn's own access log is off, since the app logs each request
      with its trace ID
+  5. `app`, for a host that imports this file rather than running it (Vercel, or uvicorn main:app): importing builds
+     nothing; the same start-up runs when the host starts the app (its lifespan), and if it fails, the host's start
+     fails, with the reason in the host's log. On Vercel, which sets VERCEL, the log goes to the console only
 
 Usage:
     python main.py                               # serve the chat page and the API at http://127.0.0.1:8000
     python main.py ask                           # answer the sample questions in the terminal
     python main.py ask "printer not found"       # answer your own question
     python main.py --log-level DEBUG ask "vpn"   # also log the question, the answer and each chunk found
+    uvicorn main:app                             # serve main.py's app, started the way Vercel starts it
 """
 import argparse
 import logging
+import os
 import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
 
-from src.api.app import create_app
-from src.config.settings import CONFIG_FILE, load_api_key, load_settings
+from src.api.app import attach, create_app
+from src.config.settings import CONFIG_FILE, Settings, load_api_key, load_settings
 from src.exceptions import AppError, ConfigError
 from src.observability.logging_setup import setup_logging
 from src.observability.trace_store import TraceStore
@@ -38,6 +45,10 @@ from src.pipeline.rag_engine import RAGEngine
 from src.utils.helpers import print_result
 
 logger = logging.getLogger("main")
+
+
+class StartUpError(Exception):
+    """The start-up failed, and why is already printed or logged: whoever started it only has to stop."""
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -65,28 +76,60 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):          # a character the console can't show is escaped, not a crash
             stream.reconfigure(errors="backslashreplace")
 
+    # Steps 1 to 3: the settings and the key, logging, and the engine's build; start_up() says why if one fails
+    try:
+        settings, engine, trace_store = start_up(args.config, log_level=args.log_level,
+                                                 serving=args.command != "ask")
+    except StartUpError:
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+    # Step 4: Answer in the terminal, or serve
+    if args.command == "ask":
+        question = " ".join(args.question).strip()
+        return ask(engine, [question] if question else settings.app.sample_questions)
+    serve(create_app(settings, engine, trace_store), settings.api.host, settings.api.port)
+    return 0
+
+
+def start_up(config: Path, *, log_level: str | None = None,
+             serving: bool = True) -> tuple[Settings, RAGEngine, TraceStore | None]:
+    """
+    Steps 1 to 3, the same for python main.py and for a host: the settings and the key; logging, and the trace store
+    when serving; then the engine, built under a trace ID of its own. Returns the settings, the built engine and the
+    trace store (None: traces aren't kept).
+
+    Raises:
+        StartUpError: the settings, the key, the log file or the build failed; why is already printed (when logging
+            isn't set up yet) or logged (under the build's trace ID)
+        KeyboardInterrupt: Ctrl+C stopped the build (logged)
+    """
     # Step 1: The settings and the key, checked before anything runs; logging isn't set up yet, so a problem is printed
     try:
-        settings = load_settings(args.config)
+        settings = load_settings(config)
         api_key = load_api_key()
     except ConfigError as err:
         print(f"Can't start: {err}", file=sys.stderr)
-        return 1
-    if args.log_level:
-        logging_settings = settings.logging.model_copy(update={"level": args.log_level})
+        raise StartUpError(str(err)) from None
+    if log_level:
+        logging_settings = settings.logging.model_copy(update={"level": log_level})
         settings = settings.model_copy(update={"logging": logging_settings})
 
     # Step 2: Logging, with the key masked in every line; and the trace store, for the page, when serving. The log
-    # file is the server's: ask logs to the console only, so the two never write (and rotate) one file at once
-    serving = args.command != "ask"
+    # file is the server's: ask logs to the console only, so the two never write (and rotate) one file at once. On
+    # Vercel (it sets VERCEL) there's no file either: a deployment's files are read-only, and Vercel keeps the console
     trace_store = (TraceStore(max_traces=settings.tracing.max_traces, secrets=[api_key])
                    if serving and settings.tracing.enabled else None)
-    log_settings = settings.logging if serving else settings.logging.model_copy(update={"file": None})
+    log_settings = settings.logging
+    if not serving or os.getenv("VERCEL"):
+        log_settings = log_settings.model_copy(update={"file": None})
     try:
         setup_logging(log_settings, secrets=[api_key], trace_store=trace_store)
     except OSError as err:
-        print(f"Can't start: the log file can't be opened ({err.strerror}): {err.filename}", file=sys.stderr)
-        return 1
+        reason = f"the log file can't be opened ({err.strerror}): {err.filename}"
+        print(f"Can't start: {reason}", file=sys.stderr)
+        raise StartUpError(reason) from None
 
     # Step 3: Build the engine, under a trace of its own: the page shows it as how the knowledge base was built
     with trace_context() as build_trace_id:
@@ -97,21 +140,15 @@ def main(argv: list[str] | None = None) -> int:
             engine.build()
         except AppError as err:
             logger.error("Start-up failed: %s: %s", err.code, err)
-            return 1
+            raise StartUpError(f"{err.code}: {err}") from None
         except KeyboardInterrupt:
             logger.warning("Start-up stopped (Ctrl+C)")
-            return 130
-        except Exception:
+            raise
+        except Exception as err:
             logger.exception("Start-up failed with an unexpected error")
-            return 1
+            raise StartUpError(f"an unexpected error: {type(err).__name__}") from None
         logger.info("Engine ready", extra=engine.stats())
-
-    # Step 4: Answer in the terminal, or serve
-    if args.command == "ask":
-        question = " ".join(args.question).strip()
-        return ask(engine, [question] if question else settings.app.sample_questions)
-    serve(create_app(settings, engine, trace_store), settings.api.host, settings.api.port)
-    return 0
+    return settings, engine, trace_store
 
 
 def ask(engine: RAGEngine, questions: list[str]) -> int:
@@ -137,6 +174,20 @@ def serve(app: FastAPI, host: str, port: int) -> None:
     """Run the server until Ctrl+C. log_config=None keeps the app's logging; access_log=False leaves each request's
     line to the trace middleware, which knows its trace ID."""
     uvicorn.run(app, host=host, port=port, log_config=None, access_log=False)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """The start-up, when a host starts the app: the same steps as python main.py's, with config.yaml. A failure
+    stops the host's start, so the app never answers without its engine; why is already in the host's log."""
+    settings, engine, trace_store = start_up(CONFIG_FILE)
+    attach(app, settings, engine, trace_store)
+    yield
+
+
+# For a host that imports this file and serves `app` (Vercel looks for it here): importing builds nothing, since the
+# lifespan above does the start-up. python main.py doesn't use it: main() builds first, then serves an app of its own
+app = create_app(lifespan=lifespan)
 
 
 if __name__ == "__main__":

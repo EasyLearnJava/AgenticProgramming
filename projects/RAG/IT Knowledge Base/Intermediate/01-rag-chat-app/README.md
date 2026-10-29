@@ -56,7 +56,7 @@ The same articles, chunks, prompt and sources; everything around them is new:
 
 | | Basic 10 | This project |
 |---|---|---|
-| Starting it | `uvicorn main:app` | `python main.py` (the server) or `python main.py ask` (the terminal) |
+| Starting it | `uvicorn main:app` | `python main.py` (the server) or `python main.py ask` (the terminal); a host such as Vercel imports `main.py`'s `app` |
 | Settings | constants in `pipeline.py` | `config.yaml`, every value checked at start-up |
 | The page | `/` and `/index.html`, one file | `/`, with its script and styles under `/static/`; each request as a row of boxes: the answer, its pipeline, its time per step, its calls, its logs, what the model was given |
 | The API | `POST /api/query`, `GET /api/stats`, `GET /api/health` | `POST /api/v1/query`, `GET /api/v1/info`, `GET /api/v1/traces/{trace_id}`, `GET /health/live`, `GET /health/ready` |
@@ -113,7 +113,7 @@ where it started.
 
 ```text
 01-rag-chat-app/
-├── main.py                           # the one way in: python main.py (serve) or python main.py ask
+├── main.py                           # the one way in: python main.py (serve) or python main.py ask; app, for Vercel
 ├── config.yaml                       # every setting except the key: one section per layer
 ├── .env.example                      # copy to .env and put your Gemini key in it; .env never goes into git
 ├── data/sample_it_kb.csv             # the knowledge base: 10 IT support articles
@@ -143,7 +143,7 @@ where it started.
 │   │   ├── errors.py                 # every failure → the one error shape, logged once
 │   │   └── middleware.py             # TraceMiddleware: trace ID, request log line, headers, last-resort 500
 │   └── utils/helpers.py              # elapsed_ms(), truncate(), print_result()
-├── tests/                            # 160 tests: one file per layer, plus the API and main.py
+├── tests/                            # 164 tests: one file per layer, plus the API and main.py
 ├── requirements.txt                  # the packages, each pinned to an exact version
 ├── requirements-dev.txt              # requirements.txt plus pytest and httpx2, for the tests
 ├── pytest.ini                        # lets the tests import main and src, and finds them in tests/
@@ -284,6 +284,34 @@ In GitHub Codespaces, step by step:
    on port 8000: the chat page opens in a new browser tab.
 4. Ctrl+C stops the server.
 
+### Or: Deploy It to Vercel
+
+Vercel doesn't run `python main.py`: it imports `main.py` and serves its `app`. Importing builds nothing; when Vercel
+starts the app, the app's start-up (FastAPI's lifespan) runs the same steps `python main.py` does: the settings, the
+key, logging, then the build.
+
+1. On Vercel, click **Add New...**, then **Project**, and import your copy of this repo from GitHub.
+2. Set **Root Directory** to `projects/RAG/IT Knowledge Base/Intermediate/01-rag-chat-app`. Vercel finds `main.py`
+   there, and installs `requirements.txt`.
+3. Under **Environment Variables**, add `GOOGLE_API_KEY`, with your key. It's all the deployment needs: `config.yaml`
+   and the data file go with the code.
+4. Click **Deploy**. When it's done, open the address it gives you: the chat page.
+
+What's different there:
+
+- **The log goes to the console only.** Vercel sets `VERCEL=1`, and then the app writes no `logs/app.log` (a
+  deployment's files are read-only). Vercel keeps the console's lines: open the deployment's **Logs**.
+- **Each instance builds the engine itself**, before its first request: a few seconds, and 28 embedded texts of your
+  key's quota. Vercel starts an instance when a request comes and none is running (after a quiet spell, say), and
+  more when requests come at once.
+- **Traces live in one instance's memory.** The page reads each request's trace right after its answer; should that
+  read reach another instance, the page says `The trace isn't available: ...` instead of the boxes.
+- **Unless you protect it, the address is public**: anyone who has it can ask questions on your key, and read a
+  trace by its ID. Turn on Vercel's Deployment Protection, or delete the deployment when you're done.
+
+To try it on your machine the way Vercel runs it, start it in this folder, with the venv active, with
+`uvicorn main:app --no-access-log`, and open http://127.0.0.1:8000.
+
 ---
 
 ## 🔧 Configuration
@@ -325,7 +353,8 @@ them.
 
 ### The API Key
 
-`GOOGLE_API_KEY`, from the environment or `.env`; one set in the environment wins. It's held as a secret value,
+`GOOGLE_API_KEY`, from the environment or `.env`; one set in the environment wins. On Vercel, it's one of the
+project's Environment Variables. It's held as a secret value,
 which prints as `**********`, and the log masks it should a library ever put it in a message.
 
 ---
@@ -339,9 +368,9 @@ which prints as `**********`, and the log masks it should a library ever put it 
 | The console (stderr) | one readable line: `time level [trace ID] logger: message  key=value ...` | watching it run |
 | `logs/app.log` | one JSON object per line, the same facts as fields | searching, and log collectors |
 
-Answers printed by `python main.py ask` go to stdout, and its log to stderr, never to the file. At `INFO`, each
-question writes one line
-per stage and one when the request ends. `DEBUG` adds the question's text, the answer's text and each chunk found
+Answers printed by `python main.py ask` go to stdout, and its log to stderr, never to the file. On Vercel, the
+server's log goes to the console only, which Vercel keeps (see Or: Deploy It to Vercel). At `INFO`, each question
+writes one line per stage and one when the request ends. `DEBUG` adds the question's text, the answer's text and each chunk found
 with its title: useful while developing, not in production, where a question can hold someone's personal details.
 
 ### Find Everything About One Request
@@ -509,7 +538,7 @@ with its raw name and fields.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 158 passed, 2 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 162 passed, 2 deselected  (add -v for one line per test)
 ```
 
 The plain tests need no key and make no calls: they use stand-ins for Gemini, and Google's own client faked at the
@@ -532,6 +561,9 @@ client sends with, is stopped from sending anything. They check each layer on it
   be opened and a failed build each stop it with one line and exit code 1, never a traceback; Ctrl+C during a
   question returns 130, and a span it stops says `cancelled`; `ask` logs to the console only; the server runs with
   the app's logging
+- **The app a host serves**: `main.py` has the top-level `app` Vercel looks for, and importing it builds nothing;
+  starting it builds the engine, as `python main.py` does; without a key, the host's start fails with the one line;
+  on Vercel, the log goes to the console only
 
 The 2 deselected tests are live tests, marked `live`: they build the real engine and ask the real Gemini, once
 through the engine and once through the API, so they need your key in `.env`; with no key, `tests/conftest.py`
@@ -552,14 +584,15 @@ ruff check .                         # All checks passed!
 ### 1. One Way In, One Place for the Parts
 
 ```python
-settings = load_settings(args.config)            # main.py: checked before anything runs
+settings = load_settings(config)                 # main.py, start_up(): checked before anything runs
 engine = create_engine(settings, api_key)        # factory.py: the parts config.yaml names; nothing runs yet
 engine.build()                                   # the work: read, chunk, embed, store
 ```
 
 `main.py` is the only file that runs anything; every other file only defines things. `factory.py` is the only file
 that knows which classes are used: `RAGEngine` gets its parts passed in, rather than making them. Tests pass in
-stand-ins the same way.
+stand-ins the same way. A host such as Vercel imports `main.py` instead of running it: its `app` runs the same
+start-up, `start_up()`, when the host starts it.
 
 ### 2. A Trace ID That Follows the Work
 
@@ -640,8 +673,15 @@ learns that deadline from `/api/v1/info`, and waits 30 seconds more, so the serv
 the command again, or set a Codespaces secret named `GOOGLE_API_KEY` (see Or: Run It in One Command, in GitHub
 Codespaces Too).
 
-**Issue**: `Can't start: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret).`
+**Issue**: `Can't start: GOOGLE_API_KEY is not set. Copy .env.example to .env and put your key after the =, or set GOOGLE_API_KEY as an environment variable (in Codespaces: a Codespaces secret; on Vercel: one of the project's Environment Variables).`
 **Fix**: Put your key in `.env` (Step 4), and start it again.
+
+**Issue**: On Vercel, every request fails, and the deployment's **Logs** show `Can't start: ...` or
+`Start-up failed: ...`
+**Fix**: The app's start-up failed there, so it can't answer; the line says why, as it would on your machine (see the
+other issues here). Most often `GOOGLE_API_KEY` isn't set for the deployment: add it under the project's
+**Settings** > **Environment Variables**, then redeploy. A variable reaches only the deployments made after it's
+added.
 
 **Issue**: `Can't start: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.

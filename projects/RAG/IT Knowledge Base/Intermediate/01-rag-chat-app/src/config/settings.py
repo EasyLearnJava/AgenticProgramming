@@ -221,7 +221,8 @@ def load_api_key(env_file: Path = ENV_FILE) -> SecretStr:
     key = os.getenv(API_KEY_VARIABLE, "").strip()
     if not key:
         raise ConfigError(f"{API_KEY_VARIABLE} is not set. Copy .env.example to .env and put your key after the =, "
-                          f"or set {API_KEY_VARIABLE} as an environment variable (in Codespaces: a Codespaces secret).")
+                          f"or set {API_KEY_VARIABLE} as an environment variable (in Codespaces: a Codespaces secret; "
+                          "on Vercel: one of the project's Environment Variables).")
     if key == PLACEHOLDER:
         raise ConfigError(f"{API_KEY_VARIABLE} is still the placeholder from .env.example: put your real key in .env.")
     return SecretStr(key)

@@ -1,8 +1,10 @@
 """
 Tests for main.py: the command line; stopping with one clear line and exit code 1, never a traceback, when the
 settings, the key or the build fails; answering in the terminal, each answer with the trace ID its log lines carry
-in the log file; serving with uvicorn under the app's logging; and main.py as the only file that runs anything.
+in the log file; serving with uvicorn under the app's logging; its app, started the way a host such as Vercel starts
+it; and main.py as the only file that runs anything.
 """
+import ast
 import logging
 import os
 import re
@@ -11,6 +13,9 @@ import sys
 
 import pytest
 from fakes import ANSWER, SIZE
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from starlette.datastructures import State
 from support import stand_in_engine, write_config
 
 import main
@@ -168,6 +173,51 @@ def test_no_trace_store_when_tracing_is_off_or_for_ask(tmp_path, stand_ins, rest
     on = write_config(tmp_path, embeddings={"dimensions": SIZE}, logging={"file": None})
     assert main.main(["--config", str(on), "ask", "vpn"]) == 0
     assert made == []                                               # ask has no page to show traces on
+
+
+# --- The app, for a host that imports main.py (Vercel, uvicorn main:app) ---
+
+@pytest.fixture
+def host_app(config, stand_ins, restore_logging, monkeypatch):
+    """main.app, on the test's settings and stand-ins; its state and title are put back after the test."""
+    monkeypatch.setattr(main, "CONFIG_FILE", config)
+    monkeypatch.setattr(main.app, "state", State())
+    monkeypatch.setattr(main.app, "title", main.app.title)
+    return main.app
+
+
+def test_main_py_has_the_top_level_app_vercel_looks_for():
+    # Vercel reads main.py without running it, looking for a top-level `app = ...`; importing it builds nothing
+    tree = ast.parse((PROJECT_DIR / "main.py").read_text(encoding="utf-8"))
+    assigned = [target.id for node in tree.body if isinstance(node, ast.Assign) for target in node.targets
+                if isinstance(target, ast.Name)]
+    assert "app" in assigned and isinstance(main.app, FastAPI)
+    assert not hasattr(main.app.state, "engine")
+
+
+def test_the_app_builds_its_engine_when_the_host_starts_it(host_app):
+    with TestClient(host_app) as client:                       # starts the app, so its lifespan runs, as on Vercel
+        assert client.get("/health/ready").json() == {"status": "ready", "chunks": 28}
+        info = client.get("/api/v1/info").json()
+    assert info["traces"] and host_app.title == info["name"] == load_settings().app.name
+    assert host_app.state.trace_store.get(host_app.state.engine.build_trace_id) is not None    # the build's trace
+
+
+def test_without_a_key_the_hosts_start_fails_with_the_message(host_app, monkeypatch, capsys):
+    monkeypatch.setenv("GOOGLE_API_KEY", "")
+    with pytest.raises(main.StartUpError), TestClient(host_app):
+        pass
+    assert capsys.readouterr().err.startswith("Can't start: GOOGLE_API_KEY is not set.")
+    assert not hasattr(host_app.state, "engine")               # it never answers without its engine
+
+
+def test_on_vercel_the_log_goes_to_the_console_only(config, stand_ins, restore_logging, monkeypatch, tmp_path):
+    monkeypatch.setenv("VERCEL", "1")                          # Vercel sets it; a deployment's files are read-only
+    main.start_up(config)
+    assert not (tmp_path / "app.log").exists()
+    monkeypatch.delenv("VERCEL")
+    main.start_up(config)
+    assert (tmp_path / "app.log").exists()                     # anywhere else, the log file too
 
 
 def test_only_main_runs_anything():
