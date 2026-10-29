@@ -1,0 +1,13 @@
+# Next.js: the build output and the types it generates
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# the Vercel CLI's link to the project
+/.vercel/
+
+# test reports
+/coverage/
+/playwright-report/
+/test-results/

@@ -1,0 +1,72 @@
+/*
+ * app/globals.css: the design tokens read from the shared image (PLAN.md, section 6), and the base styles.
+ */
+:root {
+  --bg-top: #fcfffe;
+  --bg-mid: #defcf6;
+  --bg-bottom: #c1feec;
+  --card: #fcfcfc;
+  --bot-bubble: #45c5a1;
+  --bot-text: #053b30;
+  --user-bubble: #efefef;
+  --user-text: #1f2937;
+  --muted: #6b7280;
+  --accent: #0f766e;
+  --ok: #15803d;
+  --warn: #b45309;
+  --fail: #b91c1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--user-text);
+  background: linear-gradient(160deg, var(--bg-top), var(--bg-mid) 55%, var(--bg-bottom));
+}
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: 0 20px 50px rgb(5 59 48 / 12%);
+}
+
+.card-title {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.bubble {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  line-height: 1.5;
+}
+
+.bubble-bot {
+  border-top-left-radius: 6px;
+  background: var(--bot-bubble);
+  color: var(--bot-text);
+}
+
+.note {
+  margin: 16px 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
