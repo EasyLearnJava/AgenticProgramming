@@ -1037,3 +1037,50 @@ that, by default, doesn't: check what a stop does where the code runs, not where
      included. pino writes each line once, synchronously, and the tests count each once, so the doubles come from
      Vercel's logging, most likely its view. **Fix:** none in our code; the dashboards (step 9) count endings per
      request id, not lines. **Check:** the tests' exact line lists (`tests/unit/chat/run-chat.test.ts`).
+
+## Step 8 · Protection: BotID and the Security Headers
+
+103. **BotID works only on Vercel.** *Reading a package's code* (`botid` 1.5.12). Its page side turns itself off only
+     under `next dev`. Under `next start`, as the browser tests run, it would wrap `fetch` and wait for a challenge
+     script that only Vercel serves, so the chat would fail before the tests' recorded answer; and `checkBotId()`
+     throws without Vercel's OIDC token. **Fix:** both sides turn on only where Vercel sets `VERCEL=1`, through one
+     switch (entry 106). **Check:** `tests/unit/next-config.test.ts`; the browser tests run as before.
+104. **The Content Security Policy reports before it blocks.** *Reading a package's code.* BotID loads its challenge
+     script from our own origin, and what that script needs isn't documented; Next.js's pages need inline scripts and
+     styles. A policy that blocked something we need would stop the chat on the live site. **Fix:**
+     `Content-Security-Policy-Report-Only` first, with `X-Frame-Options: DENY` against framing meanwhile; enforced
+     once the live console shows no report that matters. **Check:** `tests/unit/next-config.test.ts`; the live
+     check.
+105. **An environment variable's name broke the naming rule.** *Checking our work* (lint). `NEXT_PUBLIC_BOTID`, a key
+     in `next.config.ts`'s `env`, is CONSTANT_CASE, as environment variables are. **Fix:** `next.config.ts` and its
+     test join the files where Biome allows CONSTANT_CASE keys, with `lib/config.ts`. **Check:** `npm run lint`.
+106. **The page's switch and the route's could disagree.** *Review, medium.* As first written, the page learned whether
+     BotID runs from a value set when it was built, the route from `VERCEL` when it ran, and only the page's "off" was
+     tested. Had they disagreed on Vercel, every real message would have reached `checkBotId()` without BotID's answer
+     and been refused, and no check would have noticed: the browser tests answer `/api/chat` in the page. **Fix:** one
+     switch, `isBotIdOn()` (`lib/botid.ts`), read by both, from the value Next.js writes into the page's code and the
+     route's alike. **Check:** `tests/unit/next-config.test.ts` (on for an app built on Vercel, off elsewhere),
+     `tests/unit/instrumentation-client.test.ts` (the page starts BotID for the chat's `POST` only when it's on); on the
+     live site, a real message from a real browser.
+107. **BotID's check had no time limit, and its failure stopped the chat.** *Review, medium.* `checkBotId()` asks
+     Vercel's API with no time limit of its own (`botid`'s server code), so a slow answer would have held every
+     message until the function's 60 s, and an error there would have answered every message "Something went wrong".
+     **Fix:** the check gets 3 s and the request's signal (`untilAborted()` in `lib/utils.ts`); if BotID can't answer,
+     or answers with no verdict (it reads Vercel's answer without checking its status), the request goes on, with a
+     `botid.failed` line at warn: the rate limit still holds, and BotID's trouble mustn't stop the chat. A check still
+     running when the page has gone is left to settle, its failure handled. **Check:**
+     `tests/unit/app/api/chat/route.test.ts`, `tests/unit/utils.test.ts`.
+108. **Nothing watched the reporting policy.** *Review, low.* A policy that only reports never fails a test, and BotID
+     is off where the tests run. **Fix:** a browser test keeps every `securitypolicyviolation` report through an
+     answer, a chip, the compare view and three documentation pages, and fails on any; BotID's own needs show on the
+     live site, where the same test runs against it. **Check:** `tests/e2e/chat-page.spec.ts`.
+109. **Smaller review findings on step 8.** *Review.* A script's refused request writes two lines, not one: BotID writes
+     a plain line of its own, saying the request carried no answer to its challenge. And `Permissions-Policy` allowed
+     the microphone, which no step uses until step 13: now `microphone=()`.
+110. **The policy reported zod's `new Function`.** *Checking our work* (entry 108's browser test, on its first run). The
+     chat page reported `script-src eval`: zod 4, with which AI SDK checks each part of an answer in the page, probes
+     once for `new Function`, to build faster parsers, and a policy without `'unsafe-eval'` reports the probe, though
+     zod catches the error and falls back. Enforced, the policy would report it on every visit. **Fix:** the page's zod
+     runs without the faster parsers (`z.config({ jitless: true })` in `instrumentation-client.ts`), so it never
+     probes; the server keeps them. **Check:** `tests/e2e/chat-page.spec.ts`,
+     `tests/unit/instrumentation-client.test.ts`.

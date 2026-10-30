@@ -62,6 +62,14 @@ export const DOC_PAGES: readonly DocEntry[] = [
       "The fourth lane: the same Actor, token and limits through Apify's MCP server, whose call-actor answers with a " +
       "run's ids, so a forecast is two messages; the handshake, the pin, and the fallback.",
   },
+  {
+    slug: "step-8",
+    step: 8,
+    title: "Protection: BotID and the Security Headers",
+    summary:
+      "BotID's invisible check on the chat's POST, on Vercel only; the security headers on every response, the " +
+      "Content Security Policy reporting at first; and the two firewall rules you set in Vercel's dashboard.",
+  },
 ];
 
 // ② The issues log, docs/issues.md: the problems met in each step, and their fixes; and the system design,

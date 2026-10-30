@@ -24,6 +24,7 @@ import {
   toWeekday,
   toWireRequest,
   toWireText,
+  untilAborted,
   waitAtMost,
   withRetry,
 } from "@/lib/utils";
@@ -109,6 +110,24 @@ describe("timeoutSignal", () => {
     parent.abort();
     expect(signal.aborted).toBe(true);
     expect((signal.reason as Error).name).toBe("AbortError");
+  });
+});
+
+describe("untilAborted", () => {
+  it("gives the promise's value, or its failure, when the signal doesn't fire", async () => {
+    const signal = new AbortController().signal;
+    await expect(untilAborted(Promise.resolve("verdict"), signal)).resolves.toBe("verdict");
+    await expect(untilAborted(Promise.reject(new Error("no answer")), signal)).rejects.toThrow("no answer");
+  });
+
+  it("fails with the signal's reason once it fires, without waiting for the promise", async () => {
+    const controller = new AbortController();
+    const pending = untilAborted(new Promise(() => undefined), controller.signal);
+    controller.abort(new Error("time's up"));
+    await expect(pending).rejects.toThrow("time's up");
+    await expect(untilAborted(Promise.resolve(1), controller.signal)).rejects.toThrow("time's up");
+    // A call that then fails isn't left unhandled: Vitest fails a run on an unhandled rejection.
+    await expect(untilAborted(Promise.reject(new Error("too late")), controller.signal)).rejects.toThrow("time's up");
   });
 });
 

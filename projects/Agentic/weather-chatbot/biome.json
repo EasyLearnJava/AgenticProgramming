@@ -71,7 +71,13 @@
       }
     },
     {
-      "includes": ["lib/config.ts", "tests/unit/config.test.ts", "vitest.config.ts"],
+      "includes": [
+        "lib/config.ts",
+        "tests/unit/config.test.ts",
+        "vitest.config.ts",
+        "next.config.ts",
+        "tests/unit/next-config.test.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

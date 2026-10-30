@@ -2,7 +2,8 @@
 
 > **Status:** steps 1 to 7 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
 > through `REST · no auth`, `MCP · no auth` through our own MCP server, errors and logs, `REST · with auth` through
-> Apify's weather Actor, with a token, and `MCP · with auth`, the same Actor through Apify's MCP server. Live at
+> Apify's weather Actor, with a token, and `MCP · with auth`, the same Actor through Apify's MCP server. Step 8 is
+> built: BotID on the chat and the security headers; its firewall rules are set in Vercel's dashboard. Live at
 > https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and the auth lanes
 > an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 
@@ -45,7 +46,7 @@ it opens with the real bugs, each told as a story.
 | `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`) and the issues log (`issues.md`) |
 | `tests/` | The unit tests (`unit/`), Open-Meteo's and Apify's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
-| Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts`, `vercel.json` (Vercel tells the chat when the page goes), `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
+| Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts` (the security headers), `instrumentation-client.ts` (BotID's page side), `vercel.json` (Vercel tells the chat when the page goes), `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
 
 CI lives at the repository's root, in `.github/workflows/weather-chatbot.yml`.
 
@@ -87,26 +88,26 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 112 files in 233ms. No fixes applied.
+Checked 116 files in 296ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  34 passed (34)
-      Tests  243 passed (243)
+ Test Files  36 passed (36)
+      Tests  255 passed (255)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 32ms
+✓ Running next.config.ts took 36ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1131ms
+✓ Compiled successfully in 1630ms
   Running TypeScript ...
-  Finished TypeScript in 376ms ...
+  Finished TypeScript in 399ms ...
   Collecting page data using 11 workers ...
-  Generating static pages using 11 workers (0/16) ...
-✓ Generating static pages using 11 workers (16/16) in 1569ms
+  Generating static pages using 11 workers (0/17) ...
+✓ Generating static pages using 11 workers (17/17) in 1732ms
   Finalizing page optimization ...
 
 Route (app)
@@ -120,7 +121,7 @@ Route (app)
 │ ├ ● /docs/step-1
 │ ├ ● /docs/step-2
 │ ├ ● /docs/step-3
-│ └ ● [+4 more paths]
+│ └ ● [+5 more paths]
 ├ ○ /issues
 └ ○ /system-design
 
@@ -129,7 +130,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  48 passed (16.7s)
+  50 passed (20.4s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -163,6 +164,11 @@ HTTPS goes through its own certificate, add `NODE_OPTIONS=--use-system-ca` so No
    account (Apify Console: **Settings → API & Integrations**). Add it as `APIFY_TOKEN`, type **Secret**, then
    redeploy: the chat page reads whether it's set when the deployment is built. Without it, the picker says the auth
    lanes need a token.
+7. For step 8's protection, in the project's **Firewall**, add two custom rules, in this order, and publish them.
+   First, a **bypass**: a request whose header `x-vercel-protection-bypass` equals the project's Protection Bypass for
+   Automation secret skips the rules after it, and BotID; the chat's own calls to `/api/mcp` carry it. Second, a
+   **rate limit**: a request whose path starts with `/api/`, 20 a minute per IP address, then denied with `429`.
+   BotID itself needs no setting.
 
 ## Read the logs
 
@@ -186,4 +192,5 @@ for example in Claude or Cursor:
 
 ## Next
 
-Step 8 in [PLAN.md](PLAN.md): protection, with BotID, the rate limit and the security headers.
+Step 8's live check, then its Content Security Policy enforced and the firewall rules checked once you've set them;
+then step 9 in [PLAN.md](PLAN.md): observability.

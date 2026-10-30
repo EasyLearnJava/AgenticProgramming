@@ -74,6 +74,8 @@ export const MCP_CONNECT_TIMEOUT_MS = 3000;
 export const AUTH_TOOL_TIMEOUT_MS = 20_000;
 // A fallback starts only with this much of the answer's budget left: the twin's 8 s, and time to write the answer.
 export const FALLBACK_MIN_LEFT_MS = 12_000;
+// BotID's check of the chat's caller (step 8): past this, the request goes on without its verdict.
+export const BOTID_TIMEOUT_MS = 3000;
 
 // ⑦ Each call to Open-Meteo: 3 s a try, two tries, a short random wait between; a 429 is retried only when its
 // Retry-After fits in the tool's budget.

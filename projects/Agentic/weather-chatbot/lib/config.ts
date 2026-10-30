@@ -1,5 +1,6 @@
 /*
- * lib/config.ts: the app's settings. The only file that reads process.env; every value is checked with Zod.
+ * lib/config.ts: the app's settings. The only file that reads process.env as the app runs; every value is checked with
+ * Zod. (BotID's switch is written into the app when it's built: lib/botid.ts.)
  */
 import "server-only";
 import { z } from "zod";

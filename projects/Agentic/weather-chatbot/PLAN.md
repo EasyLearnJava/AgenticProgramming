@@ -1203,7 +1203,10 @@ each adds one thing to the one before.
    case plays out in the tests, with Apify MCP's real `401`, until the `CHAOS` setting (step 10).*
 8. [ ] **Protection:** BotID, the two WAF rules, the security headers. **Done when:** a script
    without BotID's token is refused, the 21st request in a minute gets `429`, the chat route's own calls to
-   `/api/mcp` aren't limited, and the headers show on a response.
+   `/api/mcp` aren't limited, and the headers show on a response. *Built 30 October 2026 (`docs/step-8.md`): BotID
+   on the chat's POST, on Vercel only (its challenge is Vercel's), within 3 s, past which the request goes on with a
+   line; and the security headers, the Content Security Policy reporting at first; the two WAF rules are set in
+   Vercel's dashboard.*
 9. [ ] **Observability:** shipping to Axiom, Sentry (moved from step 5) for every class logged at `error`, traces,
    dashboards, alerts, `/api/health` for the four lanes, the status dots, the uptime monitor. **Done when:** one request id finds the logs of both functions, the trace and the Sentry
    event, and a forced `AuthError` plays out the rest of 5.5: the alert, and both auth lanes' red dots.

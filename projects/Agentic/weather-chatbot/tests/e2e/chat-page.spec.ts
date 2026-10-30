@@ -288,6 +288,30 @@ test("has no accessibility violations, with an answer, an open chip and the comp
   expect(results.violations).toEqual([]);
 });
 
+test("breaks no rule of the Content Security Policy: the chat, a chip, the compare view, the docs", async ({
+  page,
+}) => {
+  // The policy only reports for now (step 8): each page keeps the reports it gets, and there must be none.
+  await page.addInitScript(() => {
+    const reports: string[] = [];
+    Object.assign(window, { policyReports: reports });
+    document.addEventListener("securitypolicyviolation", (event) => {
+      reports.push(`${event.effectiveDirective} ${event.blockedURI}`);
+    });
+  });
+  const reports = () => page.evaluate(() => (window as unknown as { policyReports: string[] }).policyReports);
+  await answerWithParis(page);
+  await page.goto("/");
+  await askParis(page);
+  await page.locator("details.tool-chip summary").first().click();
+  await page.getByRole("button", { name: "Compare the four lanes" }).click();
+  expect(await reports()).toEqual([]);
+  for (const path of ["/docs/step-8", "/system-design", "/issues"]) {
+    await page.goto(path);
+    expect(await reports(), path).toEqual([]);
+  }
+});
+
 test("fits the screen without scrolling sideways, with an answer and the compare view", async ({ page }) => {
   await answerWithParis(page);
   await askParis(page);

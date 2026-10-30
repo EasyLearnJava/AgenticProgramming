@@ -1,17 +1,29 @@
 /*
- * app/api/chat/route.ts: the chat endpoint, POST /api/chat, which the chat page's useChat calls. It checks the body,
- * opens the chosen lane and streams the answer from runChat(); every line it logs carries the request's id.
+ * app/api/chat/route.ts: the chat endpoint, POST /api/chat, which the chat page's useChat calls. It checks the caller
+ * and the body, opens the chosen lane and streams the answer from runChat(); every line it logs carries the request's
+ * id.
  */
 import { waitUntil } from "@vercel/functions";
+import { checkBotId } from "botid/server";
+import { isBotIdOn } from "@/lib/botid";
 import { type ChatRequest, parseChatRequest, toQuestion } from "@/lib/chat/chat-request";
 import { getChatModel } from "@/lib/chat/model";
 import { runChat } from "@/lib/chat/run-chat";
 import { config } from "@/lib/config";
-import { CHAT_API_PATH, VERCEL_ID_HEADER } from "@/lib/constants";
-import { AbortedError, type AppError, InputError, toAppError, toErrorResponse } from "@/lib/errors";
+import { BOTID_TIMEOUT_MS, CHAT_API_PATH, VERCEL_ID_HEADER } from "@/lib/constants";
+import {
+  AbortedError,
+  type AppError,
+  BotBlockedError,
+  InputError,
+  toAppError,
+  toErrorResponse,
+  UpstreamTimeoutError,
+  UpstreamUnavailableError,
+} from "@/lib/errors";
 import { openLane, toAvailableLaneIds } from "@/lib/lanes/open-lane";
 import { type Logger, logFailure, logger, toLaneFields } from "@/lib/logger";
-import { toRequestId } from "@/lib/utils";
+import { timeoutSignal, toRequestId, untilAborted } from "@/lib/utils";
 
 // The function stops at 60 s; the answer's own budget is 50 s (PLAN.md 9.3).
 export const maxDuration = 60;
@@ -30,9 +42,37 @@ function logRequest(log: Logger, chatRequest: ChatRequest): void {
   });
 }
 
-/** The line a request ends with when it fails before the answer starts: refused, stopped, or failed. */
+/**
+ * BotID's verdict on the caller, within its own 3 s and the request's signal. If BotID can't answer, the request goes
+ * on, with a line that says so: the rate limit still holds, and BotID's trouble mustn't stop the chat.
+ */
+async function isBot(request: Request, log: Logger): Promise<boolean> {
+  try {
+    const verdict = await untilAborted(checkBotId(), timeoutSignal(BOTID_TIMEOUT_MS, request.signal));
+    // BotID reads Vercel's answer without checking its status, so an error answer comes back with no verdict.
+    if (typeof verdict.isBot !== "boolean") {
+      throw new Error("BotID gave no verdict.");
+    }
+    return verdict.isBot;
+  } catch (error) {
+    if (request.signal.aborted) {
+      throw error;
+    }
+    const failure =
+      error instanceof Error && error.name === "TimeoutError"
+        ? new UpstreamTimeoutError("BotID didn't answer in time.")
+        : new UpstreamUnavailableError("BotID couldn't check the request.", { cause: error });
+    logFailure(log, "botid.failed", failure);
+    return false;
+  }
+}
+
+/**
+ * The line a request ends with when it fails before the answer starts: refused (a bad message, or BotID's verdict),
+ * stopped, or failed.
+ */
 function logEarlyEnd(log: Logger, failure: AppError, ms: number): void {
-  if (failure instanceof InputError) {
+  if (failure instanceof InputError || failure instanceof BotBlockedError) {
     logFailure(log, "chat.rejected", failure, { ms });
   } else if (failure instanceof AbortedError) {
     log.info({ event: "chat.aborted", ms, steps: 0 });
@@ -41,7 +81,10 @@ function logEarlyEnd(log: Logger, failure: AppError, ms: number): void {
   }
 }
 
-/** Streams the answer to one chat turn; before the answer starts, a failure gets a plain sentence (400, 503 or 500). */
+/**
+ * Streams the answer to one chat turn; before the answer starts, a failure gets a plain sentence (400, 403, 503 or
+ * 500).
+ */
 export async function POST(request: Request): Promise<Response> {
   // ① The request's id: Vercel's own for it, else a new one. Every line logged for this request carries it, the MCP
   // lane passes it on to /api/mcp, and the page gets it back: an error's sentence ends with its last 8 characters.
@@ -53,7 +96,11 @@ export async function POST(request: Request): Promise<Response> {
   const ended = Promise.withResolvers<void>();
   waitUntil(ended.promise);
   try {
-    // ② Check the body: the messages, their sizes, the lane. From here on, each line also names the chat and the lane.
+    // ② The caller: on Vercel, BotID's check, before any work, that a real browser sent the request (step 8).
+    if (isBotIdOn() && (await isBot(request, log))) {
+      throw new BotBlockedError("BotID found no browser behind the request.");
+    }
+    // ③ Check the body: the messages, their sizes, the lane. From here on, each line also names the chat and the lane.
     const body: unknown = await request.json().catch((error: unknown) => {
       // A page that goes while its message is read has stopped; it didn't send a bad one.
       throw request.signal.aborted ? error : new InputError("its body isn't JSON.");
@@ -61,7 +108,7 @@ export async function POST(request: Request): Promise<Response> {
     const chatRequest = await parseChatRequest(body, toAvailableLaneIds(config.apify.token));
     log = log.child({ chatId: chatRequest.chatId, ...toLaneFields(chatRequest.laneId) });
     logRequest(log, chatRequest);
-    // ③ The model (ConfigError if GOOGLE_API_KEY isn't set), and the lane the user picked; an MCP lane connects to
+    // ④ The model (ConfigError if GOOGLE_API_KEY isn't set), and the lane the user picked; an MCP lane connects to
     // /api/mcp on this same deployment.
     const model = getChatModel();
     const lane = await openLane(chatRequest.laneId, {
@@ -70,7 +117,7 @@ export async function POST(request: Request): Promise<Response> {
       requestId,
       log,
     });
-    // ④ Hand over: runChat() streams the answer and logs how it went; Stop, or the page's going, cancels it through the
+    // ⑤ Hand over: runChat() streams the answer and logs how it went; Stop, or the page's going, cancels it through the
     // request's signal (on Vercel too: vercel.json turns cancellation on for this route).
     return await runChat(chatRequest, {
       model,
@@ -81,8 +128,8 @@ export async function POST(request: Request): Promise<Response> {
       onEnded: ended.resolve,
     });
   } catch (error) {
-    // ⑤ Anything that fails before the answer starts gets its class's sentence (PLAN.md 9.2), never the error's own
-    // text, and the request's last line: refused (bad input), stopped, or failed at its class's level.
+    // ⑥ Anything that fails before the answer starts gets its class's sentence (PLAN.md 9.2), never the error's own
+    // text, and the request's last line: refused (bad input, or a bot), stopped, or failed at its class's level.
     const failure = toAppError(error, request.signal);
     try {
       logEarlyEnd(log, failure, Math.round(performance.now() - startedAt));

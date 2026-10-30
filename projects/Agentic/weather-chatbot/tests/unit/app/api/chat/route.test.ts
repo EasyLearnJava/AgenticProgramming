@@ -19,6 +19,12 @@ vi.mock("@/lib/logger", async (importOriginal) => {
   return { ...actual, logger: actual.createLogger({ level: "info", destination: { write } }) };
 });
 
+// BotID's server check, swapped for one each test answers: a browser it trusts, a bot, or a failure.
+const { botId } = vi.hoisted(() => ({
+  botId: { answer: (): Promise<{ isBot: boolean }> => Promise.resolve({ isBot: false }) },
+}));
+vi.mock("botid/server", () => ({ checkBotId: () => botId.answer() }));
+
 // Vercel's waitUntil, swapped for one that keeps what it's given: what the route keeps the function alive for.
 const { kept } = vi.hoisted(() => ({ kept: [] as Promise<unknown>[] }));
 vi.mock("@vercel/functions", async (importOriginal) => {
@@ -120,6 +126,43 @@ describe("POST /api/chat", () => {
     const response = await post(request);
     expect(response.headers.get("x-request-id")).toMatch(/^[0-9a-f]{16}$/);
     expect(lines[0]?.requestId).toBe(response.headers.get("x-request-id"));
+  });
+});
+
+describe("POST /api/chat on Vercel, where BotID checks the caller", () => {
+  beforeAll(() => {
+    vi.stubEnv("NEXT_PUBLIC_BOTID", "on");
+  });
+
+  afterAll(() => {
+    vi.stubEnv("NEXT_PUBLIC_BOTID", "off");
+    botId.answer = () => Promise.resolve({ isBot: false });
+  });
+
+  it("refuses, with 403, a request BotID finds no browser behind, before reading it; logs it as refused", async () => {
+    botId.answer = () => Promise.resolve({ isBot: true });
+    const response = await post(chatPost("not json"));
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe("We couldn't verify this browser. Please reload the page.");
+    expect(lines).toEqual([
+      expect.objectContaining({ level: "warn", event: "chat.rejected", errorClass: "BotBlockedError" }),
+    ]);
+  });
+
+  it("lets a request BotID trusts through to the usual checks", async () => {
+    botId.answer = () => Promise.resolve({ isBot: false });
+    const response = await post(chatPost("not json"));
+    expect(response.status).toBe(400);
+  });
+
+  it.each([
+    ["fails", () => Promise.reject(new Error("Vercel's BotID check answered 500."))],
+    ["gives no verdict", () => Promise.resolve({} as { isBot: boolean })],
+  ])("lets a request through when BotID %s, and says so in a line", async (_, answer) => {
+    botId.answer = answer;
+    const response = await post(chatPost("not json"));
+    expect(response.status).toBe(400);
+    expect(lines[0]).toMatchObject({ level: "warn", event: "botid.failed", errorClass: "UpstreamUnavailableError" });
   });
 });
 

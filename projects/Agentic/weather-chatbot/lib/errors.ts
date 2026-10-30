@@ -35,6 +35,14 @@ export abstract class AppError extends Error {
   abstract readonly isRetryable: boolean;
 }
 
+/** BotID found no real browser behind the chat's request (step 8): it's refused before any work. */
+export class BotBlockedError extends AppError {
+  override readonly name = "BotBlockedError";
+  override readonly userMessage = "We couldn't verify this browser. Please reload the page.";
+  override readonly level = "warn";
+  override readonly isRetryable = false;
+}
+
 /** The chat request breaks a rule: too many messages, a message too long, an unknown lane. The message says which. */
 export class InputError extends AppError {
   override readonly name = "InputError";
@@ -223,13 +231,20 @@ export function toUserMessage(error: unknown, requestId: string): string {
 }
 
 const HTTP_BAD_REQUEST = 400;
+const HTTP_FORBIDDEN = 403;
 const HTTP_INTERNAL_ERROR = 500;
 const HTTP_UNAVAILABLE = 503;
 
-/** The HTTP status for a failure before the answer starts: 400 for a bad request, 503 when not set up, else 500. */
+/**
+ * The HTTP status for a failure before the answer starts: 400 for a bad request, 403 for a request BotID refused, 503
+ * when not set up, else 500.
+ */
 function toStatus(error: AppError): number {
   if (error instanceof InputError) {
     return HTTP_BAD_REQUEST;
+  }
+  if (error instanceof BotBlockedError) {
+    return HTTP_FORBIDDEN;
   }
   return error instanceof ConfigError ? HTTP_UNAVAILABLE : HTTP_INTERNAL_ERROR;
 }

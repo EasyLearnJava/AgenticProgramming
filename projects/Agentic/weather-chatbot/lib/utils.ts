@@ -195,6 +195,32 @@ export function timeoutSignal(ms: number, parentSignal?: AbortSignal): AbortSign
 }
 
 /**
+ * A promise's outcome, unless the signal fires first: then the signal's reason, as a failure. For a call that takes no
+ * signal of its own, which is left to settle on its own.
+ */
+export function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    // The call has started already: its failure, which no one will read, mustn't go unhandled.
+    promise.catch(() => undefined);
+    return Promise.reject(signal.reason);
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
  * Waits for a promise, but at most `ms`: past that, it's left to settle on its own, and whether it fails isn't asked.
  * For clean-up that mustn't hold up what comes after it.
  */
