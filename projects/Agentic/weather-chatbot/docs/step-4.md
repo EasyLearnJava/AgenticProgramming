@@ -105,7 +105,7 @@ example in Claude or Cursor:
   a call with structured content, a summary and `_meta`, and a failure with its class.
 - **The lane** (`tests/unit/lanes/mcp-no-auth.test.ts`): the four tools, the `tools/call` request it really sent, the
   bypass secret sent and never shown, a server failure turned into the same class as on REST, and giving up on a
-  server that doesn't connect within 3 s.
+  server that doesn't connect within 3 s (6 s since step 9: bug story 18).
 - **A whole chat turn through MCP**, with the mock model: both chips say `mcp-no-auth`.
 - **The route** (`tests/unit/app/api/mcp/route.test.ts`) answers an MCP client as `nimbus-weather`.
 - **End-to-end:** the default lane, the arrow keys between the live lanes, and an answer through MCP whose chip shows

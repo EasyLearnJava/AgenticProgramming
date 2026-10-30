@@ -36,7 +36,7 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 
 - **REST · no auth**: the four tools run inside `/api/chat` and call Open-Meteo themselves.
 - **MCP · no auth**, the default lane: the chat turn is an MCP client (`@ai-sdk/mcp`). It connects to **our own MCP
-  server** at `/api/mcp` within 3 s, sends the request id as `x-request-id`, and calls the tools there. The server
+  server** at `/api/mcp` within 6 s, sends the request id as `x-request-id`, and calls the tools there. The server
   (`mcp-handler`) takes one JSON-RPC message of at most 8 KB per request, and is public: any MCP client can use it.
 - **REST · with auth**: geocoding as on `REST · no auth`, and the Actor's forecast tool, which runs Apify's
   Open-Meteo Weather Forecast Actor through Apify's REST API, with our token in the `Authorization` header. When

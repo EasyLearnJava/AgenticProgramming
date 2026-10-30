@@ -7,6 +7,7 @@ import type { MCPClient } from "@ai-sdk/mcp";
 import { createMcpHandler } from "mcp-handler";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { MCP_CONNECT_TIMEOUT_MS } from "@/lib/constants";
 import { ContractError, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
 import type { Lane } from "@/lib/lanes/lane";
 import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
@@ -133,6 +134,10 @@ describe("how a call through MCP · no auth can end", () => {
 });
 
 describe("how connecting to MCP · no auth can fail", () => {
+  it("gives our MCP server 6 s to connect: a cold start, slowed by Sentry, took over 3 s (bug story 18)", () => {
+    expect(MCP_CONNECT_TIMEOUT_MS).toBe(6000);
+  });
+
   it("a server that doesn't connect in time, or can't be reached; lane.connect says it failed, the cause is kept", async () => {
     const { log, lines } = createTestLog();
     await expect(

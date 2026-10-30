@@ -22,7 +22,9 @@ alerts, traces and an uptime monitor.
 Checked once `047a079` was live (entries 120 and 121): a question's lines, from both functions, in Axiom under its
 request id, each at its own `ts`; and the build's source maps in Sentry, under the commit's release. Answers were slow
 that hour, though, and the first question after the deploy failed: its connection to a cold `/api/mcp` took longer
-than its 3 s budget. Why is still open (the To do page).
+than its 3 s budget. Bug story 18 tells how the causes were found: Sentry makes a cold start slower (about 2.4 s on a
+laptop), and Gemini's free tier was slow that hour. For now, connecting to our MCP server gets 6 s (entry 122); a
+lighter Sentry is on the To do page.
 
 ## How it works
 

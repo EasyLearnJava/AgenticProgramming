@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These seventeen were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These eighteen were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -32,6 +32,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 15 | An error part closed the lane while the answer went on | after 7 | the review |
 | 16 | Stop that didn't stop | after 7 | the review, then the live site |
 | 17 | The bot check that blocked every user | 8 | the live site |
+| 18 | The first question after a cold start | 9 | the live site |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -602,6 +603,60 @@ browser did too.
 **The lesson.** Anything that can refuse users goes out watching first, logging its verdicts and refusing no one, with
 a switch that turns it off at once; and every deploy is checked with a real request on the real path, since mocked
 browser tests never ask the server.
+
+### 18. The first question after a cold start
+
+*Step 9 · found on the live site · entries 121 and 122*
+
+**The request.** "What's the weather in Dallas right now?", on `MCP · no auth`, the default lane: the first question
+once `047a079`, which ships the logs to Axiom and the errors to Sentry, was live.
+
+**What went wrong.** It failed in 4.4 s, with "The weather service took too long to answer." The next three questions
+were slow: one answered in 36 s, and two ran out their 50 s and were cut short, with no words.
+
+**Why it happened.** Two causes, in different services, in the same hour:
+
+- **Ours, most likely:** Sentry makes a cold start slower. Before the model starts, the chat connects to our MCP
+  server, `/api/mcp`, and gave that 3 s; the first connection after the deploy didn't finish within them. On a laptop,
+  Sentry adds about 2.4 s to a cold start, most of it with its build step (`withSentryConfig`); its runtime alone
+  adds about 0.6 s. On Vercel, a cold connection with Sentry took 1.9 s, timed from a laptop, against 1.1 to 1.8 s
+  before; how much of that is Sentry isn't measured apart yet.
+- **Not ours:** Gemini's free tier was slow that hour. Its steps took 3 to 27 s, and one ran over 36 s, where they take
+  about 1 s or less.
+
+**How we noticed it.** The check after the deploy asks the live site a real question, as bug story 17 taught: this
+time, from a script, on the free lanes. It got the failure at once, and the slow answers after it.
+
+**How we traced it.** A question crosses many services: the page (here a script), Vercel's two functions (`/api/chat`
+and `/api/mcp`), Gemini, Open-Meteo, and, since this step, Axiom and Sentry. Any of them could be the slow one, so
+each hop was timed apart:
+
+1. **Another lane.** The same question on `REST · no auth`, which has no MCP hop, was slow too: not only our MCP server,
+   then.
+2. **The stream.** A script timed each chunk of a live answer as it came: the model's three steps took 27, 6 and 3 s,
+   our tools milliseconds.
+3. **The logs.** Axiom, shipped in this very step, held each question's lines from both functions under one request id:
+   `lane.connect` gave up at its 3 s budget; the tools took 8 to 716 ms; Open-Meteo, 0.5 s. The slow part was the
+   model's steps, plus one cold connection.
+4. **Gemini, or us?** An hour later, the same code answered in 2.4 and 3.9 s, each step about 1 s or less: Gemini's
+   slow hour had passed, so the steps weren't our doing.
+5. **Cold, or warm?** Right after a fresh deploy, our MCP server connected in 1.9 s cold, and 0.4 s warm (from a
+   laptop): a cold start costs about 1.5 s on that hop alone.
+6. **With Sentry, or without?** The app built with and without Sentry, each started cold on a laptop, connected to
+   `/api/mcp` in 0.7 s without Sentry, 1.3 s with Sentry's runtime alone, and 3.1 s with its build step too (means of
+   three runs; with it, 2.3 to 3.9 s). Turning off Sentry's OpenTelemetry setup and its load-time hooks (together), its
+   build-time instrumentation, or its trace-metadata flag changed nothing: the cost lies elsewhere in the build step.
+
+**How we fixed it.** For now, connecting to our MCP server gets 6 s instead of 3 (`MCP_CONNECT_TIMEOUT_MS`, on both
+MCP lanes), so a cold first question should no longer fail; it's still slower than before. A lighter Sentry, without
+its build step, is on the To do page.
+
+**How we confirmed it.** `tests/unit/lanes/mcp-no-auth.test.ts` pins the 6 s, and failed at 3; the live check after
+the deploy asks a first question of a cold function (entry 122).
+
+**The lesson.** Time the cold start before and after adding an SDK: an observability tool can slow the app it watches.
+When a request crosses many services, cut its path into hops and time each one, compare cold with warm and the same code
+at another hour before blaming a change, and log every hop under one request id: that made the search one query.
 
 ## While Planning
 
@@ -1185,3 +1240,13 @@ browser tests never ask the server.
      free tier was slow that hour. **Fix, next** (on the To do page): time a cold `/api/mcp`, with and without
      Sentry's start-up; watch Gemini's step times in Axiom over a day. **Check:** the lines in Axiom, under each
      request's id.
+122. **The cause of entry 121, and a longer connection budget.** *Deploying*, then *checking our work* (a cold-start
+     A/B on a laptop). Two causes (bug story 18). Sentry makes a cold start slower: about 2.4 s on a laptop; on
+     Vercel, a cold connection to our MCP server took 1.9 s with it, against 1.1 to 1.8 s before, and the first after
+     the deploy didn't connect within its 3 s. And Gemini's free tier was slow that hour: the same code answered in 2.4
+     and 3.9 s an hour later. **Fix:** connecting to our MCP server gets 6 s (`MCP_CONNECT_TIMEOUT_MS`), on both MCP
+     lanes; a lighter Sentry is on the To do page. A request's worst case is now 59 s of the function's 60: 6 s to
+     connect, the answer's 50 s, the lane's 1 s close and the logs' 2 s, which `waitUntil` keeps within the 60. BotID's
+     3 s would make it 62 s, so a budget shrinks before BotID comes back (the To do page). **Check:**
+     `tests/unit/lanes/mcp-no-auth.test.ts`, which failed at 3 s; a first question of a cold function after the
+     deploy.

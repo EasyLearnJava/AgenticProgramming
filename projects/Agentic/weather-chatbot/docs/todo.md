@@ -47,7 +47,8 @@ the extension out.
    sends one real message through the real page: the browser tests never ask the server.
 
 **The risk while it watches:** BotID's page script comes back, and if Vercel ever failed to serve it, a message would
-fail; it loaded fine before.
+fail; it loaded fine before. And its 3 s would take a request's worst case to 62 s, past the function's 60, so a
+budget shrinks first: the answer's 50 s to 47, or the connection's 6 s to 5 (entry 122).
 
 ## The rest of step 8
 
@@ -69,9 +70,11 @@ fail; it loaded fine before.
 
 ## Smaller follow-ups
 
-- **Slow answers, and a failed first question, since step 9's deploy** (entry 121): a cold `/api/mcp` took 3 s to
-  connect, over its budget, and Gemini's steps took 3 to 27 s, one over 36 s. To find out: how much Sentry's start-up
-  adds to a cold function, and how slow Gemini's free tier was that hour. Left for now, to go on with step 9.
+- **A lighter Sentry** (bug story 18): on a laptop, Sentry makes a cold start about 2.4 s slower, most of it from its
+  build step (`withSentryConfig`): without the build step, a cold start measured 1.3 s against 3.1 s, and errors still
+  reach Sentry; the source maps would then be uploaded by Sentry's own command in the build. On Vercel, its share
+  isn't measured apart yet. For now, connecting to our MCP server gets 6 s instead of 3, so a cold first question
+  should no longer fail.
 - **Sentry's first event from the live site:** nothing there fails at `error` on demand, so the path is first checked
   by a real error, or by step 10's forced `AuthError` (`CHAOS`).
 - **`npm audit` reports 4 "high" findings,** all one old zod (4.1.11) deep in `@vercel/functions`, which reads only the

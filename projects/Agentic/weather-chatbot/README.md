@@ -92,7 +92,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 123 files in 438ms. No fixes applied.
+Checked 123 files in 323ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -100,22 +100,22 @@ Generating route types...
 
 $ npm test
  Test Files  38 passed (38)
-      Tests  266 passed (266)
+      Tests  267 passed (267)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 841ms
+✓ Running next.config.ts took 603ms
 - Experiments (use with caution):
   · clientTraceMetadata
   Creating an optimized production build ...
-✓ Compiled successfully in 4.5s
+✓ Compiled successfully in 2.8s
   Running next.config.js provided runAfterProductionCompile ...
-✓ Completed runAfterProductionCompile in 461ms
+✓ Completed runAfterProductionCompile in 538ms
   Running TypeScript ...
-  Finished TypeScript in 760ms ...
+  Finished TypeScript in 819ms ...
   Collecting page data using 13 workers ...
   Generating static pages using 13 workers (0/20) ...
-✓ Generating static pages using 13 workers (20/20) in 4.6s
+✓ Generating static pages using 13 workers (20/20) in 2.7s
   Finalizing page optimization ...
 
 Route (app)
@@ -140,7 +140,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  54 passed (32.9s)
+  54 passed (24.4s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of

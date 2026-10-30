@@ -1022,9 +1022,10 @@ Starting values; steps 0, 3 and 4 measure the real times, and these are set from
 | Hop | Budget | How |
 |---|---|---|
 | The whole answer | 50 s; the function stops at 60 s | `timeout.totalMs`; `export const maxDuration = 60` |
-| Connecting to an MCP lane (the handshake and `tools/list`) | 3 s; to Apify's server, 5 s, on the first forecast, inside the Actor call's 25 s (step 7) | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
+| Connecting to an MCP lane (the handshake and `tools/list`) | 6 s to our own server (3 s until step 9, when a cold start with Sentry took longer: bug story 18); to Apify's server, 5 s, on the first forecast, inside the Actor call's 25 s (step 7) | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
 | A tool call on a no-auth lane, REST or MCP | 8 s: two tries of 3 s, with a short random wait between | `timeout.toolMs`, and `open-meteo.ts`'s own HTTP timeout |
 | A tool call on an auth lane | REST: 28 s, 20 s for the run, then 8 s for the fallback (step 6); MCP: 33 s, the run's 20 and 5 to connect, then the fallback's 8 (step 7); Apify's server may spend up to 5 s of the 25 after a run succeeds, waiting for its items to show, so a run that succeeds near its 18 s only just fits (step 7's live check) | `timeout.tools`, per tool, and the lane's own timer for the run, 20 s or 25 s; both doors send Apify an 18 s `timeout`, in the URL or in `call-actor`'s `callOptions`, so the run stops before we give up instead of running on without us |
+| Sending the logs to Axiom and the errors to Sentry | 2 s, at the request's end | each batch's own timeout and `Sentry.flush(2000)`, inside `waitUntil`, so within the function's 60 s (step 9) |
 | Closing Apify's MCP session | 1 s | AI SDK ends the session with a `DELETE` that has no time limit of its own; the lane waits for it at most 1 s (step 7) |
 | The model's first chunk | 10 s | `timeout.firstChunkMs` |
 | Time left to start a fallback | at least 12 s: the twin's 8 s, plus time to write the answer | the answer's 50 s, counted from when the lane opens, just before the answer starts (step 6); the function's own 60 s comes later |

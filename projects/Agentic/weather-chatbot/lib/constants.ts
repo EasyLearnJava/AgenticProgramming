@@ -67,8 +67,9 @@ export const MAX_OUTPUT_TOKENS = 2000;
 export const ANSWER_TIMEOUT_MS = 50_000;
 export const FIRST_CHUNK_TIMEOUT_MS = 10_000;
 export const TOOL_TIMEOUT_MS = 8000;
-// Connecting to an MCP lane: the handshake and the tool list, before the model starts.
-export const MCP_CONNECT_TIMEOUT_MS = 3000;
+// Connecting to our MCP server, on either MCP lane: the handshake and the tool list, before the model starts. 6 s: a
+// cold start slowed by Sentry didn't connect within 3 s live, and took up to 3.9 s on a laptop (bug story 18).
+export const MCP_CONNECT_TIMEOUT_MS = 6000;
 // An Actor run on an auth lane takes seconds, not milliseconds: it gets 20 s (25 on MCP · with auth, which may connect
 // first: APIFY_MCP_ACTOR_BUDGET_MS), then its tool's budget leaves the fallback a tool's usual 8 s.
 export const AUTH_TOOL_TIMEOUT_MS = 20_000;

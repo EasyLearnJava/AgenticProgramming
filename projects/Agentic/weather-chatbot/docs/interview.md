@@ -23,7 +23,8 @@ with its fix.
   alive past the answer by `waitUntil`; errors go to Sentry, whose version 11 collects bodies, headers and AI prompts
   unless told not to, so each is turned off, and its trace headers stay off our calls to other services.
 - **Time budgets on every hop.** 50 s for an answer (the function stops at 60), 10 s for the model's first chunk, 8 s
-  for a tool, 20 s for an Actor run (25 on MCP, which may connect first), 3 s to connect to our MCP server and 5 s to
+  for a tool, 20 s for an Actor run (25 on MCP, which may connect first), 6 s to connect to our MCP server (3 s until
+  a cold start needed more: bug story 18) and 5 s to
   Apify's. A fallback
   starts only with 12 s left, so it can finish; the slowest path was worked out: 41 s of the 50.
 - **Errors as types, not strings.** Each failure is one of our classes, which decides its HTTP status, the sentence the
@@ -41,16 +42,33 @@ with its fix.
   with a browser test that fails on any report; input limits checked with Zod; read-only tools, Markdown without raw
   HTML or images, so a tool's output can't carry the chat away; and a bot check on the chat, built with a kill switch,
   and switched off for now (bug story 17).
-- **Tests that can fail.** 266 unit tests and 54 browser tests (with accessibility, a phone's width, and the policy's
+- **Tests that can fail.** 267 unit tests and 54 browser tests (with accessibility, a phone's width, and the policy's
   reports), golden questions asked of the live site, and CI on every push. Since step 7, new tests are checked by
   breaking the code they guard ("mutation checks"): each must fail without its fix.
 - **Process.** An independent reviewer reads every change before its commit (all but one emergency switch, read just
-  after); every deploy is checked on the live site; every problem goes in the issues log (121 entries), and the real
+  after); every deploy is checked on the live site; every problem goes in the issues log (122 entries), and the real
   bugs become stories.
 
 ## The stories to tell
 
 Each is a bug story in **Issues and fixes**; here is the short version, in the order an interview might want them.
+
+### The slowness that crossed six services (bug story 18)
+
+- **What happened:** right after the logs went to Axiom and the errors to Sentry, the first question on the live site
+  failed in 4.4 s ("took too long"), and the next answers took 36 to 50 s.
+- **Why it was hard:** a question's path crosses six services (Vercel's two functions, Gemini, Open-Meteo, Axiom and
+  Sentry), and any of them could be the slow one; two were, at once.
+- **How it was noticed:** the check after every deploy asks the live site a real question (bug story 17's lesson).
+- **How the cause was found:** each hop timed apart. Another lane, without the MCP hop: slow too. Each chunk of the
+  stream: the model's steps took 27, 6 and 3 s, the tools milliseconds. The new logs in Axiom, one request id across
+  both functions: the connection to our MCP server didn't finish within its 3 s budget. The same code an hour later:
+  fast, so the slow steps were Gemini's bad hour. A cold and a warm MCP server: 1.9 s and 0.4 s. And the app built
+  with and without Sentry, started cold on a laptop: 0.7 s without it, 3.1 s with it.
+- **How it was fixed:** the connection's budget went from 3 s to 6 s, so a cold first question should no longer fail;
+  a lighter Sentry, without its build step (1.3 s on the laptop), is next.
+- **The lesson:** time the cold start before and after adding an SDK; cut a slow request into hops and time each one;
+  run the same code again later to tell a provider's bad hour from your own change.
 
 ### The bot check that blocked every user (bug story 17)
 
@@ -108,7 +126,9 @@ Each is a bug story in **Issues and fixes**; here is the short version, in the o
 | A hop to our own MCP server | about 0.1 s a tool call, plus one connection per answer (0.2 to 1.8 s) |
 | Stop, heard by the function | at once during the answer's text; about 7 s after a hang-up early in the answer (one live check each) |
 | BotID's outage | about 25 minutes, ended by a one-line switch |
-| Tests | 266 unit, 54 browser, golden questions on the live site |
+| A cold start, with Sentry | on a laptop, about 2.4 s more on the first request (3.1 s with Sentry, 0.7 s without); on Vercel, a cold MCP connection took 1.9 s with it, 1.1 to 1.8 s before |
+| Gemini's slow hour | steps of 3 to 27 s, against about 1 s or less; the same code an hour later answered in 2.4 to 3.9 s |
+| Tests | 267 unit, 54 browser, golden questions on the live site |
 
 ## Questions you may get
 
@@ -122,6 +142,10 @@ Each is a bug story in **Issues and fixes**; here is the short version, in the o
   new test here has been checked that way.
 - **What would you do differently?** Roll out protections in watching mode first; and from day one, check every deploy
   with one real request on the real path, since mocked browser tests can't see the server's side.
+- **How do you find what's slow when a request crosses many services?** Cut its path into hops and time each one: the
+  answer's stream chunk by chunk, and every hop's log line under one request id. Compare cold with warm, and the same
+  code at another hour, before blaming a change; then A/B the suspect: the app built with and without it (bug
+  story 18).
 
 ## What's next
 
