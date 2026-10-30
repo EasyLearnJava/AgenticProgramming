@@ -3,7 +3,7 @@
  * units for the user's browser.
  */
 import "server-only";
-import { ACTOR_TOOL_NAME, MAX_FORECAST_DAYS } from "@/lib/constants";
+import { ACTOR_TOOL_NAME, MAX_FORECAST_DAYS, MAX_HOURLY_DAYS } from "@/lib/constants";
 import type { Units } from "@/lib/types";
 
 const RULES_BEFORE_TOOLS = [
@@ -26,8 +26,9 @@ const OPEN_METEO_TOOLS_RULE =
   "includeHourly for part of a day, such as an afternoon or tonight), or get_air_quality for the air.";
 const ACTOR_TOOL_RULE =
   `6. Then call ${ACTOR_TOOL_NAME} for today and the coming days, with the place's name and coordinates from ` +
-  "geocode_location as its one location (mode hourly for part of a day, such as an afternoon or tonight). This lane " +
-  "has no tool for the weather now or for the air: say so, and give today's forecast instead.";
+  "geocode_location as its one location: mode daily for whole days, mode hourly for part of a day, such as an " +
+  `afternoon or tonight (hours only, for at most ${MAX_HOURLY_DAYS} days). This lane has no tool for the weather ` +
+  "now or for the air: say so, and give today's forecast instead.";
 
 const RULES_AFTER_TOOLS = [
   "7. Name the place you used (city, region, country). Give times as the tools give them, in that place's local " +

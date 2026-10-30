@@ -1,130 +1,196 @@
 /*
  * lib/weather/actor-items.ts: the Apify Actor's items as our Forecast, for both auth lanes (PLAN.md 7.6), in the units
- * asked for: the Actor has no units option, and answers in Open-Meteo's own metric units.
+ * asked for: the Actor has no units option, and answers in °C, as its field names say (temp_max_c, temperature_c).
  *
- * The Actor's output isn't documented. Its README says each record is one location, with "time-series arrays for
- * daily and hourly forecasts"; its dataset's overview lists name, latitude, longitude, timezone and forecast_days. So
- * this reads those, with Open-Meteo's own names inside the arrays, since the Actor calls Open-Meteo. A run on the live
- * site, once the token is set, checks it (step 6); until then, an item in any other shape is a ContractError, and the
- * lane falls back to REST · no auth instead of guessing.
+ * The Actor's output isn't documented. Its first runs on the live site showed it (29 October 2026, build 1.0.9): one
+ * item per day in daily mode, and one per hour in hourly mode, each carrying its place, with the coordinates it was
+ * sent. tests/fixtures/apify/ holds those answers. Anything else (another shape, another place, a day missing) is a
+ * ContractError that names the field, never its value, and the lane falls back instead of guessing.
  */
 import "server-only";
 import { z } from "zod";
-import { MAX_HOURLY_DAYS } from "@/lib/constants";
 import { ContractError } from "@/lib/errors";
 import type { Forecast, ForecastDay, ForecastHour, Units } from "@/lib/types";
 import { celsiusToFahrenheit, roundCoordinate, toWeekday } from "@/lib/utils";
 import { toCondition } from "@/lib/weather/wmo-codes";
 
-const HOURS_PER_DAY = 24;
 const CELSIUS = "°C";
 const FAHRENHEIT = "°F";
+// A day as the Actor writes it, "2026-10-29", and an hour, "2026-10-29T13:00": both in the place's own time.
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const HOUR_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+const DATE_CHARS = 10;
+const MS_PER_DAY = 86_400_000;
+// The Actor echoes the coordinates it was sent, rounded to 2 decimals, as the lane sends them: this close is the same.
+const SAME_PLACE_DEGREES = 0.01;
 
-const numbers = z.array(z.number().nullable());
-const times = z.array(z.string());
+const reading = z.number().nullable();
 
-// ① One item, as we expect the Actor to give it: a location, and Open-Meteo's daily and hourly arrays.
-const ActorItemSchema = z
-  .object({
-    name: z.string(),
-    latitude: z.number(),
-    longitude: z.number(),
-    timezone: z.string(),
-    daily_units: z.object({ temperature_2m_max: z.string() }).optional(),
-    daily: z
-      .object({
-        time: times,
-        weather_code: numbers,
-        temperature_2m_max: numbers,
-        temperature_2m_min: numbers,
-        precipitation_probability_max: numbers.optional(),
-        sunrise: z.array(z.string().nullable()).optional(),
-        sunset: z.array(z.string().nullable()).optional(),
-      })
-      .optional(),
-    hourly: z
-      .object({
-        time: times,
-        temperature_2m: numbers,
-        precipitation_probability: numbers.optional(),
-        weather_code: numbers,
-      })
-      .optional(),
-  })
-  .refine((item) => item.daily !== undefined || item.hourly !== undefined, { message: "no daily or hourly data" });
+// ① What every item carries: the place, as the Actor read it.
+const PLACE_FIELDS = {
+  location: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  timezone: z.string(),
+};
 
-type ActorItem = z.output<typeof ActorItemSchema>;
+// ② An item in daily mode: one day. The fields we use; zod drops the rest (precipitation, wind, UV).
+const DailyItemSchema = z.object({
+  ...PLACE_FIELDS,
+  date: z.string().regex(DATE_PATTERN),
+  weather_code: reading,
+  temp_max_c: reading,
+  temp_min_c: reading,
+  precipitation_probability_pct: reading,
+  sunrise: z.string().nullable(),
+  sunset: z.string().nullable(),
+});
 
-/** A temperature in the units asked for: Open-Meteo's °C as it is, or in °F. */
+// ③ An item in hourly mode: one hour. The fields we use; zod drops the rest (feels-like, humidity, wind).
+const HourlyItemSchema = z.object({
+  ...PLACE_FIELDS,
+  datetime: z.string().regex(HOUR_PATTERN),
+  weather_code: reading,
+  temperature_c: reading,
+  precipitation_probability_pct: reading,
+});
+
+type DailyItem = z.output<typeof DailyItemSchema>;
+type HourlyItem = z.output<typeof HourlyItemSchema>;
+type Place = Pick<DailyItem, "location" | "latitude" | "longitude" | "timezone">;
+
+/**
+ * What the lane asked the Actor for, and what to give back: the place's coordinates as sent, the mode and days, the
+ * units, and when the answer came.
+ */
+export type ActorAsk = {
+  place: { latitude: number; longitude: number };
+  mode: "daily" | "hourly";
+  forecastDays: number;
+  units: Units;
+  fetchedAt: string;
+};
+
+/** A temperature in the units asked for: the Actor's °C as it is, or in °F. */
 function toTemperature(celsius: number | null, units: Units): number | null {
   return celsius === null || units === "metric" ? celsius : celsiusToFahrenheit(celsius);
 }
 
-/** The item's days, in the units asked for; none, when the Actor gave only hours. */
-function toDays(daily: ActorItem["daily"], units: Units): ForecastDay[] {
-  if (daily === undefined) {
-    return [];
+/** The items in the shape their mode gives, or a ContractError naming the fields that aren't, never their values. */
+function parseItems<Item>(items: readonly unknown[], schema: z.ZodType<Item>, mode: ActorAsk["mode"]): Item[] {
+  if (items.length === 0) {
+    throw new ContractError("The Actor gave no items.");
   }
-  return daily.time.map((date, i) => {
-    const condition = toCondition(daily.weather_code[i] ?? null);
-    return {
-      date,
-      weekday: toWeekday(date),
-      condition: condition.words,
-      icon: condition.icon,
-      temperatureMin: toTemperature(daily.temperature_2m_min[i] ?? null, units),
-      temperatureMax: toTemperature(daily.temperature_2m_max[i] ?? null, units),
-      rainChancePercent: daily.precipitation_probability_max?.[i] ?? null,
-      sunrise: daily.sunrise?.[i] ?? null,
-      sunset: daily.sunset?.[i] ?? null,
-    };
-  });
-}
-
-/** The item's hours, if it has them, for the first 3 days at most, as get_forecast gives them. */
-function toHours(hourly: ActorItem["hourly"], units: Units): ForecastHour[] | undefined {
-  return hourly?.time.slice(0, MAX_HOURLY_DAYS * HOURS_PER_DAY).map((time, i) => ({
-    time,
-    temperature: toTemperature(hourly.temperature_2m[i] ?? null, units),
-    rainChancePercent: hourly.precipitation_probability?.[i] ?? null,
-    condition: toCondition(hourly.weather_code[i] ?? null).words,
-  }));
-}
-
-/**
- * The Actor's answer for one location as our Forecast, in the units asked for. Anything else (more or fewer items, a
- * missing field, units other than °C) is a ContractError that names what's wrong, never a value.
- */
-export function toForecast(
-  items: readonly unknown[],
-  { units, fetchedAt }: { units: Units; fetchedAt: string },
-): Forecast {
-  // ② One location went in, so one item comes back, in the shape above.
-  if (items.length !== 1) {
-    throw new ContractError(`The Actor gave ${items.length} items for one location.`);
-  }
-  const parsed = ActorItemSchema.safeParse(items[0]);
+  const parsed = z.array(schema).safeParse(items);
   if (!parsed.success) {
-    // A field's name, without the array index where a value broke it: "daily.time", not "daily.time.3".
+    // A field's name, without the index of the item or value that broke it: "temp_max_c", not "2.temp_max_c".
     const fields = parsed.error.issues.map(
       (issue) => issue.path.filter((key) => typeof key !== "number").join(".") || issue.message,
     );
-    throw new ContractError(`The Actor's item isn't the shape we read: ${[...new Set(fields)].join(", ")}.`);
+    throw new ContractError(`The Actor's ${mode} items aren't the shape we read: ${[...new Set(fields)].join(", ")}.`);
   }
-  const item = parsed.data;
-  // ③ The Actor answers in °C, Open-Meteo's default; another unit is a contract problem, not something to guess at.
-  const sourceUnit = item.daily_units?.temperature_2m_max ?? CELSIUS;
-  if (sourceUnit !== CELSIUS) {
-    throw new ContractError(`The Actor's temperature unit isn't ${CELSIUS}.`);
+  return parsed.data;
+}
+
+/**
+ * The place every item is for: the one asked, at the coordinates the lane sent, and the same name and time zone in
+ * each. An item for any other is a ContractError.
+ */
+function toPlace(items: readonly Place[], { place }: ActorAsk): Place {
+  const [first] = items;
+  const isPlaceAsked = (item: Place) =>
+    Math.abs(item.latitude - place.latitude) <= SAME_PLACE_DEGREES &&
+    Math.abs(item.longitude - place.longitude) <= SAME_PLACE_DEGREES &&
+    item.location === first?.location &&
+    item.timezone === first.timezone;
+  if (first === undefined || !items.every(isPlaceAsked)) {
+    throw new ContractError("The Actor's items aren't all for the one place asked.");
   }
-  // ④ Our Forecast: rounded coordinates, the place's time zone, and the days and hours in the units asked for.
+  return first;
+}
+
+/**
+ * Checks that the items cover as many days as asked, one after another: one item a day in daily mode, the days'
+ * hours in hourly mode.
+ */
+function checkDays(dates: readonly string[], { mode, forecastDays }: ActorAsk): void {
+  const days = [...new Set(dates)];
+  if (days.length !== forecastDays) {
+    const gave = `${days.length} ${days.length === 1 ? "day" : "days"}`;
+    throw new ContractError(`The Actor gave ${gave} for the ${forecastDays} asked.`);
+  }
+  if (mode === "daily" && dates.length !== days.length) {
+    throw new ContractError("The Actor gave a day twice.");
+  }
+  const startOf = (date: string) => Date.parse(`${date}T00:00:00Z`);
+  if (days.some((date, i) => i > 0 && startOf(date) - startOf(days[i - 1] ?? date) !== MS_PER_DAY)) {
+    throw new ContractError("The Actor's days don't follow one another.");
+  }
+}
+
+/** A daily item as our day, in the units asked for. */
+function toDay(item: DailyItem, units: Units): ForecastDay {
+  const condition = toCondition(item.weather_code);
   return {
-    latitude: roundCoordinate(item.latitude),
-    longitude: roundCoordinate(item.longitude),
-    timeZone: item.timezone,
-    temperatureUnit: units === "imperial" ? FAHRENHEIT : CELSIUS,
-    days: toDays(item.daily, units),
-    hours: toHours(item.hourly, units),
-    fetchedAt,
+    date: item.date,
+    weekday: toWeekday(item.date),
+    condition: condition.words,
+    icon: condition.icon,
+    temperatureMin: toTemperature(item.temp_min_c, units),
+    temperatureMax: toTemperature(item.temp_max_c, units),
+    rainChancePercent: item.precipitation_probability_pct,
+    sunrise: item.sunrise,
+    sunset: item.sunset,
   };
+}
+
+/** An hourly item as our hour, in the units asked for. */
+function toHour(item: HourlyItem, units: Units): ForecastHour {
+  return {
+    time: item.datetime,
+    temperature: toTemperature(item.temperature_c, units),
+    rainChancePercent: item.precipitation_probability_pct,
+    condition: toCondition(item.weather_code).words,
+  };
+}
+
+/**
+ * The Actor's answer for one place as our Forecast, in the units asked for: its days in daily mode; its hours, and no
+ * days, in hourly mode, since that mode gives no day's summary. Anything else is a ContractError.
+ */
+export function toForecast(items: readonly unknown[], ask: ActorAsk): Forecast {
+  const temperatureUnit = ask.units === "imperial" ? FAHRENHEIT : CELSIUS;
+  const toForecastOf = (place: Place, days: ForecastDay[], hours: ForecastHour[] | undefined): Forecast => ({
+    latitude: roundCoordinate(place.latitude),
+    longitude: roundCoordinate(place.longitude),
+    timeZone: place.timezone,
+    temperatureUnit,
+    days,
+    hours,
+    fetchedAt: ask.fetchedAt,
+  });
+  if (ask.mode === "daily") {
+    const daily = parseItems(items, DailyItemSchema, ask.mode);
+    const place = toPlace(daily, ask);
+    checkDays(
+      daily.map((item) => item.date),
+      ask,
+    );
+    return toForecastOf(
+      place,
+      daily.map((item) => toDay(item, ask.units)),
+      undefined,
+    );
+  }
+  const hourly = parseItems(items, HourlyItemSchema, ask.mode);
+  const place = toPlace(hourly, ask);
+  checkDays(
+    hourly.map((item) => item.datetime.slice(0, DATE_CHARS)),
+    ask,
+  );
+  return toForecastOf(
+    place,
+    [],
+    hourly.map((item) => toHour(item, ask.units)),
+  );
 }

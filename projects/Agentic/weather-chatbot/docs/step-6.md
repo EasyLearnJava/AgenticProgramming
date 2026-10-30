@@ -16,6 +16,8 @@ says so.
   didn't accept our token. Answered through REST · no auth instead. (ref b1a0d9e8)". Its lane then says
   `REST · no auth`, its wire view shows the Open-Meteo request that answered, and the answer and the weather card are
   as on that lane.
+- **An hourly answer** through the Actor ("Will it rain this afternoon?") gets its chips and its answer, but no
+  weather card: the Actor's hourly mode gives hours, and a card shows days.
 - The two no-auth lanes look as before.
 
 ## How it works
@@ -42,15 +44,24 @@ The lane's code marks the six points every lane has (PLAN.md 4.3):
 6. **Clean-up:** none: a REST lane holds no connection. The Actor's tool gets 28 s instead of a tool's usual 8: 20 s
    for the run (Apify stops it at 18) and the trip, then 8 s for the fallback.
 
-### The Actor's answer, read with care
+### The Actor's answer, as it really comes
 
-The Actor's page doesn't say what it returns. Its README says each record is one location, with "time-series arrays"
-for the daily and hourly forecasts, and its dataset's overview lists `name`, `latitude`, `longitude`, `timezone` and
-`forecast_days`. `actor-items.ts` reads that shape, with Open-Meteo's own names inside the arrays, since the Actor
-calls Open-Meteo, and checks it with Zod. Anything else (another shape, another unit, more items than places) is a
-`ContractError` that names the field, never its value, and the lane falls back rather than guess (issues log, entry
-71). The tests read the Actor's answer for Paris in that assumed shape, holding Open-Meteo's real numbers; the first
-run on the live site checks it against the real thing.
+The Actor's page doesn't say what it returns. Its README speaks of one record per location, with "time-series
+arrays" for the daily and hourly forecasts, and this step's first version read that. Its first run on the live site
+showed otherwise (bug story 12): one item per day in daily mode, and one per hour in hourly mode, each carrying its
+place (`location`, `latitude`, `longitude`, `timezone`) and the Actor's own field names, in °C:
+
+| Mode | One item is | The fields we read |
+|---|---|---|
+| `daily` | a day | `date`, `weather_code`, `temp_max_c`, `temp_min_c`, `precipitation_probability_pct`, `sunrise`, `sunset` |
+| `hourly` | an hour, from the place's midnight | `datetime`, `weather_code`, `temperature_c`, `precipitation_probability_pct` |
+
+`actor-items.ts` checks that shape with Zod; that every item is for the place asked, at the coordinates the lane sent,
+which the Actor echoes; and that the days asked are all there, one after another. Anything else is a `ContractError`
+that names the field, never its value, and the lane falls back rather than guess. Hourly mode gives no day's summary, so
+a forecast of hours has no days: its chip sums up the hours ("24 hours · 20 to 27 °C · rain up to 17%"), it gets no
+weather card, and the tool takes hourly mode for at most 3 days, as `get_forecast` gives hours. The tests read the
+Actor's real answers for Dallas, saved whole in `tests/fixtures/apify/`.
 
 ### Falling back
 
@@ -119,9 +130,11 @@ token, which this deployment doesn't have."
   record, never in the URL; the limits in the URL); each status as our class, with Apify's real answer to a fake
   token; no answer, too slow, Stop (while the answer is still arriving, too); its log line, which never holds the
   token.
-- **The Actor's items** (`tests/unit/weather/actor-items.test.ts`): the Actor's answer for Paris in its assumed shape
-  (`tests/fixtures/apify/actor-paris-assumed.json`) gives the same days and hours as `get_forecast` gives for the
-  same Open-Meteo answer; °F when asked; any other shape refused, naming the field.
+- **The Actor's items** (`tests/unit/weather/actor-items.test.ts`): its real answers for Dallas, daily and hourly
+  (`tests/fixtures/apify/`), as our days and hours; °F when asked; another shape, another place, or a missing,
+  doubled or skipped day refused, naming the field.
+- **The Actor tool** (`tests/unit/weather/tools/open-meteo-actor.test.ts`): its input (one place; hourly for at most 3
+  days), and its summary of days, or of hours.
 - **The lane** (`tests/unit/lanes/rest-auth.test.ts`): its two tools and the Actor's 20 s; a forecast through the
   Actor; each way it falls back (a rejected token, used-up credit, a shape we don't read, too slow), with the chip's
   sentence and the one line; Stop, during the run and during the fallback; the answer's own budget firing during the
@@ -149,8 +162,8 @@ token, which this deployment doesn't have."
 | `lib/chat/run-chat.ts`, `lib/chat/system-prompt.ts`, `lib/chat/chat-request.ts`, `lib/chat/lane-examples.ts` | A tool's own budget, and the history read with every lane's tools; the rules for the lane's tools; every lane's tools for a chat's history, and a lane this deployment runs; the compare view's request |
 | `app/api/chat/route.ts` | The lanes this deployment runs, for the request's rules |
 | `lib/errors.ts`, `lib/config.ts`, `lib/constants.ts`, `lib/types.ts`, `lib/utils.ts` | `AuthError` and `BudgetExceededError`; `APIFY_TOKEN`; the Actor's address and limits; the fallback's types; `celsiusToFahrenheit` |
-| `app/page.tsx`, `components/*.tsx`, `app/globals.css` | The lanes this deployment runs, in the picker and the compare view; the fallback on the chip; the Actor's forecast in the weather card |
-| `tests/stubs/apify-stand-ins.ts`, `tests/fixtures/apify/` | A fetch that answers as Apify does; Apify's real `401`, and the Actor's answer in its assumed shape |
+| `app/page.tsx`, `components/*.tsx`, `app/globals.css` | The lanes this deployment runs, in the picker and the compare view; the fallback on the chip; the Actor's daily forecast in the weather card |
+| `tests/stubs/apify-stand-ins.ts`, `tests/fixtures/apify/` | A fetch that answers as Apify does; Apify's real `401`, and the Actor's real answers for Dallas, daily and hourly |
 
 ## Check it yourself
 
@@ -167,6 +180,20 @@ in Apify Console, **Settings → API & Integrations**. Add it in Vercel as `APIF
 Variables**, type **Secret**), then redeploy. On a laptop, put it after `APIFY_TOKEN=` in `.env.local`. Then ask on
 `REST · with auth` about a city's weather in the coming days, and open the forecast chip: its lane says
 `REST · with auth`, and its wire view shows the `POST` to Apify.
+
+## Checked on the live site
+
+On 29 October 2026, once this step was live as `7ad3904` (its CI run had passed):
+
+- **The token reached the build.** The picker showed `REST · with auth` as live, so the deployment was built with
+  `APIFY_TOKEN` set (a Secret, for Production only).
+- **The Actor ran, and its answer wasn't the shape we read.** "What's the weather in Dallas, Texas for the next 3
+  days?": Apify answered `201` with 3 items in 3,498 ms, the run itself taking 3 s, 1.2 s of it pulling the Actor's
+  container. Apify Console showed our limits on the run (build 1.0.9, an 18-second timeout, $0.01 at most) and its
+  cost: $0.005. The lane refused the items ("The Actor gave 3 items for one location."), fell back, and said so on the
+  chip, with the ref `96b42d86`; the answer, from `REST · no auth`, was right. Bug story 12 tells the rest.
+- **Hourly mode.** Two hourly runs gave 24 and 48 items, one an hour, and no day's summary, for $0.005 each: the
+  price is per place, whatever the days or mode, so the $0.01 cap can't cut a forecast short.
 
 ## What's next
 

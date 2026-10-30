@@ -8,14 +8,14 @@ import type { ArrowKind, DiagramArrow, DiagramBand, DiagramBox, DiagramLabel, Sy
 
 // ① The drawing's size, in its own units: the page scales it to fit.
 const DIAGRAM_WIDTH = 1400;
-const DIAGRAM_HEIGHT = 1070;
+const DIAGRAM_HEIGHT = 1200;
 
 // ② The four bands, as the reference has them.
 const DIAGRAM_BANDS: readonly DiagramBand[] = [
   { letter: "A", title: "Online request path", y: 10, height: 300 },
-  { letter: "B", title: "Controlled execution", y: 320, height: 340 },
-  { letter: "C", title: "State and data freshness", y: 670, height: 185 },
-  { letter: "D", title: "09 · Production operations", y: 865, height: 155 },
+  { letter: "B", title: "Controlled execution", y: 320, height: 470 },
+  { letter: "C", title: "State and data freshness", y: 800, height: 185 },
+  { letter: "D", title: "09 · Production operations", y: 995, height: 155 },
 ];
 
 // ③ The parts, band by band, left to right.
@@ -172,11 +172,42 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     title: "Open-Meteo APIs",
     lines: ["geocoding · forecast · air quality", "no key · sees places, not who asked"],
   },
+  {
+    band: "B",
+    x: 30,
+    y: 675,
+    width: 270,
+    height: 100,
+    title: "REST · with auth",
+    lines: ["geocoding as on REST · no auth", "the forecast: Apify's Actor tool", "falls back to REST · no auth"],
+  },
+  {
+    band: "B",
+    x: 340,
+    y: 675,
+    width: 300,
+    height: 100,
+    title: "Apify client",
+    lines: ["one POST · Bearer APIFY_TOKEN", "build · 18 s · $0.01, in the URL", "no retry, no cache: it falls back"],
+  },
+  {
+    band: "B",
+    x: 1020,
+    y: 675,
+    width: 350,
+    height: 100,
+    title: "Apify Actor",
+    lines: [
+      "gochujang/open-meteo-weather-forecast",
+      "an item a day, or an hour · °C",
+      "$0.005 a run · calls Open-Meteo",
+    ],
+  },
   // C: what the app keeps, and where.
   {
     band: "C",
     x: 30,
-    y: 725,
+    y: 855,
     width: 300,
     height: 110,
     title: "The conversation",
@@ -185,16 +216,16 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
   {
     band: "C",
     x: 370,
-    y: 725,
+    y: 855,
     width: 270,
     height: 110,
     title: "Settings and secrets",
-    lines: ["Vercel's environment", "variables; the key is", "a Secret · lib/config.ts"],
+    lines: ["Vercel's environment", "variables; the keys are", "Secrets · lib/config.ts"],
   },
   {
     band: "C",
     x: 680,
-    y: 725,
+    y: 855,
     width: 420,
     height: 110,
     title: "Runtime Cache (Vercel)",
@@ -207,7 +238,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
   {
     band: "C",
     x: 1130,
-    y: 725,
+    y: 855,
     width: 240,
     height: 110,
     title: "Docs as Markdown",
@@ -217,7 +248,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
   {
     band: "D",
     x: 30,
-    y: 925,
+    y: 1055,
     width: 320,
     height: 80,
     title: "Observability",
@@ -226,7 +257,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
   {
     band: "D",
     x: 370,
-    y: 925,
+    y: 1055,
     width: 320,
     height: 80,
     title: "Evaluation",
@@ -235,7 +266,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
   {
     band: "D",
     x: 710,
-    y: 925,
+    y: 1055,
     width: 320,
     height: 80,
     title: "Reliability and scale",
@@ -244,7 +275,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
   {
     band: "D",
     x: 1050,
-    y: 925,
+    y: 1055,
     width: 320,
     height: 80,
     title: "Release and recovery",
@@ -271,14 +302,21 @@ const DIAGRAM_ARROWS: readonly DiagramArrow[] = [
   { path: "M 830 525 V 545 H 560 V 561", kind: "mcp", hasHead: true },
   { path: "M 640 605 H 676", kind: "request", hasHead: true },
   { path: "M 980 605 H 1016", kind: "request", hasHead: true },
+  // B: REST · with auth, reached around the left edge: geocoding through the tools, the forecast through Apify.
+  { path: "M 165 380 H 18 V 725 H 26", kind: "request", hasHead: true },
+  { path: "M 165 675 V 649", kind: "request", hasHead: true },
+  { path: "M 300 725 H 336", kind: "request", hasHead: true },
+  { path: "M 640 725 H 1016", kind: "request", hasHead: true },
+  { path: "M 1195 675 V 649", kind: "request", hasHead: true },
   // C: the Open-Meteo client reads and fills the cache.
-  { path: "M 830 645 V 721", kind: "state", hasHead: true },
+  { path: "M 830 645 V 851", kind: "state", hasHead: true },
 ];
 
 // ⑤ What the lines carry, where it helps to say.
 const DIAGRAM_LABELS: readonly DiagramLabel[] = [
   { x: 560, y: 371, text: "tool calls · model calls" },
   { x: 848, y: 690, text: "read, then fill" },
+  { x: 660, y: 716, text: "Bearer token" },
 ];
 
 // ⑥ The legend: each kind of line, and what the badges mean.
@@ -292,16 +330,17 @@ const LEGEND_ITEMS: readonly { kind: ArrowKind; text: string }[] = [
 export const SYSTEM_DIAGRAM: SystemDiagram = {
   width: DIAGRAM_WIDTH,
   height: DIAGRAM_HEIGHT,
-  title: "How Nimbus is built today, steps 1 to 5",
+  title: "How Nimbus is built today, steps 1 to 6",
   description:
     "Four bands. A: you ask in the chat page; Vercel's edge routes the request; the input rules check it; the chat " +
     "turn runs the model and streams your answer. B: the chat turn calls the tools through the lane you picked, REST " +
-    "or MCP (through our own MCP server), and Gemini; the tools call Open-Meteo. C: the conversation stays in your " +
-    "browser; settings are Vercel's environment variables; Open-Meteo's answers are cached; the docs are Markdown. " +
-    "D: logs with one request id, golden questions and tests, Vercel Functions, and deploys from each push.",
+    "or MCP (through our own MCP server), and Gemini; the tools call Open-Meteo. On REST · with auth, the forecast " +
+    "comes from Apify's Actor instead, with a token, and falls back to REST · no auth. C: the conversation stays in " +
+    "your browser; settings are Vercel's environment variables; Open-Meteo's answers are cached; the docs are " +
+    "Markdown. D: logs with one request id, golden questions and tests, Vercel Functions, and deploys from each push.",
   bands: DIAGRAM_BANDS,
   boxes: DIAGRAM_BOXES,
   arrows: DIAGRAM_ARROWS,
   labels: DIAGRAM_LABELS,
-  legend: { y: 1045, items: LEGEND_ITEMS, note: "01–09: the reference's parts · +: only in Nimbus" },
+  legend: { y: 1175, items: LEGEND_ITEMS, note: "01–09: the reference's parts · +: only in Nimbus" },
 };

@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These eleven were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These twelve were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -26,6 +26,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 9 | A test that couldn't fail | 2 | the review |
 | 10 | The fallback that Stop couldn't reach | 6 | checking our work, then the review |
 | 11 | A lane change showed the model the page's records | 6 | the review |
+| 12 | The Actor's answer wasn't the shape we assumed | 6 | deploying |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -376,6 +377,42 @@ and no `durationMs`. Before the fix, it failed, showing the whole record.
 **The lesson.** When a library looks something up by name, check which set it looks in. A rule that held by
 coincidence (every lane had the same tool names) breaks the day the coincidence does.
 
+### 12. The Actor's answer wasn't the shape we assumed
+
+*Step 6 · found by deploying · entry 83*
+
+**The request.** "What's the weather in Dallas, Texas for the next 3 days?" on `REST · with auth`, the first
+question after Apify's token was set. The lane runs the Actor for one place, 3 days, daily, and reads its items into
+our forecast.
+
+**What went wrong.** Apify answered `201` in 3.5 s, with the forecast, and the lane refused it. The chip said "REST ·
+with auth is unavailable: Apify answered in a way we didn't expect. Answered through REST · no auth instead. (ref
+96b42d86)". The answer was right, from the fallback.
+
+**Why it happened.** The Actor's output isn't documented. Its README speaks of one record per location, with
+"time-series arrays" for the daily and hourly forecasts, so we read one item per place, with Open-Meteo's own arrays
+inside. The real answer is one item per day (in hourly mode, one per hour), each repeating the place, with the Actor's
+own field names: `temp_max_c`, `precipitation_probability_pct`, `datetime`.
+
+**How we traced it.** The ref found the request's lines in Vercel's logs: `upstream.http` said Apify answered `201`
+with 3 items, and `lane.fallback` said why the lane fell back: "The Actor gave 3 items for one location." The run's
+output in Apify Console showed the 3 items whole. Two hourly questions then showed hourly mode: 24 and 48 items, one
+an hour, and no day's summary.
+
+**How we fixed it.** `lib/weather/actor-items.ts` reads the real shape: an item a day in daily mode, an item an hour in
+hourly mode, every item for the place asked (the Actor echoes the coordinates it was sent), the days asked all there,
+one after another; anything else is still a `ContractError`, and still falls back. Since hourly mode gives no days, a
+forecast of hours gets its own summary ("24 hours · 20 to 27 °C · rain up to 17%") and no weather card, and hourly mode
+covers at most 3 days, like `get_forecast`'s hours. The tests read the Actor's real answers, saved whole
+(`tests/fixtures/apify/actor-dallas-daily.json` and `actor-dallas-hourly.json`), in place of the assumed one.
+
+**How we confirmed it.** The tests against the Actor's real answers, then the same questions on the live site (step
+6's page, Checked on the live site).
+
+**The lesson.** When a dependency's output isn't documented, read it in the shape you expect, refuse anything else
+loudly, and keep a fallback. Then the first real call costs a log line, not a wrong answer, and the line says exactly
+what to fix.
+
 ## While Planning
 
 1. **The "no auth" MCP server needed a sign-in.** *Testing a real API.* MCPBundles' Open-Meteo server answered an MCP
@@ -634,7 +671,7 @@ coincidence (every lane had the same tool names) breaks the day the coincidence 
     that names the field (without an array's index, and never a value), and the lane falls back instead of guessing.
     The tests use an answer in that shape, holding Open-Meteo's real Paris numbers, and named as assumed
     (`tests/fixtures/apify/actor-paris-assumed.json`). **Check:** the first run on the live site, against the real
-    thing.
+    thing: it wasn't that shape (entry 83).
 72. **What a `402` means with a token isn't documented.** *Testing a real API.* Without a token, Apify's REST door
     answers `402` with an x402 request for payment (PLAN.md section 3, row 13), and the plan read every `402` that
     way, as an `AuthError`. But this lane never runs without a token, and Apify's docs don't say which status a
@@ -681,3 +718,22 @@ coincidence (every lane had the same tool names) breaks the day the coincidence 
     starts a fallback only with 12 s of the answer's 50 left, the twin's 8 s and time to write the answer; the first
     version always fell back. **Fix:** with less left, the call fails with its own sentence. **Check:**
     `tests/unit/lanes/rest-auth.test.ts`.
+83. **The Actor answers an item a day, not one per place.** *Deploying* (the first question with the token). Bug story
+    12. **Fix:** `lib/weather/actor-items.ts` reads the real shape, an item a day or an hour, each for the place asked,
+    with the days asked all there, one after another. **Check:** `tests/unit/weather/actor-items.test.ts`, against the
+    Actor's real answers (`tests/fixtures/apify/`).
+84. **Hourly mode gives hours only.** *Testing a real API* (two hourly questions on the live site). Its items are
+    hours, with no day's summary, so our forecast would have had no days: the chip would have said "0 days, hourly",
+    and the weather card would have been empty. **Fix:** a forecast of hours gets its own summary ("24 hours · 20 to
+    27 °C · rain up to 17%") and no card, since a card is a row per day; hourly mode covers at most 3 days, like
+    `get_forecast`'s hours. **Check:** `tests/unit/weather/tools/open-meteo-actor.test.ts`.
+85. **A leftover local server showed the old diagram.** *Checking our work* (a screenshot of the new system design).
+    The screenshot came from a `next start` left running on port 3124 since the System design page was built, still
+    serving that build, so the new server couldn't take the port and the picture showed steps 1 to 5. **Fix:** stop
+    the old server, then serve the new build; stop each server once its screenshot is taken. **Check:** the
+    screenshot shows step 6's row.
+86. **The place check compared the Actor's items only with each other.** *Review.* An answer that agreed with itself,
+    but for another place, would have passed, and been shown as the place asked; and the days were counted, not
+    checked to follow one another. **Fix:** the lane passes the coordinates it sent, which the Actor echoes, and every
+    item must be within 0.01° of them; the days must follow one another; "1 day", not "1 days". **Check:**
+    `tests/unit/weather/actor-items.test.ts`.

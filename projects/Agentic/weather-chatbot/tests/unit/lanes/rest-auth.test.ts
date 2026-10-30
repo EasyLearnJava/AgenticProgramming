@@ -23,6 +23,13 @@ const PARIS_INPUT = {
   mode: "hourly",
   units: "metric",
 };
+// The live check's Dallas question, as the model asked it.
+const DALLAS_INPUT = {
+  locations: [{ name: "Dallas", latitude: 32.78306, longitude: -96.80667 }],
+  forecastDays: 3,
+  mode: "daily",
+  units: "imperial",
+};
 
 /**
  * The lane, with stand-ins for Apify and Open-Meteo, the run's budget and the lane's clock; what each was asked; the
@@ -75,9 +82,10 @@ describe("openRestAuthLane", () => {
   });
 
   it("forecasts through the Actor: its items as our forecast, the token masked, no units sent", async () => {
-    const { lane, apifyRequests } = openWith([{ fixture: "actor-paris-assumed", status: 201 }]);
-    const result = await call(lane, ACTOR_TOOL, PARIS_INPUT);
-    expect(result.result).toMatchObject({ timeZone: "Europe/Paris", temperatureUnit: "°C" });
+    const { lane, apifyRequests } = openWith([{ fixture: "actor-dallas-daily", status: 201 }]);
+    const result = await call(lane, ACTOR_TOOL, DALLAS_INPUT);
+    expect(result.result).toMatchObject({ timeZone: "America/Chicago", temperatureUnit: "°F" });
+    expect(result.summary).toBe("3 days · 62 to 80 °F · rain up to 45%");
     expect(result.call).toMatchObject({
       laneId: "rest-auth",
       cache: "miss",
@@ -85,9 +93,9 @@ describe("openRestAuthLane", () => {
     });
     expect(result.fallback).toBeUndefined();
     expect(JSON.parse(apifyRequests[0]?.body ?? "{}")).toEqual({
-      locations: [{ name: "Paris", latitude: 48.85, longitude: 2.35 }],
-      forecastDays: 2,
-      mode: "hourly",
+      locations: [{ name: "Dallas", latitude: 32.78, longitude: -96.81 }],
+      forecastDays: 3,
+      mode: "daily",
     });
   });
 });

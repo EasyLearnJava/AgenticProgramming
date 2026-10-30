@@ -1,6 +1,6 @@
 # System Design
 
-How Nimbus is built today, after steps 1 to 5, drawn the way a common reference design for AI assistants draws an
+How Nimbus is built today, after steps 1 to 6, drawn the way a common reference design for AI assistants draws an
 online shop's assistant: in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (01 for the guardrails, 04 for the orchestrator,
 and so on); **+** marks a part only Nimbus has. Below the diagram, each band is described, then each part of the
@@ -20,8 +20,9 @@ reference is set against what Nimbus has, or why it doesn't.
    each of yours at most 2,000 characters, the whole history at most 200,000, only the parts the page sends, a live
    lane, a real language tag, a chat id of the kind the page makes. A broken rule gets its own sentence, with `400`.
 4. **04 · The chat turn** (`app/api/chat/route.ts`, `lib/chat/run-chat.ts`) is the orchestrator. It opens the lane you
-   picked and runs AI SDK's `streamText`: the system prompt, the lane's four tools, at most 5 steps (the last can only
-   write), and time budgets (50 s for the answer, 10 s for the model's first chunk, 8 s a tool call). Stop cancels it.
+   picked and runs AI SDK's `streamText`: the system prompt, the lane's tools (four, or two on `REST · with auth`), at
+   most 5 steps (the last can only write), and time budgets (50 s for the answer, 10 s for the model's first chunk, 8 s
+   a tool call, 28 s for the Actor's). Stop cancels it.
    The model chooses the tools; you chose the lane.
 5. **Your answer** streams back as it's written, with a chip for each tool call (open one to see its request on the
    wire) and a weather card. A failure shows our own sentence, never the error's text; when it's logged as an error,
@@ -36,6 +37,12 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 - **MCP · no auth**, the default lane: the chat turn is an MCP client (`@ai-sdk/mcp`). It connects to **our own MCP
   server** at `/api/mcp` within 3 s, sends the request id as `x-request-id`, and calls the tools there. The server
   (`mcp-handler`) takes one JSON-RPC message of at most 8 KB per request, and is public: any MCP client can use it.
+- **REST · with auth**: geocoding as on `REST · no auth`, and the Actor's forecast tool, which runs Apify's
+  Open-Meteo Weather Forecast Actor through Apify's REST API, with our token in the `Authorization` header. When
+  Apify can't answer, the tool asks `REST · no auth` for the same forecast, and its chip says so.
+- **The Apify client** (`lib/upstream/apify.ts`): one `POST` to the Actor's run-sync address, with its build, 18 s and
+  $0.01 pinned in the URL; no retry and no cache, since a run costs money and the fallback answers anyway. **The
+  Actor** answers with an item a day, or an hour, in °C, read by `lib/weather/actor-items.ts`; a run costs $0.005.
 - **06 · The four weather tools** (`lib/weather/tools/`): `geocode_location`, `get_current_weather`, `get_forecast`
   and `get_air_quality`, written once, with Zod input schemas, read-only, and run by both doors.
 - **The Open-Meteo client** (`lib/upstream/open-meteo.ts`): 3 s a try and one retry, `Retry-After` on a `429`,
@@ -49,10 +56,11 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 - **The conversation** lives in your browser tab, in `useChat`. Each question sends the recent messages; no server
   keeps a chat.
 - **Settings and secrets** are Vercel's environment variables, and `lib/config.ts` is the only file that reads them.
-  The Gemini key is a Secret variable (Vercel's "Sensitive" until lately), which can't be read back from the
-  dashboard.
+  The Gemini key and Apify's token are Secret variables (Vercel's "Sensitive" until lately), which can't be read
+  back from the dashboard.
 - **Vercel's Runtime Cache** keeps Open-Meteo's answers by their exact request, for 30 days (places), 10 minutes (the
-  weather now) and 30 minutes (forecasts and air quality). Both lanes share it; a chip says when the cache answered.
+  weather now) and 30 minutes (forecasts and air quality). The no-auth lanes share it, and a chip says when it
+  answered. Apify's runs are never cached: each one costs money.
 - **The docs** are Markdown in the repository, built into static pages with each deployment.
 
 ### D · Production operations
@@ -78,13 +86,13 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 | 01 · Output guardrails: safety, privacy, grounding | In part: the system prompt's rule to answer only from tool results; our own sentences for errors; Markdown without images or raw HTML | Nothing checks an answer before it streams; the golden questions check grounding on the live site |
 | Answer: citations or a safe refusal | The answer, streamed, with a chip per tool call and a weather card | The chips are the citations: each opens to its request |
 | 05 · Retrieval (RAG) and its index | None | The weather comes live from tools, not from documents |
-| 06 · Commerce tools: typed inputs, per-user permissions | The four weather tools: typed with Zod, read-only | Nothing writes, so nothing needs approving |
-| Commerce APIs and databases | Open-Meteo's geocoding, forecast and air-quality APIs | Free, with no key. They see the places asked about (a pinned location, to about 1 km), never who asked: our servers call them |
+| 06 · Commerce tools: typed inputs, per-user permissions | The four weather tools, and on `REST · with auth` the Actor's: typed with Zod, read-only | Nothing writes, so nothing needs approving |
+| Commerce APIs and databases | Open-Meteo's geocoding, forecast and air-quality APIs; Apify's Actor, which calls Open-Meteo too | Open-Meteo is free, with no key; Apify takes our token and charges per run. They see the places asked about (a pinned location, to about 1 km), never who asked: our servers call them |
 | 07 · Model gateway: model choice, budgets, fallback | `lib/chat/model.ts`: Gemini through `@ai-sdk/google`; AI SDK's two retries; 2,000 tokens out | One model; a paid key or Vercel AI Gateway, and a fallback, before launch (step 11) |
 | 08 · Human in the loop | None | The bot only reads the weather: nothing is high-risk enough to need a person |
 | Knowledge ingestion, change events, index refresh | None | No documents to ingest; cached answers expire by themselves |
 | Session store | Your browser tab | No server keeps a chat |
-| Secure storage | Vercel's environment variables, the key a Secret one | Only `lib/config.ts` reads them; nothing secret reaches the browser |
+| Secure storage | Vercel's environment variables, the Gemini key and Apify's token Secret ones | Only `lib/config.ts` reads them; nothing secret reaches the browser |
 | 09 · Observability: traces, p95 latency, tokens, cost, alerts | Log lines with a request id across both functions, levels from the error map, tokens per step | Traces, dashboards, alerts and Sentry in step 9; cost with the paid model (step 11) |
 | 09 · Evaluation: golden set, safety tests, feedback | The golden questions on each lane, live; unit, browser and accessibility tests in CI | Failure tests and a lane-by-lane report in step 10 |
 | 09 · Reliability and scale: autoscaling, caps, queues, breakers | Vercel Functions, time budgets, retries, the MCP request guard | Rate limits in step 8, a load test in step 10. No queue: each answer is one request |
@@ -94,7 +102,7 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 
 - **Its own MCP server** (**+**): the four tools at `/api/mcp`, for the chat and for any MCP client, behind a guard
   that takes one message of at most 8 KB at a time.
-- **Four doors to the same data**: REST or MCP, without or with auth. Two are live; the compare view shows one call
+- **Four doors to the same data**: REST or MCP, without or with auth. Three are live; the compare view shows one call
   through all four.
 - **The wire view**: each chip opens to the request as it was sent, so you can see which door a call went through.
 
@@ -124,7 +132,7 @@ took 435 ms; the chat saw 514 ms. Connecting took 1.1 s, the first connection af
 
 ## What comes next
 
-Steps 6 and 7 add the two lanes with auth, through Apify (B). Step 8 adds the edge's rate limit and bot check (A,
+Step 7 adds `MCP · with auth`, through Apify's MCP server (B). Step 8 adds the edge's rate limit and bot check (A,
 02). Step 9 adds traces, dashboards, alerts, Sentry and the lanes' health (D). Step 10 adds the failure tests, and
 with them the cached answer when Open-Meteo is down (C). Step 11 brings a paid model path, with its cost in the logs
 (B, 07). The plan, `PLAN.md`, has the details.

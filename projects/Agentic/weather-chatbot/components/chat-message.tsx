@@ -79,7 +79,10 @@ function toToolCallView(part: AnyToolPart, isAnswering: boolean): ToolCallView {
   }
 }
 
-/** The forecasts a message got, each with the place geocoding found at its coordinates, if any. */
+/**
+ * The forecasts a message got that have days, each with the place geocoding found at its coordinates, if any. A card is
+ * a row per day, so a forecast of hours only (the Actor's hourly mode) gets none: its chip and the answer carry it.
+ */
 function toForecasts(parts: readonly AnyToolPart[]): { forecast: Forecast; placeName: string | undefined }[] {
   const places: Place[] = parts.flatMap((part) =>
     part.type === "tool-geocode_location" && part.state === "output-available" ? part.output.result.candidates : [],
@@ -89,6 +92,9 @@ function toForecasts(parts: readonly AnyToolPart[]): { forecast: Forecast; place
       return [];
     }
     const forecast = (part.output as { result: Forecast }).result;
+    if (forecast.days.length === 0) {
+      return [];
+    }
     const place = places.find(
       (candidate) =>
         Math.abs(candidate.latitude - forecast.latitude) <= SAME_PLACE_DEGREES &&

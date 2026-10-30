@@ -2,8 +2,8 @@
 
 > **Status:** steps 1 to 5 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
 > through `REST · no auth`, `MCP · no auth` through our own MCP server, and errors and logs. Step 6, `REST · with
-> auth`, is built: Apify's weather Actor with a token, falling back to `REST · no auth`; its check on the live site is
-> next. Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and
+> auth`, is built and live with the token: Apify's weather Actor, falling back to `REST · no auth`; its last check
+> is next. Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and
 > `REST · with auth` an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 
 Nimbus is a weather chatbot on Vercel. You ask about the weather in plain words and see every tool call it makes,
@@ -86,26 +86,26 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 106 files in 320ms. No fixes applied.
+Checked 107 files in 246ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  31 passed (31)
-      Tests  198 passed (198)
+ Test Files  32 passed (32)
+      Tests  204 passed (204)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 53ms
+✓ Running next.config.ts took 31ms
   Creating an optimized production build ...
-✓ Compiled successfully in 3.1s
+✓ Compiled successfully in 1064ms
   Running TypeScript ...
-  Finished TypeScript in 953ms ...
+  Finished TypeScript in 590ms ...
   Collecting page data using 11 workers ...
   Generating static pages using 11 workers (0/15) ...
-✓ Generating static pages using 11 workers (15/15) in 2.6s
+✓ Generating static pages using 11 workers (15/15) in 1558ms
   Finalizing page optimization ...
 
 Route (app)
@@ -128,7 +128,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  48 passed (19.5s)
+  48 passed (21.7s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of

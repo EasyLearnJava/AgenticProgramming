@@ -20,10 +20,11 @@ import { hangingFetch } from "@/tests/stubs/open-meteo-stand-ins";
 
 const TOKEN = "test-token-not-real";
 const NOW = new Date("2026-10-29T16:00:00Z");
-const PARIS: ActorRunInput = {
-  locations: [{ name: "Paris", latitude: 48.85, longitude: 2.35 }],
-  forecastDays: 2,
-  mode: "hourly",
+// The input of the live check's daily run.
+const DALLAS: ActorRunInput = {
+  locations: [{ name: "Dallas", latitude: 32.78, longitude: -96.81 }],
+  forecastDays: 3,
+  mode: "daily",
 };
 
 /** A client whose fetch gives these answers; and the requests it sent, and the lines it logged. */
@@ -36,8 +37,8 @@ function clientWith(answers: ApifyAnswer[] | typeof fetch) {
 
 describe("the run's request", () => {
   it("is one POST: the token in its Authorization header, the limits in the URL, the input as its body", async () => {
-    const { client, log, requests } = clientWith([{ fixture: "actor-paris-assumed", status: 201 }]);
-    const run = await client.runActor(PARIS, { log });
+    const { client, log, requests } = clientWith([{ fixture: "actor-dallas-daily", status: 201 }]);
+    const run = await client.runActor(DALLAS, { log });
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
       method: "POST",
@@ -45,23 +46,23 @@ describe("the run's request", () => {
         "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items" +
         "?build=1.0.9&timeout=18&maxTotalChargeUsd=0.01",
       headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-      body: JSON.stringify(PARIS),
+      body: JSON.stringify(DALLAS),
     });
-    expect(run.items).toHaveLength(1);
+    expect(run.items).toHaveLength(3);
     expect(run.fetchedAt).toBe(NOW.toISOString());
   });
 
   it("records the request with the token masked: what the wire view shows; the token is never in the URL", async () => {
-    const { client, log } = clientWith([{ fixture: "actor-paris-assumed", status: 201 }]);
-    const run = await client.runActor(PARIS, { log });
+    const { client, log } = clientWith([{ fixture: "actor-dallas-daily", status: 201 }]);
+    const run = await client.runActor(DALLAS, { log });
     expect(run.request.headers).toEqual({ authorization: "Bearer <APIFY_TOKEN>", "content-type": "application/json" });
     expect(JSON.stringify(run.request)).not.toContain(TOKEN);
     expect(run.request.url).not.toContain("token");
   });
 
   it("writes one upstream.http line: the host, the status, the time, one try; never the token", async () => {
-    const { client, log, lines } = clientWith([{ fixture: "actor-paris-assumed", status: 201 }]);
-    await client.runActor(PARIS, { log });
+    const { client, log, lines } = clientWith([{ fixture: "actor-dallas-daily", status: 201 }]);
+    await client.runActor(DALLAS, { log });
     expect(lines).toEqual([
       expect.objectContaining({
         level: "info",
@@ -71,7 +72,7 @@ describe("the run's request", () => {
         status: "ok",
         httpStatus: 201,
         attempts: 1,
-        items: 1,
+        items: 3,
       }),
     ]);
     expect(JSON.stringify(lines)).not.toContain(TOKEN);
@@ -81,7 +82,7 @@ describe("the run's request", () => {
 describe("a failed run", () => {
   it("a token Apify doesn't accept: AuthError, with Apify's own words, as its real 401 answer gives them", async () => {
     const { client, log, lines } = clientWith([{ fixture: "error-401-fake-token", status: 401 }]);
-    const error = await client.runActor(PARIS, { log }).catch((caught: unknown) => caught);
+    const error = await client.runActor(DALLAS, { log }).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(AuthError);
     expect((error as Error).message).toBe(
       "Apify answered 401: user-or-token-not-found (User was not found or authentication token is not valid).",
@@ -99,13 +100,13 @@ describe("a failed run", () => {
     ] as const;
     for (const [answer, errorClass] of cases) {
       const { client, log } = clientWith([answer]);
-      await expect(client.runActor(PARIS, { log })).rejects.toBeInstanceOf(errorClass);
+      await expect(client.runActor(DALLAS, { log })).rejects.toBeInstanceOf(errorClass);
     }
   });
 
   it("refused input: ContractError, with Apify's error type only, since its message can quote the input", async () => {
-    const { client, log } = clientWith([apifyError(400, "invalid-input", "Input is not valid: Paris, 48.85")]);
-    const error = await client.runActor(PARIS, { log }).catch((caught: unknown) => caught);
+    const { client, log } = clientWith([apifyError(400, "invalid-input", "Input is not valid: Dallas, 32.78")]);
+    const error = await client.runActor(DALLAS, { log }).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ContractError);
     expect((error as Error).message).toBe("Apify refused the run with 400: invalid-input.");
   });
@@ -113,7 +114,7 @@ describe("a failed run", () => {
   it("an answer that isn't a list of items, or isn't JSON: ContractError", async () => {
     for (const body of ['{"items": []}', "not json"]) {
       const { client, log } = clientWith([() => new Response(body, { status: 201 })]);
-      await expect(client.runActor(PARIS, { log })).rejects.toBeInstanceOf(ContractError);
+      await expect(client.runActor(DALLAS, { log })).rejects.toBeInstanceOf(ContractError);
     }
   });
 
@@ -122,12 +123,14 @@ describe("a failed run", () => {
       throw new TypeError("fetch failed");
     }) as typeof fetch;
     const unreachable = clientWith(refusing);
-    const error = await unreachable.client.runActor(PARIS, { log: unreachable.log }).catch((caught: unknown) => caught);
+    const error = await unreachable.client
+      .runActor(DALLAS, { log: unreachable.log })
+      .catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(UpstreamUnavailableError);
     expect((error as Error).cause).toBeInstanceOf(TypeError);
     const slow = clientWith(hangingFetch);
     await expect(
-      slow.client.runActor(PARIS, { log: slow.log, signal: AbortSignal.timeout(20) }),
+      slow.client.runActor(DALLAS, { log: slow.log, signal: AbortSignal.timeout(20) }),
     ).rejects.toBeInstanceOf(UpstreamTimeoutError);
   });
 
@@ -144,7 +147,7 @@ describe("a failed run", () => {
         { status: 201 },
       );
     const { client, log, lines } = clientWith([arriving]);
-    const pending = client.runActor(PARIS, { log, signal: controller.signal });
+    const pending = client.runActor(DALLAS, { log, signal: controller.signal });
     controller.abort(Object.assign(new Error("Closed."), { name: "ResponseAborted" }));
     await expect(pending).rejects.toMatchObject({ name: "ResponseAborted" });
     expect(lines).toEqual([]);
@@ -153,7 +156,7 @@ describe("a failed run", () => {
   it("a stop is passed on as it is, and not logged", async () => {
     const { client, log, lines } = clientWith(hangingFetch);
     const controller = new AbortController();
-    const pending = client.runActor(PARIS, { log, signal: controller.signal });
+    const pending = client.runActor(DALLAS, { log, signal: controller.signal });
     controller.abort(Object.assign(new Error("Closed."), { name: "ResponseAborted" }));
     await expect(pending).rejects.toMatchObject({ name: "ResponseAborted" });
     expect(lines).toEqual([]);

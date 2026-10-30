@@ -1,8 +1,9 @@
 /*
  * tests/stubs/apify-stand-ins.ts: what the Apify client gets in the tests instead of the network: a fetch that answers
- * from tests/fixtures/apify/ and records each request it was given. Two fixtures there: Apify's real answer to a fake
- * token (PLAN.md section 3, row 13), and the Actor's answer for Paris in its assumed shape (its README's per-location
- * record, holding Open-Meteo's real Paris answer), until a real run replaces it (step 6).
+ * from tests/fixtures/apify/ and records each request it was given. The fixtures there are real: Apify's answer to a
+ * fake token (PLAN.md section 3, row 13), and the Actor's answers for Dallas from the live check on 29 October 2026
+ * (build 1.0.9): 3 days in daily mode (run YkHk86C21n7Ze4FJI) and 1 day in hourly mode (run hqYzy1J0NhcCENCeX), copied
+ * from the runs' output in Apify Console.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";

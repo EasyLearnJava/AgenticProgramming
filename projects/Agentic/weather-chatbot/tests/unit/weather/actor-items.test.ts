@@ -1,85 +1,123 @@
 /*
- * tests/unit/weather/actor-items.test.ts: the Actor's items as our Forecast, against the Actor's answer for Paris in
- * its assumed shape (tests/fixtures/apify/), which holds Open-Meteo's real Paris answer: the same days and hours as
- * get_forecast gives for that answer, °F when asked, and a ContractError for any other shape, naming the field only.
+ * tests/unit/weather/actor-items.test.ts: the Actor's items as our Forecast, against its real answers for Dallas
+ * (tests/fixtures/apify/, from the live check on 29 October 2026): its days in daily mode, its hours (and no days) in
+ * hourly mode, °F when asked; and a ContractError for any other answer, naming the field and never its value.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ContractError } from "@/lib/errors";
-import { createOpenMeteoClient } from "@/lib/upstream/open-meteo";
-import { toForecast } from "@/lib/weather/actor-items";
-import { getForecast } from "@/lib/weather/tools/get-forecast";
-import { createFakeFetch, createMemoryCache } from "@/tests/stubs/open-meteo-stand-ins";
+import { type ActorAsk, toForecast } from "@/lib/weather/actor-items";
 
 const FETCHED_AT = "2026-10-29T16:00:00.000Z";
-const ITEMS: unknown[] = JSON.parse(
-  readFileSync(path.join(import.meta.dirname, "..", "..", "fixtures", "apify", "actor-paris-assumed.json"), "utf8"),
-);
-const [ITEM] = ITEMS as Record<string, unknown>[];
+// The place the lane sent, which the Actor echoes in each item.
+const DALLAS = { latitude: 32.78, longitude: -96.81 };
+const DAILY_ASK: ActorAsk = { place: DALLAS, mode: "daily", forecastDays: 3, units: "metric", fetchedAt: FETCHED_AT };
+const HOURLY_ASK: ActorAsk = { place: DALLAS, mode: "hourly", forecastDays: 1, units: "metric", fetchedAt: FETCHED_AT };
 
-/** The Actor's item with some of its fields changed. */
-function itemWith(fields: Record<string, unknown>): unknown[] {
-  return [{ ...ITEM, ...fields }];
+/** One of the Actor's real answers, from tests/fixtures/apify/. */
+function readItems(name: string): Record<string, unknown>[] {
+  return JSON.parse(
+    readFileSync(path.join(import.meta.dirname, "..", "..", "fixtures", "apify", `${name}.json`), "utf8"),
+  );
 }
 
-describe("toForecast", () => {
-  it("gives the same days and hours as get_forecast does for the same Open-Meteo answer", async () => {
-    const openMeteo = createOpenMeteoClient({
-      fetch: createFakeFetch([{ fixture: "forecast-paris" }]).fetch,
-      cache: createMemoryCache(),
-      random: () => 0,
+const DAILY = readItems("actor-dallas-daily");
+const HOURLY = readItems("actor-dallas-hourly");
+
+/** The ContractError's message that reading these items gives, or "no error". */
+function refusal(items: unknown[], ask: ActorAsk): string {
+  try {
+    toForecast(items, ask);
+  } catch (error) {
+    expect(error).toBeInstanceOf(ContractError);
+    return (error as Error).message;
+  }
+  return "no error";
+}
+
+describe("toForecast, daily", () => {
+  it("gives a day per item: its weekday, our words for its code, its temperatures, rain, sunrise and sunset", () => {
+    const forecast = toForecast(DAILY, DAILY_ASK);
+    expect(forecast).toMatchObject({ latitude: 32.78, longitude: -96.81, timeZone: "America/Chicago" });
+    expect(forecast).toMatchObject({ temperatureUnit: "°C", hours: undefined, fetchedAt: FETCHED_AT });
+    expect(forecast.days).toEqual([
+      {
+        date: "2026-10-29",
+        weekday: "Thursday",
+        condition: "Overcast",
+        icon: "☁️",
+        temperatureMin: 19.8,
+        temperatureMax: 26.6,
+        rainChancePercent: 17,
+        sunrise: "2026-10-29T07:42",
+        sunset: "2026-10-29T18:38",
+      },
+      expect.objectContaining({ date: "2026-10-30", condition: "Light drizzle", rainChancePercent: 13 }),
+      expect.objectContaining({ date: "2026-10-31", temperatureMin: 16.7, temperatureMax: 24, rainChancePercent: 45 }),
+    ]);
+  });
+
+  it("gives °F when asked, from the Actor's °C, to a tenth of a degree", () => {
+    const forecast = toForecast(DAILY, { ...DAILY_ASK, units: "imperial" });
+    expect(forecast.temperatureUnit).toBe("°F");
+    expect(forecast.days.map((day) => [day.temperatureMin, day.temperatureMax])).toEqual([
+      [67.6, 79.9],
+      [67.3, 76.1],
+      [62.1, 75.2],
+    ]);
+  });
+});
+
+describe("toForecast, hourly", () => {
+  it("gives an hour per item, from the place's midnight, and no days: hourly mode gives no day's summary", () => {
+    const forecast = toForecast(HOURLY, HOURLY_ASK);
+    expect(forecast.days).toEqual([]);
+    expect(forecast.hours).toHaveLength(24);
+    expect(forecast.hours?.[0]).toEqual({
+      time: "2026-10-29T00:00",
+      temperature: 22.2,
+      rainChancePercent: 0,
+      condition: "Clear sky",
     });
-    const viaOpenMeteo = await getForecast.run(
-      { latitude: 48.85341, longitude: 2.3488, days: 2, includeHourly: true, units: "metric" },
-      { openMeteo },
+    expect(forecast.hours?.[20]).toEqual({
+      time: "2026-10-29T20:00",
+      temperature: 20.6,
+      rainChancePercent: 17,
+      condition: "Overcast",
+    });
+    expect(toForecast(HOURLY, { ...HOURLY_ASK, units: "imperial" }).hours?.[0]?.temperature).toBe(72);
+  });
+});
+
+describe("toForecast, refusing", () => {
+  it("refuses an answer in the other mode's shape, naming the fields it lacks", () => {
+    expect(refusal(HOURLY, { ...DAILY_ASK, forecastDays: 1 })).toBe(
+      "The Actor's daily items aren't the shape we read: date, temp_max_c, temp_min_c, sunrise, sunset.",
     );
-    const viaActor = toForecast(ITEMS, { units: "metric", fetchedAt: FETCHED_AT });
-    expect(viaActor.days).toEqual(viaOpenMeteo.output.days);
-    expect(viaActor.hours).toEqual(viaOpenMeteo.output.hours);
-    expect(viaActor).toMatchObject({
-      latitude: 48.85,
-      longitude: 2.35,
-      timeZone: "Europe/Paris",
-      temperatureUnit: "°C",
-    });
-    expect(viaActor.fetchedAt).toBe(FETCHED_AT);
+    expect(refusal(DAILY, { ...HOURLY_ASK, forecastDays: 3 })).toBe(
+      "The Actor's hourly items aren't the shape we read: datetime, temperature_c.",
+    );
   });
 
-  it("gives °F when asked, since the Actor answers in °C only", () => {
-    const metric = toForecast(ITEMS, { units: "metric", fetchedAt: FETCHED_AT });
-    const imperial = toForecast(ITEMS, { units: "imperial", fetchedAt: FETCHED_AT });
-    expect(imperial.temperatureUnit).toBe("°F");
-    expect([metric.days[0]?.temperatureMax, imperial.days[0]?.temperatureMax]).toEqual([15.6, 60.1]);
-    expect(imperial.days[0]?.rainChancePercent).toBe(metric.days[0]?.rainChancePercent);
+  it("names a field whose value is wrong, never the value, nor which item it was in", () => {
+    const wrong = DAILY.map((item, i) => (i === 2 ? { ...item, temp_max_c: "twenty-four" } : item));
+    expect(refusal(wrong, DAILY_ASK)).toBe("The Actor's daily items aren't the shape we read: temp_max_c.");
   });
 
-  it("refuses any other shape, naming the field and never its value", () => {
-    const refusals: [unknown[], string][] = [
-      [[], "The Actor gave 0 items for one location."],
-      [[ITEM, ITEM], "The Actor gave 2 items for one location."],
-      [
-        itemWith({ daily: undefined, hourly: undefined }),
-        "The Actor's item isn't the shape we read: no daily or hourly data.",
-      ],
-      [itemWith({ timezone: 42 }), "The Actor's item isn't the shape we read: timezone."],
-      [
-        itemWith({ daily: { ...(ITEM?.daily as object), time: [1, 2] } }),
-        "The Actor's item isn't the shape we read: daily.time.",
-      ],
-      [itemWith({ daily_units: { temperature_2m_max: "°F" } }), "The Actor's temperature unit isn't °C."],
-    ];
-    for (const [items, message] of refusals) {
-      const error = (() => {
-        try {
-          toForecast(items, { units: "metric", fetchedAt: FETCHED_AT });
-        } catch (caught) {
-          return caught;
-        }
-        return undefined;
-      })();
-      expect(error).toBeInstanceOf(ContractError);
-      expect((error as Error).message).toBe(message);
-    }
+  it("refuses no items, an answer for another place, even all of it, and a missing, doubled or skipped day", () => {
+    expect(refusal([], DAILY_ASK)).toBe("The Actor gave no items.");
+    const oneElsewhere = DAILY.map((item, i) => (i === 1 ? { ...item, location: "Austin", latitude: 30.27 } : item));
+    expect(refusal(oneElsewhere, DAILY_ASK)).toBe("The Actor's items aren't all for the one place asked.");
+    const allElsewhere = DAILY.map((item) => ({ ...item, location: "Austin", latitude: 30.27, longitude: -97.74 }));
+    expect(refusal(allElsewhere, DAILY_ASK)).toBe("The Actor's items aren't all for the one place asked.");
+    expect(refusal([DAILY[0], DAILY[2]], { ...DAILY_ASK, forecastDays: 2 })).toBe(
+      "The Actor's days don't follow one another.",
+    );
+    expect(refusal(DAILY.slice(0, 2), DAILY_ASK)).toBe("The Actor gave 2 days for the 3 asked.");
+    expect(refusal([DAILY[0], DAILY[0], DAILY[1]], { ...DAILY_ASK, forecastDays: 2 })).toBe(
+      "The Actor gave a day twice.",
+    );
+    expect(refusal(HOURLY, { ...HOURLY_ASK, forecastDays: 2 })).toBe("The Actor gave 1 day for the 2 asked.");
   });
 });
