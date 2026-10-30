@@ -2,10 +2,25 @@
  * tests/unit/logger.test.ts: what a log line holds: the build's fields, the level as a word, the time; a request's own
  * fields on its child; secrets redacted; and a failure at its class's level, with its cause.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ContractError, UnexpectedError, UpstreamTimeoutError } from "@/lib/errors";
-import { logFailure, toLaneFields } from "@/lib/logger";
+import { flushLogs, logFailure, toLaneFields } from "@/lib/logger";
 import { createTestLog } from "@/tests/stubs/log-stand-ins";
+
+// Sentry, swapped for one that keeps what it's given, and each time it's asked to send.
+const { captured, flushes } = vi.hoisted(() => ({
+  captured: [] as { error: unknown; context: unknown }[],
+  flushes: [] as number[],
+}));
+vi.mock("@sentry/nextjs", () => ({
+  captureException: (error: unknown, context: unknown) => {
+    captured.push({ error, context });
+  },
+  flush: async (timeoutMs: number) => {
+    flushes.push(timeoutMs);
+    return true;
+  },
+}));
 
 describe("createLogger", () => {
   it("writes one JSON object a line: the time, the level as a word, the build's environment, and the fields", () => {
@@ -88,5 +103,65 @@ describe("logFailure", () => {
     const cause = new Error("x".repeat(1000));
     logFailure(log, "chat.failed", new UpstreamTimeoutError("Our MCP server didn't connect.", { cause }));
     expect(String(lines[0]?.cause)).toHaveLength(300);
+  });
+});
+
+describe("logFailure and Sentry", () => {
+  it("sends a failure logged as an error to Sentry, tagged with its request's id and ref; a warning, not", () => {
+    captured.length = 0;
+    const { log } = createTestLog();
+    const chat = log.child({
+      requestId: "iad1::abc-1730-7f3a9c01",
+      route: "/api/chat",
+      chatId: "c1",
+      lane: "mcp-no-auth",
+    });
+    const bug = new UnexpectedError("Cannot read properties of undefined");
+    logFailure(chat, "chat.failed", bug, { ms: 12 });
+    logFailure(chat, "tool.call", new UpstreamTimeoutError("Open-Meteo didn't answer in time."));
+    const mcp = log.child({
+      requestId: "iad1::abc-1730-7f3a9c01",
+      invocationId: "x",
+      route: "/api/mcp",
+      tool: "get_forecast",
+    });
+    const contract = new ContractError("Open-Meteo's answer has no hourly times.");
+    logFailure(mcp, "mcp.call", contract);
+    expect(captured).toEqual([
+      {
+        error: bug,
+        context: {
+          tags: {
+            event: "chat.failed",
+            requestId: "iad1::abc-1730-7f3a9c01",
+            ref: "7f3a9c01",
+            route: "/api/chat",
+            lane: "mcp-no-auth",
+          },
+          extra: { ms: 12 },
+        },
+      },
+      {
+        error: contract,
+        context: {
+          tags: {
+            event: "mcp.call",
+            requestId: "iad1::abc-1730-7f3a9c01",
+            ref: "7f3a9c01",
+            route: "/api/mcp",
+            tool: "get_forecast",
+          },
+          extra: {},
+        },
+      },
+    ]);
+  });
+});
+
+describe("flushLogs", () => {
+  it("asks Sentry to send the errors it holds, within 2 s; Axiom, not set up here, has nothing to send", async () => {
+    flushes.length = 0;
+    await expect(flushLogs()).resolves.toBeUndefined();
+    expect(flushes).toEqual([2000]);
   });
 });

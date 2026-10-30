@@ -24,7 +24,7 @@ describe("next.config.ts", () => {
   });
 
   it("keeps BotID off away from Vercel, where no challenge is served", () => {
-    expect(nextConfig.env).toEqual({ NEXT_PUBLIC_BOTID: "off" });
+    expect(nextConfig.env?.NEXT_PUBLIC_BOTID).toBe("off");
   });
 
   it("keeps BotID off on Vercel too, until real browsers pass its check (issue 111)", async () => {
@@ -32,6 +32,6 @@ describe("next.config.ts", () => {
     vi.resetModules();
     const { default: builtOnVercel } = await import("@/next.config");
     vi.unstubAllEnvs();
-    expect(builtOnVercel.env).toEqual({ NEXT_PUBLIC_BOTID: "off" });
+    expect(builtOnVercel.env?.NEXT_PUBLIC_BOTID).toBe("off");
   });
 });

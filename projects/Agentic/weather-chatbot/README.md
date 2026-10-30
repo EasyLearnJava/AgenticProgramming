@@ -4,7 +4,7 @@
 > through `REST · no auth`, `MCP · no auth` through our own MCP server, errors and logs, `REST · with auth` through
 > Apify's weather Actor, with a token, and `MCP · with auth`, the same Actor through Apify's MCP server. Step 8 is
 > built: the security headers, and BotID on the chat, switched off for now (issue 111); its firewall rules are set in
-> Vercel's dashboard. Live at
+> Vercel's dashboard. Step 9 has begun: our logger's lines go to Axiom, and its errors to Sentry. Live at
 > https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and the auth lanes
 > an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 
@@ -43,14 +43,14 @@ steps.
 
 | Folder or file | What's in it |
 |---|---|
-| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the issues log (`issues/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
+| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the issues log (`issues/`), the interview guide (`interview/`), the to-do list (`todo/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
 | `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), the system design's diagram, and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
 | `hooks/` | The React hook that asks for the nearby city |
-| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo and Apify (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
-| `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`) and the issues log (`issues.md`) |
+| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`), the lines' trip to Axiom (`log-shipper.ts`) and Sentry's settings (`sentry.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo and Apify (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
+| `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`), the issues log (`issues.md`), the interview guide (`interview.md`) and the to-do list (`todo.md`) |
 | `tests/` | The unit tests (`unit/`), Open-Meteo's and Apify's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
-| Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts` (the security headers), `instrumentation-client.ts` (BotID's page side), `vercel.json` (Vercel tells the chat when the page goes), `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
+| Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts` (the security headers; Sentry's build step), `instrumentation.ts` (Sentry, started on the server), `instrumentation-client.ts` (BotID's page side), `vercel.json` (Vercel tells the chat when the page goes), `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
 
 CI lives at the repository's root, in `.github/workflows/weather-chatbot.yml`.
 
@@ -92,26 +92,30 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 118 files in 391ms. No fixes applied.
+Checked 123 files in 438ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  36 passed (36)
-      Tests  257 passed (257)
+ Test Files  38 passed (38)
+      Tests  266 passed (266)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 156ms
+✓ Running next.config.ts took 841ms
+- Experiments (use with caution):
+  · clientTraceMetadata
   Creating an optimized production build ...
-✓ Compiled successfully in 3.4s
+✓ Compiled successfully in 4.5s
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 461ms
   Running TypeScript ...
-  Finished TypeScript in 619ms ...
+  Finished TypeScript in 760ms ...
   Collecting page data using 13 workers ...
-  Generating static pages using 13 workers (0/19) ...
-✓ Generating static pages using 13 workers (19/19) in 3.6s
+  Generating static pages using 13 workers (0/20) ...
+✓ Generating static pages using 13 workers (20/20) in 4.6s
   Finalizing page optimization ...
 
 Route (app)
@@ -125,7 +129,7 @@ Route (app)
 │ ├ ● /docs/step-1
 │ ├ ● /docs/step-2
 │ ├ ● /docs/step-3
-│ └ ● [+5 more paths]
+│ └ ● [+6 more paths]
 ├ ○ /interview
 ├ ○ /issues
 ├ ○ /system-design
@@ -136,7 +140,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  54 passed (29.4s)
+  54 passed (32.9s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -175,6 +179,12 @@ HTTPS goes through its own certificate, add `NODE_OPTIONS=--use-system-ca` so No
    Automation secret skips the rules after it, and BotID; the chat's own calls to `/api/mcp` carry it. Second, a
    **rate limit**: a request whose path starts with `/api/`, 20 a minute per IP address, then denied with `429`.
    BotID itself needs no setting.
+8. For step 9's observability: in Axiom (axiom.co), make a dataset, `weather-chatbot`, and an API token that can only
+   ingest into it, and add them as `AXIOM_TOKEN` (type **Sensitive**) and `AXIOM_DATASET`. In Sentry (sentry.io),
+   make a Next.js project, `weather-chatbot`, and an organization auth token, and add `SENTRY_DSN` (the project's
+   **Client Keys (DSN)**), `SENTRY_AUTH_TOKEN` (**Sensitive**), `SENTRY_ORG` and `SENTRY_PROJECT`. All for
+   Production; then redeploy. Without them, the lines stay in Vercel's logs, and Sentry stays off. The app sends to
+   Axiom's US deployment: an organization in the EU changes `AXIOM_INGEST_HOST` in `lib/constants.ts`.
 
 ## Read the logs
 
@@ -187,6 +197,11 @@ it ends (`chat.done`, or how it stopped or failed). Every line carries the reque
 sentence ends with the ref, the id's last 8 characters: search the logs for it. `LOG_LEVEL` (`info` unless set) says
 how much to log. A line never holds your question (only its length), a token or a key.
 
+With Axiom set up (step 9), each of these lines also goes to the `weather-chatbot` dataset, in one batch at each
+request's end, and stays there long past Vercel's hour: `['weather-chatbot'] | where requestId endswith "<ref>"` finds
+a request's lines from both functions. Every failure logged as an error also goes to Sentry, tagged with its request
+id and ref, with nothing private: no question, header or address.
+
 ## Use the MCP server
 
 `/api/mcp` is a public MCP server with the four weather tools; any MCP client that speaks Streamable HTTP can use it,
@@ -198,5 +213,6 @@ for example in Claude or Cursor:
 
 ## Next
 
-Step 8's live check, then its Content Security Policy enforced and the firewall rules checked once you've set them;
-then step 9 in [PLAN.md](PLAN.md): observability.
+Step 9's part 2 in [PLAN.md](PLAN.md): `/api/health` for the four lanes, and the status dots; then part 3:
+dashboards, alerts, traces and an uptime monitor. Step 8's Content Security Policy is enforced once BotID's state is
+settled, and its firewall rules checked once you've set them.

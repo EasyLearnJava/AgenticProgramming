@@ -161,7 +161,7 @@
       }
     },
     {
-      "includes": ["playwright.config.ts"],
+      "includes": ["playwright.config.ts", "lib/sentry.ts", "tests/unit/sentry.test.ts"],
       "linter": {
         "rules": {
           "style": {

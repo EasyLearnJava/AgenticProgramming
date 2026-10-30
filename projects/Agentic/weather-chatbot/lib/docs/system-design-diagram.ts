@@ -252,7 +252,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     width: 320,
     height: 80,
     title: "Observability",
-    lines: ["pino lines → Vercel's logs", "one request id, both functions"],
+    lines: ["pino lines → Vercel, Axiom", "errors → Sentry · one request id"],
   },
   {
     band: "D",

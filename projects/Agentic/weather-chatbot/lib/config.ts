@@ -9,7 +9,8 @@ import { z } from "zod";
 // Git, the deployment's id and own addresses (its URL, its branch's, the project's production domain) on every
 // deployment, and the bypass secret when the project's Protection Bypass for Automation is on; you set the Gemini key
 // and Apify's token, in Vercel's project settings or in .env.local on a laptop, and LOG_LEVEL if you want more or fewer
-// log lines.
+// log lines; and, for step 9, Axiom's token and dataset, which get the log lines, and Sentry's DSN, which gets the
+// errors.
 const EnvSchema = z.object({
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
@@ -22,6 +23,9 @@ const EnvSchema = z.object({
   CHAT_MODEL: z.string().optional(),
   APIFY_TOKEN: z.string().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
+  AXIOM_TOKEN: z.string().optional(),
+  AXIOM_DATASET: z.string().optional(),
+  SENTRY_DSN: z.string().optional(),
 });
 
 /** How much the app logs: pino's levels, from "fatal" (least) to "trace" (most), or "silent" (nothing). */
@@ -34,6 +38,7 @@ export type Config = {
   apify: { token: string | undefined };
   deployment: { id: string | undefined; url: string | undefined; hosts: string[] };
   log: { level: LogLevel };
+  observability: { axiom: { token: string; dataset: string } | undefined; sentryDsn: string | undefined };
 };
 
 const SHORT_COMMIT_LENGTH = 7;
@@ -64,6 +69,14 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
       ),
     },
     log: { level: parsed.LOG_LEVEL ?? "info" },
+    observability: {
+      // The log lines go to Axiom only when both its token and its dataset are set.
+      axiom:
+        parsed.AXIOM_TOKEN !== undefined && parsed.AXIOM_DATASET !== undefined
+          ? { token: parsed.AXIOM_TOKEN, dataset: parsed.AXIOM_DATASET }
+          : undefined,
+      sentryDsn: parsed.SENTRY_DSN,
+    },
   };
 }
 

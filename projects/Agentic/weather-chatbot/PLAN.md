@@ -490,8 +490,8 @@ The latest versions on npm on 2026-10-29. Step 1 pins them exactly and checks th
 | Cache and platform helpers | `@vercel/functions` | 3.10.4 | `getCache` (Runtime Cache, all plans), `waitUntil`, `getDeadline`, `geolocation`, `metric` |
 | Bot check | Vercel BotID (`botid`) | 1.5.12 | An invisible check on `/api/chat`; Basic is free |
 | Rate limit | Vercel WAF rules | — | A bypass rule for our own traffic, then Hobby's one rate-limit rule on `/api/*` (9.4) |
-| Logs | pino, shipped to Axiom with `@axiomhq/js` | 10.4.0, 2.0.0 | Fields and redaction in one place; history, search, dashboards, alerts |
-| Errors | Sentry (`@sentry/nextjs`) | 11.10.0 | Stack traces with source maps, releases, alerts |
+| Logs | pino, shipped to Axiom by `lib/log-shipper.ts` (no library: 9.1) | 10.4.0 | Fields and redaction in one place; history, search, dashboards, alerts |
+| Errors | Sentry (`@sentry/nextjs`) | 11.8.0 | Stack traces with source maps, releases, alerts; step 9 took the newest release at least two weeks old (11.10.0 was two days old) |
 | Traces | OpenTelemetry (`@vercel/otel`) | 2.1.4 | AI SDK `telemetry` gives a span for each model step and tool call |
 | Tests | Vitest, Playwright, MSW | 5.0.5, 1.64.1, 3.0.3 | Unit tests, end-to-end tests, recorded HTTP |
 | Lint and format | Biome | 2.6.4 | Formats, and checks the rules in 7.10, naming included; doesn't need TypeScript's JavaScript API |
@@ -706,6 +706,8 @@ weather-chatbot/
 │   ├── config.ts                    the only file that reads process.env; checked with Zod at start-up
 │   ├── errors.ts                    the error classes, toAppError(), the user messages (9.2)
 │   ├── logger.ts                    pino: one JSON line per event, redaction, request id, lane fields (step 5); Axiom
+│   ├── log-shipper.ts               the lines to Axiom, in one batch at each request's end (step 9)
+│   ├── sentry.ts                    Sentry's settings: errors only, nothing private (step 9)
 │   ├── chat/
 │   │   ├── chat-request.ts          the Zod schema for POST /api/chat, and parseChatRequest()
 │   │   ├── model.ts                 the model: Gemini through @ai-sdk/google; the one file to change it
@@ -950,8 +952,10 @@ Each item has a test or an eval (section 10).
 
 One JSON object per line, written by pino to stdout. Vercel shows it live and keeps it for 1 hour on Hobby (at most 256
 lines per request, so each request logs a handful of lines, not dozens). For history, search, dashboards and alerts,
-every line also goes to Axiom: on Hobby the app sends it with `@axiomhq/js` and flushes in `waitUntil`, so nothing is
-lost when the function ends; on Pro, a log drain does it with no code.
+every line also goes to Axiom: on Hobby the app sends the lines itself, pino's own, as NDJSON, in one request at each
+request's end, kept alive by `waitUntil`, so nothing is lost when the function ends (`lib/log-shipper.ts`, step 9).
+`@axiomhq/js`, planned at first, takes objects, so each line would be parsed back, and batches on its own timer, in a
+function Vercel may freeze. On Pro, a log drain does it with no code.
 
 | Field | Example | Notes |
 |---|---|---|
@@ -1209,7 +1213,9 @@ each adds one thing to the one before.
    Vercel's dashboard.*
 9. [ ] **Observability:** shipping to Axiom, Sentry (moved from step 5) for every class logged at `error`, traces,
    dashboards, alerts, `/api/health` for the four lanes, the status dots, the uptime monitor. **Done when:** one request id finds the logs of both functions, the trace and the Sentry
-   event, and a forced `AuthError` plays out the rest of 5.5: the alert, and both auth lanes' red dots.
+   event, and a forced `AuthError` plays out the rest of 5.5: the alert, and both auth lanes' red dots. *Part 1 built
+   30 October 2026 (`docs/step-9.md`): every line to Axiom, in one batch at each request's end; Sentry for every
+   failure logged at `error`, with nothing private; the source maps uploaded during Production's builds.*
 10. [ ] **Evals, failure tests and the load test:** the golden questions on all four lanes (with the comparison
     report), the `CHAOS` cases and Playwright on previews in CI; the no-auth lanes' cache fallback and the amber "slow,
     retrying" chip (moved from step 5), which the `CHAOS` cases exercise; the daily contract check for `mcp-auth`; the load

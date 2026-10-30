@@ -578,8 +578,9 @@ that, by default, doesn't: check what a stop does where the code runs, not where
 
 **The request.** Any message on the live site once `d9ed4c0` was live: "vizag weather", say.
 
-**What went wrong.** Every message we sent, from two real browsers, got "We couldn't verify this browser. Please reload
-the page.", for about 25 minutes: as far as we could tell, the chat answered no one.
+**What went wrong.** Every message we sent, from one Chrome profile in two tabs (one our tools drove, one yours), got
+"We couldn't verify this browser. Please reload the page.", for about 25 minutes: as far as we could tell, the chat
+answered no one.
 
 **Why it happened.** Step 8 put Vercel's BotID in front of the chat. Its page side ran (its script loaded, the page's
 `fetch` wrapped), so each message carried BotID's answer, and its check on the server still called the browser a bot;
@@ -588,8 +589,9 @@ why is being traced. It reached users because nothing before them sent a real me
 line.
 
 **How we traced it.** The live check after the deploy sent one real message, from a Chrome tab our tools drove, and
-got the refusal; the page showed BotID running. Since a driven browser may look like a bot, the user tried their own:
-refused too.
+got the refusal; the page showed BotID running. Since a driven browser may look like a bot, the user tried their own
+tab: refused too. It was the same Chrome profile, though, with the extension our tools drive it with, so it didn't
+rule the extension out.
 
 **How we fixed it.** A kill switch: one line in `next.config.ts` turns BotID off everywhere, on the page and on the
 server (`810a981`). It was live two minutes later, and the chat answered again; the security headers stayed.
@@ -1116,7 +1118,8 @@ browser tests never ask the server.
      `tests/unit/instrumentation-client.test.ts`.
 111. **BotID refused real browsers, so the chat answered no one.** *Deploying* (step 8's live check). Once `d9ed4c0`
      was live, a message from a real browser got "We couldn't verify this browser": first from a Chrome tab our tools
-     drove, then from yours. BotID's page side was running (its script loaded, `fetch` wrapped), so each message
+     drove, then from yours, in the same Chrome profile. BotID's page side was running (its script loaded, `fetch`
+     wrapped), so each message
      carried BotID's answer, and BotID's check still called it a bot. The browser tests hadn't seen it: they answer
      `/api/chat` in the page, so no real message reaches the route. **Fix, for now:** BotID is off everywhere
      (`NEXT_PUBLIC_BOTID` is "off" in `next.config.ts`), the security headers stay; why real browsers fail its check
@@ -1126,3 +1129,44 @@ browser tests never ask the server.
      between the model's steps it showed nothing moving. **Fix:** a turning ring beside the text, shown from Send until
      the answer's first words, through its tool calls (`isAwaitingWords()` in `lib/utils.ts`); it stands still for
      those who ask for less motion. **Check:** `tests/unit/utils.test.ts`, `tests/e2e/chat-page.spec.ts`.
+
+## Step 9 · Observability: Axiom and Sentry
+
+113. **Sentry 11 moved its build step.** *Checking our work* (the typecheck: `next typegen` stopped at
+     "withSentryConfig is not a function"). In Sentry's version 11, `withSentryConfig` lives in
+     `@sentry/nextjs/config`; the package's main entry no longer has it. **Fix:** `next.config.ts` imports it from
+     there. **Check:** `npm run typecheck`, `npm run build`.
+114. **Sentry would have kept the question.** *Reading a package's code* (`@sentry/nextjs` 11.8.0). Version 11 dropped
+     `sendDefaultPii`, the setting first written to keep personal data out, so it did nothing; its new
+     `dataCollection` collects everything unless told not to: IP addresses, cookies, request and response headers and
+     bodies (the chat's body holds the question), query strings, AI prompts and answers, and a stack frame's
+     variables. The first failure in a chat would have sent its question to Sentry. **Fix:** `lib/sentry.ts` turns
+     each one off, and keeps no breadcrumbs, since an outgoing call's address can hold a place's name. **Check:**
+     `tests/unit/sentry.test.ts`.
+115. **Sentry's trace headers would have gone to every service we call.** *Reading a package's code.* Sentry decides
+     whether to add its `sentry-trace` and `baggage` headers to a request the server makes by
+     `tracePropagationTargets`, and with none set, it adds them to every one: Gemini, Open-Meteo and Apify would get
+     our release, our Sentry key's public half and a trace id. **Fix:** `tracePropagationTargets: []`, in
+     `lib/sentry.ts`. **Check:** `tests/unit/sentry.test.ts`.
+116. **Sentry's build step made the page's source maps without a token.** *Reading a package's code.* For a Turbopack
+     build, `withSentryConfig` turns the page's source maps on, whether or not it has a token to upload them with; on
+     a laptop, in CI or on a preview it has none. It also wrote a list of our routes into the page's script, which
+     only Sentry in the browser reads, and ours runs on the server only. **Fix:** no source maps without Sentry's
+     token (`sourcemaps.disable`), and no list (`routeManifestInjection: false`). **Check:** after `npm run build`,
+     `.next/static/chunks` holds no `.map` file and no list.
+117. **Sentry's names met two of our checks.** *Checking our work* (lint, and the unit tests). Its `genAI` setting has
+     two capitals in a row, which our naming rule refuses: it's allowed in `lib/sentry.ts` and its test, as
+     Playwright's names are in its config. And `withSentryConfig` adds four `_sentry…` entries to `next.config.ts`'s
+     `env` (the release among them), where two tests expected BotID's switch alone: they check the switch itself now.
+     **Check:** `npm run lint`, `tests/unit/next-config.test.ts`.
+118. **`npm audit` reports 4 "high" findings, all one old zod.** *Checking our work* (`npm audit`, while adding Sentry,
+     which adds none: they were there before). `@vercel/functions` 3.10.4 → `@vercel/oidc` 4.0.4 →
+     `@vercel/cli-config` 0.3.4, which pins zod 4.1.11; below 4.6.6, zod can exhaust memory checking oversized
+     collections (GHSA-mrhx-c7xc-m3w5). That copy only reads the Vercel CLI's own files, never a user's input; our own
+     checks use zod 4.6.7. `npm audit fix --force` would take `@vercel/functions` back to 3.6.1, a breaking change.
+     **Fix, next:** an npm override for that one package, or `@vercel/functions`' next release (on the To do page).
+     **Check:** `npm audit --omit=dev`.
+119. **The shipper never read Axiom's reply.** *Review, low.* Node's `fetch` keeps the connection of a reply nobody
+     reads until the reply is collected, and a warm function sends a batch at the end of every request. **Fix:** the
+     reply is let go (`body.cancel()`) once its status is read; if that fails, it's let pass, since the status has
+     already said how the batch went. **Check:** `tests/unit/log-shipper.test.ts`, which failed before the fix.

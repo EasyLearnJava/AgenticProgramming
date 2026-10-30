@@ -17,7 +17,11 @@ with its fix.
 ## What makes it production grade
 
 - **One request, followed end to end.** Every request gets an id (Vercel's own), every log line carries it, our MCP
-  server's lines too, and an error's sentence ends with its last 8 characters, so a user's screenshot finds the logs.
+  server's lines too, and an error's sentence ends with its last 8 characters, so a user's screenshot finds the logs,
+  kept in Axiom, and the error, in Sentry, where the ref is a tag.
+- **Observability that keeps the question private.** The lines go to Axiom in one batch at each request's end, kept
+  alive past the answer by `waitUntil`; errors go to Sentry, whose version 11 collects bodies, headers and AI prompts
+  unless told not to, so each is turned off, and its trace headers stay off our calls to other services.
 - **Time budgets on every hop.** 50 s for an answer (the function stops at 60), 10 s for the model's first chunk, 8 s
   for a tool, 20 s for an Actor run (25 on MCP, which may connect first), 3 s to connect to our MCP server and 5 s to
   Apify's. A fallback
@@ -37,11 +41,11 @@ with its fix.
   with a browser test that fails on any report; input limits checked with Zod; read-only tools, Markdown without raw
   HTML or images, so a tool's output can't carry the chat away; and a bot check on the chat, built with a kill switch,
   and switched off for now (bug story 17).
-- **Tests that can fail.** 257 unit tests and 52 browser tests (with accessibility, a phone's width, and the policy's
+- **Tests that can fail.** 266 unit tests and 54 browser tests (with accessibility, a phone's width, and the policy's
   reports), golden questions asked of the live site, and CI on every push. Since step 7, new tests are checked by
   breaking the code they guard ("mutation checks"): each must fail without its fix.
 - **Process.** An independent reviewer reads every change before its commit (all but one emergency switch, read just
-  after); every deploy is checked on the live site; every problem goes in the issues log (112 entries), and the real
+  after); every deploy is checked on the live site; every problem goes in the issues log (119 entries), and the real
   bugs become stories.
 
 ## The stories to tell
@@ -50,8 +54,8 @@ Each is a bug story in **Issues and fixes**; here is the short version, in the o
 
 ### The bot check that blocked every user (bug story 17)
 
-- **What happened:** after step 8 added Vercel's BotID to the chat, every message we sent, from two real browsers, got
-  "We couldn't verify this browser", for about 25 minutes.
+- **What happened:** after step 8 added Vercel's BotID to the chat, every message we sent got "We couldn't verify this
+  browser", for about 25 minutes, from one Chrome profile in two tabs: one our tools drove, one the user's own.
 - **Why it slipped through:** the browser tests answer `/api/chat` inside the page, so no test sent a real message
   through BotID to the server; the deploy check only read the build line.
 - **How it was found:** the post-deploy check sent one real message from a real browser, and the user confirmed it
@@ -104,7 +108,7 @@ Each is a bug story in **Issues and fixes**; here is the short version, in the o
 | A hop to our own MCP server | about 0.1 s a tool call, plus one connection per answer (0.2 to 1.8 s) |
 | Stop, heard by the function | at once during the answer's text; about 7 s after a hang-up early in the answer (one live check each) |
 | BotID's outage | about 25 minutes, ended by a one-line switch |
-| Tests | 257 unit, 52 browser, golden questions on the live site |
+| Tests | 266 unit, 54 browser, golden questions on the live site |
 
 ## Questions you may get
 
@@ -122,4 +126,4 @@ Each is a bug story in **Issues and fixes**; here is the short version, in the o
 ## What's next
 
 Find why BotID refuses real browsers, then turn it back on; enforce the Content Security Policy; the firewall rules;
-then observability (step 9): shipped logs, traces, alerts, a health check and status dots.
+and the rest of observability (step 9): a health check and status dots, then dashboards, alerts and traces.

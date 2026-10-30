@@ -70,6 +70,14 @@ export const DOC_PAGES: readonly DocEntry[] = [
       "BotID's invisible check on the chat's POST, on Vercel only; the security headers on every response, the " +
       "Content Security Policy reporting at first; and the two firewall rules you set in Vercel's dashboard.",
   },
+  {
+    slug: "step-9",
+    step: 9,
+    title: "Observability: Axiom and Sentry",
+    summary:
+      "Part 1 of step 9: our logger's lines shipped to Axiom, a batch at each request's end; every failure logged as " +
+      "an error sent to Sentry, with nothing private; and the source maps uploaded when Vercel builds the app.",
+  },
 ];
 
 // ② The issues log, docs/issues.md: the problems met in each step, and their fixes; and the system design,

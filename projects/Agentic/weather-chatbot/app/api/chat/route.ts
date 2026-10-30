@@ -22,7 +22,7 @@ import {
   UpstreamUnavailableError,
 } from "@/lib/errors";
 import { openLane, toAvailableLaneIds } from "@/lib/lanes/open-lane";
-import { type Logger, logFailure, logger, toLaneFields } from "@/lib/logger";
+import { flushLogs, type Logger, logFailure, logger, toLaneFields } from "@/lib/logger";
 import { timeoutSignal, toRequestId, untilAborted } from "@/lib/utils";
 
 // The function stops at 60 s; the answer's own budget is 50 s (PLAN.md 9.3).
@@ -92,9 +92,10 @@ export async function POST(request: Request): Promise<Response> {
   const requestId = toRequestId(request.headers.get(VERCEL_ID_HEADER));
   let log = logger.child({ requestId, route: CHAT_API_PATH });
   // On Vercel, the page's going ends this function as soon as it's told (vercel.json turns cancellation on for this
-  // route), so it's kept alive until the request's last line is written and its lane closed.
+  // route), so it's kept alive until the request's last line is written and its lane closed; then until its lines have
+  // gone to Axiom, and its errors to Sentry (step 9).
   const ended = Promise.withResolvers<void>();
-  waitUntil(ended.promise);
+  waitUntil(ended.promise.then(flushLogs));
   try {
     // ② The caller: on Vercel, BotID's check, before any work, that a real browser sent the request (step 8).
     if (isBotIdOn() && (await isBot(request, log))) {

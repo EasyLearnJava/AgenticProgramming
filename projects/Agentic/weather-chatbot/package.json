@@ -23,6 +23,7 @@
     "@ai-sdk/mcp": "2.0.86",
     "@ai-sdk/react": "4.0.160",
     "@modelcontextprotocol/server": "2.4.0",
+    "@sentry/nextjs": "11.8.0",
     "@vercel/functions": "3.10.4",
     "ai": "7.0.156",
     "botid": "1.5.12",

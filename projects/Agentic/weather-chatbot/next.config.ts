@@ -1,6 +1,7 @@
 /*
  * next.config.ts: the Next.js settings for the weather chatbot.
  */
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 // The Content Security Policy: our own scripts, styles, images, fonts and requests only, and no framing (PLAN.md 9.4).
@@ -45,4 +46,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// ⑥ Sentry's build step uploads the source maps, so its stack traces point at our own code, then deletes them from the
+// build. Without its token, on a laptop, in CI or on a preview, no source maps are made at all (step 9). Its lines show
+// in a CI build's log (Vercel's included), and it sends Sentry no telemetry of its own. Sentry runs on the server only,
+// so the page's script gets no list of our routes, which only Sentry in the browser would use.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true },
+  routeManifestInjection: false,
+});

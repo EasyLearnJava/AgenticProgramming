@@ -21,6 +21,18 @@ describe("parseConfig", () => {
     });
   });
 
+  it("sends the log lines to Axiom only with both its token and its dataset, and errors to Sentry with its DSN", () => {
+    expect(parseConfig({}).observability).toEqual({ axiom: undefined, sentryDsn: undefined });
+    expect(parseConfig({ AXIOM_TOKEN: "xaat-test", AXIOM_DATASET: "" }).observability.axiom).toBeUndefined();
+    expect(
+      parseConfig({ AXIOM_TOKEN: "xaat-test", AXIOM_DATASET: "weather-chatbot", SENTRY_DSN: "https://k@o1.example/2" })
+        .observability,
+    ).toEqual({
+      axiom: { token: "xaat-test", dataset: "weather-chatbot" },
+      sentryDsn: "https://k@o1.example/2",
+    });
+  });
+
   it("rejects an environment name Vercel doesn't use", () => {
     expect(() => parseConfig({ VERCEL_ENV: "staging" })).toThrow();
   });

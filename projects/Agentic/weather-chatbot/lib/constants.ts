@@ -150,3 +150,10 @@ export const APIFY_MCP_ACTOR_BUDGET_MS = AUTH_TOOL_TIMEOUT_MS + APIFY_MCP_CONNEC
 export const APIFY_MCP_CLOSE_TIMEOUT_MS = 1000;
 // Apify's own words about a failed run are cut to this many characters before they go in our message.
 export const MAX_APIFY_DETAIL_CHARS = 200;
+
+// Where the log lines go (step 9): Axiom's US deployment, whose ingest takes a batch of lines a request; each batch has
+// 2 s, and at most 1,000 lines wait between batches. Sentry has the same 2 s to send the errors it holds.
+export const AXIOM_INGEST_HOST = "us-east-1.aws.edge.axiom.co";
+export const AXIOM_FLUSH_TIMEOUT_MS = 2000;
+export const AXIOM_MAX_PENDING_LINES = 1000;
+export const SENTRY_FLUSH_TIMEOUT_MS = 2000;

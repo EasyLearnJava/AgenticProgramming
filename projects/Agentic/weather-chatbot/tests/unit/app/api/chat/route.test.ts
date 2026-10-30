@@ -9,14 +9,21 @@ import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LogLine } from "@/tests/stubs/log-stand-ins";
 
-// The app's logger, swapped for one whose lines the tests can read.
-const { lines } = vi.hoisted(() => ({ lines: [] as LogLine[] }));
+// The app's logger, swapped for one whose lines the tests can read; and flushLogs, for one that notes how many lines
+// had been written when it was called.
+const { lines, flushedAt } = vi.hoisted(() => ({ lines: [] as LogLine[], flushedAt: [] as number[] }));
 vi.mock("@/lib/logger", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/logger")>();
   const write = (line: string) => {
     lines.push(JSON.parse(line) as LogLine);
   };
-  return { ...actual, logger: actual.createLogger({ level: "info", destination: { write } }) };
+  return {
+    ...actual,
+    logger: actual.createLogger({ level: "info", destination: { write } }),
+    flushLogs: async () => {
+      flushedAt.push(lines.length);
+    },
+  };
 });
 
 // BotID's server check, swapped for one each test answers: a browser it trusts, a bot, or a failure.
@@ -49,6 +56,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   lines.length = 0;
+  flushedAt.length = 0;
   kept.length = 0;
 });
 
@@ -186,13 +194,14 @@ describe("POST /api/chat on Vercel", () => {
     expect(lines).toEqual([expect.objectContaining({ level: "info", event: "chat.aborted", steps: 0 })]);
   });
 
-  it("keeps the function alive until the request's last line, when it ends before the answer starts", async () => {
+  it("keeps the function alive until its last line, then sends its lines out, when it ends early", async () => {
     const response = await post(chatPost(VALID_BODY));
     expect(response.status).toBe(503);
     expect(kept).toHaveLength(1);
     const still = new Promise((resolve) => setTimeout(() => resolve("still kept alive"), 20));
     expect(await Promise.race([kept[0]?.then(() => "ended"), still])).toBe("ended");
     expect(lines.at(-1)).toMatchObject({ event: "chat.failed", errorClass: "ConfigError" });
+    expect(flushedAt).toEqual([lines.length]);
   });
 
   it("is told when the page goes: vercel.json turns cancellation on for this very file, and no other", () => {
