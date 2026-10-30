@@ -76,6 +76,8 @@ export const DOC_PAGES: readonly DocEntry[] = [
 // docs/system-design.md: how the app is built, against a reference design. Each has its own menu link.
 export const ISSUES_SLUG = "issues";
 export const SYSTEM_DESIGN_SLUG = "system-design";
+// The interview guide, docs/interview.md: what to tell an interviewer about the project, with its own menu link.
+export const INTERVIEW_SLUG = "interview";
 
 /** Finds a documentation page by its slug. */
 export function findDoc(slug: string): DocEntry | undefined {

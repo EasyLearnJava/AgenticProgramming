@@ -15,6 +15,7 @@ import { LanePicker } from "@/components/lane-picker";
 import { useNearbyCity } from "@/hooks/use-nearby-city";
 import { CHAT_API_PATH, DEFAULT_LANE_ID, MAX_HISTORY_CHARS, MAX_MESSAGES, OWN_ERROR_HEADER } from "@/lib/constants";
 import type { ChatMessage as ChatMessageData, CompareCell, LiveLaneId } from "@/lib/types";
+import { isAwaitingWords } from "@/lib/utils";
 
 type ChatWindowProps = { compareCells: readonly CompareCell[]; availableLaneIds: readonly LiveLaneId[] };
 
@@ -149,9 +150,12 @@ export function ChatWindow({ compareCells, availableLaneIds }: ChatWindowProps):
           {messages.map((message, index) => (
             <ChatMessage key={message.id} message={message} isAnswering={isBusy && index === messages.length - 1} />
           ))}
-          {status === "submitted" ? (
+          {isAwaitingWords(status, messages.at(-1)) ? (
             <li className="message message-bot">
-              <p className="typing">Nimbus is checking the weather…</p>
+              <p className="typing" role="status">
+                <span className="spinner" aria-hidden="true" />
+                Nimbus is checking the weather…
+              </p>
             </li>
           ) : null}
         </ol>

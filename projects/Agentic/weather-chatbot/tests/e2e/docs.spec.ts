@@ -21,6 +21,13 @@ test("follows a link written for GitHub (step-3.md) to that step's page in the a
   await expect(page.getByRole("heading", { level: 1, name: /^Step 3 · / })).toBeVisible();
 });
 
+test("opens the interview guide from the menu", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Interview guide" }).click();
+  await expect(page.getByRole("heading", { name: "Interview Guide", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Interview guide" })).toHaveAttribute("aria-current", "page");
+});
+
 test("opens Issues and fixes from the menu: a section for each step", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Issues and fixes" }).click();
@@ -47,7 +54,7 @@ test("answers an unknown address with the app's own 404 page", async ({ page }) 
 });
 
 test("has no accessibility violations on a documentation page, or on the issues log", async ({ page }) => {
-  for (const address of ["/docs/step-5", "/system-design", "/issues"]) {
+  for (const address of ["/docs/step-5", "/system-design", "/issues", "/interview"]) {
     await page.goto(address);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, address).toEqual([]);
@@ -56,7 +63,7 @@ test("has no accessibility violations on a documentation page, or on the issues 
 
 test("fits a documentation page, tables included, on the screen without scrolling sideways", async ({ page }) => {
   const addresses = ["/docs/step-1", "/docs/step-2", "/docs/step-3", "/docs/step-4", "/docs/step-5"];
-  for (const address of [...addresses, "/system-design", "/issues"]) {
+  for (const address of [...addresses, "/system-design", "/issues", "/interview"]) {
     await page.goto(address);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, address).toBeLessThanOrEqual(0);

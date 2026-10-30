@@ -194,6 +194,23 @@ export function timeoutSignal(ms: number, parentSignal?: AbortSignal): AbortSign
   return parentSignal ? AbortSignal.any([timeout, parentSignal]) : timeout;
 }
 
+/** The parts of a chat message that say whether its words have come: their kind, and a text part's text. */
+type MessageParts = { role: string; parts: readonly { type: string; text?: string }[] };
+
+/**
+ * Whether the page is still waiting for an answer's words: from Send until the first words come, through the tool calls
+ * (each chip shows its own) and the model's steps between them. `status` is useChat's.
+ */
+export function isAwaitingWords(status: string, lastMessage: MessageParts | undefined): boolean {
+  if (status === "submitted") {
+    return true;
+  }
+  if (status !== "streaming" || lastMessage?.role !== "assistant") {
+    return status === "streaming";
+  }
+  return !lastMessage.parts.some((part) => part.type === "text" && (part.text ?? "").trim() !== "");
+}
+
 /**
  * A promise's outcome, unless the signal fires first: then the signal's reason, as a failure. For a call that takes no
  * signal of its own, which is left to settle on its own.

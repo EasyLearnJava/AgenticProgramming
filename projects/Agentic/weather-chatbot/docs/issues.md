@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These sixteen were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These seventeen were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -31,6 +31,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 14 | The MCP door that would have run any build | 7 | the review |
 | 15 | An error part closed the lane while the answer went on | after 7 | the review |
 | 16 | Stop that didn't stop | after 7 | the review, then the live site |
+| 17 | The bot check that blocked every user | 8 | the live site |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -571,6 +572,35 @@ once: in a window like the first, an Actor run can still start.
 **The lesson.** The platform is part of the behavior. A local server that hears a page go isn't a serverless platform
 that, by default, doesn't: check what a stop does where the code runs, not where the tests do.
 
+### 17. The bot check that blocked every user
+
+*Step 8 · found on the live site · entry 111*
+
+**The request.** Any message on the live site once `d9ed4c0` was live: "vizag weather", say.
+
+**What went wrong.** Every message we sent, from two real browsers, got "We couldn't verify this browser. Please reload
+the page.", for about 25 minutes: as far as we could tell, the chat answered no one.
+
+**Why it happened.** Step 8 put Vercel's BotID in front of the chat. Its page side ran (its script loaded, the page's
+`fetch` wrapped), so each message carried BotID's answer, and its check on the server still called the browser a bot;
+why is being traced. It reached users because nothing before them sent a real message: the browser tests answer
+`/api/chat` inside the page, so BotID's verdict on the server was never asked, and the deploy check read only the build
+line.
+
+**How we traced it.** The live check after the deploy sent one real message, from a Chrome tab our tools drove, and
+got the refusal; the page showed BotID running. Since a driven browser may look like a bot, the user tried their own:
+refused too.
+
+**How we fixed it.** A kill switch: one line in `next.config.ts` turns BotID off everywhere, on the page and on the
+server (`810a981`). It was live two minutes later, and the chat answered again; the security headers stayed.
+
+**How we confirmed it.** A real question, "What's the weather in Visakhapatnam today?", got its answer; then the user's
+browser did too.
+
+**The lesson.** Anything that can refuse users goes out watching first, logging its verdicts and refusing no one, with
+a switch that turns it off at once; and every deploy is checked with a real request on the real path, since mocked
+browser tests never ask the server.
+
 ## While Planning
 
 1. **The "no auth" MCP server needed a sign-in.** *Testing a real API.* MCPBundles' Open-Meteo server answered an MCP
@@ -1091,3 +1121,8 @@ that, by default, doesn't: check what a stop does where the code runs, not where
      `/api/chat` in the page, so no real message reaches the route. **Fix, for now:** BotID is off everywhere
      (`NEXT_PUBLIC_BOTID` is "off" in `next.config.ts`), the security headers stay; why real browsers fail its check
      is next. **Check:** `tests/unit/next-config.test.ts`; a real message on the live site.
+112. **The page barely showed it was working.** *Using the app* (the user's feedback). While an answer was on its way,
+     the page showed "Nimbus is checking the weather…" with a small pulsing dot, and only until the first tool call:
+     between the model's steps it showed nothing moving. **Fix:** a turning ring beside the text, shown from Send until
+     the answer's first words, through its tool calls (`isAwaitingWords()` in `lib/utils.ts`); it stands still for
+     those who ask for less motion. **Check:** `tests/unit/utils.test.ts`, `tests/e2e/chat-page.spec.ts`.

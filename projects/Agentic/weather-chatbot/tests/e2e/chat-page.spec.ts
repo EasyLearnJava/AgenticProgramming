@@ -183,6 +183,7 @@ test("turns Send into Stop while an answer is on its way, and Stop ends it", asy
   });
   await page.getByRole("button", { name: PARIS_QUESTION }).click();
   await expect(page.getByText("Nimbus is checking the weather…")).toBeVisible();
+  await expect(page.locator(".typing .spinner")).toBeVisible();
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
   await expect(page.getByText("Nimbus is checking the weather…")).toBeHidden();

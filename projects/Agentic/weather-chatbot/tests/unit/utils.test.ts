@@ -8,6 +8,7 @@ import {
   findToolsCall,
   formatDuration,
   formatLocalTime,
+  isAwaitingWords,
   newRequestId,
   once,
   roundCoordinate,
@@ -110,6 +111,24 @@ describe("timeoutSignal", () => {
     parent.abort();
     expect(signal.aborted).toBe(true);
     expect((signal.reason as Error).name).toBe("AbortError");
+  });
+});
+
+describe("isAwaitingWords", () => {
+  const asked = { role: "user", parts: [{ type: "text", text: "Weather in Paris?" }] };
+  const calling = { role: "assistant", parts: [{ type: "tool-geocode_location" }, { type: "text", text: " \n" }] };
+  const writing = { role: "assistant", parts: [{ type: "tool-geocode_location" }, { type: "text", text: "Rain" }] };
+
+  it("waits from Send, through the tool calls, until the answer's first words", () => {
+    expect(isAwaitingWords("submitted", asked)).toBe(true);
+    expect(isAwaitingWords("streaming", asked)).toBe(true);
+    expect(isAwaitingWords("streaming", calling)).toBe(true);
+    expect(isAwaitingWords("streaming", writing)).toBe(false);
+  });
+
+  it("doesn't wait once the answer has ended, or failed", () => {
+    expect(isAwaitingWords("ready", calling)).toBe(false);
+    expect(isAwaitingWords("error", asked)).toBe(false);
   });
 });
 

@@ -363,29 +363,35 @@ body {
   cursor: pointer;
 }
 
-/* While the first part of an answer is on its way. */
+/* While an answer's words are on their way, through its tool calls: a turning ring beside text that keeps its
+   contrast. */
 .typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: 0.875rem;
   color: var(--muted);
 }
 
-/* The text keeps its contrast; the dot beside it pulses. */
-.typing::before {
-  content: "●" / "";
-  margin-right: 6px;
-  color: var(--bot-bubble);
-  animation: typing-pulse 1.4s ease-in-out infinite;
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bot-bubble);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
-@keyframes typing-pulse {
-  50% {
-    opacity: 0.3;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .typing::before {
+  .spinner {
     animation: none;
   }
 }

@@ -27,7 +27,8 @@ one page per build step: what it built, how it works, and how to check it. **Sys
 ([`docs/system-design.md`](docs/system-design.md)), draws how the app is built today, in the four bands of a common
 reference design for AI assistants, and sets each part against it. **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)) logs every problem met while building and deploying it, and how it was fixed;
-it opens with the real bugs, each told as a story.
+it opens with the real bugs, each told as a story. **Interview guide** ([`docs/interview.md`](docs/interview.md)) says
+what to tell an interviewer: the pitch, the production-grade decisions, the incidents worth telling, and the numbers.
 
 ## Before you start
 
@@ -89,7 +90,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 116 files in 296ms. No fixes applied.
+Checked 117 files in 314ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -97,18 +98,18 @@ Generating route types...
 
 $ npm test
  Test Files  36 passed (36)
-      Tests  255 passed (255)
+      Tests  257 passed (257)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 36ms
+✓ Running next.config.ts took 38ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1630ms
+✓ Compiled successfully in 1772ms
   Running TypeScript ...
-  Finished TypeScript in 399ms ...
-  Collecting page data using 11 workers ...
-  Generating static pages using 11 workers (0/17) ...
-✓ Generating static pages using 11 workers (17/17) in 1732ms
+  Finished TypeScript in 647ms ...
+  Collecting page data using 12 workers ...
+  Generating static pages using 12 workers (0/18) ...
+✓ Generating static pages using 12 workers (18/18) in 3.0s
   Finalizing page optimization ...
 
 Route (app)
@@ -123,6 +124,7 @@ Route (app)
 │ ├ ● /docs/step-2
 │ ├ ● /docs/step-3
 │ └ ● [+5 more paths]
+├ ○ /interview
 ├ ○ /issues
 └ ○ /system-design
 
@@ -131,7 +133,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  50 passed (20.4s)
+  52 passed (26.5s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
