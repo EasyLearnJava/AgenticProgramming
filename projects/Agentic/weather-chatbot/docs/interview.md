@@ -49,7 +49,7 @@ with its fix.
   reports), golden questions asked of the live site, and CI on every push. Since step 7, new tests are checked by
   breaking the code they guard ("mutation checks"): each must fail without its fix.
 - **Process.** An independent reviewer reads every change before its commit (all but one emergency switch, read just
-  after); every deploy is checked on the live site; every problem goes in the issues log (136 entries), and the real
+  after); every deploy is checked on the live site; every problem goes in the issues log (141 entries), and the real
   bugs become stories.
 
 ## The stories to tell

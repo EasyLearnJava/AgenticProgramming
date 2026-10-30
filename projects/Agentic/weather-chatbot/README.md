@@ -27,7 +27,10 @@ Apify's Actor → the answer streams back, with a chip per tool call.
 The app explains itself: open **Documentation** in its left menu, or read the same pages in [`docs/`](docs/). There's
 one page per build step: what it built, how it works, and how to check it. **System design**, also in the menu
 ([`docs/system-design.md`](docs/system-design.md)), draws how the app is built today, in the four bands of a common
-reference design for AI assistants, and sets each part against it. **Issues and fixes**
+reference design for AI assistants, and sets each part against it. **Technical details**
+([`docs/technical-details.md`](docs/technical-details.md)) follows one real question, "What's the weather in Dallas?",
+from the input box to the answer: each file and function, what goes into each and what comes out, how it's kept safe,
+and what Axiom and Sentry get. **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)) logs every problem met while building and deploying it, and how it was fixed;
 it opens with the real bugs, each told as a story. **Interview guide** ([`docs/interview.md`](docs/interview.md)) says
 what to tell an interviewer: the pitch, the production-grade decisions, the incidents worth telling, and the numbers.
@@ -45,11 +48,11 @@ steps.
 
 | Folder or file | What's in it |
 |---|---|
-| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the issues log (`issues/`), the interview guide (`interview/`), the to-do list (`todo/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`), the health check (`health/`) and the nearby city (`nearby-city/`) |
+| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the technical details (`technical-details/`), the issues log (`issues/`), the interview guide (`interview/`), the to-do list (`todo/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`), the health check (`health/`) and the nearby city (`nearby-city/`) |
 | `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), the system design's diagram, and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
-| `hooks/` | The React hook that asks for the nearby city |
+| `hooks/` | The React hooks that ask for the nearby city and for each lane's health |
 | `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`), the lines' trip to Axiom (`log-shipper.ts`) and Sentry's settings (`sentry.ts`); the health check (`health/`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo and Apify (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
-| `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`), the issues log (`issues.md`), the interview guide (`interview.md`) and the to-do list (`todo.md`) |
+| `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`), the technical details (`technical-details.md`), the issues log (`issues.md`), the interview guide (`interview.md`) and the to-do list (`todo.md`) |
 | `tests/` | The unit tests (`unit/`), Open-Meteo's and Apify's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
 | Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts` (the security headers; Sentry's build step), `instrumentation.ts` (Sentry, started on the server), `instrumentation-client.ts` (BotID's page side), `vercel.json` (Vercel tells the chat when the page goes), `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
@@ -94,7 +97,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 128 files in 454ms. No fixes applied.
+Checked 129 files in 540ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -106,18 +109,18 @@ $ npm test
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 824ms
+✓ Running next.config.ts took 871ms
 - Experiments (use with caution):
   · clientTraceMetadata
   Creating an optimized production build ...
-✓ Compiled successfully in 3.9s
+✓ Compiled successfully in 1406ms
   Running next.config.js provided runAfterProductionCompile ...
-✓ Completed runAfterProductionCompile in 689ms
+✓ Completed runAfterProductionCompile in 287ms
   Running TypeScript ...
-  Finished TypeScript in 1026ms ...
-  Collecting page data using 14 workers ...
-  Generating static pages using 14 workers (0/21) ...
-✓ Generating static pages using 14 workers (21/21) in 7.2s
+  Finished TypeScript in 505ms ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/22) ...
+✓ Generating static pages using 15 workers (22/22) in 3.6s
   Finalizing page optimization ...
 
 Route (app)
@@ -136,6 +139,7 @@ Route (app)
 ├ ○ /interview
 ├ ○ /issues
 ├ ○ /system-design
+├ ○ /technical-details
 └ ○ /todo
 
 ○  (Static)   prerendered as static content
@@ -143,7 +147,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  58 passed (30.8s)
+  62 passed (38.2s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of

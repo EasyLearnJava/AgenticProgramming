@@ -32,8 +32,8 @@ band is described, then each part of the reference is set against what Nimbus ha
 
 The same edge also serves **the nearby city** (`GET /api/nearby-city`: a city near you, from Vercel's location
 headers, for one suggested question), **the health check** (`GET /api/health`, which the lane picker's status dots
-read) and **the pages** (the docs, the issues log, this one, the interview guide and the to-do list), which are
-static.
+read) and **the pages** (the docs, this one, the technical details, the issues log, the interview guide and the
+to-do list), which are static.
 
 ### B · Controlled execution
 
@@ -116,7 +116,9 @@ static.
   that takes one message of at most 8 KB at a time.
 - **Four doors to the same data**: REST or MCP, without or with auth. All four are live; the compare view shows one call
   through all four.
-- **The wire view**: each chip opens to the request as it was sent, so you can see which door a call went through.
+- **The wire view**: each chip opens to the request as it was handed to `fetch`, any secret in it shown as a stand-in,
+  so you can see which door a call went through. Below that, `fetch` adds a few headers of its own to every call, and
+  Sentry its two trace headers to calls to our own MCP server; the wire view doesn't show them (entry 137).
 
 ## One question, end to end
 
@@ -141,6 +143,10 @@ Vercel's own id for the request. A search for it in Vercel's logs finds them all
 
 The two lines for each tool call show the MCP hop: our MCP server took 470 ms for the geocoding, of which Open-Meteo
 took 435 ms; the chat saw 514 ms. Connecting took 1.1 s, the first connection after a deployment.
+
+**Technical details**, in the menu, follows another real question, about Dallas, through
+[every file and function on its path](technical-details.md): what goes into each and what comes out, how it's kept
+safe, and what Axiom and Sentry get.
 
 ## What comes next
 

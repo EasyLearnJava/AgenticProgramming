@@ -59,6 +59,24 @@ test("opens System design from the menu: the diagram, then each part against the
   await expect(page.getByRole("cell", { name: "None for answers" })).toBeVisible();
 });
 
+test("opens Technical details from the menu: one question, file by file", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Technical details" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Technical Details" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Technical details" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { level: 2, name: "The path at a glance" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "How it's kept safe" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Axiom: what it gets, and what for" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Sentry: what it gets, and what for" })).toBeVisible();
+});
+
+test("follows the System design page's link, written for GitHub, to the technical details", async ({ page }) => {
+  await page.goto("/system-design");
+  await page.getByRole("link", { name: "every file and function on its path" }).click();
+  await expect(page).toHaveURL(/\/technical-details$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Technical Details" })).toBeVisible();
+});
+
 test("answers an unknown address with the app's own 404 page", async ({ page }) => {
   const response = await page.goto("/docs/step-unknown");
   expect(response?.status()).toBe(404);
@@ -67,7 +85,7 @@ test("answers an unknown address with the app's own 404 page", async ({ page }) 
 });
 
 test("has no accessibility violations on a documentation page, or on the issues log", async ({ page }) => {
-  for (const address of ["/docs/step-5", "/system-design", "/issues", "/interview", "/todo"]) {
+  for (const address of ["/docs/step-5", "/system-design", "/technical-details", "/issues", "/interview", "/todo"]) {
     await page.goto(address);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, address).toEqual([]);
@@ -76,7 +94,7 @@ test("has no accessibility violations on a documentation page, or on the issues 
 
 test("fits a documentation page, tables included, on the screen without scrolling sideways", async ({ page }) => {
   const addresses = ["/docs/step-1", "/docs/step-2", "/docs/step-3", "/docs/step-4", "/docs/step-5"];
-  for (const address of [...addresses, "/system-design", "/issues", "/interview", "/todo"]) {
+  for (const address of [...addresses, "/system-design", "/technical-details", "/issues", "/interview", "/todo"]) {
     await page.goto(address);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, address).toBeLessThanOrEqual(0);

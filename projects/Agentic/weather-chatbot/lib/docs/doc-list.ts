@@ -88,6 +88,9 @@ export const SYSTEM_DESIGN_SLUG = "system-design";
 export const INTERVIEW_SLUG = "interview";
 // The to-do list, docs/todo.md: what's still open, and why, with its own menu link.
 export const TODO_SLUG = "todo";
+// The technical details, docs/technical-details.md: one question through each file and function, with its own menu
+// link.
+export const TECHNICAL_DETAILS_SLUG = "technical-details";
 
 /** Finds a documentation page by its slug. */
 export function findDoc(slug: string): DocEntry | undefined {

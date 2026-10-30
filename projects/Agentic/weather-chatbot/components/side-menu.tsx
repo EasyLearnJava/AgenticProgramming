@@ -1,6 +1,6 @@
 /*
- * components/side-menu.tsx: the menu on the left: the chat, the documentation, the system design, the issues log, the
- * interview guide, the to-do list, and which build is running.
+ * components/side-menu.tsx: the menu on the left: the chat, the documentation, the system design, the technical
+ * details, the issues log, the interview guide, the to-do list, and which build is running.
  */
 "use client";
 
@@ -14,6 +14,7 @@ const MENU_ITEMS = [
   { href: "/", label: "Chat" },
   { href: "/docs", label: "Documentation" },
   { href: "/system-design", label: "System design" },
+  { href: "/technical-details", label: "Technical details" },
   { href: "/issues", label: "Issues and fixes" },
   { href: "/interview", label: "Interview guide" },
   { href: "/todo", label: "To do" },

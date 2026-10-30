@@ -1353,3 +1353,42 @@ a deploy: the new ones showed this within the hour, where no test would have.
      isn't protected. **Fix, next:** turn it on in Vercel (the To do page); the code sends the secret from the next
      deployment on, since Vercel sets the variable when it builds one, so redeploy after turning it on. **Check:** a
      preview made after it's on: its `/api/health`.
+
+## The Technical Details Page
+
+137. **The chips' wire view leaves out the headers added below it.** *Checking our work* (writing this page, from a real
+     question's trace), made exact by the review. Since step 9's traces (`2ae5466`), each call to our own MCP server
+     also carries `sentry-trace` and `baggage`, which join `/api/mcp`'s spans to the chat's trace. Sentry adds them in
+     undici, below `fetch`, after `recordingFetch` has kept the wire view's copy, and `fetch` adds a few of its own
+     there too (`host`, `content-length`, `accept-encoding` and others). **Fix:** said so, on the Technical details page
+     and in the System design page's wire-view bullet: the wire view shows the request as it was handed to `fetch`, the
+     MCP client's headers and our `x-request-id`. **Check:** the Dallas question's trace in Sentry, `ref:33a7af21`: its
+     three tool calls' spans in `/api/mcp` sit under the chat's.
+138. **Vercel's Runtime Cache keys every entry by a 32-bit hash, and Sentry gets the hash.** *Review* (reading
+     `@vercel/functions`' code). `getCache()` hashes each key (`open-meteo:` and the address to Open-Meteo) with a
+     32-bit djb2, and stores the entry under the hash alone. So two things: each cache span's address ends in the
+     hash, and hashing guesses finds the place again (the review got "Dallas" back from a list of six names, and a
+     pinned point is a guess on a 0.01° grid), which the query-string cut was meant to keep out of Sentry; and two
+     addresses can share a hash, so one place could be given another's cached weather. **Fix, next:** our own key
+     hash, long enough that two addresses never share one, and the key cut from the cache spans before they're sent.
+     **Check:** a trace whose cache spans end without a key; a test that two keys get two entries.
+139. **A chunk Gemini's provider can't read puts the model's words into the logs and Sentry.** *Review* (reading AI
+     SDK's code). AI SDK's error for such a chunk (`JSONParseError`, `TypeValidationError`) quotes it: words of the
+     answer, or a tool call's input, which can hold a place. `toAppError()` keeps that message for `UnexpectedError`
+     (and AI SDK's own for `ModelError`), with the original as its cause, so the `chat.failed` line takes it to Axiom,
+     and Sentry gets it and the cause. A bad tool call's message was already kept out this way (entry 60). **Fix,
+     next:** our own sentence for these errors, and a cause without the quoted text. **Check:** a test that a chunk's
+     text reaches neither the line nor Sentry.
+140. **Any caller can mark `/api/mcp`'s trace with a chat's ref.** *Review.* `serveMcp()` marks its trace with the
+     caller's `x-request-id`, and the server is public, so anyone can put spans under any chat's request id and ref;
+     the log lines keep this request's own `invocationId` beside it, but the trace doesn't. **Fix, next:** mark the
+     trace with `invocationId` too. **Check:** the MCP route's test.
+141. **Smaller review findings, fixed on this page.** The forecast's wait in the trace is 0.85 s, not 0.55 s: 0.23 s
+     before a new copy of `/api/mcp` took the request, then 0.58 s getting ready. `toolChoice: "none"` still sends
+     the tools, with calling turned off; the 10 s first-chunk budget restarts with each step; `onError` writes
+     `chat.failed` for every error part; `content-type` is AI SDK's, not the browser's; a network failure is retried
+     too; the cache keeps Open-Meteo's own body and checks it on each hit; the auth lanes have no air-quality tool
+     either; the MCP server sends our error's own message; the model does read `observedAt` and `fetchedAt`; and the
+     order of the page's first calls says nothing of their timing. The safety section now also says that the history
+     comes from the browser, why the locale, time zone and chat id are checked so strictly, and what having no rate
+     limit means today.

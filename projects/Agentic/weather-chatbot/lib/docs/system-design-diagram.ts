@@ -95,7 +95,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     width: 370,
     height: 64,
     title: "Pages",
-    lines: ["docs · issues · interview · to do: static"],
+    lines: ["docs · details · issues · interview · to do"],
   },
   // B: the tools behind each lane, and the model.
   {

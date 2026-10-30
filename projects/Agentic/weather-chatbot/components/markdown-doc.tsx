@@ -12,7 +12,9 @@ type MarkdownDocProps = { markdown: string };
  * ("/docs/step-3", "/issues").
  */
 function toAppUrl(url: string): string {
-  const appUrl = url.replace(/^(step-\d+)\.md$/, "/docs/$1").replace(/^(issues|system-design)\.md$/, "/$1");
+  const appUrl = url
+    .replace(/^(step-\d+)\.md$/, "/docs/$1")
+    .replace(/^(issues|system-design|technical-details)\.md$/, "/$1");
   return defaultUrlTransform(appUrl);
 }
 

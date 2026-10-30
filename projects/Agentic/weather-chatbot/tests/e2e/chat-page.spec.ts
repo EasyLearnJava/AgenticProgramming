@@ -340,7 +340,7 @@ test("breaks no rule of the Content Security Policy: the chat, a chip, the compa
   await page.locator("details.tool-chip summary").first().click();
   await page.getByRole("button", { name: "Compare the four lanes" }).click();
   expect(await reports()).toEqual([]);
-  for (const path of ["/docs/step-8", "/system-design", "/issues"]) {
+  for (const path of ["/docs/step-8", "/system-design", "/technical-details", "/issues"]) {
     await page.goto(path);
     expect(await reports(), path).toEqual([]);
   }
