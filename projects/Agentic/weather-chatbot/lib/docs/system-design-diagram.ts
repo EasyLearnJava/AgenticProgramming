@@ -178,8 +178,8 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     y: 675,
     width: 270,
     height: 100,
-    title: "REST · with auth",
-    lines: ["geocoding as on REST · no auth", "the forecast: Apify's Actor tool", "falls back to REST · no auth"],
+    title: "The auth lanes",
+    lines: ["REST and MCP, with a token", "the forecast: Apify's Actor tool", "fall back to their no-auth twin"],
   },
   {
     band: "B",
@@ -187,8 +187,8 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     y: 675,
     width: 300,
     height: 100,
-    title: "Apify client",
-    lines: ["one POST · Bearer APIFY_TOKEN", "build · 18 s · $0.01, in the URL", "no retry, no cache: it falls back"],
+    title: "Apify clients",
+    lines: ["REST: one POST · 18 s · $0.01", "MCP: mcp.apify.com · run, then items", "Bearer APIFY_TOKEN · no retry"],
   },
   {
     band: "B",
@@ -330,12 +330,13 @@ const LEGEND_ITEMS: readonly { kind: ArrowKind; text: string }[] = [
 export const SYSTEM_DIAGRAM: SystemDiagram = {
   width: DIAGRAM_WIDTH,
   height: DIAGRAM_HEIGHT,
-  title: "How Nimbus is built today, steps 1 to 6",
+  title: "How Nimbus is built today, steps 1 to 7",
   description:
     "Four bands. A: you ask in the chat page; Vercel's edge routes the request; the input rules check it; the chat " +
     "turn runs the model and streams your answer. B: the chat turn calls the tools through the lane you picked, REST " +
-    "or MCP (through our own MCP server), and Gemini; the tools call Open-Meteo. On REST · with auth, the forecast " +
-    "comes from Apify's Actor instead, with a token, and falls back to REST · no auth. C: the conversation stays in " +
+    "or MCP (through our own MCP server), and Gemini; the tools call Open-Meteo. On the auth lanes, the forecast " +
+    "comes from Apify's Actor instead, with a token, through Apify's REST API or its MCP server, and falls back to " +
+    "the no-auth lane behind the same door. C: the conversation stays in " +
     "your browser; settings are Vercel's environment variables; Open-Meteo's answers are cached; the docs are " +
     "Markdown. D: logs with one request id, golden questions and tests, Vercel Functions, and deploys from each push.",
   bands: DIAGRAM_BANDS,

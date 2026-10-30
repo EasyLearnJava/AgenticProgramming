@@ -2,13 +2,17 @@
  * lib/types.ts: the types the page and the server share: the lanes, the tools' inputs and outputs, and the chat's
  * messages. A tool's Zod schema is declared with its type from here (z.ZodType<ForecastInput>), so the two can't drift.
  */
+import type { MCPClient } from "@ai-sdk/mcp";
 import type { UIMessage } from "ai";
 
 /** The four lanes: the door (REST or MCP), then the auth. */
 export type LaneId = "rest-no-auth" | "rest-auth" | "mcp-no-auth" | "mcp-auth";
 
-/** The lanes built so far; each build step adds the lane it makes live. An auth lane also needs its token to run. */
-export type LiveLaneId = Extract<LaneId, "rest-no-auth" | "mcp-no-auth" | "rest-auth">;
+/** The lanes built so far: all four, since step 7. An auth lane also needs its token to run. */
+export type LiveLaneId = Extract<LaneId, "rest-no-auth" | "mcp-no-auth" | "rest-auth" | "mcp-auth">;
+
+/** What our code uses of an MCP client: listing the tools, calling one, and closing. */
+export type McpClient = Pick<MCPClient, "listTools" | "callTool" | "close">;
 
 /** One lane, as the page describes it. */
 export type LaneInfo = {

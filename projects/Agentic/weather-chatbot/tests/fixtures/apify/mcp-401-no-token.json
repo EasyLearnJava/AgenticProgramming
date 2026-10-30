@@ -1,0 +1,12 @@
+{
+  "status": 401,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "access-control-expose-headers": "Mcp-Session-Id,WWW-Authenticate,Last-Event-Id,Mcp-Protocol-Version",
+    "www-authenticate": "Bearer realm=\"OAuth\", error=\"invalid_token\", error_description=\"Missing or invalid access token. Pass an Apify API token in the Authorization: Bearer <token> header. Manage tokens at https://console.apify.com/account/integrations\""
+  },
+  "body": {
+    "error": "invalid_token",
+    "error_description": "Missing or invalid access token. Pass an Apify API token in the Authorization: Bearer <token> header. Manage tokens at https://console.apify.com/account/integrations"
+  }
+}

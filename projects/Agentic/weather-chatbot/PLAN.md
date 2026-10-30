@@ -1,7 +1,8 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
 > **Status:** 🚧 Being built, step by step (section 11): steps 1 to 6 are done, and each finished step has a page in
-> the app's documentation. Step 6 runs with the Apify token you set. Live at
+> the app's documentation. The auth lanes run with the Apify token you set; step 7 is built, and its live check is
+> next. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
 > **Facts checked on 2026-10-29** by calling the real endpoints and reading the current docs and package files
@@ -115,7 +116,7 @@ Added later the same day:
 | 3 | What the tools take | MCPBundles' bundle page; the Actor's input schema | MCPBundles: `weather_current`, `weather_forecast` (up to 16 days) and `weather_air_quality`, all by coordinates. The Actor: `locations` (each a `name`, `latitude` and `longitude`), `forecastDays` 1 to 16, `mode` daily or hourly; no units option | **Neither can find a place.** We add `geocode_location` (Open-Meteo's geocoding API, no key). Section 8 shows what goes wrong without it |
 | 4 | The Apify Actor | Apify's public API | Created 2026-09-02: 111 runs, 3 users, 0 reviews. Limited permissions, so it runs through MCP without an approval step. Defaults: 1 GB memory, 300 s timeout; current build 1.0.9. Pay per event since 2026-10-09: **$0.003 per start** (per GB of memory) **+ $0.002 per forecast**; it was $0.001 per start until then | About **$0.005 a forecast**, so $5 is about 1,000 forecasts a month (step 6's live runs confirm it: $0.005 a run, platform usage included, whatever its days or mode). A two-month-old Actor with one developer, whose price already went up once, is a dependency risk: pin it, contract-test it, keep a fallback |
 | 5 | Apify's free plan | apify.com/pricing | $5 of usage a month; unused credit doesn't roll over; when it runs out, "your access to Apify's services will be blocked until the beginning of the next monthly cycle." Pay-per-event charges draw on the same credit | Running out is a failure we must handle: both auth lanes go dark for the rest of the month |
-| 6 | How Apify's MCP server behaves | Apify's MCP docs and README | Selecting one Actor adds 4 helper tools (`get-dataset-items`, `get-key-value-store-record`, `get-actor-run`, `abort-actor-run`). The Actor's tool is named `gochujang--open-meteo-weather-forecast`. `call-actor` waits up to 45 s (30 s by default) and returns the run's status and storage ids. Limit: 30 requests a second per user. The docs don't say whether a selected Actor's own tool returns the data or only ids | Allowlist only what we use; give each call a time budget. **Spike first** (step 0): run it once and record the real output and time |
+| 6 | How Apify's MCP server behaves | Apify's MCP docs and README | Selecting one Actor adds 4 helper tools (`get-dataset-items`, `get-key-value-store-record`, `get-actor-run`, `abort-actor-run`). The Actor's tool is named `gochujang--open-meteo-weather-forecast`. `call-actor` waits up to 45 s (30 s by default) and returns the run's status and storage ids. Limit: 30 requests a second per user. The docs don't say whether a selected Actor's own tool returns the data or only ids | Allowlist only what we use; give each call a time budget. **Spike first** (step 0): run it once and record the real output and time. *Step 7 read the server's source: a run's answer holds ids, from the Actor's own tool or `call-actor`, so a run is two messages, the second `get-dataset-items`; and only `call-actor` takes the run's build, timeout and charge cap (`callOptions`), so the lane runs the Actor through it* |
 | 7 | Open-Meteo's terms | open-meteo.com/en/terms | Free API: non-commercial use only; under 600 calls a minute, 5,000 an hour, 10,000 a day, 300,000 a month; data under CC BY 4.0; "uninterrupted provision" not guaranteed | Credit Open-Meteo on screen; cache; ads or subscriptions would need the paid API. **All four lanes end at Open-Meteo** (the Actor calls it too), so when it's down, every lane is down |
 | 8 | Vercel's Hobby plan | Vercel docs | Functions: up to 300 s. Runtime logs: 1 hour (Pro: 1 day; 30 days with Observability Plus), at most 256 lines per request. Log drains: Pro and Enterprise only. Cron jobs: at most once a day. WAF: 3 custom rules, one of which may rate-limit (a 10 s to 10 min window, by IP or JA4); a bypass rule skips every rule after it. BotID Basic, Runtime Cache and Protection Bypass for Automation: all plans | On Hobby the app ships its own logs (9.1), an outside monitor calls the health check (9.5), and our own server-to-server calls carry the bypass secret (7.4, 9.4) |
 | 9 | The model (the repo uses Gemini's free tier) | Gemini API terms | Free tier: Google uses prompts and responses to improve its products, and human reviewers may read them; "Do not submit sensitive, confidential, or personal information". Serving users in the EEA, Switzerland or the UK needs the paid service | Fine for local runs; a public URL needs a paid path (decision 3). A user's location is personal data |
@@ -153,11 +154,11 @@ URL answering POSTs with JSON or a stream. AI SDK's `transport: { type: "http" }
 
 | | `rest-no-auth` | `mcp-no-auth` (the default) | `rest-auth` | `mcp-auth` |
 |---|---|---|---|---|
-| Door | `https://api.open-meteo.com/v1/...` | `/api/mcp` on this deployment | `https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items` | `https://mcp.apify.com/?tools=gochujang/open-meteo-weather-forecast` |
+| Door | `https://api.open-meteo.com/v1/...` | `/api/mcp` on this deployment | `https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items` | `https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast` |
 | Auth | None | None (the Vercel bypass header our calls carry isn't MCP auth: 7.4, rule 8) | `Authorization: Bearer` with `APIFY_TOKEN` | The same header and the same token |
-| Tools the model sees | `geocode_location`, `get_current_weather`, `get_forecast`, `get_air_quality`, defined in our code | The same four, found with `tools/list` | `geocode_location` and `gochujang--open-meteo-weather-forecast`, defined in our code to match Apify's | The same two: Apify's tool found on Apify's server, and geocoding from our MCP server |
+| Tools the model sees | `geocode_location`, `get_current_weather`, `get_forecast`, `get_air_quality`, defined in our code | The same four, found with `tools/list` | `geocode_location` and `gochujang--open-meteo-weather-forecast`, defined in our code to match Apify's | The same two, defined in our code: geocoding through our MCP server, and the Actor's tool, run through Apify's server |
 | The data comes from | Open-Meteo | Open-Meteo, through the same function | The Actor, which calls Open-Meteo | The same Actor |
-| Speed | 0.3 to 0.6 s a call (a laptop, three samples) | The same, plus the MCP handshake and hop (measured in step 4) | An Actor run per call (measured in step 0) | The same run, plus the MCP handshake (step 0) |
+| Speed | 0.3 to 0.6 s a call (a laptop, three samples) | The same, plus the MCP handshake and hop (measured in step 4) | An Actor run per call (measured in step 0) | The same run, plus the MCP handshake and a second message for the items (step 7) |
 | Cost | Free (non-commercial) | Free | About $0.005 a forecast, from the free plan's $5 monthly credit | The same |
 | Falls back to | The cache | The cache | `rest-no-auth` | `mcp-no-auth` |
 
@@ -195,20 +196,25 @@ Content-Type: application/json
 {"locations":[{"name":"Dallas","latitude":32.78,"longitude":-96.8}],"forecastDays":2,"mode":"daily"}
 ```
 
-**MCP · auth:** the same token and the same Actor input, inside a JSON-RPC message.
+**MCP · auth:** the same token, Actor input and limits, inside a JSON-RPC message to Apify's `call-actor`, with how
+long the server waits for the run; its answer holds the run's ids, so a second message, `get-dataset-items`, reads the
+items (step 7).
 
 ```http
-POST https://mcp.apify.com/?tools=gochujang/open-meteo-weather-forecast
+POST https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast
 Authorization: Bearer <APIFY_TOKEN>
 Content-Type: application/json
 Accept: application/json, text/event-stream
+Mcp-Protocol-Version: 2025-11-25
+Mcp-Session-Id: <session id>
 
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"gochujang--open-meteo-weather-forecast","arguments":{"locations":[{"name":"Dallas","latitude":32.78,"longitude":-96.8}],"forecastDays":2,"mode":"daily"}}}
+{"method":"tools/call","params":{"name":"call-actor","arguments":{"actor":"gochujang/open-meteo-weather-forecast","input":{"locations":[{"name":"Dallas","latitude":32.78,"longitude":-96.8}],"forecastDays":2,"mode":"daily"},"waitSecs":18,"callOptions":{"build":"1.0.9","timeout":18,"maxTotalChargeUsd":0.01}}},"jsonrpc":"2.0","id":2}
 ```
 
-Before its first `tools/call`, each MCP door also opens with a handshake (MCP 2026-07-28, since step 4: one
-`server/discover`, then `tools/list`; the 2025 version sent `initialize` instead); the REST doors
-don't. Note also `timezone=auto` and `wind_speed_unit=mph`, which your example didn't have (section 3, row 12).
+Before its first `tools/call`, each MCP door also opens with a handshake: our server speaks MCP 2026-07-28 (since step
+4: one `server/discover`, then `tools/list`), and Apify's the 2025 version, with sessions (`initialize`, then
+`tools/list`, on the first forecast; step 7); the REST doors don't. Note also `timezone=auto` and
+`wind_speed_unit=mph`, which your example didn't have (section 3, row 12).
 
 ### 4.4 What Changes Between the Doors
 
@@ -216,10 +222,11 @@ don't. Note also `timezone=auto` and `wind_speed_unit=mph`, which your example d
 |---|---|---|
 | Where a tool is defined | In our code | On the server; we find it with `tools/list` |
 | Who names it and shapes its input | We do | The server does; we pin what we expect (7.4, rule 3) |
-| Round trips before the first call | None | The handshake: `server/discover` (2025: `initialize`) and `tools/list` |
+| Round trips before the first call | None | The handshake: `server/discover` and `tools/list` on ours; `initialize` and `tools/list` on Apify's, on the first forecast (step 7) |
 | What one call looks like | An HTTPS request to the API | A JSON-RPC `tools/call` message over Streamable HTTP |
+| A forecast from the Actor | One request, answered with the items | Two messages: the run, answered with its ids, then `get-dataset-items` (step 7) |
 | A bad token, at Apify (real answers, section 3) | `401` with a JSON body: `user-or-token-not-found`; no token at all: `402` with an x402 payment demand | `401` with `WWW-Authenticate: Bearer ... error="invalid_token"`, token or not |
-| The Actor's run limits | In the URL: `build`, `timeout`, `maxTotalChargeUsd` | Whatever Apify's tool accepts (step 0 checks) |
+| The Actor's run limits | In the URL: `build`, `timeout`, `maxTotalChargeUsd` | The same three, in `call-actor`'s `callOptions`, and `waitSecs`, how long the server waits; the Actor's own tool takes only `waitSecs` (step 7) |
 | Who else can use it | Only our app | Any MCP client: the same URL works in Claude or Cursor |
 | A connection to close | None | One per request |
 
@@ -882,12 +889,12 @@ exactly what differs. Read them in this order: each changes one thing from the o
 
 | Step | `rest-no-auth.ts` | `mcp-no-auth.ts` | `rest-auth.ts` | `mcp-auth.ts` |
 |---|---|---|---|---|
-| ① Where | `api.open-meteo.com`, through `lib/upstream/open-meteo.ts` | `/api/mcp` on this deployment | `api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items`, through `lib/upstream/apify.ts` | `mcp.apify.com/?tools=gochujang/open-meteo-weather-forecast` |
+| ① Where | `api.open-meteo.com`, through `lib/upstream/open-meteo.ts` | `/api/mcp` on this deployment | `api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items`, through `lib/upstream/apify.ts` | `mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast` |
 | ② Auth | none | none (the bypass header isn't MCP auth) | `Authorization: Bearer` with `APIFY_TOKEN` | the same header and token |
-| ③ Tools | our four tool definitions, as AI SDK tools | the same four, found with `tools/list` and checked against the pins | our geocoding and our copy of Apify's Actor tool | Apify's Actor tool, found with `tools/list` and checked against the pin, plus our MCP server's geocoding |
-| ④ The call | an HTTPS GET with query parameters | a JSON-RPC `tools/call` over Streamable HTTP | an HTTPS POST with the Actor's input, and its limits in the URL | a JSON-RPC `tools/call` with the Actor's input |
-| ⑤ The result | Open-Meteo's JSON, to a `Forecast` | the server's `structuredContent`, to a `Forecast` | the Actor's items, to a `Forecast` (`actor-items.ts`) | the Actor's items (or run ids first: step 0), to a `Forecast` (`actor-items.ts`) |
-| ⑥ Clean-up | nothing to close | close the MCP connection | nothing to close | close the MCP connection |
+| ③ Tools | our four tool definitions, as AI SDK tools | the same four, found with `tools/list` and checked against the pins | our geocoding and our copy of Apify's Actor tool | the same copy of the Actor's tool, with Apify's `tools/list` checked against the pin, plus our MCP server's geocoding |
+| ④ The call | an HTTPS GET with query parameters | a JSON-RPC `tools/call` over Streamable HTTP | an HTTPS POST with the Actor's input, and its limits in the URL | two JSON-RPC `tools/call` messages: `call-actor`, with the Actor's input and its limits in `callOptions`, then `get-dataset-items` |
+| ⑤ The result | Open-Meteo's JSON, to a `Forecast` | the server's `structuredContent`, to a `Forecast` | the Actor's items, to a `Forecast` (`actor-items.ts`) | the run's ids, then the Actor's items, to a `Forecast` (`actor-items.ts`) |
+| ⑥ Clean-up | nothing to close | close the MCP connection | nothing to close | close both MCP connections, waiting at most 1 s for Apify's |
 
 **Walking someone through it:**
 
@@ -1010,14 +1017,16 @@ Starting values; steps 0, 3 and 4 measure the real times, and these are set from
 | Hop | Budget | How |
 |---|---|---|
 | The whole answer | 50 s; the function stops at 60 s | `timeout.totalMs`; `export const maxDuration = 60` |
-| Connecting to an MCP lane (the handshake and `tools/list`) | 3 s | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
+| Connecting to an MCP lane (the handshake and `tools/list`) | 3 s; to Apify's server, 5 s, on the first forecast, inside the Actor call's 25 s (step 7) | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
 | A tool call on a no-auth lane, REST or MCP | 8 s: two tries of 3 s, with a short random wait between | `timeout.toolMs`, and `open-meteo.ts`'s own HTTP timeout |
-| A tool call on an auth lane, REST or MCP | 28 s: 20 s for the run, then 8 s for the fallback | `timeout.tools`, per tool, and the lane's own 20 s timer for the run (step 6); the REST door also sends Apify `timeout=18`, so the run stops before we give up instead of running on without us |
+| A tool call on an auth lane | REST: 28 s, 20 s for the run, then 8 s for the fallback (step 6); MCP: 33 s, the run's 20 and 5 to connect, then the fallback's 8 (step 7) | `timeout.tools`, per tool, and the lane's own timer for the run, 20 s or 25 s; both doors send Apify an 18 s `timeout`, in the URL or in `call-actor`'s `callOptions`, so the run stops before we give up instead of running on without us |
+| Closing Apify's MCP session | 1 s | AI SDK ends the session with a `DELETE` that has no time limit of its own; the lane waits for it at most 1 s (step 7) |
 | The model's first chunk | 10 s | `timeout.firstChunkMs` |
 | Time left to start a fallback | at least 12 s: the twin's 8 s, plus time to write the answer | the answer's 50 s, counted from when the lane opens, just before the answer starts (step 6); the function's own 60 s comes later |
 
-On the slowest path (geocoding, 20 s on an auth lane, then 8 s on its twin) the tools take at most 36 s of the 50. A
-fallback starts only if 12 s are left; otherwise the bot says the forecast took too long and offers to try again.
+On the slowest path (geocoding, 25 s on `MCP · with auth`, then 8 s on its twin) the tools take at most 41 s of the
+50. A fallback starts only if 12 s are left; otherwise the bot says the forecast took too long and offers to try
+again.
 
 ### 9.4 Security and Privacy
 
@@ -1182,7 +1191,10 @@ each adds one thing to the one before.
    same schema (less our `units`, which the lane strips before calling), the same item mapping, the fallback to
    `mcp-no-auth`. **Done when:** the same Dallas question gives
    the same numbers as step 6, and the failure case in 5.5 plays out on preview through point 6 (the logs); the alert
-   and the status dots come in step 9.
+   and the status dots come in step 9. *Built 29 October 2026 (`docs/step-7.md`): a run's answer holds its ids, so
+   a forecast is two messages, `call-actor`, with the REST door's build, 18 s and $0.01, then `get-dataset-items`.
+   Previews have no token, so the failure case plays out in the tests, with Apify MCP's real `401`, until the `CHAOS`
+   setting (step 10).*
 8. [ ] **Protection:** BotID, the two WAF rules, the security headers. **Done when:** a script
    without BotID's token is refused, the 21st request in a minute gets `429`, the chat route's own calls to
    `/api/mcp` aren't limited, and the headers show on a response.

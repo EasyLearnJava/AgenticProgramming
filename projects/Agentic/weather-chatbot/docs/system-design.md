@@ -1,6 +1,6 @@
 # System Design
 
-How Nimbus is built today, after steps 1 to 6, drawn the way a common reference design for AI assistants draws an
+How Nimbus is built today, after steps 1 to 7, drawn the way a common reference design for AI assistants draws an
 online shop's assistant: in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (01 for the guardrails, 04 for the orchestrator,
 and so on); **+** marks a part only Nimbus has. Below the diagram, each band is described, then each part of the
@@ -21,9 +21,9 @@ reference is set against what Nimbus has, or why it doesn't.
    deployment runs, a real language tag and time zone, a chat id of the kind the page makes. A broken rule gets its own
    sentence, with `400`.
 4. **04 · The chat turn** (`app/api/chat/route.ts`, `lib/chat/run-chat.ts`) is the orchestrator. It opens the lane you
-   picked and runs AI SDK's `streamText`: the system prompt, the lane's tools (four, or two on `REST · with auth`), at
+   picked and runs AI SDK's `streamText`: the system prompt, the lane's tools (four, or two on the auth lanes), at
    most 5 steps (the last can only write), and time budgets (50 s for the answer, 10 s for the model's first chunk, 8 s
-   a tool call, 28 s for the Actor's). Stop cancels it.
+   a tool call, 28 s for the Actor's on REST, 33 s on MCP). Stop cancels it.
    The model chooses the tools; you chose the lane.
 5. **Your answer** streams back as it's written, with a chip for each tool call (open one to see its request on the
    wire) and a weather card. A failure shows our own sentence, never the error's text; when it's logged as an error,
@@ -41,9 +41,14 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 - **REST · with auth**: geocoding as on `REST · no auth`, and the Actor's forecast tool, which runs Apify's
   Open-Meteo Weather Forecast Actor through Apify's REST API, with our token in the `Authorization` header. When
   Apify can't answer, the tool asks `REST · no auth` for the same forecast, and its chip says so.
-- **The Apify client** (`lib/upstream/apify.ts`): one `POST` to the Actor's run-sync address, with its build, 18 s and
-  $0.01 pinned in the URL; no retry and no cache, since a run costs money and the fallback answers anyway. **The
-  Actor** answers with an item a day, or an hour, in °C, read by `lib/weather/actor-items.ts`; a run costs $0.005.
+- **MCP · with auth**: geocoding through our MCP server, as on `MCP · no auth`, and the same Actor tool, whose run
+  goes through Apify's MCP server, `mcp.apify.com`, with the token. When Apify can't answer, our server's
+  `get_forecast` answers instead, and the chip says so.
+- **The Apify clients**: for REST (`lib/upstream/apify.ts`), one `POST` to the Actor's run-sync address, with its
+  build, 18 s and $0.01 pinned in the URL; for MCP (`lib/upstream/apify-mcp.ts`), two `tools/call` messages, since a
+  run's answer holds its ids: `call-actor`, with the same build, 18 s and $0.01, then `get-dataset-items`. Neither
+  retries or caches, since a run costs money and the fallback answers anyway. **The Actor** answers with an item a
+  day, or an hour, in °C, read by `lib/weather/actor-items.ts`; a run costs $0.005.
 - **06 · The four weather tools** (`lib/weather/tools/`): `geocode_location`, `get_current_weather`, `get_forecast`
   and `get_air_quality`, written once, with Zod input schemas, read-only, and run by both doors.
 - **The Open-Meteo client** (`lib/upstream/open-meteo.ts`): 3 s a try and one retry, `Retry-After` on a `429`,
@@ -103,7 +108,7 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 
 - **Its own MCP server** (**+**): the four tools at `/api/mcp`, for the chat and for any MCP client, behind a guard
   that takes one message of at most 8 KB at a time.
-- **Four doors to the same data**: REST or MCP, without or with auth. Three are live; the compare view shows one call
+- **Four doors to the same data**: REST or MCP, without or with auth. All four are live; the compare view shows one call
   through all four.
 - **The wire view**: each chip opens to the request as it was sent, so you can see which door a call went through.
 
@@ -133,7 +138,7 @@ took 435 ms; the chat saw 514 ms. Connecting took 1.1 s, the first connection af
 
 ## What comes next
 
-Step 7 adds `MCP · with auth`, through Apify's MCP server (B). Step 8 adds the edge's rate limit and bot check (A,
+Step 8 adds the edge's rate limit and bot check (A,
 02). Step 9 adds traces, dashboards, alerts, Sentry and the lanes' health (D). Step 10 adds the failure tests, and
 with them the cached answer when Open-Meteo is down (C). Step 11 brings a paid model path, with its cost in the logs
 (B, 07). The plan, `PLAN.md`, has the details.

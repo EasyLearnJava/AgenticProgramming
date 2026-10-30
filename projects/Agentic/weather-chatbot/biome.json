@@ -135,7 +135,8 @@
         "lib/weather/open-meteo-tools.ts",
         "lib/lanes/rest-no-auth.ts",
         "lib/lanes/mcp-no-auth.ts",
-        "lib/lanes/rest-auth.ts"
+        "lib/lanes/rest-auth.ts",
+        "lib/lanes/mcp-auth.ts"
       ],
       "linter": {
         "rules": {

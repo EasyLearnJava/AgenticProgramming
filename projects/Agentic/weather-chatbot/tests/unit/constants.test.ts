@@ -20,14 +20,14 @@ describe("the lanes", () => {
     }
   });
 
-  it("starts on MCP · no auth, the plan's default; built: both no-auth lanes and REST · with auth", () => {
-    expect(LIVE_LANE_IDS).toEqual(["rest-no-auth", "mcp-no-auth", "rest-auth"]);
+  it("starts on MCP · no auth, the plan's default; all four lanes built", () => {
+    expect(LIVE_LANE_IDS).toEqual(["rest-no-auth", "mcp-no-auth", "rest-auth", "mcp-auth"]);
     expect(DEFAULT_LANE_ID).toBe("mcp-no-auth");
   });
 
   it("marks each built lane with a step that's already built, and only the auth ones as needing the token", () => {
     for (const id of LIVE_LANE_IDS) {
-      expect(LANE_BY_ID[id].builtInStep).toBeLessThanOrEqual(6);
+      expect(LANE_BY_ID[id].builtInStep).toBeLessThanOrEqual(7);
     }
     expect(TOKEN_LANE_IDS.every((id) => LANE_BY_ID[id].auth === "bearer")).toBe(true);
     expect(LIVE_LANE_IDS.filter((id) => LANE_BY_ID[id].auth === "bearer")).toEqual([...TOKEN_LANE_IDS]);

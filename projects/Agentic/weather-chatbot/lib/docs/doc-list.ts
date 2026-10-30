@@ -54,6 +54,14 @@ export const DOC_PAGES: readonly DocEntry[] = [
       "The third lane: forecasts from an Apify Actor through Apify's REST API, with a token kept on the server; how " +
       "its answer is read, and how the lane falls back to REST · no auth, saying so on the chip.",
   },
+  {
+    slug: "step-7",
+    step: 7,
+    title: "MCP · With Auth, Through Apify's MCP Server",
+    summary:
+      "The fourth lane: the same Actor, token and limits through Apify's MCP server, whose call-actor answers with a " +
+      "run's ids, so a forecast is two messages; the handshake, the pin, and the fallback.",
+  },
 ];
 
 // ② The issues log, docs/issues.md: the problems met in each step, and their fixes; and the system design,

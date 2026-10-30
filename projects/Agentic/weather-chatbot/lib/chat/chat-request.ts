@@ -18,7 +18,7 @@ const CHAT_ID_PATTERN = /^[\w-]{1,100}$/;
 const MAX_LOCALE_CHARS = 35;
 const MAX_TIME_ZONE_CHARS = 64;
 
-/** Whether a lane id is one that answers for real. */
+/** Whether a lane id is one of the chat's four, all built since step 7. */
 function isLiveLaneId(laneId: string): laneId is LiveLaneId {
   return (LIVE_LANE_IDS as readonly string[]).includes(laneId);
 }
@@ -77,7 +77,7 @@ const SENT_PART_TYPES: ReadonlySet<string> = new Set([
 const RULE_BY_FIELD: Readonly<Record<string, string>> = {
   id: "its chat id isn't one the page makes.",
   messages: `a chat can carry 1 to ${MAX_MESSAGES} messages.`,
-  laneId: "that lane isn't live yet.",
+  laneId: "that isn't one of the chat's lanes.",
   locale: "the browser's language isn't a language tag.",
   timeZone: "the browser's time zone isn't one we know.",
 };

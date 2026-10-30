@@ -10,7 +10,7 @@ import { z } from "zod";
 import { ACTOR_TOOL_NAME, MAX_FORECAST_DAYS, MAX_HOURLY_DAYS, MAX_QUERY_CHARS } from "@/lib/constants";
 import { ContractError } from "@/lib/errors";
 import type { Logger } from "@/lib/logger";
-import type { ActorForecastInput, Forecast } from "@/lib/types";
+import type { ActorForecastInput, Forecast, ForecastInput } from "@/lib/types";
 import type { ApifyClient } from "@/lib/upstream/apify";
 import { roundCoordinate } from "@/lib/utils";
 import { toForecast } from "@/lib/weather/actor-items";
@@ -64,6 +64,24 @@ function summarizeHours({ hours = [], temperatureUnit }: Forecast): string {
       : "";
   const rainPart = rain.length > 0 ? `rain up to ${Math.max(...rain)}%` : "";
   return [`${hours.length} ${hours.length === 1 ? "hour" : "hours"}`, range, rainPart].filter(Boolean).join(" · ");
+}
+
+/**
+ * The Actor tool's input as get_forecast takes it, for an auth lane's twin: the same place, days, hours and units. The
+ * input schema holds exactly one location, so a missing one is a bug, never a forecast for 0°, 0°.
+ */
+export function toForecastInput({ locations, forecastDays, mode, units }: ActorForecastInput): ForecastInput {
+  const [place] = locations;
+  if (place === undefined) {
+    throw new ContractError("The Actor tool's input has no location.");
+  }
+  return {
+    latitude: place.latitude,
+    longitude: place.longitude,
+    days: forecastDays,
+    includeHourly: mode === "hourly",
+    units,
+  };
 }
 
 export const openMeteoActor: WeatherTool<typeof ACTOR_TOOL_NAME, ActorForecastInput, Forecast, ActorToolContext> = {

@@ -69,10 +69,10 @@ describe("POST /api/chat", () => {
     ]);
   });
 
-  it("refuses a lane that isn't live yet, with 400", async () => {
-    const response = await post(chatPost(VALID_BODY.replace("rest-no-auth", "mcp-auth")));
+  it("refuses a lane that doesn't exist, with 400", async () => {
+    const response = await post(chatPost(VALID_BODY.replace("rest-no-auth", "fax")));
     expect(response.status).toBe(400);
-    expect(await response.text()).toContain("that lane isn't live yet");
+    expect(await response.text()).toContain("that isn't one of the chat's lanes");
   });
 
   it("says the chat isn't set up, with 503 and the ref, when GOOGLE_API_KEY is missing", async () => {
@@ -82,7 +82,7 @@ describe("POST /api/chat", () => {
     expect(response.headers.get("x-request-id")).toBe(VERCEL_ID);
   });
 
-  it("logs the request, then the failure, each with the request id, the chat and the lane; never the question", async () => {
+  it("logs the request, then the failure, each with the request id, chat and lane; never the question", async () => {
     await post(chatPost(VALID_BODY));
     const shared = { requestId: VERCEL_ID, chatId: "chat-1", lane: "rest-no-auth", transport: "rest", auth: "none" };
     expect(lines).toEqual([

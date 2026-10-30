@@ -11,7 +11,7 @@ import "server-only";
 import { z } from "zod";
 import { ContractError } from "@/lib/errors";
 import type { Forecast, ForecastDay, ForecastHour, Units } from "@/lib/types";
-import { addDays, celsiusToFahrenheit, roundCoordinate, toLocalDateTime, toWeekday } from "@/lib/utils";
+import { addDays, celsiusToFahrenheit, roundCoordinate, toFieldNames, toLocalDateTime, toWeekday } from "@/lib/utils";
 import { toCondition } from "@/lib/weather/wmo-codes";
 
 const CELSIUS = "°C";
@@ -82,11 +82,9 @@ function parseItems<Item>(items: readonly unknown[], schema: z.ZodType<Item>, mo
   }
   const parsed = z.array(schema).safeParse(items);
   if (!parsed.success) {
-    // A field's name, without the index of the item or value that broke it: "temp_max_c", not "2.temp_max_c".
-    const fields = parsed.error.issues.map(
-      (issue) => issue.path.filter((key) => typeof key !== "number").join(".") || issue.message,
+    throw new ContractError(
+      `The Actor's ${mode} items aren't the shape we read: ${toFieldNames(parsed.error.issues)}.`,
     );
-    throw new ContractError(`The Actor's ${mode} items aren't the shape we read: ${[...new Set(fields)].join(", ")}.`);
   }
   return parsed.data;
 }

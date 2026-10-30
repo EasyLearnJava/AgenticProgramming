@@ -51,7 +51,7 @@ compare view shows it:
 | Pair | REST door | MCP door |
 |---|---|---|
 | **No auth** | `GET https://api.open-meteo.com/v1/forecast?...` | `POST .../api/mcp`: a JSON-RPC `tools/call` for `get_forecast` |
-| **With auth** | `POST https://api.apify.com/v2/acts/.../run-sync-get-dataset-items`, with the token | `POST https://mcp.apify.com/?tools=...`: a JSON-RPC `tools/call` for the Actor's tool, with the same token |
+| **With auth** | `POST https://api.apify.com/v2/acts/.../run-sync-get-dataset-items`, with the token | `POST https://mcp.apify.com/?tools=...`: a JSON-RPC `tools/call` that runs the Actor, with the same token |
 
 A unit test, `tests/unit/chat/sample-conversation.test.ts`, holds the sample to it: both doors of a pair send the same
 tool with the same input, and only the auth lanes carry a token.

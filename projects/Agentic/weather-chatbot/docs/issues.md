@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These thirteen were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These fourteen were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -28,6 +28,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 11 | A lane change showed the model the page's records | 6 | the review |
 | 12 | The Actor's answer wasn't the shape we assumed | 6 | deploying |
 | 13 | Tomorrow, by whose clock? | after 6 | deploying |
+| 14 | The MCP door that would have run any build | 7 | the review |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -453,6 +454,43 @@ golden questions passed on all three lanes, 6 of 6, and the browser tests agains
 **The lesson.** "Today" belongs to a person and a place, not to a timestamp. Give the model the dates it needs, already
 worked out, rather than a UTC instant and a rule for converting it.
 
+### 14. The MCP door that would have run any build
+
+*Step 7 · found by the review · entries 90 and 94*
+
+**The request.** "What's the weather in Dallas, Texas for the next 3 days?" on `MCP · with auth`: the same Actor,
+token and input as `REST · with auth`, through Apify's MCP server instead of its REST API. The REST door pins the
+Actor's build (1.0.9), its run time (18 s) and a cap on its charge ($0.01) in its URL, so a new build or a new price
+from the Actor's author can't reach our users unseen.
+
+**What went wrong.** As first written, before its commit, the MCP lane ran the Actor through the Actor's own MCP tool,
+`gochujang--open-meteo-weather-forecast`, which takes the Actor's input and `waitSecs`, nothing else. Every MCP run
+would have used whatever build the Actor's author made its default, with no cap on its charge, and four documents said
+that couldn't be helped: the MCP door "can't pin the Actor's build, time or cost".
+
+**Why it happened.** We read the Actor's tool's input schema and took its limits for the door's. But the door has
+other tools: Apify's own `call-actor` takes the same three limits, in `callOptions`.
+
+**How we traced it.** The independent review checked that sentence against Apify's MCP server's source:
+`callOptionsSchema`, in `src/tools/actors/call_actor.ts`, takes `build`, `timeout`, `maxItems` and
+`maxTotalChargeUsd`, and `executeCallActor` starts the run with them. Its answer is the run shape we already read
+(`RunResponse`: the status, and the default dataset's id), so only the first message had to change.
+
+**How we fixed it.** The lane connects with `?tools=call-actor,gochujang/open-meteo-weather-forecast` and runs the Actor
+through `call-actor`: the Actor, its input, `waitSecs: 18`, and `callOptions` with build 1.0.9, 18 s and $0.01, from
+the same constants as the REST URL. The Actor's own tool is still listed, for our pin: its input must still take
+`locations`, `forecastDays` and `mode`. The pin now also checks that `call-actor` takes the Actor, its input,
+`waitSecs` and the three limits inside `callOptions`: Apify's server drops a key it doesn't know without a word, so a
+renamed limit would vanish the same way (entry 94).
+
+**How we confirmed it.** `tests/unit/chat/lane-examples.test.ts` reads the REST request's URL and checks that the MCP
+request carries the same build, time and cost; `tests/unit/upstream/apify-mcp.test.ts` checks the message sent, and
+that a `call-actor` whose `callOptions` doesn't take `build` fails the pin.
+
+**The lesson.** "Can't" is a claim like any other: check it before you write it down. When one tool lacks an option,
+look at the server's other tools before you document the gap, and test twin doors against each other, so they can't
+drift apart.
+
 ## While Planning
 
 1. **The "no auth" MCP server needed a sign-in.** *Testing a real API.* MCPBundles' Open-Meteo server answered an MCP
@@ -792,3 +830,66 @@ worked out, rather than a UTC instant and a rule for converting it.
     a time zone whose date isn't UTC's at that moment (Pago Pago or Kiritimati), and take the date too. And the
     system prompt said a forecast's first day is the place's date now, untrue for a forecast cached just before the
     place's midnight: the model now finds a day by its date, and `localNow` is the time there now.
+
+## Step 7 · MCP · With Auth, Through Apify's MCP Server
+
+89. **A run through Apify's MCP server answers with ids, not the forecast.** *Reading a package's code* (Apify's MCP
+    server, `apify/apify-mcp-server` on GitHub). Its docs said `call-actor` returns "storage IDs, not the results", and
+    left open what an Actor's own tool returns; its source answers: "dataset items are not inlined". **Fix:** a run is
+    two messages, the run (through `call-actor`, entry 90), then Apify's `get-dataset-items` with the run's dataset id,
+    up to 100 items in one read (an hourly forecast has 72); a dataset holding more is a `ContractError`. **Check:**
+    `tests/unit/upstream/apify-mcp.test.ts`.
+90. **The Actor's own MCP tool can't pin the run's build, time or cost, but `call-actor` can.** *Review, medium.* The
+    REST door sets `build`, `timeout` and `maxTotalChargeUsd` in its URL. As first written, the MCP lane ran the
+    Actor's own tool, which takes only `waitSecs` (30 s by default, 45 at most): its runs would have used the Actor's
+    default build with no cap on their charge, and our docs said the MCP door couldn't pin them. Apify's `call-actor`
+    takes all three in its `callOptions` and starts the run with them (`src/tools/actors/call_actor.ts`). **Fix:** the
+    lane lists `call-actor` too, and runs the Actor through it with build 1.0.9, 18 s and $0.01, and `waitSecs: 18`;
+    the Actor's own tool is listed only for the pin. `call-actor` checks the input against the default build's
+    schema, as the pin does, so a new default build that changes the input makes this lane fall back. Which words in
+    an error result mean "can't pay" (`BudgetExceededError`) is our reading, since the server doesn't document them
+    (bug story 14).
+    **Check:** `tests/unit/chat/lane-examples.test.ts` (the auth pair's requests carry the same limits),
+    `tests/unit/upstream/apify-mcp.test.ts`.
+91. **Apify's MCP server speaks the 2025 protocol, with sessions.** *Testing a real API* (its `401`'s
+    `Access-Control-Expose-Headers` names `Mcp-Session-Id`, kept in the fixture) *and reading a package's code* (AI
+    SDK's MCP client first tries the 2026 discovery, waiting up to 1 s). **Fix:** the Apify client opens with
+    `initialize` (`protocolVersionDiscovery: false`), on the first forecast only, and never retries a call
+    (`maxRetries: 0`: a retried run would be a second, paid one); the wire view masks the session's id with the
+    token. **Check:** `tests/unit/upstream/apify-mcp.test.ts`, with Apify MCP's real `401`
+    through AI SDK's own client.
+92. **The first MCP run's 20 s also had to hold the handshake.** *Review, low.* On REST, Apify's 18 s fit in the
+    Actor call's 20 with room for the trip. On MCP, the first run's 20 s also held connecting (`initialize` and
+    `tools/list`, up to 5 s) and the second message, so a slow run, near 18 s, would fall back on MCP but not on
+    REST, and still be charged. **Fix:** the MCP lane's Actor call has 25 s, the run's 20 and connecting's 5, and its
+    tool 33 s, with the fallback's 8. The price: after a full 25 s, a fallback needs the call to have started in the
+    answer's first 13 s, not 18; it usually starts in 3 to 8. **Check:** `tests/unit/lanes/mcp-auth.test.ts`.
+93. **Closing Apify's session had no time limit.** *Review, medium.* Apify's server keeps a session, which AI SDK's
+    client ends on close with a `DELETE`, sent with no signal; and the answer's end waits for the lane to close. So
+    every answer that ran the Actor ended one round trip to Apify late, and a `DELETE` that hung would have held the
+    answer open until the function's 60 s. **Fix:** the Apify client waits at most 1 s for closing, when the lane
+    closes and when a connection fails its check (`waitAtMost()` in `lib/utils.ts`); past that, the `DELETE` is left
+    to finish on its own. And only the first close of an open connection runs: a lane is closed twice when an answer
+    fails, the error and then the end, and a second `DELETE` would have waited its own second; a close with nothing
+    open isn't kept, so a connection a run opens after it is still closed. **Check:**
+    `tests/unit/upstream/apify-mcp.test.ts` (a close that never ends; two closes; a run after an early close),
+    `tests/unit/utils.test.ts`.
+94. **The pin didn't read the limits inside `callOptions`.** *Review, low.* Apify's server drops an input key it doesn't
+    know without a word (its validator removes extra properties, and its zod parse strips them), so a renamed `build`,
+    `timeout` or `maxTotalChargeUsd` would have quietly dropped our limit: bug story 14 again. **Fix:** the pin also
+    requires `waitSecs`, and the three limits inside `callOptions`'s own schema, nested as zod 4 makes it (checked by
+    rebuilding Apify's schema with our zod); a renamed one fails the pin, and the lane falls back, saying so.
+    **Check:** `tests/unit/upstream/apify-mcp.test.ts`.
+95. **Smaller review findings on step 7.** *Review.* The plan still gave both auth doors 28 s, with only the REST door
+    sending `timeout=18` (now: 33 s on MCP, the slowest path 41 s of the 50, and both doors send 18 s); said the model
+    sees "Apify's tool found on Apify's server", where it sees our copy; and its lane table's ④ to ⑥ left out
+    `call-actor`, the second message and the second connection. "The latest build" was the default build: the one
+    Apify runs, and reads the input schema from, when no build is named.
+96. **An error part closes the lane while the answer may go on.** *Review, low.* `runChat` closes the lane in
+    `onError`, which AI SDK calls for every error part. But Gemini's provider sends an error part for a chunk it can't
+    parse and keeps streaming (`@ai-sdk/google`), and AI SDK still runs the step's tools if the step then ends with
+    `stop` or `tool-calls`. So a tool call after such a part would meet a closed MCP connection and fail, and the
+    answer, which went on, would be logged as failed. A tool call could meet it since step 4, the first lane with a
+    connection to close, and the answer has been logged as failed since step 5; step 7's Apify client no longer loses
+    a connection opened after an early close (entry 93). **Fix:** its own change, next, before step 8: close the lane
+    once the answer's stream has ended, whichever way.

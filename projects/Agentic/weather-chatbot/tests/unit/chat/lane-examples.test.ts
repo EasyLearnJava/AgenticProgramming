@@ -39,9 +39,23 @@ describe("the lane examples", () => {
     expect(toForecastRequest(input, input)).toEqual(cellFor("rest-no-auth").wire);
   });
 
-  it("sends the auth pair the same tool, with the same Actor input", () => {
+  it("sends the auth pair the same tool, Actor input and limits: in REST's URL, in call-actor's callOptions", () => {
     expect(cellFor("rest-auth").tool).toBe(cellFor("mcp-auth").tool);
-    expect(JSON.parse(cellFor("rest-auth").wire.body ?? "")).toEqual(toolsCallArguments(cellFor("mcp-auth")));
+    const limits = new URL(cellFor("rest-auth").wire.url).searchParams;
+    expect(toolsCallArguments(cellFor("mcp-auth"))).toEqual({
+      actor: "gochujang/open-meteo-weather-forecast",
+      input: JSON.parse(cellFor("rest-auth").wire.body ?? ""),
+      waitSecs: 18,
+      callOptions: {
+        build: limits.get("build"),
+        timeout: Number(limits.get("timeout")),
+        maxTotalChargeUsd: Number(limits.get("maxTotalChargeUsd")),
+      },
+    });
+    expect(cellFor("mcp-auth").wire).toMatchObject({
+      url: "https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast",
+      headers: { authorization: "Bearer <APIFY_TOKEN>", "mcp-session-id": "<session id>" },
+    });
   });
 
   it("puts a token on every request to Apify, and on no other request, always masked", () => {

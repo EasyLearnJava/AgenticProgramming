@@ -1,27 +1,29 @@
 /*
  * lib/lanes/mcp-no-auth.ts: MCP · no auth. The same four tools, reached through our own MCP server at /api/mcp on
- * this deployment: the chat route is the MCP client, and the server calls Open-Meteo.
+ * this deployment: the chat route is the MCP client, and the server calls Open-Meteo. MCP · with auth reaches our
+ * server the same way, for geocoding and its fallback, so connecting and calling a tool are exported here.
  */
 import "server-only";
-import { type CallToolResult, createMCPClient, type MCPClient, type MCPClientConfig } from "@ai-sdk/mcp";
+import { createMCPClient, type MCPClientConfig } from "@ai-sdk/mcp";
 import type { JSONValue, Tool } from "ai";
 import { MCP_API_PATH, MCP_CONNECT_TIMEOUT_MS, REQUEST_ID_HEADER } from "@/lib/constants";
 import { ContractError, toAppErrorByName, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
 import { type Lane, toModelWeather } from "@/lib/lanes/lane";
 import { type Logger, logger } from "@/lib/logger";
-import type { ToolResult, WireRequest } from "@/lib/types";
-import { once, timeoutSignal, toAbortKind } from "@/lib/utils";
+import type { LiveLaneId, McpClient, ToolResult, WireRequest } from "@/lib/types";
+import { findToolsCall, once, timeoutSignal, toAbortKind, toResultText, toWireRequest } from "@/lib/utils";
 import { OPEN_METEO_TOOLS } from "@/lib/weather/open-meteo-tools";
 import type { WeatherTool } from "@/lib/weather/weather-tool";
 
 const LANE_ID = "mcp-no-auth";
 const BYPASS_HEADER = "x-vercel-protection-bypass";
-const MASKED_BYPASS_SECRET = "<VERCEL_AUTOMATION_BYPASS_SECRET>";
+// What the page sees instead of the bypass secret.
+const MASKS: Readonly<Record<string, string>> = { [BYPASS_HEADER]: "<VERCEL_AUTOMATION_BYPASS_SECRET>" };
 
-/** What the lane uses of an MCP client: listing the tools, calling one, and closing. */
-type McpConnection = Pick<MCPClient, "listTools" | "callTool" | "close">;
+/** An open connection to our MCP server: the client, every request it has sent (for the chips), and closing it once. */
+export type McpConnection = { client: McpClient; sent: readonly WireRequest[]; close: () => Promise<void> };
 
-type McpNoAuthOptions = {
+export type OurMcpOptions = {
   origin: string;
   requestId: string;
   log?: Logger;
@@ -30,11 +32,25 @@ type McpNoAuthOptions = {
   fetch?: typeof fetch;
   now?: () => number;
   connectTimeoutMs?: number;
-  createClient?: (config: MCPClientConfig) => Promise<McpConnection>;
+  createClient?: (config: MCPClientConfig) => Promise<McpClient>;
 };
 
 /** Opens MCP · no auth: connects to /api/mcp, checks its tool list, and hands the model our four, called through it. */
-export async function openMcpNoAuthLane({
+export async function openMcpNoAuthLane(options: OurMcpOptions): Promise<Lane> {
+  const { now = performance.now.bind(performance) } = options;
+  const connection = await connectToOurMcpServer(options);
+  const tools = {
+    geocode_location: toMcpTool(OPEN_METEO_TOOLS.geocode_location, connection, now, LANE_ID),
+    get_current_weather: toMcpTool(OPEN_METEO_TOOLS.get_current_weather, connection, now, LANE_ID),
+    get_forecast: toMcpTool(OPEN_METEO_TOOLS.get_forecast, connection, now, LANE_ID),
+    get_air_quality: toMcpTool(OPEN_METEO_TOOLS.get_air_quality, connection, now, LANE_ID),
+  };
+  // ⑥ Clean-up: close the connection however the answer ends, and only once.
+  return { id: LANE_ID, tools, close: connection.close };
+}
+
+/** Connects to our MCP server at /api/mcp on this deployment, and checks that it lists our four tools. */
+export async function connectToOurMcpServer({
   origin,
   requestId,
   log = logger,
@@ -44,7 +60,7 @@ export async function openMcpNoAuthLane({
   now = performance.now.bind(performance),
   connectTimeoutMs = MCP_CONNECT_TIMEOUT_MS,
   createClient = createMCPClient,
-}: McpNoAuthOptions): Promise<Lane> {
+}: OurMcpOptions): Promise<McpConnection> {
   // ① Where: /api/mcp on this same deployment, so a preview talks to its own MCP server.
   const url = `${origin}${MCP_API_PATH}`;
   // ② Auth: none. The bypass secret, when the project has one, gets the call past Vercel's Deployment Protection; it
@@ -56,7 +72,7 @@ export async function openMcpNoAuthLane({
   // Every request the transport sends goes through this fetch, which keeps it for the chips' wire views.
   const sent: WireRequest[] = [];
   const recordingFetch = ((input: string | URL | Request, init?: RequestInit) => {
-    sent.push(toWireRequest(input, init));
+    sent.push(toWireRequest(input, init, MASKS));
     return fetchMcp(input, init);
   }) as typeof fetch;
   // ③ Tools: connect within 3 s; the server's list must hold our four, and a tool it adds never reaches the model.
@@ -87,14 +103,7 @@ export async function openMcpNoAuthLane({
     await close();
     throw toConnectError(error, connect);
   }
-  const tools = {
-    geocode_location: toMcpTool(OPEN_METEO_TOOLS.geocode_location, client, sent, now),
-    get_current_weather: toMcpTool(OPEN_METEO_TOOLS.get_current_weather, client, sent, now),
-    get_forecast: toMcpTool(OPEN_METEO_TOOLS.get_forecast, client, sent, now),
-    get_air_quality: toMcpTool(OPEN_METEO_TOOLS.get_air_quality, client, sent, now),
-  };
-  // ⑥ Clean-up: close the connection however the answer ends, and only once.
-  return { id: LANE_ID, tools, close };
+  return { client, sent, close };
 }
 
 /** Connecting: its own time limit, the request's signal, and the lane.connect line, which knows when it started. */
@@ -131,96 +140,61 @@ function toConnectError(
   return failure;
 }
 
-/** A request as the MCP transport sends it, with the bypass secret masked: what a chip's wire view shows. */
-function toWireRequest(input: string | URL | Request, init?: RequestInit): WireRequest {
-  const headers = Object.fromEntries(
-    [...new Headers(init?.headers).entries()].map(([name, value]) => [
-      name,
-      name === BYPASS_HEADER ? MASKED_BYPASS_SECRET : value,
-    ]),
-  );
-  const body = typeof init?.body === "string" ? init.body : undefined;
-  return { method: init?.method === "GET" ? "GET" : "POST", url: String(input), headers, body };
-}
-
-/** The tools/call request that carried a call: the last one with this tool's name and these arguments. */
-function findToolsCall(sent: readonly WireRequest[], name: string, input: unknown): WireRequest | undefined {
-  const wanted = JSON.stringify(input);
-  return sent.findLast((request) => {
-    const message: unknown = request.body === undefined ? undefined : JSON.parse(request.body);
-    if (typeof message !== "object" || message === null || !("method" in message) || !("params" in message)) {
-      return false;
-    }
-    const params = message.params as { name?: unknown; arguments?: unknown };
-    return message.method === "tools/call" && params.name === name && JSON.stringify(params.arguments) === wanted;
-  });
-}
-
-/** A tool result's text parts, joined: our tools' one-line summary. A result without a content list has no text. */
-function toResultText(result: CallToolResult): string {
-  const content: unknown = "content" in result ? result.content : undefined;
-  if (!Array.isArray(content)) {
-    return "";
-  }
-  return content
-    .map((part: unknown) =>
-      typeof part === "object" && part !== null && "text" in part && typeof part.text === "string" ? part.text : "",
-    )
-    .join("");
-}
-
-/** One of our tools as an AI SDK tool that calls it through the MCP server, and records how the call went. */
-function toMcpTool<Name extends string, Input, Output extends JSONValue>(
+/**
+ * One of our tools, called through our MCP server: its result, with the request that carried it and how long it took,
+ * recorded as the given lane's call.
+ */
+export async function callOurMcpTool<Name extends string, Input, Output extends JSONValue>(
   definition: WeatherTool<Name, Input, Output>,
-  client: McpConnection,
-  sent: readonly WireRequest[],
+  { client, sent }: McpConnection,
+  input: Input,
+  { laneId, signal, now }: { laneId: LiveLaneId; signal: AbortSignal | undefined; now: () => number },
+): Promise<ToolResult<Output>> {
+  const startedAt = now();
+  // ④ The call: a JSON-RPC tools/call over Streamable HTTP, with the tool's abort signal (Stop, budget).
+  const result = await client
+    .callTool({ name: definition.name, arguments: input as Record<string, unknown>, options: { signal } })
+    .catch((error: unknown) => {
+      // The server didn't answer: a stop is passed on as the signal's own reason, as on REST (the MCP client wraps
+      // it); anything else becomes one of our classes, as on REST, which the chat logs, as for every lane (a tool that
+      // failed on the server is logged there too, by the server).
+      const abortKind = toAbortKind(signal);
+      if (abortKind === "stop") {
+        throw signal?.reason;
+      }
+      throw abortKind === "timeout"
+        ? new UpstreamTimeoutError("Our MCP server didn't answer within the tool's time budget.", { cause: error })
+        : new UpstreamUnavailableError("Our MCP server can't be reached.", { cause: error });
+    });
+  const meta = (result._meta ?? {}) as { cache?: unknown; errorClass?: unknown };
+  const text = toResultText(result);
+  if (result.isError === true) {
+    throw toAppErrorByName(typeof meta.errorClass === "string" ? meta.errorClass : undefined, text);
+  }
+  // ⑤ The result: the server's structured content, which is the tool's own output, and its one-line summary.
+  const wire = findToolsCall(sent, definition.name, input);
+  if (result.structuredContent === undefined || wire === undefined) {
+    throw new ContractError(`Our MCP server's ${definition.name} answer is missing its content or its request.`);
+  }
+  return {
+    result: result.structuredContent as Output,
+    summary: text,
+    call: { laneId, wire, cache: meta.cache === "hit" ? "hit" : "miss", durationMs: Math.round(now() - startedAt) },
+  };
+}
+
+/** One of our tools as an AI SDK tool that calls it through our MCP server, recorded as the given lane's call. */
+export function toMcpTool<Name extends string, Input, Output extends JSONValue>(
+  definition: WeatherTool<Name, Input, Output>,
+  connection: McpConnection,
   now: () => number,
+  laneId: LiveLaneId,
 ): Tool<Input, ToolResult<Output>> {
   return {
     description: definition.description,
     inputSchema: definition.inputSchema,
-    // ④ The call: a JSON-RPC tools/call over Streamable HTTP, with the tool's abort signal (Stop, budget).
-    execute: async (input: Input, { abortSignal }: { abortSignal?: AbortSignal }): Promise<ToolResult<Output>> => {
-      const startedAt = now();
-      const result = await client
-        .callTool({
-          name: definition.name,
-          arguments: input as Record<string, unknown>,
-          options: { signal: abortSignal },
-        })
-        .catch((error: unknown) => {
-          // The server didn't answer: a stop is passed on as the signal's own reason, as on REST (the MCP client wraps
-          // it); anything else becomes one of our classes, as on REST, which the chat logs, as for every lane (a tool
-          // that failed on the server is logged there too, by the server).
-          const abortKind = toAbortKind(abortSignal);
-          if (abortKind === "stop") {
-            throw abortSignal?.reason;
-          }
-          throw abortKind === "timeout"
-            ? new UpstreamTimeoutError("Our MCP server didn't answer within the tool's time budget.", { cause: error })
-            : new UpstreamUnavailableError("Our MCP server can't be reached.", { cause: error });
-        });
-      const meta = (result._meta ?? {}) as { cache?: unknown; errorClass?: unknown };
-      const text = toResultText(result);
-      if (result.isError === true) {
-        throw toAppErrorByName(typeof meta.errorClass === "string" ? meta.errorClass : undefined, text);
-      }
-      // ⑤ The result: the server's structured content, which is the tool's own output, and its one-line summary.
-      const wire = findToolsCall(sent, definition.name, input);
-      if (result.structuredContent === undefined || wire === undefined) {
-        throw new ContractError(`Our MCP server's ${definition.name} answer is missing its content or its request.`);
-      }
-      return {
-        result: result.structuredContent as Output,
-        summary: text,
-        call: {
-          laneId: LANE_ID,
-          wire,
-          cache: meta.cache === "hit" ? "hit" : "miss",
-          durationMs: Math.round(now() - startedAt),
-        },
-      };
-    },
+    execute: (input: Input, { abortSignal }: { abortSignal?: AbortSignal }): Promise<ToolResult<Output>> =>
+      callOurMcpTool(definition, connection, input, { laneId, signal: abortSignal, now }),
     // The model reads only the weather; the request and the time are for the page.
     toModelOutput: toModelWeather,
   };

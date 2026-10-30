@@ -10,6 +10,8 @@ const TENTHS = 10;
 const SHORTEST_SHOWN_MS = 50;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 const DATE_CHARS = 10;
+// How far down an error's causes to look for an HTTP status: a client wraps the response's error once or twice.
+const MAX_CAUSE_DEPTH = 5;
 const REQUEST_ID_CHARS = 16;
 // A request id we take from a header: letters, digits and : . _ -, as in Vercel's "iad1::abcde-1730211234567-f3c2b1".
 const REQUEST_ID_PATTERN = /^[\w:.-]{1,128}$/;
@@ -20,6 +22,69 @@ export function toWireText(request: WireRequest): string {
   const headerLines = Object.entries(request.headers).map(([name, value]) => `${name}: ${value}`);
   const head = [`${request.method} ${request.url}`, ...headerLines].join("\n");
   return request.body === undefined ? head : `${head}\n\n${request.body}`;
+}
+
+/**
+ * A request as a client sends it, with each header named in `masks` shown as its stand-in, never its value: what a
+ * chip's wire view shows. Header names come out lowercase, as fetch's Headers gives them.
+ */
+export function toWireRequest(
+  input: string | URL | Request,
+  init: RequestInit | undefined,
+  masks: Readonly<Record<string, string>>,
+): WireRequest {
+  const headers = Object.fromEntries(
+    [...new Headers(init?.headers).entries()].map(([name, value]) => [name, masks[name] ?? value]),
+  );
+  const body = typeof init?.body === "string" ? init.body : undefined;
+  return { method: init?.method === "GET" ? "GET" : "POST", url: String(input), headers, body };
+}
+
+/** The MCP tools/call request that carried a call: the last one sent with this tool's name and these arguments. */
+export function findToolsCall(sent: readonly WireRequest[], name: string, input: unknown): WireRequest | undefined {
+  const wanted = JSON.stringify(input);
+  return sent.findLast((request) => {
+    const message: unknown = request.body === undefined ? undefined : JSON.parse(request.body);
+    if (typeof message !== "object" || message === null || !("method" in message) || !("params" in message)) {
+      return false;
+    }
+    const params = message.params as { name?: unknown; arguments?: unknown };
+    return message.method === "tools/call" && params.name === name && JSON.stringify(params.arguments) === wanted;
+  });
+}
+
+/** An MCP tool result's text parts, joined; a result without a content list has no text. */
+export function toResultText(result: object): string {
+  const content: unknown = "content" in result ? result.content : undefined;
+  if (!Array.isArray(content)) {
+    return "";
+  }
+  return content
+    .map((part: unknown) =>
+      typeof part === "object" && part !== null && "text" in part && typeof part.text === "string" ? part.text : "",
+    )
+    .join("");
+}
+
+/** The HTTP status an error carries, on itself or on one of its causes; none when no response came back. */
+export function toStatusCode(error: unknown): number | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH && typeof current === "object" && current !== null; depth += 1) {
+    if ("statusCode" in current && typeof current.statusCode === "number") {
+      return current.statusCode;
+    }
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * The fields a check found wrong, by name only, never a value, and without the index of the item or value that broke
+ * it: "daily.time", not "daily.time.3"; a check of the whole gives its own words.
+ */
+export function toFieldNames(issues: readonly { path: readonly PropertyKey[]; message: string }[]): string {
+  const fields = issues.map((issue) => issue.path.filter((key) => typeof key !== "number").join(".") || issue.message);
+  return [...new Set(fields)].join(", ");
 }
 
 /** The host part of a URL, as written: "https://api.apify.com/v2/acts" → "api.apify.com". */
@@ -127,6 +192,28 @@ export function toAbortKind(signal: AbortSignal | undefined): "none" | "timeout"
 export function timeoutSignal(ms: number, parentSignal?: AbortSignal): AbortSignal {
   const timeout = AbortSignal.timeout(ms);
   return parentSignal ? AbortSignal.any([timeout, parentSignal]) : timeout;
+}
+
+/**
+ * Waits for a promise, but at most `ms`: past that, it's left to settle on its own, and whether it fails isn't asked.
+ * For clean-up that mustn't hold up what comes after it.
+ */
+export async function waitAtMost(promise: Promise<unknown>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeUp = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  try {
+    await Promise.race([
+      promise.then(
+        () => undefined,
+        () => undefined,
+      ),
+      timeUp,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** A Retry-After header's wait, in milliseconds; undefined when it's missing or isn't a number of seconds. */

@@ -50,8 +50,8 @@ export const LANE_IDS: readonly LaneId[] = LANE_GRID.flat();
 
 // ③ The lanes built so far, and the one a new chat starts on: MCP · no auth (PLAN.md 4.5). An auth lane also needs
 // Apify's token on the deployment, or it waits.
-export const LIVE_LANE_IDS: readonly LiveLaneId[] = ["rest-no-auth", "mcp-no-auth", "rest-auth"];
-export const TOKEN_LANE_IDS: readonly LiveLaneId[] = ["rest-auth"];
+export const LIVE_LANE_IDS: readonly LiveLaneId[] = ["rest-no-auth", "mcp-no-auth", "rest-auth", "mcp-auth"];
+export const TOKEN_LANE_IDS: readonly LiveLaneId[] = ["rest-auth", "mcp-auth"];
 export const DEFAULT_LANE_ID: LiveLaneId = "mcp-no-auth";
 
 // ④ What one chat request may carry (PLAN.md 9.2, InputError): messages, each of yours, and the whole history.
@@ -69,8 +69,8 @@ export const FIRST_CHUNK_TIMEOUT_MS = 10_000;
 export const TOOL_TIMEOUT_MS = 8000;
 // Connecting to an MCP lane: the handshake and the tool list, before the model starts.
 export const MCP_CONNECT_TIMEOUT_MS = 3000;
-// An Actor run on an auth lane takes seconds, not milliseconds: it gets 20 s, then its tool's budget leaves the
-// fallback a tool's usual 8 s.
+// An Actor run on an auth lane takes seconds, not milliseconds: it gets 20 s (25 on MCP · with auth, which may connect
+// first: APIFY_MCP_ACTOR_BUDGET_MS), then its tool's budget leaves the fallback a tool's usual 8 s.
 export const AUTH_TOOL_TIMEOUT_MS = 20_000;
 // A fallback starts only with this much of the answer's budget left: the twin's 8 s, and time to write the answer.
 export const FALLBACK_MIN_LEFT_MS = 12_000;
@@ -132,5 +132,19 @@ export const APIFY_ACTOR_BUILD = "1.0.9";
 export const APIFY_RUN_TIMEOUT_SECONDS = 18;
 export const APIFY_MAX_CHARGE_USD = 0.01;
 export const ACTOR_TOOL_NAME = "gochujang--open-meteo-weather-forecast";
+// The same Actor through Apify's MCP server (step 7): the address that lists call-actor, which runs it with the REST
+// door's limits, and the Actor's own tool, for our pin, with their helpers; the Actor, as call-actor names it; the
+// helper that reads a run's items, at most this many in one read (an hourly forecast has 72); how long connecting may
+// take, the server being Apify's, across the internet; and the Actor call's own time there, the run's 20 s plus that.
+export const APIFY_MCP_URL = "https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast";
+export const APIFY_RUN_TOOL = "call-actor";
+export const APIFY_ACTOR = "gochujang/open-meteo-weather-forecast";
+export const APIFY_DATASET_TOOL = "get-dataset-items";
+export const MAX_ACTOR_ITEMS = 100;
+export const APIFY_MCP_CONNECT_TIMEOUT_MS = 5000;
+export const APIFY_MCP_ACTOR_BUDGET_MS = AUTH_TOOL_TIMEOUT_MS + APIFY_MCP_CONNECT_TIMEOUT_MS;
+// How long closing Apify's session may hold up the answer's end: AI SDK ends a 2025 session with a DELETE that has no
+// time limit of its own.
+export const APIFY_MCP_CLOSE_TIMEOUT_MS = 1000;
 // Apify's own words about a failed run are cut to this many characters before they go in our message.
 export const MAX_APIFY_DETAIL_CHARS = 200;

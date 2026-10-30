@@ -7,6 +7,7 @@ import { type Config, config } from "@/lib/config";
 import { LIVE_LANE_IDS, TOKEN_LANE_IDS } from "@/lib/constants";
 import { ConfigError } from "@/lib/errors";
 import type { Lane } from "@/lib/lanes/lane";
+import { openMcpAuthLane } from "@/lib/lanes/mcp-auth";
 import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
 import { openRestAuthLane } from "@/lib/lanes/rest-auth";
 import { openRestNoAuthLane } from "@/lib/lanes/rest-no-auth";
@@ -38,19 +39,32 @@ export function toAvailableLaneIds(apifyToken: string | undefined): LiveLaneId[]
   return LIVE_LANE_IDS.filter((laneId) => apifyToken !== undefined || !TOKEN_LANE_IDS.includes(laneId));
 }
 
+/**
+ * Apify's token, for an auth lane. The page offers an auth lane only when the token is set, and the request's rules
+ * refuse one without it; this is the last guard.
+ */
+function toApifyToken(laneId: LiveLaneId): string {
+  const token = config.apify.token;
+  if (token === undefined) {
+    throw new ConfigError(`APIFY_TOKEN isn't set, so ${laneId} can't run.`);
+  }
+  return token;
+}
+
 const OPEN_BY_LANE: Readonly<Record<LiveLaneId, (options: OpenLaneOptions) => Promise<Lane>>> = {
   "rest-no-auth": async ({ log }) => openRestNoAuthLane({ log }),
-  "rest-auth": async ({ log, requestId }) => {
-    // The page offers this lane only when the token is set, and the request's rules refuse it without one; this is
-    // the last guard.
-    const token = config.apify.token;
-    if (token === undefined) {
-      throw new ConfigError("APIFY_TOKEN isn't set, so REST · with auth can't run.");
-    }
-    return openRestAuthLane({ token, requestId, log });
-  },
+  "rest-auth": async ({ log, requestId }) => openRestAuthLane({ token: toApifyToken("rest-auth"), requestId, log }),
   "mcp-no-auth": ({ requestUrl, signal, requestId, log }) =>
     openMcpNoAuthLane({
+      origin: toSelfOrigin(requestUrl, config.deployment),
+      requestId,
+      log,
+      signal,
+      bypassSecret: config.mcp.bypassSecret,
+    }),
+  "mcp-auth": ({ requestUrl, signal, requestId, log }) =>
+    openMcpAuthLane({
+      token: toApifyToken("mcp-auth"),
       origin: toSelfOrigin(requestUrl, config.deployment),
       requestId,
       log,

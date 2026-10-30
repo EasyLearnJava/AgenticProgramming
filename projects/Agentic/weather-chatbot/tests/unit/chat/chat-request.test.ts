@@ -84,11 +84,14 @@ describe("parseChatRequest", () => {
     );
   });
 
-  it("refuses a lane that isn't live yet, and one that doesn't exist", async () => {
-    expect(await refusal({ ...VALID, laneId: "mcp-auth" })).toBe(
-      "That message can't be sent: that lane isn't live yet.",
+  it("refuses a lane that doesn't exist, and MCP · with auth without the token, as REST · with auth", async () => {
+    expect(await refusal({ ...VALID, laneId: "fax" })).toBe(
+      "That message can't be sent: that isn't one of the chat's lanes.",
     );
-    expect(await refusal({ ...VALID, laneId: "fax" })).toContain("that lane isn't live yet");
+    const error = await parseChatRequest({ ...VALID, laneId: "mcp-auth" }, ["rest-no-auth", "mcp-no-auth"]).catch(
+      (caught: unknown) => caught,
+    );
+    expect((error as InputError).userMessage).toContain("that lane needs an Apify token");
   });
 
   it("refuses more than 20 messages, and none", async () => {

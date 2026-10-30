@@ -65,16 +65,14 @@ test("shows the welcome and the questions to try, with the menu and the build li
   await expect(page.getByText(/^Build/)).toBeVisible();
 });
 
-test("starts on MCP · no auth, the default; REST · with auth needs the token; MCP · with auth waits", async ({
-  page,
-}) => {
+test("starts on MCP · no auth, the default; both auth lanes run only with Apify's token", async ({ page }) => {
   await expect(page.getByLabel(/MCP · no auth/)).toBeChecked();
   await expect(page.getByLabel(/REST · no auth/)).toBeEnabled();
   const stateOf = (label: RegExp) =>
     page.locator(".lane-option", { has: page.getByLabel(label) }).locator(".lane-option-step");
-  await expect(stateOf(/REST · with auth/)).toHaveText((await hasApifyToken(page)) ? "live" : "needs an Apify token");
-  await expect(page.getByLabel(/MCP · with auth/)).toBeDisabled();
-  await expect(stateOf(/MCP · with auth/)).toHaveText("live from step 7");
+  const authState = (await hasApifyToken(page)) ? "live" : "needs an Apify token";
+  await expect(stateOf(/REST · with auth/)).toHaveText(authState);
+  await expect(stateOf(/MCP · with auth/)).toHaveText(authState);
 });
 
 test("moves between the lanes this deployment runs with the arrow keys, skipping the ones that wait", async ({
@@ -271,7 +269,14 @@ test("shows the same forecast call through the four lanes, side by side", async 
   );
   await expect(cells.nth(2)).toContainText("Live: ask in the chat on this lane");
   await expect(cells.nth(2).getByText("mcp-method: tools/call")).toBeVisible();
-  await expect(cells.nth(3)).toContainText("Live from step 7");
+  // MCP · with auth: a JSON-RPC tools/call to Apify's MCP server, the token and the session's id masked.
+  await expect(
+    cells.nth(3).getByText("POST https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast"),
+  ).toBeVisible();
+  await expect(cells.nth(3).getByText("authorization: Bearer <APIFY_TOKEN>")).toBeVisible();
+  await expect(cells.nth(3)).toContainText(
+    hasToken ? "Live: ask in the chat on this lane" : "Built: it runs once this deployment has an Apify token",
+  );
 });
 
 test("has no accessibility violations, with an answer, an open chip and the compare view", async ({ page }) => {

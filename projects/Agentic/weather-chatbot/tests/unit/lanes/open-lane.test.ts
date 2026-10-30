@@ -39,8 +39,8 @@ describe("toSelfOrigin", () => {
 });
 
 describe("toAvailableLaneIds", () => {
-  it("runs both no-auth lanes anywhere, and REST · with auth only where Apify's token is set", () => {
+  it("runs both no-auth lanes anywhere, and both auth lanes only where Apify's token is set", () => {
     expect(toAvailableLaneIds(undefined)).toEqual(["rest-no-auth", "mcp-no-auth"]);
-    expect(toAvailableLaneIds("test-token-not-real")).toEqual(["rest-no-auth", "mcp-no-auth", "rest-auth"]);
+    expect(toAvailableLaneIds("test-token-not-real")).toEqual(["rest-no-auth", "mcp-no-auth", "rest-auth", "mcp-auth"]);
   });
 });

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   celsiusToFahrenheit,
+  findToolsCall,
   formatDuration,
   formatLocalTime,
   newRequestId,
@@ -12,13 +13,18 @@ import {
   roundCoordinate,
   timeoutSignal,
   toAbortKind,
+  toFieldNames,
   toHost,
   toLocalDateTime,
   toRef,
   toRequestId,
+  toResultText,
   toRetryAfterMs,
+  toStatusCode,
   toWeekday,
+  toWireRequest,
   toWireText,
+  waitAtMost,
   withRetry,
 } from "@/lib/utils";
 
@@ -45,7 +51,9 @@ describe("toWireText", () => {
 describe("toHost", () => {
   it("takes the host from a URL, with or without a path or query", () => {
     expect(toHost("https://api.apify.com/v2/acts/x/run-sync-get-dataset-items?timeout=18")).toBe("api.apify.com");
-    expect(toHost("https://mcp.apify.com/?tools=gochujang/open-meteo-weather-forecast")).toBe("mcp.apify.com");
+    expect(toHost("https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast")).toBe(
+      "mcp.apify.com",
+    );
     expect(toHost("https://geocoding-api.open-meteo.com")).toBe("geocoding-api.open-meteo.com");
   });
 
@@ -101,6 +109,24 @@ describe("timeoutSignal", () => {
     parent.abort();
     expect(signal.aborted).toBe(true);
     expect((signal.reason as Error).name).toBe("AbortError");
+  });
+});
+
+describe("waitAtMost", () => {
+  it("waits for a promise that settles in time, whether it fails or not", async () => {
+    let settled = false;
+    const soon = new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
+      settled = true;
+    });
+    await waitAtMost(soon, 1000);
+    expect(settled).toBe(true);
+    await expect(waitAtMost(Promise.reject(new Error("closing failed")), 1000)).resolves.toBeUndefined();
+  });
+
+  it("stops waiting after its time, for a promise that never settles", async () => {
+    const startedAt = performance.now();
+    await waitAtMost(new Promise(() => undefined), 20);
+    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(15);
   });
 });
 
@@ -248,5 +274,74 @@ describe("addDays", () => {
     expect(addDays("2026-10-31", 1)).toBe("2026-11-01");
     expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
     expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+  });
+});
+
+describe("toWireRequest", () => {
+  it("records a request as sent, header names lowercase, with each masked header's stand-in, never its value", () => {
+    const request = toWireRequest(
+      "https://mcp.apify.com/?tools=x",
+      { method: "POST", headers: { Authorization: "Bearer secret", Accept: "application/json" }, body: "{}" },
+      { authorization: "Bearer <APIFY_TOKEN>" },
+    );
+    expect(request).toEqual({
+      method: "POST",
+      url: "https://mcp.apify.com/?tools=x",
+      headers: { authorization: "Bearer <APIFY_TOKEN>", accept: "application/json" },
+      body: "{}",
+    });
+    expect(toWireRequest("https://a.test/", { method: "GET" }, {})).toEqual({
+      method: "GET",
+      url: "https://a.test/",
+      headers: {},
+      body: undefined,
+    });
+  });
+});
+
+describe("findToolsCall", () => {
+  const callOf = (name: string, args: unknown, id: number) => ({
+    method: "POST" as const,
+    url: "https://a.test/mcp",
+    headers: {},
+    body: JSON.stringify({ method: "tools/call", params: { name, arguments: args }, jsonrpc: "2.0", id }),
+  });
+
+  it("finds the last tools/call with this tool's name and these arguments, and nothing else", () => {
+    const sent = [callOf("get_forecast", { days: 1 }, 1), callOf("get_forecast", { days: 2 }, 2), callOf("x", {}, 3)];
+    expect(findToolsCall(sent, "get_forecast", { days: 2 })?.body).toContain('"id":2');
+    expect(findToolsCall(sent, "get_forecast", { days: 3 })).toBeUndefined();
+    expect(findToolsCall([{ ...callOf("x", {}, 4), body: undefined }], "x", {})).toBeUndefined();
+  });
+});
+
+describe("toResultText", () => {
+  it("joins a result's text parts, and has none without a content list", () => {
+    expect(
+      toResultText({ content: [{ type: "text", text: "3 days" }, { type: "image" }, { type: "text", text: "." }] }),
+    ).toBe("3 days.");
+    expect(toResultText({ structuredContent: {} })).toBe("");
+  });
+});
+
+describe("toStatusCode", () => {
+  it("finds the HTTP status on an error or on one of its causes, and none where no response came back", () => {
+    expect(toStatusCode(Object.assign(new Error("401"), { statusCode: 401 }))).toBe(401);
+    const wrapped = new Error("connect failed", { cause: Object.assign(new Error("HTTP"), { statusCode: 503 }) });
+    expect(toStatusCode(new Error("outer", { cause: wrapped }))).toBe(503);
+    expect(toStatusCode(new TypeError("fetch failed"))).toBeUndefined();
+    expect(toStatusCode("not an error")).toBeUndefined();
+  });
+});
+
+describe("toFieldNames", () => {
+  it("names each field once, without the index that broke it, and gives a whole check's own words", () => {
+    const issues = [
+      { path: [0, "daily", "time", 3], message: "Expected string" },
+      { path: [2, "daily", "time", 5], message: "Expected string" },
+      { path: ["timezone"], message: "Required" },
+      { path: [], message: "Too small" },
+    ];
+    expect(toFieldNames(issues)).toBe("daily.time, timezone, Too small");
   });
 });
