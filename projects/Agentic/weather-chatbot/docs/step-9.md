@@ -17,6 +17,13 @@ alerts, traces and an uptime monitor.
   contract or setting) as an issue, its stack trace pointing at our own code, tagged with its event, request id, ref,
   route, and lane or tool. A ref finds it: `ref:7f3a9c01`.
 
+## On the live site
+
+Checked once `047a079` was live (entries 120 and 121): a question's lines, from both functions, in Axiom under its
+request id, each at its own `ts`; and the build's source maps in Sentry, under the commit's release. Answers were slow
+that hour, though, and the first question after the deploy failed: its connection to a cold `/api/mcp` took longer
+than its 3 s budget. Why is still open (the To do page).
+
 ## How it works
 
 ### The lines, to Axiom

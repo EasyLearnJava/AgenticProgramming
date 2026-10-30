@@ -69,6 +69,9 @@ fail; it loaded fine before.
 
 ## Smaller follow-ups
 
+- **Slow answers, and a failed first question, since step 9's deploy** (entry 121): a cold `/api/mcp` took 3 s to
+  connect, over its budget, and Gemini's steps took 3 to 27 s, one over 36 s. To find out: how much Sentry's start-up
+  adds to a cold function, and how slow Gemini's free tier was that hour. Left for now, to go on with step 9.
 - **Sentry's first event from the live site:** nothing there fails at `error` on demand, so the path is first checked
   by a real error, or by step 10's forced `AuthError` (`CHAOS`).
 - **`npm audit` reports 4 "high" findings,** all one old zod (4.1.11) deep in `@vercel/functions`, which reads only the

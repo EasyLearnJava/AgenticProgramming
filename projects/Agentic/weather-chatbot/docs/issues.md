@@ -1170,3 +1170,18 @@ browser tests never ask the server.
      reads until the reply is collected, and a warm function sends a batch at the end of every request. **Fix:** the
      reply is let go (`body.cancel()`) once its status is read; if that fails, it's let pass, since the status has
      already said how the batch went. **Check:** `tests/unit/log-shipper.test.ts`, which failed before the fix.
+120. **Part 1, checked on the live site.** *Deploying* (`047a079`). A question on `MCP · no auth` (ref `09600883`) put
+     its lines in Axiom under one request id, from both functions: `/api/chat`'s, and `/api/mcp`'s `upstream.http` and
+     `mcp.call`. Axiom took each line's `ts` as its time: the events have no `ts` field left, only `_time`. Sentry
+     holds the build's source maps, two uploads (18 and 194 files) under the commit's release. No Sentry event yet:
+     nothing failed at `error`. **Check:** Axiom's Query tab; Sentry's project settings, Source Maps.
+121. **Answers were slow after the deploy, and the first question failed.** *Deploying* (part 1's live check). The
+     first question once `047a079` was live got "The weather service took too long to answer" in 4.4 s: connecting to
+     our MCP server took 3,004 ms (`lane.connect`, failed), over its 3 s budget, where connections took 0.2 to 1.8 s
+     before. And Gemini's steps took 3 to 27 s each, and one ran over 36 s until the 50 s budget cut it, where steps
+     took under 1 s each before (the Lyon answer, 4.0 s in all): two answers ran out their 50 s (`budget.exceeded`),
+     and for such an answer the page says it was cut short. Our own parts were quick: tools 8 to 716 ms, Open-Meteo
+     0.5 s. Not yet known: how much of it the start-up Sentry adds to a cold function explains, and how much Gemini's
+     free tier was slow that hour. **Fix, next** (on the To do page): time a cold `/api/mcp`, with and without
+     Sentry's start-up; watch Gemini's step times in Axiom over a day. **Check:** the lines in Axiom, under each
+     request's id.
