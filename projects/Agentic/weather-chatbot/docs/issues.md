@@ -1084,3 +1084,10 @@ that, by default, doesn't: check what a stop does where the code runs, not where
      runs without the faster parsers (`z.config({ jitless: true })` in `instrumentation-client.ts`), so it never
      probes; the server keeps them. **Check:** `tests/e2e/chat-page.spec.ts`,
      `tests/unit/instrumentation-client.test.ts`.
+111. **BotID refused real browsers, so the chat answered no one.** *Deploying* (step 8's live check). Once `d9ed4c0`
+     was live, a message from a real browser got "We couldn't verify this browser": first from a Chrome tab our tools
+     drove, then from yours. BotID's page side was running (its script loaded, `fetch` wrapped), so each message
+     carried BotID's answer, and BotID's check still called it a bot. The browser tests hadn't seen it: they answer
+     `/api/chat` in the page, so no real message reaches the route. **Fix, for now:** BotID is off everywhere
+     (`NEXT_PUBLIC_BOTID` is "off" in `next.config.ts`), the security headers stay; why real browsers fail its check
+     is next. **Check:** `tests/unit/next-config.test.ts`; a real message on the live site.

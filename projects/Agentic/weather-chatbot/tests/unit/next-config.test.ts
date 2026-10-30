@@ -27,11 +27,11 @@ describe("next.config.ts", () => {
     expect(nextConfig.env).toEqual({ NEXT_PUBLIC_BOTID: "off" });
   });
 
-  it("turns BotID on for an app built on Vercel, which sets VERCEL to 1", async () => {
+  it("keeps BotID off on Vercel too, until real browsers pass its check (issue 111)", async () => {
     vi.stubEnv("VERCEL", "1");
     vi.resetModules();
     const { default: builtOnVercel } = await import("@/next.config");
     vi.unstubAllEnvs();
-    expect(builtOnVercel.env).toEqual({ NEXT_PUBLIC_BOTID: "on" });
+    expect(builtOnVercel.env).toEqual({ NEXT_PUBLIC_BOTID: "off" });
   });
 });

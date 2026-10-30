@@ -3,7 +3,8 @@
 > **Status:** steps 1 to 7 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
 > through `REST · no auth`, `MCP · no auth` through our own MCP server, errors and logs, `REST · with auth` through
 > Apify's weather Actor, with a token, and `MCP · with auth`, the same Actor through Apify's MCP server. Step 8 is
-> built: BotID on the chat and the security headers; its firewall rules are set in Vercel's dashboard. Live at
+> built: the security headers, and BotID on the chat, switched off for now (issue 111); its firewall rules are set in
+> Vercel's dashboard. Live at
 > https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and the auth lanes
 > an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 

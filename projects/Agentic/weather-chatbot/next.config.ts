@@ -36,8 +36,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // ③ Don't let `next dev` write an AGENTS.md file into the project.
   agentRules: false,
-  // ④ Tell the page, when it's built, whether BotID runs: on Vercel only, which serves BotID's challenge (step 8).
-  env: { NEXT_PUBLIC_BOTID: process.env.VERCEL === "1" ? "on" : "off" },
+  // ④ Tell the page and the route, when they're built, whether BotID runs: off everywhere for now, since real browsers
+  // failed its check on the live site (issue 111). It would run on Vercel only, which serves BotID's challenge.
+  env: { NEXT_PUBLIC_BOTID: "off" },
   // ⑤ The security headers, on every response.
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];

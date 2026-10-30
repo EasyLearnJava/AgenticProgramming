@@ -6,6 +6,9 @@ browser behind it, before any work. And every response carries the security head
 firewall rules (a bypass for our own traffic, then a rate limit), lives in Vercel's dashboard, not in code: you set
 it, as the README's "Deploy it on Vercel" says.
 
+> **Off for now:** on the live site, real browsers failed BotID's check, so it's switched off until that's understood
+> (issues log, entry 111). The security headers stay.
+
 ## What you see
 
 - **Nothing new on the page.** BotID asks you nothing: each message the page sends carries BotID's answer in its
