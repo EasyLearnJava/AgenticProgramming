@@ -1,6 +1,6 @@
 /*
  * components/side-menu.tsx: the menu on the left: the chat, the documentation, the system design, the issues log, the
- * interview guide, and which build is running.
+ * interview guide, the to-do list, and which build is running.
  */
 "use client";
 
@@ -16,6 +16,7 @@ const MENU_ITEMS = [
   { href: "/system-design", label: "System design" },
   { href: "/issues", label: "Issues and fixes" },
   { href: "/interview", label: "Interview guide" },
+  { href: "/todo", label: "To do" },
 ] as const;
 
 /** How a menu link relates to the address: it's the page itself, a section the page is in, or neither. */

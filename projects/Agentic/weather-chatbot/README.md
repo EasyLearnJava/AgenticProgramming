@@ -29,6 +29,8 @@ reference design for AI assistants, and sets each part against it. **Issues and 
 ([`docs/issues.md`](docs/issues.md)) logs every problem met while building and deploying it, and how it was fixed;
 it opens with the real bugs, each told as a story. **Interview guide** ([`docs/interview.md`](docs/interview.md)) says
 what to tell an interviewer: the pitch, the production-grade decisions, the incidents worth telling, and the numbers.
+**To do** ([`docs/todo.md`](docs/todo.md)) lists what's still open and why: what waits on you, BotID, and the next
+steps.
 
 ## Before you start
 
@@ -90,7 +92,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 117 files in 314ms. No fixes applied.
+Checked 118 files in 391ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -102,14 +104,14 @@ $ npm test
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 38ms
+✓ Running next.config.ts took 156ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1772ms
+✓ Compiled successfully in 3.4s
   Running TypeScript ...
-  Finished TypeScript in 647ms ...
-  Collecting page data using 12 workers ...
-  Generating static pages using 12 workers (0/18) ...
-✓ Generating static pages using 12 workers (18/18) in 3.0s
+  Finished TypeScript in 619ms ...
+  Collecting page data using 13 workers ...
+  Generating static pages using 13 workers (0/19) ...
+✓ Generating static pages using 13 workers (19/19) in 3.6s
   Finalizing page optimization ...
 
 Route (app)
@@ -126,14 +128,15 @@ Route (app)
 │ └ ● [+5 more paths]
 ├ ○ /interview
 ├ ○ /issues
-└ ○ /system-design
+├ ○ /system-design
+└ ○ /todo
 
 ○  (Static)   prerendered as static content
 ●  (SSG)      prerendered as static HTML (uses generateStaticParams)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  52 passed (26.5s)
+  54 passed (29.4s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
