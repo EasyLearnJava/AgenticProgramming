@@ -1,0 +1,11 @@
+{#
+  templates/not_found.html: the app's own 404 page, inside the shell, so the menu is still there.
+#}
+{% extends "base.html" %}
+{% block title %}Page not found · Nimbus{% endblock %}
+{% block content %}
+<main class="doc">
+  <h1>Page not found</h1>
+  <p>There's no page at this address. Try the <a href="/">chat</a> or the <a href="/docs">documentation</a>.</p>
+</main>
+{% endblock %}

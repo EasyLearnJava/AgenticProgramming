@@ -1,0 +1,40 @@
+{#
+  templates/base.html: the shell every page shares: the menu on the left (the new app's pages, then the TypeScript
+  app's, kept as *_deprecated), and the page beside it. The current page's link is marked for screen readers too.
+#}
+{% macro menu_link(item, path) -%}
+  {%- set current = to_aria_current(path, item.href) -%}
+  <li>
+    <a class="side-menu-link" href="{{ item.href }}"{% if current %} aria-current="{{ current }}"{% endif %}>
+      {{- item.label | menu_label -}}
+    </a>
+  </li>
+{%- endmacro %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Nimbus · Weather chatbot{% endblock %}</title>
+    <meta name="description"
+      content="Ask about the weather in plain words, and see every tool call and the path it took.">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/app.css">
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="side-menu" aria-label="Main">
+        <p class="side-menu-brand">Nimbus</p>
+        <ul class="side-menu-items">
+          {% for item in menu_items %}{{ menu_link(item, request.url.path) }}{% endfor %}
+        </ul>
+        <p class="side-menu-group" id="menu-deprecated">Deprecated</p>
+        <ul class="side-menu-items" aria-labelledby="menu-deprecated">
+          {% for item in deprecated_menu_items %}{{ menu_link(item, request.url.path) }}{% endfor %}
+        </ul>
+        <p class="side-menu-build">{{ build_label }}</p>
+      </nav>
+      <div class="shell-content">{% block content %}{% endblock %}</div>
+    </div>
+  </body>
+</html>

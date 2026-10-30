@@ -1,0 +1,14 @@
+{#
+  templates/doc.html: one documentation page, rendered from its Markdown (nimbus/docs.py). A page of the TypeScript
+  app says so first.
+#}
+{% extends "base.html" %}
+{% block title %}{{ title }} · Nimbus{% endblock %}
+{% block content %}
+<main class="doc">
+  {% if is_deprecated %}
+  <p class="doc-deprecated" role="note">Deprecated: this page describes the earlier TypeScript version of Nimbus.</p>
+  {% endif %}
+  <article class="markdown">{{ html }}</article>
+</main>
+{% endblock %}

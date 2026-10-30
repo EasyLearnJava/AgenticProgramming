@@ -1,0 +1,37 @@
+{#
+  templates/chat.html: the chat page: its card, the welcome, and the input. In step 1 the input is off: step 2 makes
+  the chat answer, and step 4 brings the weather.
+#}
+{% extends "base.html" %}
+{% block content %}
+<main class="chat-page">
+  <section class="chat-card" aria-labelledby="chat-title">
+    <header class="chat-header">
+      <div>
+        <h1 id="chat-title" class="chat-title">Nimbus (Weather)</h1>
+        <p class="chat-subtitle">
+          Ask about the weather anywhere. Each answer will show the tool calls behind it, and the lane each one took.
+        </p>
+      </div>
+    </header>
+    <ol class="messages" aria-label="Conversation">
+      <li class="message message-bot">
+        <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
+        <div class="bubble bubble-bot">
+          <p>
+            Hi, I'm Nimbus, a weather chatbot being rebuilt in Python, one step at a time. I can't answer yet: the
+            chat comes in step 2, and the weather in step 4. The Documentation shows each step as it's built.
+          </p>
+        </div>
+      </li>
+    </ol>
+    <div class="chat-input-area">
+      <form class="chat-input" aria-label="Ask about the weather">
+        <label class="visually-hidden" for="question">Your question</label>
+        <input id="question" type="text" placeholder="The chat opens in step 2" autocomplete="off" disabled>
+        <button type="submit" class="send-button" disabled>Send</button>
+      </form>
+    </div>
+  </section>
+</main>
+{% endblock %}

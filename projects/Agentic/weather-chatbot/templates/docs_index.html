@@ -1,0 +1,19 @@
+{#
+  templates/docs_index.html: a list of pages, each with a line about it: the chapters, or the TypeScript app's steps.
+#}
+{% extends "base.html" %}
+{% block title %}{{ title }} · Nimbus{% endblock %}
+{% block content %}
+<main class="doc">
+  <h1>{{ title }}</h1>
+  <p>{{ intro }}</p>
+  <ol class="doc-list">
+    {% for entry in entries %}
+    <li>
+      <a href="{{ entry.href }}">{{ entry.label }}</a>
+      {% if entry.summary %}<p>{{ entry.summary }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</main>
+{% endblock %}

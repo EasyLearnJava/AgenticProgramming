@@ -1,5 +1,6 @@
-# The weather chatbot's checks: lint, types, unit tests, the production build, and the end-to-end tests in a real
-# browser. They run on every push, on any branch, that touches projects/Agentic/weather-chatbot.
+# The weather chatbot's checks, on every push, on any branch, that touches projects/Agentic/weather-chatbot: Ruff
+# (lint and format), mypy, the unit tests, then the browser tests against the real app in Chromium. Python and every
+# package come from uv, exactly as uv.lock pins them.
 name: Weather chatbot
 
 on:
@@ -20,15 +21,17 @@ jobs:
         working-directory: projects/Agentic/weather-chatbot
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      # uv's own action, pinned to a release at least two weeks old, and uv itself, pinned to the version that wrote
+      # uv.lock; uv installs the Python in .python-version.
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: projects/Agentic/weather-chatbot/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
+          version: "0.9.18"
+          enable-cache: true
+          cache-dependency-glob: projects/Agentic/weather-chatbot/uv.lock
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest tests/e2e

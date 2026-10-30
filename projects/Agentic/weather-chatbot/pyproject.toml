@@ -1,0 +1,59 @@
+# Nimbus, the weather chatbot, in Python: its dependencies, pinned to exact versions, and its tools' settings.
+# uv reads this file (uv sync, uv run ...), and so does Vercel, which installs the dependencies with uv from uv.lock.
+[project]
+name = "nimbus"
+version = "0.1.0"
+description = "Nimbus, a weather chatbot: FastAPI, LangGraph and Jinja2, built step by step"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi==0.143.2",
+    "jinja2==3.1.6",
+    "markdown-it-py==4.2.0",
+    "pydantic-settings==2.16.0",
+    "structlog==26.1.0",
+]
+
+# Only on your computer and in CI: the checks, the tests, and the server to run the app with.
+[dependency-groups]
+dev = [
+    "axe-playwright-python==0.1.8",
+    "httpx2==2.13.1",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+    "pytest-playwright==0.10.0",
+    "ruff==0.17.1",
+    "uvicorn==0.54.0",
+]
+
+# Versions released at least two weeks before this step: a newer one waits until it has had time to settle.
+[tool.uv]
+exclude-newer = "2026-10-16T00:00:00Z"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "S", "SIM", "C4", "RET", "PTH", "PT", "ASYNC", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use assert, and literal numbers that say what they check.
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["main.py", "nimbus", "tests", "tools"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["axe_playwright_python.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+# The unit tests by default; the browser tests with `uv run pytest tests/e2e`.
+testpaths = ["tests/unit"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+# A warning fails the test that caused it, so a deprecation is fixed when it appears (issue 1).
+filterwarnings = ["error"]

@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 660" width="960" height="660" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 1 · How a request becomes a page</title>
+  <desc id="d">The browser asks Vercel for a page. Vercel's CDN serves the stylesheet and icon itself, with the security headers from vercel.json; every other request runs the function, main.py's FastAPI app. In it, the security headers middleware and the request context middleware wrap the router, which sends the request to the pages (Jinja2 templates and the Markdown docs), the health check, or the docs' pictures. Each request writes one JSON log line to stdout, which Vercel's logs keep.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="644" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 1 · How a request becomes a page</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">From your browser to the HTML it shows, on Vercel</text>
+
+  <!-- Row 1: the browser, Vercel, and its CDN -->
+  <rect x="40" y="100" width="170" height="70" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="128" font-size="15" font-weight="700" fill="#053b30">Your browser</text>
+  <text x="56" y="150" font-size="13" fill="#1f2937">GET /docs/step-1</text>
+  <rect x="250" y="100" width="190" height="70" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="266" y="128" font-size="15" font-weight="700" fill="#053b30">Vercel</text>
+  <text x="266" y="150" font-size="13" fill="#1f2937">HTTPS · adds x-vercel-id</text>
+  <rect x="480" y="100" width="440" height="70" rx="12" fill="#f7f7f7" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="496" y="128" font-size="15" font-weight="700" fill="#374151">Vercel's CDN · /static/*</text>
+  <text x="496" y="150" font-size="13" fill="#1f2937">app.css, favicon.svg · vercel.json's headers · no function</text>
+  <line x1="210" y1="135" x2="248" y2="135" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="440" y1="135" x2="478" y2="135" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="345" y1="170" x2="345" y2="198" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- The function -->
+  <rect x="40" y="200" width="880" height="270" rx="16" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="60" y="228" font-size="15" font-weight="700" fill="#053b30">The function: main.py's app = create_app(), a FastAPI app</text>
+  <rect x="60" y="242" width="260" height="78" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="76" y="266" font-size="15" font-weight="700" fill="#053b30">SecurityHeadersMiddleware</text>
+  <text x="76" y="287" font-size="13" fill="#1f2937">enforced CSP · nosniff</text>
+  <text x="76" y="306" font-size="13" fill="#1f2937">no framing · referrer policy</text>
+  <rect x="340" y="242" width="260" height="78" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="356" y="266" font-size="15" font-weight="700" fill="#053b30">RequestContextMiddleware</text>
+  <text x="356" y="287" font-size="13" fill="#1f2937">request id on every log line</text>
+  <text x="356" y="306" font-size="13" fill="#1f2937">x-request-id · one http.request line</text>
+  <rect x="620" y="242" width="280" height="78" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="636" y="266" font-size="15" font-weight="700" fill="#053b30">The router</text>
+  <text x="636" y="287" font-size="13" fill="#1f2937">pages.py · health.py</text>
+  <text x="636" y="306" font-size="13" fill="#1f2937">/docs/images: StaticFiles</text>
+  <line x1="320" y1="281" x2="338" y2="281" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="600" y1="281" x2="618" y2="281" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M760 320V336H290" fill="none" stroke="#0f766e" stroke-width="2"/>
+  <line x1="290" y1="336" x2="290" y2="350" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M630 336V350" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M760 336H820V350" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="60" y="352" width="460" height="100" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="76" y="376" font-size="15" font-weight="700" fill="#053b30">pages.py + templates/ (Jinja2, values escaped)</text>
+  <text x="76" y="397" font-size="13" fill="#1f2937">/ · /docs · /docs/step-1 · /issues · /interview · /todo</text>
+  <text x="76" y="416" font-size="13" fill="#1f2937">*_deprecated: the TypeScript app's pages, kept</text>
+  <text x="76" y="435" font-size="13" fill="#1f2937">docs.py: Markdown to HTML, raw HTML off</text>
+  <rect x="540" y="352" width="180" height="100" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="556" y="376" font-size="15" font-weight="700" fill="#053b30">health.py</text>
+  <text x="556" y="397" font-size="13" fill="#1f2937">GET or HEAD /api/health</text>
+  <text x="556" y="416" font-size="13" fill="#1f2937">JSON · never cached</text>
+  <rect x="740" y="352" width="160" height="100" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="756" y="376" font-size="15" font-weight="700" fill="#053b30">/docs/images</text>
+  <text x="756" y="397" font-size="13" fill="#1f2937">the docs' pictures,</text>
+  <text x="756" y="416" font-size="13" fill="#1f2937">this one too</text>
+
+  <!-- The logs -->
+  <line x1="470" y1="470" x2="470" y2="488" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  <rect x="40" y="490" width="880" height="50" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="520" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#7c2d12">logger.py: </tspan>one JSON line per request on stdout (method, path, status, ms, requestId) → Vercel's logs</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="560" width="880" height="76" rx="12" fill="#053b30"/>
+  <text x="60" y="584" font-size="14" font-weight="700" fill="#ffffff">Every response the app makes carries the security headers and an x-request-id;</text>
+  <text x="60" y="604" font-size="14" font-weight="700" fill="#ffffff">the CDN's files get the same headers from vercel.json.</text>
+  <text x="60" y="624" font-size="14" fill="#defcf6">Every page is HTML made on the server, so step 1 runs no JavaScript at all.</text>
+</svg>
