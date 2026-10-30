@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These fifteen were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These sixteen were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -30,6 +30,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 13 | Tomorrow, by whose clock? | after 6 | deploying |
 | 14 | The MCP door that would have run any build | 7 | the review |
 | 15 | An error part closed the lane while the answer went on | after 7 | the review |
+| 16 | Stop that didn't stop | after 7 | the review, then the live site |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -534,6 +535,42 @@ cancellation is on (entry 101).
 **The lesson.** Tie clean-up to the end of the stream, not to an event that can come in the middle of it; and before
 deciding what an event means, read what the other end does with it.
 
+### 16. Stop that didn't stop
+
+*After step 7 · found by the review, then on the live site · entry 101*
+
+**The request.** "What's the weather in Paris for the next 3 days, hour by hour?" on `MCP · no auth`, and then Stop,
+or the page closed. On the live site, a script played the page: it hung up after the answer's first bytes.
+
+**What went wrong.** The function never heard. It ran its tool calls and the model's steps to the end and logged
+`chat.done` 3.7 s after the answer started, though the caller had hung up right after its first bytes. On an auth lane,
+Stop would have left a paid Actor run going as well, for an answer no one would read.
+
+**Why it happened.** On Vercel, a function hears that its caller has gone only when cancellation is turned on for it,
+in `vercel.json`; it's off unless you ask. Next.js's own server aborts the request's signal when the page goes, and our
+code, its comments and our docs took that for granted: "Stop cancels it."
+
+**How we traced it.** The review of issue 96's fix read Vercel's docs and asked whether Stop reached the function at
+all. A live hang-up answered: the request's lines ran on to `chat.done`, with no `chat.aborted`.
+
+**How we fixed it.** `vercel.json` turns cancellation on for `app/api/chat/route.ts`. Vercel then ends the function
+once it's told, so the route keeps it alive with `waitUntil` until the request's last line is written and its lane
+closed. And the answer gets one last line however the page's going arrives: the review showed, with a script, that if
+the stream is cancelled while the model's text is still coming, AI SDK can stall on its full queue and never call
+`onAbort`, so the stream's own end writes `chat.aborted` when no other line has. A page that goes while its message is
+still being read is logged as stopped, not as a refused message.
+
+**How we confirmed it.** The tests play the page's going both ways, its signal first or its stream first, with the
+text still coming: one `chat.aborted`, and the route told it may end only once the lane has closed. On the live site,
+once `c295125` was live, two hang-ups, timed from the answer's start. One, right after the first bytes, was heard about
+7 s later, after the model's first step and its second call, as the forecast call reached `/api/mcp`: `chat.aborted`,
+7.4 s, one step. The other, at the answer's first words, was heard at once: `chat.aborted`, 6.0 s, two steps. Neither
+had a `chat.done`, and neither came near the function's 60 s. So Stop now stops the answer on Vercel, but not always at
+once: in a window like the first, an Actor run can still start.
+
+**The lesson.** The platform is part of the behavior. A local server that hears a page go isn't a serverless platform
+that, by default, doesn't: check what a stop does where the code runs, not where the tests do.
+
 ## While Planning
 
 1. **The "no auth" MCP server needed a sign-in.** *Testing a real API.* MCPBundles' Open-Meteo server answered an MCP
@@ -987,9 +1024,16 @@ deciding what an event means, read what the other end does with it.
      however the page's going arrives: if its stream is cancelled while the model's text is still coming, AI SDK can
      stall on its full queue and never call `onAbort` (the review showed it with a script), so the stream's own end
      writes `chat.aborted` when no other line has. With that, the four places that say Stop stops the answer should
-     hold on Vercel too (`app/api/chat/route.ts`, `docs/system-design.md`, `PLAN.md` 7.4, `docs/step-5.md`): the
-     live check is to show it. **Check:** `tests/unit/chat/run-chat.test.ts` (the page's going while the text is
-     coming, its signal or its stream first: one `chat.aborted`, and the end said only once the lane has closed),
+     hold on Vercel too (`app/api/chat/route.ts`, `docs/system-design.md`, `PLAN.md` 7.4, `docs/step-5.md`), and the
+     live check showed they do, though not always at once (bug story 16). **Check:**
+     `tests/unit/chat/run-chat.test.ts` (the page's going while the text is coming, its signal or its stream first:
+     one `chat.aborted`, and the end said only once the lane has closed),
      `tests/unit/app/api/chat/route.test.ts` (`vercel.json` names the route; the function kept alive until an early
-     failure's last line; a page gone while its message is read); on the live site, a hang-up mid-answer, then
-     Vercel's logs: `chat.aborted`, no `chat.done`.
+     failure's last line; a page gone while its message is read); on the live site, once `c295125` was live, a
+     hang-up right after the first bytes was heard about 7 s later, and one at the answer's first words at once,
+     each ending with `chat.aborted` and no `chat.done`.
+102. **Vercel's log view listed some lines twice.** *Deploying* (issue 101's live check). In the two cancelled
+     requests, some of the chat's lines showed twice, each pair the same line to the millisecond, `chat.request`
+     included. pino writes each line once, synchronously, and the tests count each once, so the doubles come from
+     Vercel's logging, most likely its view. **Fix:** none in our code; the dashboards (step 9) count endings per
+     request id, not lines. **Check:** the tests' exact line lists (`tests/unit/chat/run-chat.test.ts`).

@@ -186,5 +186,4 @@ for example in Claude or Cursor:
 
 ## Next
 
-Issue 101's check on the live site; then step 8 in [PLAN.md](PLAN.md): protection, with BotID, the rate limit and the
-security headers.
+Step 8 in [PLAN.md](PLAN.md): protection, with BotID, the rate limit and the security headers.
