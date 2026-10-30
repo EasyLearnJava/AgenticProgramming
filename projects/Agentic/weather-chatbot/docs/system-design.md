@@ -74,7 +74,7 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 - **Observability**: one JSON line per event (pino), in Vercel's logs and in Axiom, which gets each request's lines
   in one batch at its end. Every line carries the request id, so one search finds a question's lines in `/api/chat`
   and in `/api/mcp` (step 5). Every failure logged as an error also goes to Sentry, tagged with its request id, with
-  nothing private (step 9).
+  nothing private; and `/api/health` checks each lane's ways out, running nothing that costs (step 9).
 - **Evaluation**: the golden questions, asked on the live site through each lane (`npm run evals`), the MCP server's
   own check, and the unit, browser and accessibility tests that CI runs on every push.
 - **Reliability and scale**: Vercel Functions start as many copies as the traffic needs, each stopping at 60 s; the
@@ -101,7 +101,7 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 | Knowledge ingestion, change events, index refresh | None | No documents to ingest; cached answers expire by themselves |
 | Session store | Your browser tab | No server keeps a chat |
 | Secure storage | Vercel's environment variables, the Gemini key and Apify's token Secret ones | Only `lib/config.ts` reads them; nothing secret reaches the browser |
-| 09 · Observability: traces, p95 latency, tokens, cost, alerts | Log lines with a request id across both functions, kept in Axiom; levels from the error map, tokens per step; errors in Sentry | The lanes' health, traces, dashboards and alerts in step 9; cost with the paid model (step 11) |
+| 09 · Observability: traces, p95 latency, tokens, cost, alerts | Log lines with a request id across both functions, kept in Axiom; levels from the error map, tokens per step; errors in Sentry; a health check per lane | The status dots, traces, dashboards and alerts in step 9; cost with the paid model (step 11) |
 | 09 · Evaluation: golden set, safety tests, feedback | The golden questions on each lane, live; unit, browser and accessibility tests in CI | Failure tests and a lane-by-lane report in step 10 |
 | 09 · Reliability and scale: autoscaling, caps, queues, breakers | Vercel Functions, time budgets, retries, the MCP request guard | Rate limits in step 8, a load test in step 10. No queue: each answer is one request |
 | 09 · Release and recovery: load tests, canary, rollback, backups | Each push runs CI and deploys, side by side; Vercel can roll back | CI doesn't gate the deployment, so a failure shows after it's live. A load test in step 10. No backups: Nimbus stores no data |
@@ -141,7 +141,7 @@ took 435 ms; the chat saw 514 ms. Connecting took 1.1 s, the first connection af
 ## What comes next
 
 Step 8 adds the edge's rate limit and bot check (A,
-02). Step 9 has begun: the lines go to Axiom, and the errors to Sentry; the lanes' health, traces, dashboards and
-alerts come next (D). Step 10 adds the failure tests, and
+02). Step 9 has begun: the lines go to Axiom, the errors to Sentry, and `/api/health` checks each
+lane; the status dots, traces, dashboards and alerts come next (D). Step 10 adds the failure tests, and
 with them the cached answer when Open-Meteo is down (C). Step 11 brings a paid model path, with its cost in the logs
 (B, 07). The plan, `PLAN.md`, has the details.

@@ -73,10 +73,10 @@ export const DOC_PAGES: readonly DocEntry[] = [
   {
     slug: "step-9",
     step: 9,
-    title: "Observability: Axiom and Sentry",
+    title: "Observability: Axiom, Sentry and the Health Check",
     summary:
-      "Part 1 of step 9: our logger's lines shipped to Axiom, a batch at each request's end; every failure logged as " +
-      "an error sent to Sentry, with nothing private; and the source maps uploaded when Vercel builds the app.",
+      "Our logger's lines shipped to Axiom, a batch at each request's end; every failure logged as an error sent to " +
+      "Sentry, with nothing private; and /api/health, which checks each lane without running anything that costs.",
   },
 ];
 

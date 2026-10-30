@@ -2,7 +2,7 @@
  * lib/upstream/apify.ts: the call to the Apify Actor behind the auth lanes, with fetch (PLAN.md 4.3): one POST to its
  * run-sync address, with our token in the Authorization header (never in the URL), the Actor's build, time and cost
  * pinned in the URL, and its dataset items back. Each run writes one upstream.http line. Nothing is cached or retried:
- * a run costs money, and the lane falls back instead.
+ * a run costs money, and the lane falls back instead. And the health check's token check, which runs nothing.
  */
 import "server-only";
 import {
@@ -10,6 +10,7 @@ import {
   APIFY_ACTOR_RUN_URL,
   APIFY_MAX_CHARGE_USD,
   APIFY_RUN_TIMEOUT_SECONDS,
+  APIFY_USER_URL,
   MAX_APIFY_DETAIL_CHARS,
 } from "@/lib/constants";
 import {
@@ -38,6 +39,9 @@ export type ApifyCallOptions = { signal?: AbortSignal; log?: Logger };
 export type ApifyClient = { runActor: (input: ActorRunInput, options?: ApifyCallOptions) => Promise<ActorRun> };
 
 type ApifyOptions = { token: string; fetch?: typeof fetch; now?: () => Date };
+
+/** What checking the token takes: the token, the check's signal and logger, and stand-ins for the tests. */
+type TokenCheckOptions = ApifyOptions & ApifyCallOptions;
 
 // The token as the wire view shows it: never the real one.
 const MASKED_AUTHORIZATION = "Bearer <APIFY_TOKEN>";
@@ -124,16 +128,16 @@ async function toItems(response: Response): Promise<unknown[]> {
 }
 
 /**
- * A failed run as one of our classes. The signal comes first, whatever was going on when it fired, reading the answer
+ * A failed call as one of our classes. The signal comes first, whatever was going on when it fired, reading the answer
  * included: a stop (passed on as it is), or past the budget. Then ours, as they are; anything else is no answer.
  */
-function toRunError(error: unknown, signal: AbortSignal | undefined): unknown {
+function toRunError(error: unknown, signal: AbortSignal | undefined, budget = "the tool's time budget"): unknown {
   const abortKind = toAbortKind(signal);
   if (abortKind === "stop") {
     return signal?.reason;
   }
   if (abortKind === "timeout") {
-    return new UpstreamTimeoutError("Apify didn't answer within the tool's time budget.", { cause: error });
+    return new UpstreamTimeoutError(`Apify didn't answer within ${budget}.`, { cause: error });
   }
   return error instanceof AppError ? error : new UpstreamUnavailableError("Apify can't be reached.", { cause: error });
 }
@@ -187,4 +191,48 @@ export function createApifyClient({
       }
     },
   };
+}
+
+/**
+ * Checks the token, running nothing (PLAN.md 3, row 14): one GET of the account behind it, with the token in the
+ * Authorization header. The account's details go unread: only the status counts. One upstream.http line; a failure as
+ * one of our classes, AuthError for a token Apify doesn't take.
+ */
+export async function checkApifyToken({
+  token,
+  fetch: fetchApify = fetch,
+  now = () => new Date(),
+  signal,
+  log = logger,
+}: TokenCheckOptions): Promise<void> {
+  const startedAt = now().getTime();
+  let httpStatus: number | undefined;
+  const toHttpFields = () => ({
+    event: "upstream.http",
+    upstream: "apify",
+    host: toHost(APIFY_USER_URL),
+    ms: now().getTime() - startedAt,
+    attempts: 1,
+    httpStatus,
+  });
+  try {
+    const response = await fetchApify(APIFY_USER_URL, { headers: { authorization: `Bearer ${token}` }, signal });
+    httpStatus = response.status;
+    if (response.status !== HTTP_OK) {
+      throw await toStatusError(response);
+    }
+    // The reply is let go unread: it holds the account's details, and left unread, it would hold its connection.
+    await response.body?.cancel().catch(() => undefined);
+    log.info({ ...toHttpFields(), status: "ok" });
+  } catch (error) {
+    const failure = toRunError(error, signal, "the health check's time");
+    if (toAbortKind(signal) !== "stop") {
+      log.info({
+        ...toHttpFields(),
+        status: "failed",
+        errorClass: failure instanceof Error ? failure.name : "unknown",
+      });
+    }
+    throw failure;
+  }
 }

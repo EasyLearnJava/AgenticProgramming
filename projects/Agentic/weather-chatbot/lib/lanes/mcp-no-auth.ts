@@ -75,7 +75,7 @@ export async function connectToOurMcpServer({
     sent.push(toWireRequest(input, init, MASKS));
     return fetchMcp(input, init);
   }) as typeof fetch;
-  // ③ Tools: connect within 3 s; the server's list must hold our four, and a tool it adds never reaches the model.
+  // ③ Tools: connect within 6 s; the server's list must hold our four, and a tool it adds never reaches the model.
   // Either way, one lane.connect line with the time it took; a failure's own line is the chat route's, which answers.
   const connect: ConnectState = {
     connectSignal: timeoutSignal(connectTimeoutMs, signal),

@@ -1074,11 +1074,15 @@ again.
   and tokens per answer and per day; Apify spend this month, per door.
 - **Traces:** AI SDK `telemetry` gives a span for each model step and each tool call; `@vercel/otel` exports them with
   the request id.
-- **Health:** `GET /api/health` checks each lane through its own door, as cheaply as it can: `rest-no-auth` and
-  `mcp-no-auth` geocode "London" with the cache skipped, so an Open-Meteo outage shows; `rest-auth` calls
-  `GET https://api.apify.com/v2/users/me` with the token, which runs nothing; `mcp-auth` connects and lists its tools,
-  which runs nothing either. The four status dots read it. Hobby's cron jobs run at most once a day, so a free outside
-  uptime monitor calls it every 5 minutes (on Pro, a Vercel cron can).
+- **Health:** `GET /api/health` checks each lane's ways out, as cheaply as it can, running nothing that costs:
+  Open-Meteo geocodes "London" with the cache skipped, so an outage shows; our MCP server connects and lists its tools;
+  `GET https://api.apify.com/v2/users/me` with the token runs nothing; and Apify's MCP server connects and lists its
+  tools, checked against our pin, which runs nothing either. A lane works when every check its answers depend on
+  passes. (Built in step 9, `mcp-no-auth`'s check connects rather than geocoding through our server, which can't skip
+  its cache for one caller without letting any caller skip it.) `200` when every lane that's on works, `503` when one
+  doesn't; at most one run a minute per copy of the function, and a `200` kept a minute at Vercel's CDN. The four
+  status dots read it. Hobby's cron jobs run at most once a day, so a free
+  outside uptime monitor calls it every 5 minutes (on Pro, a Vercel cron can).
 - **Alerts** (email first, Slack later): every condition in the Alert column of the error map (9.2), plus: p95 over its
   target for 15 minutes; Open-Meteo calls at 70% of the daily limit; Apify credit at 80%; model spend at 80% of its
   budget.
@@ -1216,7 +1220,9 @@ each adds one thing to the one before.
    dashboards, alerts, `/api/health` for the four lanes, the status dots, the uptime monitor. **Done when:** one request id finds the logs of both functions, the trace and the Sentry
    event, and a forced `AuthError` plays out the rest of 5.5: the alert, and both auth lanes' red dots. *Part 1 built
    30 October 2026 (`docs/step-9.md`): every line to Axiom, in one batch at each request's end; Sentry for every
-   failure logged at `error`, with nothing private; the source maps uploaded during Production's builds.*
+   failure logged at `error`, with nothing private; the source maps uploaded during Production's builds. Part 2a,
+   the same day: `/api/health`, four checks that run nothing that costs, each lane's status from the checks it
+   depends on, one result a minute.*
 10. [ ] **Evals, failure tests and the load test:** the golden questions on all four lanes (with the comparison
     report), the `CHAOS` cases and Playwright on previews in CI; the no-auth lanes' cache fallback and the amber "slow,
     retrying" chip (moved from step 5), which the `CHAOS` cases exercise; the daily contract check for `mcp-auth`; the load

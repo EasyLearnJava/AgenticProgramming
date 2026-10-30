@@ -13,7 +13,7 @@ import {
   UpstreamUnavailableError,
 } from "@/lib/errors";
 import type { ActorRunInput } from "@/lib/upstream/apify";
-import { createApifyMcpClient } from "@/lib/upstream/apify-mcp";
+import { checkApifyMcp, createApifyMcpClient } from "@/lib/upstream/apify-mcp";
 import {
   APIFY_MCP_TOOLS,
   type ApifyMcpAnswer,
@@ -239,5 +239,47 @@ describe("closing", () => {
     const afterPin = hangingClose([]);
     await expect(afterPin.client.runActor(DALLAS, { log })).rejects.toBeInstanceOf(ContractError);
     expect(afterPin.server.closes()).toBe(1);
+  });
+});
+
+describe("checking the connection, running nothing", () => {
+  it("connects with the token, checks the tool list against our pin, and closes; no tool is called", async () => {
+    const server = createApifyMcpStandIn({ answers: {} });
+    const { log, lines } = createTestLog();
+    await expect(
+      checkApifyMcp({
+        token: TOKEN,
+        fetch: (async () => new Response("{}")) as typeof fetch,
+        createClient: server.createClient,
+        now: () => NOW,
+        log,
+      }),
+    ).resolves.toBeUndefined();
+    expect([server.connects(), server.closes(), server.calls.length]).toEqual([1, 1, 0]);
+    expect(lines).toEqual([
+      expect.objectContaining({ event: "lane.connect", status: "ok", tools: APIFY_MCP_TOOLS.length }),
+    ]);
+  });
+
+  it("Apify MCP's real 401: AuthError; a server without our tools: ContractError, and it's closed", async () => {
+    const apify = createApifyMcp401Fetch();
+    const { log } = createTestLog();
+    await expect(checkApifyMcp({ token: TOKEN, fetch: apify.fetch, now: () => NOW, log })).rejects.toBeInstanceOf(
+      AuthError,
+    );
+    const server = createApifyMcpStandIn({
+      answers: {},
+      listed: APIFY_MCP_TOOLS.filter((tool) => tool.name !== "get-dataset-items"),
+    });
+    await expect(
+      checkApifyMcp({
+        token: TOKEN,
+        fetch: (async () => new Response("{}")) as typeof fetch,
+        createClient: server.createClient,
+        now: () => NOW,
+        log,
+      }),
+    ).rejects.toBeInstanceOf(ContractError);
+    expect(server.closes()).toBe(1);
   });
 });

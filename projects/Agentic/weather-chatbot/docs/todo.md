@@ -62,7 +62,7 @@ budget shrinks first: the answer's 50 s to 47, or the connection's 6 s to 5 (ent
 
 | Step | What | Why |
 |---|---|---|
-| 9 · Observability | Done: the log lines to Axiom, the errors to Sentry, the source maps (part 1). Next: `/api/health` for the four lanes and the lanes' status dots (part 2); then dashboards, alerts, traces and an uptime monitor (part 3) | To know the app is down before a user says so; the health check also checks Apify's token without running anything (PLAN.md section 3, row 14) |
+| 9 · Observability | Done: the log lines to Axiom, the errors to Sentry, the source maps (part 1); `/api/health`, each lane checked without running anything that costs (part 2a). Next: the lane picker's status dots, which read it (part 2b); then dashboards, alerts, traces and an uptime monitor (part 3) | To know the app is down before a user says so; the health check also checks Apify's token without running anything (PLAN.md section 3, row 14) |
 | 10 · Evals and failure tests | The golden questions on all four lanes, with the comparison report; the `CHAOS` setting to play failures on a preview, and Playwright on previews in CI; the no-auth lanes' cache fallback and the amber "slow, retrying" chip, both moved from step 5; a daily check of Apify's tool list against our pin; a load test | To catch a model, a third party or a change going wrong before users do |
 | 11 · Launch | Production settings, the paid model path, the README finished in project 01's shape, the runbook and the demo | The free tier's terms don't fit a public app, and a launch needs its runbook |
 | 12 · OAuth 2.1 + PKCE | "Connect your Apify account" for `MCP · with auth`, through `@ai-sdk/mcp`'s auth provider | So a user's own Apify account pays for their runs, instead of the bot's token |
@@ -72,9 +72,9 @@ budget shrinks first: the answer's 50 s to 47, or the connection's 6 s to 5 (ent
 
 - **A lighter Sentry** (bug story 18): on a laptop, Sentry makes a cold start about 2.4 s slower, most of it from its
   build step (`withSentryConfig`): without the build step, a cold start measured 1.3 s against 3.1 s, and errors still
-  reach Sentry; the source maps would then be uploaded by Sentry's own command in the build. On Vercel, its share
-  isn't measured apart yet. For now, connecting to our MCP server gets 6 s instead of 3, so a cold first question
-  should no longer fail.
+  reach Sentry; the source maps would then be uploaded by Sentry's own command in the build. On Vercel, a cold
+  connection to our MCP server took 4.2 s after the fix's deploy, against 1.1 to 1.8 s before step 9. For now,
+  connecting to our MCP server gets 6 s instead of 3, and a cold first question no longer fails (checked live).
 - **Sentry's first event from the live site:** nothing there fails at `error` on demand, so the path is first checked
   by a real error, or by step 10's forced `AuthError` (`CHAOS`).
 - **`npm audit` reports 4 "high" findings,** all one old zod (4.1.11) deep in `@vercel/functions`, which reads only the

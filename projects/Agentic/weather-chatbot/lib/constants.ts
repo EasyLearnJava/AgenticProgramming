@@ -140,6 +140,8 @@ export const ACTOR_TOOL_NAME = "gochujang--open-meteo-weather-forecast";
 // helper that reads a run's items, at most this many in one read (an hourly forecast has 72); how long connecting may
 // take, the server being Apify's, across the internet; and the Actor call's own time there, the run's 20 s plus that.
 export const APIFY_MCP_URL = "https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast";
+// The account behind a token: the health check reads it to check the token, running nothing (PLAN.md 3, row 14).
+export const APIFY_USER_URL = "https://api.apify.com/v2/users/me";
 export const APIFY_RUN_TOOL = "call-actor";
 export const APIFY_ACTOR = "gochujang/open-meteo-weather-forecast";
 export const APIFY_DATASET_TOOL = "get-dataset-items";
@@ -158,3 +160,11 @@ export const AXIOM_INGEST_HOST = "us-east-1.aws.edge.axiom.co";
 export const AXIOM_FLUSH_TIMEOUT_MS = 2000;
 export const AXIOM_MAX_PENDING_LINES = 1000;
 export const SENTRY_FLUSH_TIMEOUT_MS = 2000;
+
+// The health check (step 9): its address; the place it looks up; each check's time; how long one run's result answers
+// every request to a copy of the function; and how long Vercel's CDN keeps a 200, the same minute, in seconds.
+export const HEALTH_API_PATH = "/api/health";
+export const HEALTH_PLACE = "London";
+export const HEALTH_CHECK_TIMEOUT_MS = 8000;
+export const HEALTH_RESULT_TTL_MS = 60_000;
+export const HEALTH_CDN_MAX_AGE_SECONDS = 60;

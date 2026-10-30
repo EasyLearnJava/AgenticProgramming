@@ -7,7 +7,8 @@
  * the default build's, before it runs the pinned one. The connection opens on the first run, so a question that needs
  * no forecast never pays for the handshake, and its tool list is checked then, once: our pin (PLAN.md 7.4). Nothing is
  * retried, since a run costs money, and the lane falls back instead; closing waits at most 1 s for Apify. Each message
- * writes one upstream.mcp line; every request the page sees has the token and the session's id masked.
+ * writes one upstream.mcp line; every request the page sees has the token and the session's id masked. The health
+ * check connects and checks the pin too, and closes, running nothing.
  */
 import "server-only";
 import { createMCPClient, type MCPClientConfig } from "@ai-sdk/mcp";
@@ -36,7 +37,7 @@ import {
 } from "@/lib/errors";
 import { type Logger, logger } from "@/lib/logger";
 import type { McpClient, WireRequest } from "@/lib/types";
-import type { ActorRunInput, ApifyClient } from "@/lib/upstream/apify";
+import type { ActorRunInput, ApifyCallOptions, ApifyClient } from "@/lib/upstream/apify";
 import {
   findToolsCall,
   timeoutSignal,
@@ -369,4 +370,23 @@ export function createApifyMcpClient({
       }
     },
   };
+}
+
+/**
+ * Checks Apify's MCP server, running nothing (the health check, step 9): connects with our token, checks its tool list
+ * against our pin, and closes, each within its own time; one lane.connect line, either way.
+ */
+export async function checkApifyMcp({
+  token,
+  fetch: fetchApify = fetch,
+  createClient = createMCPClient,
+  now = () => new Date(),
+  connectTimeoutMs = APIFY_MCP_CONNECT_TIMEOUT_MS,
+  closeTimeoutMs = APIFY_MCP_CLOSE_TIMEOUT_MS,
+  signal,
+  log = logger,
+}: ApifyMcpOptions & ApifyCallOptions): Promise<void> {
+  const settings = { token, fetchApify, createClient, connectTimeoutMs, closeTimeoutMs };
+  const connection = await connect(settings, { signal, log, now });
+  await waitAtMost(connection.client.close(), closeTimeoutMs);
 }

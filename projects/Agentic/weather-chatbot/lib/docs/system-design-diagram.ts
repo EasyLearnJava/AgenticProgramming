@@ -114,7 +114,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     width: 300,
     height: 130,
     title: "MCP · no auth",
-    lines: ["an MCP client (@ai-sdk/mcp)", "connects within 3 s", "sends x-request-id"],
+    lines: ["an MCP client (@ai-sdk/mcp)", "connects within 6 s", "sends x-request-id"],
   },
   {
     band: "B",

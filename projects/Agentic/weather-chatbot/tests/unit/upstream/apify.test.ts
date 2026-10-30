@@ -13,7 +13,7 @@ import {
   UpstreamTimeoutError,
   UpstreamUnavailableError,
 } from "@/lib/errors";
-import { type ActorRunInput, createApifyClient } from "@/lib/upstream/apify";
+import { type ActorRunInput, checkApifyToken, createApifyClient } from "@/lib/upstream/apify";
 import { type ApifyAnswer, apifyError, createApifyFetch } from "@/tests/stubs/apify-stand-ins";
 import { createTestLog } from "@/tests/stubs/log-stand-ins";
 import { hangingFetch } from "@/tests/stubs/open-meteo-stand-ins";
@@ -160,5 +160,56 @@ describe("a failed run", () => {
     controller.abort(Object.assign(new Error("Closed."), { name: "ResponseAborted" }));
     await expect(pending).rejects.toMatchObject({ name: "ResponseAborted" });
     expect(lines).toEqual([]);
+  });
+});
+
+describe("checking the token, running nothing", () => {
+  it("is one GET of the account behind it, the token in its header only; the account's details go unread", async () => {
+    const reply = new Response(JSON.stringify({ data: { username: "someone" } }), { status: 200 });
+    const { fetch, requests } = createApifyFetch([() => reply]);
+    const { log, lines } = createTestLog();
+    await expect(checkApifyToken({ token: TOKEN, fetch, now: () => NOW, log })).resolves.toBeUndefined();
+    expect(requests).toEqual([
+      {
+        url: "https://api.apify.com/v2/users/me",
+        method: "GET",
+        headers: { authorization: `Bearer ${TOKEN}` },
+        body: "",
+      },
+    ]);
+    expect(reply.bodyUsed).toBe(true);
+    expect(lines).toEqual([
+      expect.objectContaining({ event: "upstream.http", host: "api.apify.com", status: "ok", httpStatus: 200 }),
+    ]);
+    expect(JSON.stringify(lines)).not.toContain("someone");
+    expect(JSON.stringify(lines)).not.toContain(TOKEN);
+  });
+
+  it("a token Apify doesn't take: AuthError, from Apify's real 401, the same at users/me as at a run", async () => {
+    const { fetch } = createApifyFetch([{ fixture: "error-401-fake-token", status: 401 }]);
+    const { log, lines } = createTestLog();
+    const error = await checkApifyToken({ token: TOKEN, fetch, now: () => NOW, log }).catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(AuthError);
+    expect((error as Error).message).toBe(
+      "Apify answered 401: user-or-token-not-found (User was not found or authentication token is not valid).",
+    );
+    expect(lines).toEqual([
+      expect.objectContaining({ event: "upstream.http", status: "failed", errorClass: "AuthError", httpStatus: 401 }),
+    ]);
+  });
+
+  it("Apify out of reach: UpstreamUnavailableError; past its time: UpstreamTimeoutError", async () => {
+    const refusing = (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof fetch;
+    const { log } = createTestLog();
+    await expect(checkApifyToken({ token: TOKEN, fetch: refusing, now: () => NOW, log })).rejects.toBeInstanceOf(
+      UpstreamUnavailableError,
+    );
+    await expect(
+      checkApifyToken({ token: TOKEN, fetch: hangingFetch, now: () => NOW, log, signal: AbortSignal.timeout(20) }),
+    ).rejects.toBeInstanceOf(UpstreamTimeoutError);
   });
 });

@@ -4,7 +4,8 @@
 > through `REST · no auth`, `MCP · no auth` through our own MCP server, errors and logs, `REST · with auth` through
 > Apify's weather Actor, with a token, and `MCP · with auth`, the same Actor through Apify's MCP server. Step 8 is
 > built: the security headers, and BotID on the chat, switched off for now (issue 111); its firewall rules are set in
-> Vercel's dashboard. Step 9 has begun: our logger's lines go to Axiom, and its errors to Sentry. Live at
+> Vercel's dashboard. Step 9 has begun: our logger's lines go to Axiom, its errors to Sentry, and `/api/health` says
+> which lanes work. Live at
 > https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and the auth lanes
 > an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 
@@ -43,10 +44,10 @@ steps.
 
 | Folder or file | What's in it |
 |---|---|
-| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the issues log (`issues/`), the interview guide (`interview/`), the to-do list (`todo/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
+| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the issues log (`issues/`), the interview guide (`interview/`), the to-do list (`todo/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`), the health check (`health/`) and the nearby city (`nearby-city/`) |
 | `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), the system design's diagram, and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
 | `hooks/` | The React hook that asks for the nearby city |
-| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`), the lines' trip to Axiom (`log-shipper.ts`) and Sentry's settings (`sentry.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo and Apify (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
+| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`), the lines' trip to Axiom (`log-shipper.ts`) and Sentry's settings (`sentry.ts`); the health check (`health/`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo and Apify (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
 | `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`), the issues log (`issues.md`), the interview guide (`interview.md`) and the to-do list (`todo.md`) |
 | `tests/` | The unit tests (`unit/`), Open-Meteo's and Apify's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
@@ -92,36 +93,37 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 123 files in 323ms. No fixes applied.
+Checked 127 files in 415ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  38 passed (38)
-      Tests  267 passed (267)
+ Test Files  40 passed (40)
+      Tests  282 passed (282)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 603ms
+✓ Running next.config.ts took 1146ms
 - Experiments (use with caution):
   · clientTraceMetadata
   Creating an optimized production build ...
-✓ Compiled successfully in 2.8s
+✓ Compiled successfully in 6.1s
   Running next.config.js provided runAfterProductionCompile ...
-✓ Completed runAfterProductionCompile in 538ms
+✓ Completed runAfterProductionCompile in 514ms
   Running TypeScript ...
-  Finished TypeScript in 819ms ...
-  Collecting page data using 13 workers ...
-  Generating static pages using 13 workers (0/20) ...
-✓ Generating static pages using 13 workers (20/20) in 2.7s
+  Finished TypeScript in 1098ms ...
+  Collecting page data using 14 workers ...
+  Generating static pages using 14 workers (0/21) ...
+✓ Generating static pages using 14 workers (21/21) in 7.8s
   Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
 ├ ○ /_not-found
 ├ ƒ /api/chat
+├ ƒ /api/health
 ├ ƒ /api/mcp
 ├ ƒ /api/nearby-city
 ├ ○ /docs
@@ -140,7 +142,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  54 passed (24.4s)
+  54 passed (30.1s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -201,6 +203,18 @@ With Axiom set up (step 9), each of these lines also goes to the `weather-chatbo
 request's end, and stays there long past Vercel's hour: `['weather-chatbot'] | where requestId endswith "<ref>"` finds
 a request's lines from both functions. Every failure logged as an error also goes to Sentry, tagged with its request
 id and ref, with nothing private: no question, header or address.
+
+## Check its health
+
+`GET /api/health` says which lanes work, as JSON, without running anything that costs: it geocodes London on
+Open-Meteo (the cache skipped), connects to our MCP server, reads the account behind Apify's token, and connects to
+Apify's MCP server. It answers `200` when every lane that's on works and `503` when one doesn't, so an uptime monitor
+needs only the status code. Each copy of the function runs the checks at most once a minute, and Vercel's CDN keeps a
+`200` for a minute, so an answer can be up to two minutes old.
+
+```bash
+curl -s https://weather-chatbot-hazel.vercel.app/api/health
+```
 
 ## Use the MCP server
 

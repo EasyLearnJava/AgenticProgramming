@@ -619,8 +619,8 @@ were slow: one answered in 36 s, and two ran out their 50 s and were cut short, 
 - **Ours, most likely:** Sentry makes a cold start slower. Before the model starts, the chat connects to our MCP
   server, `/api/mcp`, and gave that 3 s; the first connection after the deploy didn't finish within them. On a laptop,
   Sentry adds about 2.4 s to a cold start, most of it with its build step (`withSentryConfig`); its runtime alone
-  adds about 0.6 s. On Vercel, a cold connection with Sentry took 1.9 s, timed from a laptop, against 1.1 to 1.8 s
-  before; how much of that is Sentry isn't measured apart yet.
+  adds about 0.6 s. On Vercel, a cold connection with Sentry took 1.9 s timed from a laptop, and 4.2 s inside the
+  chat after the next deploy (both functions cold), against 1.1 to 1.8 s before step 9.
 - **Not ours:** Gemini's free tier was slow that hour. Its steps took 3 to 27 s, and one ran over 36 s, where they take
   about 1 s or less.
 
@@ -648,11 +648,12 @@ each hop was timed apart:
    build-time instrumentation, or its trace-metadata flag changed nothing: the cost lies elsewhere in the build step.
 
 **How we fixed it.** For now, connecting to our MCP server gets 6 s instead of 3 (`MCP_CONNECT_TIMEOUT_MS`, on both
-MCP lanes), so a cold first question should no longer fail; it's still slower than before. A lighter Sentry, without
-its build step, is on the To do page.
+MCP lanes), so a cold first question no longer fails; it's still slower than before. A lighter Sentry, without its
+build step, is on the To do page.
 
-**How we confirmed it.** `tests/unit/lanes/mcp-no-auth.test.ts` pins the 6 s, and failed at 3; the live check after
-the deploy asks a first question of a cold function (entry 122).
+**How we confirmed it.** `tests/unit/lanes/mcp-no-auth.test.ts` pins the 6 s, and failed at 3. On the live site, the
+first question after the fix's deploy (`b427de1`), both functions cold, connected in 4,164 ms and answered in 9.2 s:
+within the 6 s, where the 3 s would have failed it again (entry 122).
 
 **The lesson.** Time the cold start before and after adding an SDK: an observability tool can slow the app it watches.
 When a request crosses many services, cut its path into hops and time each one, compare cold with warm and the same code
@@ -1185,7 +1186,7 @@ at another hour before blaming a change, and log every hop under one request id:
      the answer's first words, through its tool calls (`isAwaitingWords()` in `lib/utils.ts`); it stands still for
      those who ask for less motion. **Check:** `tests/unit/utils.test.ts`, `tests/e2e/chat-page.spec.ts`.
 
-## Step 9 · Observability: Axiom and Sentry
+## Step 9 · Observability: Axiom, Sentry and the Health Check
 
 113. **Sentry 11 moved its build step.** *Checking our work* (the typecheck: `next typegen` stopped at
      "withSentryConfig is not a function"). In Sentry's version 11, `withSentryConfig` lives in
@@ -1248,5 +1249,24 @@ at another hour before blaming a change, and log every hop under one request id:
      lanes; a lighter Sentry is on the To do page. A request's worst case is now 59 s of the function's 60: 6 s to
      connect, the answer's 50 s, the lane's 1 s close and the logs' 2 s, which `waitUntil` keeps within the 60. BotID's
      3 s would make it 62 s, so a budget shrinks before BotID comes back (the To do page). **Check:**
-     `tests/unit/lanes/mcp-no-auth.test.ts`, which failed at 3 s; a first question of a cold function after the
-     deploy.
+     `tests/unit/lanes/mcp-no-auth.test.ts`, which failed at 3 s; on the live site, the first question after
+     `b427de1`'s deploy, both functions cold, connected in 4,164 ms and answered in 9.2 s.
+123. **Apify's `users/me`, as the plan read it.** *Testing a real API* (an obviously fake token, then none; nothing
+     runs). `401` with `user-or-token-not-found`, and `401` with `token-not-provided`, as PLAN.md's row 14 says. The
+     fake token's body is the very one a run gets, so the tests reuse its fixture. **Check:**
+     `tests/unit/upstream/apify.test.ts`.
+124. **The health check's own time limit would have read as a bug.** *Checking our work* (writing the check).
+     `toAppError` turns a failure it doesn't know into an `UnexpectedError`, logged at error, and a fired timeout's
+     reason is one: every slow upstream would have reached Sentry as a bug. **Fix:** a check past its 8 s is an
+     `UpstreamTimeoutError`, at warn. **Check:** `tests/unit/health/check-lanes.test.ts`.
+125. **Two of the new tests were wrong, not the code.** *Checking our work* (their first run). The route's test loads
+     the route afresh for each test, so an error class from the test file isn't the route's own copy: the route
+     reported its `ContractError` as an `UnexpectedError`, and even a dynamic import inside the mock gave another copy.
+     And a test expected Apify's stand-in to list 3 tools, where it lists 6. **Fix:** the route's stand-in throws a
+     plain `Error`, and each class's mapping is tested where there's one copy (`check-lanes.test.ts`); the count comes
+     from the stand-in's own list. **Check:** both tests.
+126. **"One run a minute" held per copy of the function, not per site.** *Review, low.* The route keeps its latest run
+     in its own memory, and Vercel can run several copies, in several regions, each with its own; and a `no-store`
+     answer sent every request to a function. **Fix:** the docs say "per copy", and Vercel's CDN keeps a `200` for a
+     minute (`s-maxage=60`), so repeat requests stop at the edge, before any function; a `503` is never kept, so an
+     outage isn't hidden behind a kept answer. **Check:** `tests/unit/app/api/health/route.test.ts`.
