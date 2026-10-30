@@ -1072,8 +1072,10 @@ again.
 - **Dashboards (Axiom):** answers per hour, per lane; time to first token and to the full answer (p50, p95) per lane,
   side by side; tool calls by status; fallbacks; cache hit rate; Open-Meteo calls per day against the limit; model calls
   and tokens per answer and per day; Apify spend this month, per door.
-- **Traces:** AI SDK `telemetry` gives a span for each model step and each tool call; `@vercel/otel` exports them with
-  the request id.
+- **Traces:** AI SDK `telemetry` gives a span for each model step and each tool call, recording no input or output;
+  Sentry, already in the app, takes them with the rest of each request's trace, through both functions, under the
+  request id. (Built in step 9 with Sentry, not `@vercel/otel`, whose default export goes to Vercel's own trace
+  collector, which Hobby doesn't have.)
 - **Health:** `GET /api/health` checks each lane's ways out, as cheaply as it can, running nothing that costs:
   Open-Meteo geocodes "London" with the cache skipped, so an outage shows; our MCP server connects and lists its tools;
   `GET https://api.apify.com/v2/users/me` with the token runs nothing; and Apify's MCP server connects and lists its
@@ -1223,7 +1225,7 @@ each adds one thing to the one before.
    failure logged at `error`, with nothing private; the source maps uploaded during Production's builds. Part 2a,
    the same day: `/api/health`, four checks that run nothing that costs, each lane's status from the checks it
    depends on, one result a minute. Part 2b: the lane picker's status dots, asked when the page opens and every 5
-   minutes.*
+   minutes. Part 3a: every request traced in Sentry, its query strings cut, under its request id.*
 10. [ ] **Evals, failure tests and the load test:** the golden questions on all four lanes (with the comparison
     report), the `CHAOS` cases and Playwright on previews in CI; the no-auth lanes' cache fallback and the amber "slow,
     retrying" chip (moved from step 5), which the `CHAOS` cases exercise; the daily contract check for `mcp-auth`; the load

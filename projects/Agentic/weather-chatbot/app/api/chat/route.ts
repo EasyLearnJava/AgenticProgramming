@@ -23,6 +23,7 @@ import {
 } from "@/lib/errors";
 import { openLane, toAvailableLaneIds } from "@/lib/lanes/open-lane";
 import { flushLogs, type Logger, logFailure, logger, toLaneFields } from "@/lib/logger";
+import { markTrace } from "@/lib/sentry";
 import { timeoutSignal, toRequestId, untilAborted } from "@/lib/utils";
 
 // The function stops at 60 s; the answer's own budget is 50 s (PLAN.md 9.3).
@@ -91,6 +92,7 @@ export async function POST(request: Request): Promise<Response> {
   const startedAt = performance.now();
   const requestId = toRequestId(request.headers.get(VERCEL_ID_HEADER));
   let log = logger.child({ requestId, route: CHAT_API_PATH });
+  markTrace(requestId);
   // On Vercel, the page's going ends this function as soon as it's told (vercel.json turns cancellation on for this
   // route), so it's kept alive until the request's last line is written and its lane closed; then until its lines have
   // gone to Axiom, and its errors to Sentry (step 9).

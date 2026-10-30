@@ -1,9 +1,10 @@
 # Step 9 · Observability: Axiom, Sentry and the Health Check
 
-**What this step built, so far:** step 9's first two parts. Every line our logger writes now also goes to Axiom,
-which keeps it long past Vercel's hour, and searches it; every failure logged as an error goes to Sentry, with its
-stack trace and nothing private; `/api/health` says which lanes work, running nothing that costs; and the lane picker
-shows it, a dot beside each lane. Part 3 comes next: the dashboards, alerts, traces and an uptime monitor.
+**What this step built, so far:** step 9's first two parts, and the traces of the third. Every line our logger writes
+now also goes to Axiom, which keeps it long past Vercel's hour, and searches it; every failure logged as an error
+goes to Sentry, with its stack trace and nothing private; `/api/health` says which lanes work, running nothing that
+costs, and the lane picker shows it, a dot beside each lane; and every request is traced in Sentry, through both
+functions, under its request id. The rest of part 3: the dashboards, the alerts and an uptime monitor.
 
 ## What you see
 
@@ -16,7 +17,8 @@ shows it, a dot beside each lane. Part 3 comes next: the dashboards, alerts, tra
   `| where requestId endswith "7f3a9c01"`.
 - **In Sentry,** in the `weather-chatbot` project: each failure logged as an error (a bug, the model failing, a broken
   contract or setting) as an issue, its stack trace pointing at our own code, tagged with its event, request id, ref,
-  route, and lane or tool. A ref finds it: `ref:7f3a9c01`.
+  route, and lane or tool. A ref finds it: `ref:7f3a9c01`. And each request's trace: the route, each model step and
+  tool call, and each call out, through `/api/mcp` too, its root span marked with the request id and ref.
 - **At `/api/health`:** which lanes work, as JSON, for the status dots and an uptime monitor: `200` when every lane
   that's on works, `503` when one doesn't. On a laptop, without Apify's token, it answered:
 
@@ -46,7 +48,9 @@ the new budget and past the old one. A lighter Sentry is on the To do page.
 
 Once `/api/health` was live (`41a54a6`), with Apify's token, all four checks passed; our MCP server's took 3,968 ms,
 cold, as in bug story 18. A second request came from Vercel's CDN in 0.37 s (`x-vercel-cache: HIT`), and Vercel kept
-`s-maxage` for itself, so a browser sees `public, max-age=0` (entry 127).
+`s-maxage` for itself, so a browser sees `public, max-age=0` (entry 127). Once the dots were live (`7cceecf`), the live
+page, nothing mocked, showed all four lanes *working*, about 5 s after it opened, its `/api/health` answered afresh
+after the deploy (entry 129).
 
 ## How it works
 
@@ -83,8 +87,7 @@ cold, as in bug story 18. A second request came from Vercel's CDN in 0.37 s (`x-
    breadcrumbs either: our lines in Axiom tell what led up to an error. And Sentry's trace headers stay off our calls
    to Gemini, Open-Meteo and Apify (entry 115).
 4. **Sent with the lines.** `flushLogs()` gives Sentry the same 2 s, at the same moment.
-5. **Not yet:** traces (part 3), and the page's own errors, which would need the Content Security Policy to allow
-   Sentry.
+5. **Not yet:** the page's own errors, which would need the Content Security Policy to allow Sentry.
 
 ### Source maps, when Vercel builds the app
 
@@ -121,6 +124,23 @@ build's output lists it.
    skipped. Our server can't skip its cache for one caller without letting any caller skip it, so its check connects
    and reads the tool list, and Open-Meteo's own check stands for the geocoding.
 
+### The traces, in Sentry
+
+1. **Every request is traced,** while the traffic is this small (`tracesSampleRate: 1`): its route, AI SDK's span
+   for each model step and tool call, and each call out, to Gemini, Open-Meteo, Apify and our MCP server.
+2. **One trace through both functions.** Sentry's trace headers go to our own `/api/mcp` only, so the MCP server's
+   spans join the chat's trace; Gemini, Open-Meteo and Apify still get none (entry 115).
+3. **Found by the request id.** Each route marks its trace's root span with the request's id and ref (`markTrace()`
+   in `lib/sentry.ts`), so one id finds the lines in Axiom, the trace and any error in Sentry: PLAN.md's "done when"
+   for this step, but for its alert.
+4. **Nothing private, in a span either.** AI SDK records neither the question, nor a tool's input or output, nor the
+   answer (`CHAT_TELEMETRY`). And before a span is sent, every query string is cut from its name and attributes, and
+   `url.query` dropped: Next.js's request span keeps the request's whole address, and a span's name can carry one,
+   while Open-Meteo's geocoding address holds the place the user typed (entries 130 and 131). The cut runs in Sentry's
+   `stream` lifecycle only, so that's pinned (entry 133).
+5. **Why Sentry, not `@vercel/otel`:** the plan named `@vercel/otel`, whose default export goes to Vercel's own trace
+   collector, which the Hobby plan doesn't have; Sentry, already in the app, takes the spans as they are.
+
 ### The status dots
 
 1. **Asked when the page opens,** then every 5 minutes while it's open (`hooks/use-lane-status.ts`). A `503` carries
@@ -148,7 +168,7 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
 
 ## Not in this step yet
 
-- **Part 3:** dashboards and alerts, in Axiom and Sentry; traces; an outside uptime monitor.
+- **The rest of part 3:** dashboards and alerts, in Axiom and Sentry, and an outside uptime monitor.
 - **A Sentry event from the live site.** Nothing on the live site fails at `error` on demand: the first event comes
   with the first real error, or with step 10's forced `AuthError` (`CHAOS`), which plays out the rest of PLAN.md 5.5.
 - **Previews:** the variables are set for Production only, so a preview's lines stay in Vercel's logs.
@@ -178,8 +198,12 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
   health from the answer, a `503`'s too, and says unknown for anything it can't read; in the browser, a working lane's
   green dot and words, a lane not answering in red and still enabled, and an answer the page can't read leaving each
   unknown. The browser tests answer `/api/health` themselves, so none calls Open-Meteo or Apify.
-- **Each new test can fail:** 20 changes that break the code a test guards in part 1, 16 in the health check, and 5
-  in the dots, each caught by it.
+- **The traces** (`tests/unit/sentry.test.ts`, `tests/unit/utils.test.ts`, `tests/unit/constants.test.ts`): every
+  request traced; trace headers to our own `/api/mcp` and to nothing else we call; a span's query strings cut and
+  `url.query` dropped, a question mark that starts no query left, the lifecycle that runs the cut pinned; the trace
+  marked with the id and ref; and the chat's telemetry recording no input or output.
+- **Each new test can fail:** 20 changes that break the code a test guards in part 1, 16 in the health check, 5 in the
+  dots and 9 in the traces, each caught by it.
 
 ## Files in this step
 
@@ -198,6 +222,10 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
 | `components/lane-picker.tsx`, `components/chat-window.tsx` | Each lane's dot and words |
 | `lib/utils.ts`, `lib/types.ts` | `toLaneHealths()`, and `LaneHealth` |
 | `app/globals.css` | The dots: green, red, grey |
+| `lib/sentry.ts`, `lib/utils.ts` | Traces: every request, headers to our MCP server only, query strings cut; `markTrace()` |
+| `lib/chat/run-chat.ts`, `lib/constants.ts` | AI SDK's spans, recording no input or output (`CHAT_TELEMETRY`) |
+| `app/api/chat/route.ts`, `app/api/mcp/route.ts`, `app/api/health/route.ts` | Each marks its trace with the request id |
+| `biome.json` | Sentry's own span fields, in snake_case, allowed in `lib/sentry.ts` and its test |
 | `next.config.ts` | Sentry's build step: the source maps, with its token |
 | `biome.json` | Sentry's `genAI` setting allowed by the naming rule (entry 117) |
 | `.env.example` | The new variables' names, empty |
@@ -223,5 +251,5 @@ beside each lane.
 
 ## What's next
 
-Part 3: dashboards and alerts, in Axiom and Sentry; traces; and an uptime monitor calling `/api/health` every 5
+The rest of part 3: dashboards and alerts, in Axiom and Sentry, and an uptime monitor calling `/api/health` every 5
 minutes, which needs an account of yours (the To do page).

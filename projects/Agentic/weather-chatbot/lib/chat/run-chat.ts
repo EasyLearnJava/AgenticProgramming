@@ -19,6 +19,7 @@ import { type ChatRequest, HISTORY_TOOLS } from "@/lib/chat/chat-request";
 import { toSystemPrompt } from "@/lib/chat/system-prompt";
 import {
   ANSWER_TIMEOUT_MS,
+  CHAT_TELEMETRY,
   FIRST_CHUNK_TIMEOUT_MS,
   MAX_OUTPUT_TOKENS,
   MAX_STEPS,
@@ -168,6 +169,8 @@ export async function runChat(
     prepareStep: ({ stepNumber }) => (stepNumber === LAST_STEP_NUMBER ? { toolChoice: "none" } : undefined),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     timeout: { ...budgets, tools: toToolBudgets(lane) },
+    // A span for each model step and tool call, for Sentry's traces (step 9); none records an input or an output.
+    telemetry: CHAT_TELEMETRY,
     abortSignal: signal,
     // ③ The logs: each tool call and model step, then one line for how the answer ended: done, stopped, cut short by a
     // time budget, or failed.

@@ -94,7 +94,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 128 files in 580ms. No fixes applied.
+Checked 128 files in 544ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -102,22 +102,22 @@ Generating route types...
 
 $ npm test
  Test Files  40 passed (40)
-      Tests  284 passed (284)
+      Tests  291 passed (291)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 989ms
+✓ Running next.config.ts took 999ms
 - Experiments (use with caution):
   · clientTraceMetadata
   Creating an optimized production build ...
-✓ Compiled successfully in 799ms
+✓ Compiled successfully in 8.7s
   Running next.config.js provided runAfterProductionCompile ...
-✓ Completed runAfterProductionCompile in 552ms
+✓ Completed runAfterProductionCompile in 675ms
   Running TypeScript ...
-  Finished TypeScript in 634ms ...
+  Finished TypeScript in 1353ms ...
   Collecting page data using 14 workers ...
   Generating static pages using 14 workers (0/21) ...
-✓ Generating static pages using 14 workers (21/21) in 7.7s
+✓ Generating static pages using 14 workers (21/21) in 7.4s
   Finalizing page optimization ...
 
 Route (app)
@@ -143,7 +143,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  58 passed (32.3s)
+  58 passed (33.5s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -202,8 +202,9 @@ how much to log. A line never holds your question (only its length), a token or 
 
 With Axiom set up (step 9), each of these lines also goes to the `weather-chatbot` dataset, in one batch at each
 request's end, and stays there long past Vercel's hour: `['weather-chatbot'] | where requestId endswith "<ref>"` finds
-a request's lines from both functions. Every failure logged as an error also goes to Sentry, tagged with its request
-id and ref, with nothing private: no question, header or address.
+a request's lines from both functions, and Sentry holds its trace, its root span marked with the same id. Every
+failure logged as an error also goes to Sentry, tagged with its request id and ref, with nothing private: no question,
+header or address.
 
 ## Check its health
 

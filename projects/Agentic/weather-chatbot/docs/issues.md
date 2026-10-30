@@ -1278,3 +1278,27 @@ at another hour before blaming a change, and log every hop under one request id:
 128. **The page's first ask for the dots was a floating promise.** *Checking our work* (lint). The hook called its
      check and left the promise it returned unread, which our lint refuses, though the check handles its own failure.
      **Fix:** `void`, as the chat window's own calls that nothing waits on. **Check:** `npm run lint`.
+129. **Part 2b, checked on the live site.** *Deploying* (`7cceecf`). The live page, nothing mocked, showed all four
+     lanes *working*, with green dots, about 5 s after it opened; its `/api/health` answered afresh after the deploy
+     (`200`, a CDN `MISS`). **Check:** the page in a browser.
+130. **A span could have carried a query string.** *Reading a package's code* (adding traces), corrected by the
+     review. Sentry cuts the query from its own outgoing spans' addresses when told to (`urlQueryParams: false`), and
+     turns Next.js's own `fetch` spans off; but Next.js's request span keeps the request's whole address in
+     `http.target`, and a span's name can carry an address too. Open-Meteo's geocoding address holds the place a user
+     typed, so no query may slip through. **Fix:** `beforeSendSpan` cuts every query string from a span's name and
+     text attributes, and drops `url.query`, before it's sent. **Check:** `tests/unit/sentry.test.ts`,
+     `tests/unit/utils.test.ts`.
+131. **AI SDK's telemetry records inputs and outputs unless told not to.** *Reading a package's code* (`ai` 7.0.156).
+     Its telemetry turns on by itself once an integration is registered, as Sentry's may be, and then records the
+     prompt, each tool's input and output, and the answer, by default. **Fix:** the chat's `streamText` gets
+     `CHAT_TELEMETRY`: on, recording neither inputs nor outputs; Sentry's `genAI` collection stays off too.
+     **Check:** `tests/unit/constants.test.ts`.
+132. **Sentry's span fields met our naming rule.** *Checking our work* (lint). A span, as Sentry passes it to
+     `beforeSendSpan`, has `trace_id`, `span_id`, `start_timestamp` and `is_segment`, which the test writes out.
+     **Fix:** snake_case allowed for object keys in `lib/sentry.ts` and its test, as Open-Meteo's are in its files.
+     **Check:**
+     `npm run lint`.
+133. **The cut would have stopped, without a word, with one setting.** *Review, low.* Sentry 11 runs a span callback
+     like ours only in its `stream` lifecycle: the default, but Sentry also reads `SENTRY_TRACE_LIFECYCLE`, and set to
+     `static`, it skips the callback silently, sending every span as it is. **Fix:** `traceLifecycle: "stream"`,
+     pinned in `toSentryOptions`. **Check:** `tests/unit/sentry.test.ts`, which failed before the fix.

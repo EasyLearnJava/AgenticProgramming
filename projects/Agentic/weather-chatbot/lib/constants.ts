@@ -170,3 +170,13 @@ export const HEALTH_RESULT_TTL_MS = 60_000;
 export const HEALTH_CDN_MAX_AGE_SECONDS = 60;
 // How often an open page asks /api/health again, for the lane picker's status dots: every 5 minutes.
 export const LANE_STATUS_REFRESH_MS = 300_000;
+
+// Traces (step 9): every request's, to Sentry, while the traffic is this small; and AI SDK's span for each model step
+// and tool call, recording neither the question, nor a tool's input or output, nor the answer.
+export const SENTRY_TRACES_SAMPLE_RATE = 1;
+export const CHAT_TELEMETRY = {
+  isEnabled: true,
+  recordInputs: false,
+  recordOutputs: false,
+  functionId: "chat",
+} as const;

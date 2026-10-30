@@ -10,6 +10,7 @@ import { HEALTH_API_PATH, HEALTH_CDN_MAX_AGE_SECONDS, HEALTH_RESULT_TTL_MS, VERC
 import { checkLanes, createHealthChecks, type HealthReport } from "@/lib/health/check-lanes";
 import { toSelfOrigin } from "@/lib/lanes/open-lane";
 import { flushLogs, logger } from "@/lib/logger";
+import { markTrace } from "@/lib/sentry";
 import { toRequestId } from "@/lib/utils";
 
 // The checks run at once, 8 s each at most; then the lines go out, within 2 s.
@@ -32,6 +33,7 @@ function toReport(request: Request): Promise<HealthReport> {
   }
   const requestId = toRequestId(request.headers.get(VERCEL_ID_HEADER));
   const log = logger.child({ requestId, route: HEALTH_API_PATH });
+  markTrace(requestId);
   const checks = createHealthChecks({
     origin: toSelfOrigin(request.url, config.deployment),
     requestId,

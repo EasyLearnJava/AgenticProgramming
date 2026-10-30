@@ -161,11 +161,29 @@
       }
     },
     {
-      "includes": ["playwright.config.ts", "lib/sentry.ts", "tests/unit/sentry.test.ts"],
+      "includes": ["playwright.config.ts"],
       "linter": {
         "rules": {
           "style": {
             "useNamingConvention": { "level": "error", "options": { "strictCase": false } }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["lib/sentry.ts", "tests/unit/sentry.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": {
+              "level": "error",
+              "options": {
+                "strictCase": false,
+                "conventions": [
+                  { "selector": { "kind": "objectLiteralProperty" }, "formats": ["camelCase", "snake_case"] }
+                ]
+              }
+            }
           }
         }
       }

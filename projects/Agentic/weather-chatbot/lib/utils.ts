@@ -197,6 +197,14 @@ export function timeoutSignal(ms: number, parentSignal?: AbortSignal): AbortSign
 /** The parts of a chat message that say whether its words have come: their kind, and a text part's text. */
 type MessageParts = { role: string; parts: readonly { type: string; text?: string }[] };
 
+// A query string: a "?", then at least one name=value, up to a space, a quote or a "#".
+const QUERY_STRING = /\?[^\s#"']*=[^\s#"']*/g;
+
+/** The text with every address's query string cut: what a trace may keep, since a query can hold a place's name. */
+export function withoutQueryStrings(text: string): string {
+  return text.replace(QUERY_STRING, "");
+}
+
 // What /api/health can say of a lane.
 const READABLE_HEALTHS: readonly string[] = ["ok", "down", "off"];
 

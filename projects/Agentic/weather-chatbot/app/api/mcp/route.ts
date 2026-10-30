@@ -5,8 +5,10 @@
  */
 import { waitUntil } from "@vercel/functions";
 import { createMcpHandler } from "mcp-handler";
-import { MCP_SERVER_INFO } from "@/lib/constants";
+import { MCP_SERVER_INFO, REQUEST_ID_HEADER, VERCEL_ID_HEADER } from "@/lib/constants";
 import { flushLogs } from "@/lib/logger";
+import { markTrace } from "@/lib/sentry";
+import { toRequestId } from "@/lib/utils";
 import { checkMcpRequest } from "@/lib/weather/mcp-request";
 import { registerTools } from "@/lib/weather/register-tools";
 
@@ -20,6 +22,8 @@ const handler = createMcpHandler((server) => registerTools(server), { serverInfo
  * Once it has answered, its lines go out.
  */
 async function serveMcp(request: Request): Promise<Response> {
+  // Its trace, which the chat's continues when the MCP lane sent it, carries the chat's request id (step 9).
+  markTrace(toRequestId(request.headers.get(REQUEST_ID_HEADER), request.headers.get(VERCEL_ID_HEADER)));
   try {
     // ① Check the request: one JSON-RPC message, at most 8 KB.
     const checked = await checkMcpRequest(request);

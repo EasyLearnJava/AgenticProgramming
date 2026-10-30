@@ -28,6 +28,7 @@ import {
   toWireText,
   untilAborted,
   waitAtMost,
+  withoutQueryStrings,
   withRetry,
 } from "@/lib/utils";
 
@@ -405,5 +406,22 @@ describe("toLaneHealths", () => {
     for (const body of [null, "ok", { lanes: null }, { lanes: "ok" }]) {
       expect(toLaneHealths(body, ["rest-no-auth"])).toEqual({ "rest-no-auth": "unknown" });
     }
+  });
+});
+
+describe("withoutQueryStrings", () => {
+  it("cuts every address's query string, a place's name and coordinates with it, and leaves the rest", () => {
+    expect(withoutQueryStrings("https://geocoding-api.open-meteo.com/v1/search?name=Dallas&count=10&language=en")).toBe(
+      "https://geocoding-api.open-meteo.com/v1/search",
+    );
+    expect(withoutQueryStrings("fetch GET /v1/forecast?latitude=32.78&longitude=-96.81 (Open-Meteo)")).toBe(
+      "fetch GET /v1/forecast (Open-Meteo)",
+    );
+    expect(withoutQueryStrings("https://example.test/a?x=1#part")).toBe("https://example.test/a#part");
+  });
+
+  it("leaves a question mark that starts no query: a question, or a ? with no name=value", () => {
+    expect(withoutQueryStrings("Is it raining in Paris?")).toBe("Is it raining in Paris?");
+    expect(withoutQueryStrings("https://example.test/a?flag")).toBe("https://example.test/a?flag");
   });
 });

@@ -3,7 +3,15 @@
  * starts on a live lane, and only the auth lanes need Apify's token.
  */
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LANE_ID, LANE_BY_ID, LANE_GRID, LANE_IDS, LIVE_LANE_IDS, TOKEN_LANE_IDS } from "@/lib/constants";
+import {
+  CHAT_TELEMETRY,
+  DEFAULT_LANE_ID,
+  LANE_BY_ID,
+  LANE_GRID,
+  LANE_IDS,
+  LIVE_LANE_IDS,
+  TOKEN_LANE_IDS,
+} from "@/lib/constants";
 
 describe("the lanes", () => {
   it("describes each lane under its own id", () => {
@@ -31,5 +39,11 @@ describe("the lanes", () => {
     }
     expect(TOKEN_LANE_IDS.every((id) => LANE_BY_ID[id].auth === "bearer")).toBe(true);
     expect(LIVE_LANE_IDS.filter((id) => LANE_BY_ID[id].auth === "bearer")).toEqual([...TOKEN_LANE_IDS]);
+  });
+});
+
+describe("the chat's telemetry", () => {
+  it("gives a span for each model step and tool call, recording no question, tool input or output, or answer", () => {
+    expect(CHAT_TELEMETRY).toEqual({ isEnabled: true, recordInputs: false, recordOutputs: false, functionId: "chat" });
   });
 });
