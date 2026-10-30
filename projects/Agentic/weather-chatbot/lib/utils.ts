@@ -9,6 +9,7 @@ const FAHRENHEIT_AT_ZERO_CELSIUS = 32;
 const TENTHS = 10;
 const SHORTEST_SHOWN_MS = 50;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+const DATE_CHARS = 10;
 const REQUEST_ID_CHARS = 16;
 // A request id we take from a header: letters, digits and : . _ -, as in Vercel's "iad1::abcde-1730211234567-f3c2b1".
 const REQUEST_ID_PATTERN = /^[\w:.-]{1,128}$/;
@@ -53,6 +54,31 @@ export function formatLocalTime(isoTime: string, timeZone: string): string {
 export function toWeekday(isoDate: string): string {
   const day = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
   return WEEKDAYS[day] ?? "";
+}
+
+/**
+ * A moment's date and time in a time zone, to the minute, written as Open-Meteo writes local times:
+ * ("2026-10-30T03:00:00Z", "America/Chicago") → "2026-10-29T22:00".
+ */
+export function toLocalDateTime(isoTime: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(isoTime));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((each) => each.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
+/** A calendar date some days later, written "2026-10-31": ("2026-10-31", 1) → "2026-11-01". Read in no time zone. */
+export function addDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, DATE_CHARS);
 }
 
 /** A new request id, for a request that didn't bring one: 16 random hex characters. */

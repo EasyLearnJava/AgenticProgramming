@@ -1,10 +1,11 @@
 /*
- * lib/chat/system-prompt.ts: the system prompt (PLAN.md 7.7): the rules the model answers by, the time now, and the
- * units for the user's browser.
+ * lib/chat/system-prompt.ts: the system prompt (PLAN.md 7.7): the rules the model answers by, the time now (in UTC,
+ * and on the user's own clock: which days "today" and "tomorrow" are), and the units for the user's browser.
  */
 import "server-only";
 import { ACTOR_TOOL_NAME, MAX_FORECAST_DAYS, MAX_HOURLY_DAYS } from "@/lib/constants";
 import type { Units } from "@/lib/types";
+import { addDays, toLocalDateTime, toWeekday } from "@/lib/utils";
 
 const RULES_BEFORE_TOOLS = [
   "You are Nimbus, a weather assistant in a chat. You answer questions about the weather with your tools.",
@@ -32,7 +33,8 @@ const ACTOR_TOOL_RULE =
 
 const RULES_AFTER_TOOLS = [
   "7. Name the place you used (city, region, country). Give times as the tools give them, in that place's local " +
-    'time, and say so ("15:00 Paris time"). The first day of a forecast is today in that place.',
+    'time, and say so ("15:00 Paris time"). Find a day by its date in the forecast; its localNow is the time there ' +
+    "now.",
   `8. Forecasts go up to ${MAX_FORECAST_DAYS} days ahead. Past that, say you can't forecast that far, and call no ` +
     "tool.",
   "9. For storms, floods or heat, give the forecast and point to the national weather service; never say the user " +
@@ -48,14 +50,37 @@ export function toUnits(locale: string | undefined): Units {
   return region?.toUpperCase() === "US" ? "imperial" : "metric";
 }
 
-/** One turn's system prompt: the rules for the lane's tools, the time now in UTC, and the units to start with. */
+/**
+ * Which days "today" and "tomorrow" are: the user's own, from their browser's time zone, wherever the place is, looked
+ * up on the place's calendar (issue 87); the place's own, from its forecast, when the time zone isn't known.
+ */
+function toDaysRule(now: Date, timeZone: string | undefined): string {
+  if (timeZone === undefined) {
+    return 'The user\'s time zone isn\'t known: "today" and "tomorrow" are the place\'s own, from its localNow.';
+  }
+  const [today = "", time = ""] = toLocalDateTime(now.toISOString(), timeZone).split("T");
+  const tomorrow = addDays(today, 1);
+  return (
+    `The user's own time now is ${toWeekday(today)} ${today} ${time} (${timeZone}). "Today" and ` +
+    `"tomorrow" are the user's days, wherever the place is: today is ${toWeekday(today)} ${today}, tomorrow is ` +
+    `${toWeekday(tomorrow)} ${tomorrow}. Answer for those dates from the place's forecast, and name the date. If the ` +
+    "place's localNow is on another date, say so (for example, it's already Friday morning in Paris)."
+  );
+}
+
+/**
+ * One turn's system prompt: the rules for the lane's tools, the time now in UTC and on the user's own clock, and the
+ * units to start with.
+ */
 export function toSystemPrompt({
   now,
   locale,
+  timeZone,
   toolNames,
 }: {
   now: Date;
   locale: string | undefined;
+  timeZone: string | undefined;
   toolNames: readonly string[];
 }): string {
   const units = toUnits(locale);
@@ -68,5 +93,6 @@ export function toSystemPrompt({
     `13. Use ${unitWords} unless the user asks for others; then keep their choice for the rest of the chat.`,
     "",
     `The time now is ${now.toISOString()} (UTC). The user's browser locale is ${locale ?? "unknown"}.`,
+    toDaysRule(now, timeZone),
   ].join("\n");
 }

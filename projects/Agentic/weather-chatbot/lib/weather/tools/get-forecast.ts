@@ -6,7 +6,7 @@ import "server-only";
 import { z } from "zod";
 import { MAX_FORECAST_DAYS, MAX_HOURLY_DAYS } from "@/lib/constants";
 import type { Forecast, ForecastInput } from "@/lib/types";
-import { roundCoordinate, toWeekday } from "@/lib/utils";
+import { roundCoordinate, toLocalDateTime, toWeekday } from "@/lib/utils";
 import { LatitudeSchema, LongitudeSchema, type WeatherTool } from "@/lib/weather/weather-tool";
 import { toCondition } from "@/lib/weather/wmo-codes";
 
@@ -29,7 +29,8 @@ export const getForecast: WeatherTool<"get_forecast", ForecastInput, Forecast> =
   name: "get_forecast",
   description:
     "Gives the forecast for a point, per day (condition, lowest and highest temperature, the highest chance of " +
-    "rain, sunrise, sunset) and, if asked, per hour. The first day is today in that place; times are local.",
+    "rain, sunrise, sunset) and, if asked, per hour. Each day and hour has its date; localNow is the time there now; " +
+    "times are local.",
   inputSchema: ForecastInputSchema,
   async run(input, { openMeteo, signal, log }) {
     const answer = await openMeteo.getForecast(input, { signal, log });
@@ -38,6 +39,7 @@ export const getForecast: WeatherTool<"get_forecast", ForecastInput, Forecast> =
       latitude: roundCoordinate(input.latitude),
       longitude: roundCoordinate(input.longitude),
       timeZone: data.timeZone,
+      localNow: toLocalDateTime(answer.answeredAt, data.timeZone),
       temperatureUnit: data.temperatureUnit,
       days: data.days.map(({ weatherCode, ...day }) => ({
         ...day,

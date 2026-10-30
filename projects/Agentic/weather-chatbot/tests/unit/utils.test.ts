@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  addDays,
   celsiusToFahrenheit,
   formatDuration,
   formatLocalTime,
@@ -12,6 +13,7 @@ import {
   timeoutSignal,
   toAbortKind,
   toHost,
+  toLocalDateTime,
   toRef,
   toRequestId,
   toRetryAfterMs,
@@ -223,5 +225,28 @@ describe("celsiusToFahrenheit", () => {
     expect(celsiusToFahrenheit(11.9)).toBe(53.4);
     expect(celsiusToFahrenheit(15.6)).toBe(60.1);
     expect(celsiusToFahrenheit(-40)).toBe(-40);
+  });
+});
+
+describe("toLocalDateTime", () => {
+  it("gives a moment's date and time in a time zone: an evening in Dallas is already the next day in UTC", () => {
+    expect(toLocalDateTime("2026-10-30T03:00:00Z", "America/Chicago")).toBe("2026-10-29T22:00");
+    expect(toLocalDateTime("2026-10-30T03:00:00Z", "Europe/Paris")).toBe("2026-10-30T04:00");
+    expect(toLocalDateTime("2026-10-30T03:00:00Z", "Asia/Tokyo")).toBe("2026-10-30T12:00");
+    expect(toLocalDateTime("2026-10-30T00:00:00Z", "UTC")).toBe("2026-10-30T00:00");
+  });
+
+  it("follows daylight saving time: 1:30 comes twice in Chicago on 1 November 2026", () => {
+    expect(toLocalDateTime("2026-11-01T06:30:00Z", "America/Chicago")).toBe("2026-11-01T01:30");
+    expect(toLocalDateTime("2026-11-01T07:30:00Z", "America/Chicago")).toBe("2026-11-01T01:30");
+  });
+});
+
+describe("addDays", () => {
+  it("counts calendar days, across months and years", () => {
+    expect(addDays("2026-10-29", 1)).toBe("2026-10-30");
+    expect(addDays("2026-10-31", 1)).toBe("2026-11-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
   });
 });

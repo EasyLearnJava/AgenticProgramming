@@ -40,6 +40,8 @@ describe("toForecast, daily", () => {
   it("gives a day per item: its weekday, our words for its code, its temperatures, rain, sunrise and sunset", () => {
     const forecast = toForecast(DAILY, DAILY_ASK);
     expect(forecast).toMatchObject({ latitude: 32.78, longitude: -96.81, timeZone: "America/Chicago" });
+    // The place's time now: the answer came at 16:00 UTC, 11:00 in Dallas.
+    expect(forecast.localNow).toBe("2026-10-29T11:00");
     expect(forecast).toMatchObject({ temperatureUnit: "°C", hours: undefined, fetchedAt: FETCHED_AT });
     expect(forecast.days).toEqual([
       {

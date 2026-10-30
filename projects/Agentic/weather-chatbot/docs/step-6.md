@@ -200,8 +200,8 @@ On 29 October 2026, once this step was live as `7ad3904` (its CI run had passed)
   of 68 °F. An hourly question got its 48 hours in 4,498 ms, also with no fallback.
 - **One wrong answer, from the model.** Asked about "tomorrow afternoon" at 21:50 in Dallas, already 30 October in UTC,
   the model evidently took tomorrow to be 31 October: it said the hours didn't reach that afternoon; they did.
-  `REST · no auth`'s answer had made the same slip earlier that evening, so it isn't this lane's. It's open in the
-  issues log (entry 87), with its fix.
+  `REST · no auth`'s answer had made the same slip earlier that evening, so it isn't this lane's. It's fixed since:
+  issues log, entry 87, and bug story 13.
 - **No step went backwards.** The browser tests passed against the live site, 48 of 48, with the token set: the
   picker and the compare view showed `REST · with auth` as live.
 

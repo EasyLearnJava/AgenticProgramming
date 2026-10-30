@@ -91,7 +91,12 @@ export function ChatWindow({ compareCells, availableLaneIds }: ChatWindowProps):
   });
   const isBusy = status === "submitted" || status === "streaming";
   const nearbyCity = useNearbyCity();
-  const requestBody = (): { laneId: LiveLaneId; locale: string } => ({ laneId, locale: navigator.language });
+  // The browser's locale picks the units to start with; its time zone says which days "today" and "tomorrow" are.
+  const requestBody = (): { laneId: LiveLaneId; locale: string; timeZone: string } => ({
+    laneId,
+    locale: navigator.language,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
 
   // ③ Asking, retrying, stopping, and starting over.
   function ask(question: string): void {

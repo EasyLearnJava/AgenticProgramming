@@ -1,7 +1,7 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
 > **Status:** 🚧 Being built, step by step (section 11): steps 1 to 6 are done, and each finished step has a page in
-> the app's documentation. Step 6 runs with the Apify token you set. Issue 87 in the issues log is open. Live at
+> the app's documentation. Step 6 runs with the Apify token you set. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
 > **Facts checked on 2026-10-29** by calling the real endpoints and reading the current docs and package files
@@ -910,9 +910,11 @@ Each item has a test or an eval (section 10).
   more. With only coordinate tools, as in the first brief, the model would pick one and answer confidently. Here,
   `geocode_location` sets `isAmbiguous` (7.6), the bot asks ("Springfield, Missouri, Massachusetts or Illinois?"),
   and every answer names the place it used.
-- [ ] **Time zones.** "Tomorrow" and "this afternoon" are in the place's time, not the server's (UTC) and not the
-  browser's. Every call uses `timezone=auto`, and times are shown with the zone ("15:00 Paris time"). Your Dallas
-  example shows why: without it, Open-Meteo answers in GMT (section 3, row 12).
+- [ ] **Time zones.** "Today" and "tomorrow" are the user's own days, from the browser's time zone, looked up on the
+  place's calendar: asked at 22:00 in Dallas, "tomorrow" in Paris is Friday, though it's already Friday there
+  (decision 10; issue 87). Never the server's UTC date. Every call uses `timezone=auto`, each forecast says the
+  place's time now (`localNow`), and times are shown with the zone ("15:00 Paris time"). Your Dallas example shows
+  why: without it, Open-Meteo answers in GMT (section 3, row 12).
 - [ ] **Units.** Celsius, km/h and mm by default; Fahrenheit, mph and inches for a US browser locale (`en-US`) or when
   asked. Open-Meteo converts for the no-auth pair; `actor-items.ts` converts for the auth pair.
 - [ ] **Forecast range.** Up to 16 days ahead; past that, the bot says it can't forecast that far. Past weather is out
@@ -1265,6 +1267,7 @@ each adds one thing to the one before.
 | 6 | The bot's name | "Nimbus (Weather)", a placeholder | The design shows "Ivy (Support)" |
 | 7 | The paperclip and the mic | The paperclip becomes a location pin; the mic stays hidden until voice input (step 13) | No dead buttons |
 | 8 | The default lane | **`mcp-no-auth`** | The project is about MCP; it's fast and free |
+| 10 | Whose "today" and "tomorrow" | **Decided on 2026-10-29: the user's own**, from the browser's time zone, looked up on the place's calendar; the place's own when no time zone comes | Asked at 22:00 in Dallas, "tomorrow" in Paris means the asker's Friday, though Paris is already on Friday (issue 87) |
 | 9 | The REST auth destination | **Apify's REST API**, your example, rather than Open-Meteo's paid API | Apify's REST and MCP doors reach the same Actor with the same token, which is the comparison you asked for; Open-Meteo's paid API has no MCP door to compare with |
 
 ---

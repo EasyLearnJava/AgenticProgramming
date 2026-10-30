@@ -26,6 +26,7 @@ const CHAT_REQUEST: ChatRequest = {
   chatId: "chat-1",
   laneId: "rest-no-auth",
   locale: "en-GB",
+  timeZone: "Europe/London",
   messages: [
     { id: "u1", role: "user", parts: [{ type: "text", text: "Weather in Paris?" }], metadata: { createdAt: 1 } },
   ],

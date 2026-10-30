@@ -47,6 +47,7 @@ const FORECAST_OUTPUT: ToolResult<Forecast> = {
     latitude: 48.85,
     longitude: 2.35,
     timeZone: "Europe/Paris",
+    localNow: "2026-10-29T17:00",
     temperatureUnit: "°C",
     days: [
       {

@@ -11,7 +11,7 @@ import "server-only";
 import { z } from "zod";
 import { ContractError } from "@/lib/errors";
 import type { Forecast, ForecastDay, ForecastHour, Units } from "@/lib/types";
-import { celsiusToFahrenheit, roundCoordinate, toWeekday } from "@/lib/utils";
+import { addDays, celsiusToFahrenheit, roundCoordinate, toLocalDateTime, toWeekday } from "@/lib/utils";
 import { toCondition } from "@/lib/weather/wmo-codes";
 
 const CELSIUS = "°C";
@@ -20,7 +20,6 @@ const FAHRENHEIT = "°F";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const HOUR_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 const DATE_CHARS = 10;
-const MS_PER_DAY = 86_400_000;
 // The Actor echoes the coordinates it was sent, rounded to 2 decimals, as the lane sends them: this close is the same.
 const SAME_PLACE_DEGREES = 0.01;
 
@@ -122,8 +121,7 @@ function checkDays(dates: readonly string[], { mode, forecastDays }: ActorAsk): 
   if (mode === "daily" && dates.length !== days.length) {
     throw new ContractError("The Actor gave a day twice.");
   }
-  const startOf = (date: string) => Date.parse(`${date}T00:00:00Z`);
-  if (days.some((date, i) => i > 0 && startOf(date) - startOf(days[i - 1] ?? date) !== MS_PER_DAY)) {
+  if (days.some((date, i) => i > 0 && date !== addDays(days[i - 1] ?? date, 1))) {
     throw new ContractError("The Actor's days don't follow one another.");
   }
 }
@@ -164,6 +162,7 @@ export function toForecast(items: readonly unknown[], ask: ActorAsk): Forecast {
     latitude: roundCoordinate(place.latitude),
     longitude: roundCoordinate(place.longitude),
     timeZone: place.timezone,
+    localNow: toLocalDateTime(ask.fetchedAt, place.timezone),
     temperatureUnit,
     days,
     hours,

@@ -85,7 +85,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 107 files in 246ms. No fixes applied.
+Checked 107 files in 296ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -93,18 +93,18 @@ Generating route types...
 
 $ npm test
  Test Files  32 passed (32)
-      Tests  204 passed (204)
+      Tests  211 passed (211)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 31ms
+✓ Running next.config.ts took 39ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1064ms
+✓ Compiled successfully in 1662ms
   Running TypeScript ...
-  Finished TypeScript in 590ms ...
+  Finished TypeScript in 642ms ...
   Collecting page data using 11 workers ...
   Generating static pages using 11 workers (0/15) ...
-✓ Generating static pages using 11 workers (15/15) in 1558ms
+✓ Generating static pages using 11 workers (15/15) in 3.2s
   Finalizing page optimization ...
 
 Route (app)
@@ -127,7 +127,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  48 passed (21.7s)
+  48 passed (24.2s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -182,6 +182,5 @@ for example in Claude or Cursor:
 
 ## Next
 
-The open issue in the issues log, entry 87: the model can read "tomorrow" by the UTC date. Then step 7 in
-[PLAN.md](PLAN.md): `MCP · with auth`: Apify's MCP server with the same token and Actor, and its fallback to
-`MCP · no auth`.
+Step 7 in [PLAN.md](PLAN.md): `MCP · with auth`: Apify's MCP server with the same token and Actor, and its fallback
+to `MCP · no auth`.

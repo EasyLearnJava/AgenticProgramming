@@ -123,7 +123,12 @@ export async function runChat(
   // tool its own). The last step can't call a tool, so an answer never ends on tool results without words.
   const result = streamText({
     model,
-    instructions: toSystemPrompt({ now: startedAt, locale: chatRequest.locale, toolNames: Object.keys(lane.tools) }),
+    instructions: toSystemPrompt({
+      now: startedAt,
+      locale: chatRequest.locale,
+      timeZone: chatRequest.timeZone,
+      toolNames: Object.keys(lane.tools),
+    }),
     messages,
     tools: lane.tools,
     stopWhen: isStepCount(MAX_STEPS),

@@ -49,7 +49,8 @@ describe("the requests", () => {
     const { client, urls } = clientWith([{ fixture: "geocode-springfield-ma" }]);
     await client.searchPlaces({ query: "Springfield, MA", count: 5, countryCode: "us" });
     expect(urls[0]).toBe(
-      "https://geocoding-api.open-meteo.com/v1/search?name=Springfield,+MA&count=5&language=en&format=json&countryCode=US",
+      "https://geocoding-api.open-meteo.com/v1/search?name=Springfield,+MA&count=5&language=en&format=json" +
+        "&countryCode=US",
     );
   });
 });
@@ -123,6 +124,21 @@ describe("the cache", () => {
     expect(second.fetchedAt).toBe(NOW.toISOString());
     expect([...cache.entries.values()][0]?.ttl).toBe(30 * 60);
   });
+
+  it("says when it answered: a cached answer keeps the time it was fetched, and answers now", async () => {
+    let clock = NOW.getTime();
+    const client = createOpenMeteoClient({
+      fetch: createFakeFetch([{ fixture: "forecast-paris" }]).fetch,
+      cache: createMemoryCache(),
+      now: () => new Date(clock),
+      random: () => 0,
+    });
+    const first = await client.getForecast(PARIS_FORECAST);
+    clock += 20 * 60 * 1000;
+    const second = await client.getForecast(PARIS_FORECAST);
+    expect([first.fetchedAt, first.answeredAt]).toEqual(["2026-10-29T16:00:00.000Z", "2026-10-29T16:00:00.000Z"]);
+    expect([second.fetchedAt, second.answeredAt]).toEqual(["2026-10-29T16:00:00.000Z", "2026-10-29T16:20:00.000Z"]);
+  });
 });
 
 describe("the failures", () => {
@@ -193,7 +209,7 @@ describe("the failures", () => {
 });
 
 describe("the log lines", () => {
-  it("writes one upstream.http line for each request that goes out: the host, the status, the time, the tries", async () => {
+  it("writes one upstream.http line for each request that goes out: host, status, time, tries", async () => {
     const { client } = clientWith([{ fixture: "geocode-paris" }]);
     const { log, lines } = createTestLog();
     await client.searchPlaces({ query: "Paris", count: 5 }, { log });

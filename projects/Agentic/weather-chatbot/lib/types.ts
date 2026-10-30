@@ -92,6 +92,8 @@ export type Forecast = {
   latitude: number;
   longitude: number;
   timeZone: string;
+  // The place's own date and time when the tool answered, "2026-10-29T22:00": what now is there.
+  localNow: string;
   temperatureUnit: string;
   days: ForecastDay[];
   hours?: ForecastHour[];

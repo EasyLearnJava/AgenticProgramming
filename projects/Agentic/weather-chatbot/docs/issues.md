@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These twelve were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These thirteen were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -27,6 +27,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 10 | The fallback that Stop couldn't reach | 6 | checking our work, then the review |
 | 11 | A lane change showed the model the page's records | 6 | the review |
 | 12 | The Actor's answer wasn't the shape we assumed | 6 | deploying |
+| 13 | Tomorrow, by whose clock? | after 6 | deploying |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -414,6 +415,40 @@ Apify with the token masked; an hourly question got its 48 hours in 4.5 s.
 loudly, and keep a fallback. Then the first real call costs a log line, not a wrong answer, and the line says exactly
 what to fix.
 
+### 13. Tomorrow, by whose clock?
+
+*After step 6 · found by deploying · entry 87*
+
+**The request.** At 21:50 on 29 October in Dallas: "Will it rain in Dallas, Texas tomorrow afternoon? Give me the
+chance of rain hour by hour."
+
+**What went wrong.** The forecast came back with 48 hours, the 29th and the 30th in Dallas, so tomorrow afternoon was
+in it; the answer said the forecast didn't reach it. Earlier that evening, another answer had called the 30th "this
+afternoon".
+
+**Why it happened.** The system prompt gave the model the time now in UTC, by then 02:50 on the 30th, and the rule
+that a forecast's first day is today in its place. The model took "today" from the UTC date, so "tomorrow" became the
+31st. Nothing told it the date where the user was, and a forecast of hours only carries no weekday to check against.
+
+**How we traced it.** The answer named the data's end, "10 PM local time on October 30", and the tool's output held
+the 29th and the 30th; the answer follows only from a "today" of the 30th, and the one place the 30th came from was
+the UTC time in the system prompt.
+
+**How we fixed it.** First a choice, the user's: whose "tomorrow"? Asked at 22:00 in Dallas about Paris, where it's
+already 04:00 on Friday, "tomorrow" means Friday, the asker's tomorrow, not Paris's Saturday. So the page sends the
+browser's time zone, checked as the locale is; the system prompt gives the user's own date and time, and works out
+today's and tomorrow's dates and weekdays, wherever the place is; and every forecast carries `localNow`, the place's
+time now, so the model can say when the place's date differs ("it's already Friday morning in Paris"). Without a time
+zone, the days are the place's own.
+
+**How we confirmed it.** Unit tests: at 22:00 in Dallas the prompt says today is Thursday the 29th and tomorrow Friday
+the 30th, though UTC is on the 30th; both forecast paths give `localNow`; the Open-Meteo client tells a cached answer's
+fetch time from the time it answered. Two golden questions, asked from a time zone whose date isn't UTC's, must
+name the user's tomorrow.
+
+**The lesson.** "Today" belongs to a person and a place, not to a timestamp. Give the model the dates it needs, already
+worked out, rather than a UTC instant and a rule for converting it.
+
 ## While Planning
 
 1. **The "no auth" MCP server needed a sign-in.** *Testing a real API.* MCPBundles' Open-Meteo server answered an MCP
@@ -738,11 +773,17 @@ what to fix.
     checked to follow one another. **Fix:** the lane passes the coordinates it sent, which the Actor echoes, and every
     item must be within 0.01° of them; the days must follow one another; "1 day", not "1 days". **Check:**
     `tests/unit/weather/actor-items.test.ts`.
-87. **"Tomorrow" by the UTC date (open).** *Deploying* (the live check). At 21:50 in Dallas, already 30 October in UTC,
-    the model evidently took "tomorrow afternoon" to be 31 October: it said the hours it had didn't reach that
-    afternoon; they did, since tomorrow there was the 30th. Earlier that evening, `REST · no auth`'s answer called the
-    30th "this afternoon". The system prompt gives the time now in UTC and says a forecast's first day is today in its
-    place, but the model doesn't always work out the place's own date. It predates step 6, and its fix touches every
-    lane's forecasts, so it's open. **Fix (planned):** each forecast says the time now in its place (for example
-    `"localNow": "2026-10-29T21:50"`), from the fetch time and the place's time zone, and the system prompt points the
-    model to it. **Check (planned):** a golden question asked when the place's date is behind UTC's.
+87. **"Tomorrow" by the UTC date.** *Deploying* (the live check). At 21:50 in Dallas, already 30 October in UTC, the
+    model evidently took "tomorrow afternoon" to be 31 October: it said the hours it had didn't reach that afternoon;
+    they did, since tomorrow there was the 30th. Earlier that evening, `REST · no auth`'s answer called the 30th "this
+    afternoon". The system prompt gave the time now in UTC and said a forecast's first day is today in its place, but
+    the model didn't always work out the place's own date. It predated step 6, on every lane. Bug story 13. **Fix:**
+    the page sends the browser's time zone; "today" and "tomorrow" are the user's own days, wherever the place is,
+    worked out in the system prompt (the user's choice, 29 October 2026); and every forecast says the place's time now
+    (`localNow`). **Check:** `tests/unit/chat/system-prompt.test.ts`, `tests/unit/utils.test.ts`, and two golden
+    questions asked from a time zone whose date isn't UTC's (`tests/evals/golden.eval.ts`).
+88. **Smaller review findings on issue 87.** *Review.* The golden questions, first asked from Dallas, could tell the
+    bug apart only in Dallas's evening, when UTC's date runs ahead, and wanted the weekday named: they're now asked from
+    a time zone whose date isn't UTC's at that moment (Pago Pago or Kiritimati), and take the date too. And the
+    system prompt said a forecast's first day is the place's date now, untrue for a forecast cached just before the
+    place's midnight: the model now finds a day by its date, and `localNow` is the time there now.

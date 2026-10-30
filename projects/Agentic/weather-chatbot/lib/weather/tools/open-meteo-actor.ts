@@ -72,7 +72,8 @@ export const openMeteoActor: WeatherTool<typeof ACTOR_TOOL_NAME, ActorForecastIn
     "Gives the forecast for one place by running the Open-Meteo Weather Forecast Actor on Apify: in daily mode, per " +
     "day (condition, lowest and highest temperature, the highest chance of rain, sunrise, sunset); in hourly mode, " +
     `per hour instead (condition, temperature, chance of rain), for up to ${MAX_HOURLY_DAYS} days. Give the place's ` +
-    "name and coordinates from geocode_location. The first day is today in that place; times are local.",
+    "name and coordinates from geocode_location. Each day and hour has its date; localNow is the time there now; " +
+    "times are local.",
   inputSchema: ActorInputSchema,
   async run({ locations, forecastDays, mode, units }, { apify, signal, log }) {
     // The Actor gets its own three fields, with the coordinates rounded to about 1 km, as Open-Meteo's are.

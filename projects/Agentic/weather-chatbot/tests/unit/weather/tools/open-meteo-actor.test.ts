@@ -28,6 +28,7 @@ describe("the Actor tool's summary", () => {
     latitude: 32.78,
     longitude: -96.81,
     timeZone: "America/Chicago",
+    localNow: "2026-10-29T11:00",
     temperatureUnit: "°C",
     days: [],
     fetchedAt: "2026-10-29T16:00:00.000Z",

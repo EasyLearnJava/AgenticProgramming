@@ -1,8 +1,8 @@
 /*
  * lib/upstream/open-meteo.ts: the calls to Open-Meteo's three APIs (geocoding, forecast, air quality), with fetch:
- * rounded coordinates, timezone=auto, 3 s a try and one retry, Retry-After on a 429, and the Runtime Cache; each request
- * that goes out writes one upstream.http line. Open-Meteo's own field names (temperature_2m, country_code) stay in this
- * file: its schemas rename them once, to ours.
+ * rounded coordinates, timezone=auto, 3 s a try and one retry, Retry-After on a 429, and the Runtime Cache; each
+ * request that goes out writes one upstream.http line. Open-Meteo's own field names (temperature_2m, country_code) stay
+ * in this file: its schemas rename them once, to ours.
  */
 import "server-only";
 import { getCache } from "@vercel/functions";
@@ -225,8 +225,17 @@ export type ResponseCache = {
   set: (key: string, value: unknown, options: { ttl: number }) => Promise<void>;
 };
 
-/** One answer from Open-Meteo: our data, the request behind it, whether the cache answered, and when it was fetched. */
-export type UpstreamAnswer<T> = { data: T; request: WireRequest; cache: "hit" | "miss"; fetchedAt: string };
+/**
+ * One answer from Open-Meteo: our data, the request behind it, whether the cache answered, when Open-Meteo gave the
+ * data (a cached answer keeps its first time), and when this call answered.
+ */
+export type UpstreamAnswer<T> = {
+  data: T;
+  request: WireRequest;
+  cache: "hit" | "miss";
+  fetchedAt: string;
+  answeredAt: string;
+};
 
 type ForecastQuery = Coordinates & { days: number; includeHourly: boolean; units: Units };
 
@@ -279,7 +288,8 @@ export function createOpenMeteoClient({
     const cached = CachedAnswerSchema.safeParse(await cache.get(key));
     const cachedData = cached.success ? schema.safeParse(cached.data.body) : undefined;
     if (cached.success && cachedData?.success) {
-      return { data: cachedData.data, request, cache: "hit", fetchedAt: cached.data.fetchedAt };
+      const answeredAt = now().toISOString();
+      return { data: cachedData.data, request, cache: "hit", fetchedAt: cached.data.fetchedAt, answeredAt };
     }
     // The request goes out: one line when it's done, with the host, the time and the tries; a retry is a warning,
     // and a failure says only its class here (the tool's line says the rest). A stop isn't logged.
@@ -324,7 +334,7 @@ export function createOpenMeteoClient({
     }
     const fetchedAt = now().toISOString();
     await cache.set(key, { body, fetchedAt }, { ttl: ttlSeconds });
-    return { data: parsed.data, request, cache: "miss", fetchedAt };
+    return { data: parsed.data, request, cache: "miss", fetchedAt, answeredAt: fetchedAt };
   }
 
   /** One try: 3 s at most, with every failure turned into one of our error classes; the body and its status. */

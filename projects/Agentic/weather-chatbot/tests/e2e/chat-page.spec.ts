@@ -119,6 +119,7 @@ test("answers: two chips with their lane and request, the answer, and the weathe
   // The request carried the lane and the browser's locale.
   expect(bodies[0]).toMatchObject({ laneId: "rest-no-auth", messages: [{ role: "user" }] });
   expect(typeof (bodies[0] as { locale?: unknown }).locale).toBe("string");
+  expect(typeof (bodies[0] as { timeZone?: unknown }).timeZone).toBe("string");
   // Each chip says which lane and host it went through, and how long it took.
   const chips = page.locator("details.tool-chip");
   await expect(chips).toHaveCount(2);

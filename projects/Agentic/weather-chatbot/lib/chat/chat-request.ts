@@ -16,10 +16,20 @@ import { openMeteoActor } from "@/lib/weather/tools/open-meteo-actor";
 // A chat's id, which useChat makes up: letters, digits, _ and -. It's logged, so it can't be anything else.
 const CHAT_ID_PATTERN = /^[\w-]{1,100}$/;
 const MAX_LOCALE_CHARS = 35;
+const MAX_TIME_ZONE_CHARS = 64;
 
 /** Whether a lane id is one that answers for real. */
 function isLiveLaneId(laneId: string): laneId is LiveLaneId {
   return (LIVE_LANE_IDS as readonly string[]).includes(laneId);
+}
+
+/** Whether a string is a time zone, such as "America/Chicago", as Intl reads it; anything else isn't. */
+function isTimeZone(timeZone: string): boolean {
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /** Whether a string is a language tag, such as "en-US", as Intl reads it; anything else (words, new lines) isn't. */
@@ -31,13 +41,14 @@ function isLanguageTag(locale: string): boolean {
   }
 }
 
-// ① The body useChat sends: the chat's id and messages, plus what the page adds: the lane, and the browser's locale,
-// which goes into the system prompt, so it must be a language tag and nothing else.
+// ① The body useChat sends: the chat's id and messages, plus what the page adds: the lane, and the browser's locale
+// and time zone, which go into the system prompt, so each must be a language tag or a time zone and nothing else.
 const ChatRequestSchema = z.object({
   id: z.string().regex(CHAT_ID_PATTERN),
   messages: z.array(z.unknown()).min(1).max(MAX_MESSAGES),
   laneId: z.string().refine(isLiveLaneId),
   locale: z.string().max(MAX_LOCALE_CHARS).refine(isLanguageTag).optional(),
+  timeZone: z.string().max(MAX_TIME_ZONE_CHARS).refine(isTimeZone).optional(),
 });
 
 // When a message was written: shown beside it, so a message without it still goes through.
@@ -68,9 +79,16 @@ const RULE_BY_FIELD: Readonly<Record<string, string>> = {
   messages: `a chat can carry 1 to ${MAX_MESSAGES} messages.`,
   laneId: "that lane isn't live yet.",
   locale: "the browser's language isn't a language tag.",
+  timeZone: "the browser's time zone isn't one we know.",
 };
 
-export type ChatRequest = { chatId: string; messages: ChatMessage[]; laneId: LiveLaneId; locale: string | undefined };
+export type ChatRequest = {
+  chatId: string;
+  messages: ChatMessage[];
+  laneId: LiveLaneId;
+  locale: string | undefined;
+  timeZone: string | undefined;
+};
 
 /** The text of a message, its text parts joined. */
 function toMessageText(message: ChatMessage): string {
@@ -129,5 +147,6 @@ export async function parseChatRequest(body: unknown, availableLaneIds: readonly
   if (yours.some((text) => text.trim() === "")) {
     throw new InputError("a message can't be empty.");
   }
-  return { chatId: parsed.data.id, messages, laneId: parsed.data.laneId, locale: parsed.data.locale };
+  const { id: chatId, laneId, locale, timeZone } = parsed.data;
+  return { chatId, messages, laneId, locale, timeZone };
 }

@@ -5,6 +5,7 @@
  * GOOGLE_API_KEY), one question at a time.
  */
 import { describe, expect, it } from "vitest";
+import { addDays, toLocalDateTime, toWeekday } from "@/lib/utils";
 
 const BASE_URL = process.env.EVAL_BASE_URL;
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -18,8 +19,11 @@ type Answer = { toolCalls: ToolCall[]; outputs: Record<string, unknown>[]; text:
 
 let questionsAsked = 0;
 
-/** Asks one question on a lane, and reads the streamed answer: the tool calls, their outputs, and the text. */
-async function ask(question: string, laneId: string): Promise<Answer> {
+/**
+ * Asks one question on a lane, as a browser in this time zone would, if one is given, and reads the streamed answer:
+ * the tool calls, their outputs, and the text.
+ */
+async function ask(question: string, laneId: string, timeZone?: string): Promise<Answer> {
   if (questionsAsked > 0) {
     await new Promise((resolve) => setTimeout(resolve, PAUSE_BETWEEN_QUESTIONS_MS));
   }
@@ -34,6 +38,7 @@ async function ask(question: string, laneId: string): Promise<Answer> {
       id: `eval-${Date.now()}`,
       laneId,
       locale: "en-GB",
+      ...(timeZone ? { timeZone } : {}),
       messages: [
         { id: "q1", role: "user", parts: [{ type: "text", text: question }], metadata: { createdAt: Date.now() } },
       ],
@@ -61,6 +66,27 @@ async function ask(question: string, laneId: string): Promise<Answer> {
   };
 }
 
+/**
+ * A user's time zone whose date isn't UTC's right now, so an answer that read "tomorrow" by the UTC date would name
+ * the wrong day, and that is at least an hour from its own midnight, so its date holds while the question is asked:
+ * Pago Pago (UTC−11) before 10:00 UTC, a day behind UTC; Kiritimati (UTC+14) from then on, a day ahead.
+ */
+function toZoneOffUtcDate(): string {
+  return new Date().getUTCHours() < 10 ? "Pacific/Pago_Pago" : "Pacific/Kiritimati";
+}
+
+/**
+ * Tomorrow in a time zone, on this machine's clock, as an answer may name it: "Friday", "October 30" or "30 October".
+ */
+function toTomorrowPattern(timeZone: string): RegExp {
+  const [today = ""] = toLocalDateTime(new Date().toISOString(), timeZone).split("T");
+  const tomorrow = addDays(today, 1);
+  const date = new Date(`${tomorrow}T00:00:00Z`);
+  const month = date.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+  const day = date.getUTCDate();
+  return new RegExp(`${toWeekday(tomorrow)}|${month} ${day}\\b|\\b${day} ${month}|${month.slice(0, 3)} ${day}\\b`);
+}
+
 /** The tools an answer called, by name, in order. */
 function toolNames(answer: Answer): string[] {
   return answer.toolCalls.map((call) => call.toolName);
@@ -71,7 +97,7 @@ const WEATHER_TOOLS = ["get_current_weather", "get_forecast", "get_air_quality"]
 describe.skipIf(!BASE_URL)(`the golden questions at ${BASE_URL ?? "(EVAL_BASE_URL not set)"}`, () => {
   for (const laneId of LANES) {
     describe(`on ${laneId}`, () => {
-      it("“What's the weather in Tokyo right now?”: geocoding, then the weather now; names Tokyo, with its numbers", async () => {
+      it("“What's the weather in Tokyo right now?”: geocoding, then the weather now, with numbers", async () => {
         const answer = await ask("What's the weather in Tokyo right now?", laneId);
         expect(answer.errors).toEqual([]);
         expect(toolNames(answer)).toEqual(["geocode_location", "get_current_weather"]);
@@ -93,6 +119,24 @@ describe.skipIf(!BASE_URL)(`the golden questions at ${BASE_URL ?? "(EVAL_BASE_UR
         expect(answer.toolCalls[1]?.input.includeHourly).toBe(true);
         expect(answer.text).toMatch(/Paris/);
         expect(answer.text).toMatch(/umbrella|rain/i);
+      });
+
+      // "Tomorrow" is the user's tomorrow, wherever the place is (issue 87). Asked from a time zone whose date isn't
+      // UTC's, an answer that took tomorrow from the UTC date, or from the place's, would name another day.
+      it("“Will it rain in Dallas, Texas tomorrow?”, from off UTC's date: names the user's tomorrow", async () => {
+        const timeZone = toZoneOffUtcDate();
+        const tomorrow = toTomorrowPattern(timeZone);
+        const answer = await ask("Will it rain in Dallas, Texas tomorrow?", laneId, timeZone);
+        expect(answer.errors).toEqual([]);
+        expect(answer.text).toMatch(tomorrow);
+      });
+
+      it("“Will it rain in Paris tomorrow?”, from off UTC's date: the user's tomorrow, not Paris's", async () => {
+        const timeZone = toZoneOffUtcDate();
+        const tomorrow = toTomorrowPattern(timeZone);
+        const answer = await ask("Will it rain in Paris tomorrow?", laneId, timeZone);
+        expect(answer.errors).toEqual([]);
+        expect(answer.text).toMatch(tomorrow);
       });
 
       it("“What's the weather in Springfield?”: asks which Springfield, and fetches no weather", async () => {

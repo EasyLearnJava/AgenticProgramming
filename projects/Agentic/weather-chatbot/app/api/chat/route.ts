@@ -16,8 +16,8 @@ import { toRequestId } from "@/lib/utils";
 export const maxDuration = 60;
 
 /**
- * The request's first line: how many messages, and the question's length, never its text (nor a hash of it, which
- * hashing likely questions could match).
+ * The request's first line: how many messages, the question's length, never its text (nor a hash of it, which
+ * hashing likely questions could match), and the browser's locale and time zone.
  */
 function logRequest(log: Logger, chatRequest: ChatRequest): void {
   log.info({
@@ -25,6 +25,7 @@ function logRequest(log: Logger, chatRequest: ChatRequest): void {
     messages: chatRequest.messages.length,
     questionChars: toQuestion(chatRequest).length,
     locale: chatRequest.locale,
+    timeZone: chatRequest.timeZone,
   });
 }
 

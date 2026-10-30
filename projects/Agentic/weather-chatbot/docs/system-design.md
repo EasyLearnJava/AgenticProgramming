@@ -13,12 +13,13 @@ reference is set against what Nimbus has, or why it doesn't.
 ### A · The online request path
 
 1. **You**, in the chat page (Next.js and AI SDK's `useChat`), pick a lane and ask. The page sends your question, with
-   the recent messages, to `POST /api/chat`.
+   the recent messages, your browser's locale and its time zone, to `POST /api/chat`.
 2. **Vercel's edge** serves HTTPS and routes the request to the chat function. Its id for the request, `x-vercel-id`,
    becomes our request id. There's no sign-in: the weather is public.
-3. **01 · The input rules** (`lib/chat/chat-request.ts`) check the body before anything runs: at most 20 messages,
-   each of yours at most 2,000 characters, the whole history at most 200,000, only the parts the page sends, a live
-   lane, a real language tag, a chat id of the kind the page makes. A broken rule gets its own sentence, with `400`.
+3. **01 · The input rules** (`lib/chat/chat-request.ts`) check the body before anything runs: at most 20 messages, each
+   of yours at most 2,000 characters, the whole history at most 200,000, only the parts the page sends, a lane this
+   deployment runs, a real language tag and time zone, a chat id of the kind the page makes. A broken rule gets its own
+   sentence, with `400`.
 4. **04 · The chat turn** (`app/api/chat/route.ts`, `lib/chat/run-chat.ts`) is the orchestrator. It opens the lane you
    picked and runs AI SDK's `streamText`: the system prompt, the lane's tools (four, or two on `REST · with auth`), at
    most 5 steps (the last can only write), and time budgets (50 s for the answer, 10 s for the model's first chunk, 8 s
