@@ -1,7 +1,7 @@
 /*
  * lib/chat/run-chat.ts: one chat turn. Streams the model's answer with the chosen lane's tools, within the step cap
  * and the time budgets; logs each tool call, each model step and how the answer ended, once; and closes the lane once
- * the answer's stream has ended, however it ends.
+ * the answer's stream has ended, however it ends, then says so.
  */
 import "server-only";
 import {
@@ -49,6 +49,8 @@ type RunChatOptions = {
   log: Logger;
   now?: () => Date;
   budgets?: AnswerBudgets;
+  // Called once the answer's stream has ended and the lane has closed: until then, the route keeps the function alive.
+  onEnded?: () => void;
 };
 
 /**
@@ -115,14 +117,31 @@ function toToolBudgets(lane: Lane): Record<string, number> {
 /** Streams one answer, as a UI message stream: the model's text, and each tool call as it starts and ends. */
 export async function runChat(
   chatRequest: ChatRequest,
-  { model, lane, signal, requestId, log, now = () => new Date(), budgets = BUDGETS }: RunChatOptions,
+  {
+    model,
+    lane,
+    signal,
+    requestId,
+    log,
+    now = () => new Date(),
+    budgets = BUDGETS,
+    onEnded = () => undefined,
+  }: RunChatOptions,
 ): Promise<Response> {
   const startedAt = now();
   const elapsedMs = (): number => now().getTime() - startedAt.getTime();
-  // An answer that failed has ended, for the page too, which stops at the first error chunk and goes. AI SDK still
-  // calls onEnd after onError once a step has finished, and onAbort when the page's going reaches us, and neither may
-  // log a second ending. (Aborting the run here ourselves would drop the error part before the page got it.)
-  let hasFailed = false;
+  // One line for how the answer ended, the first to come: done, stopped, cut short by a time budget, or failed (each
+  // error part is logged as failed). An answer that failed has ended, for the page too, which stops at the first error
+  // chunk and goes: AI SDK still calls onEnd after onError once a step has finished, and onAbort when the page's going
+  // reaches us. (Aborting the run here ourselves would drop the error part before the page got it.)
+  let hasEnded = false;
+  const endOnce = (write: () => void): void => {
+    if (!hasEnded) {
+      hasEnded = true;
+      write();
+    }
+  };
+  let stepsDone = 0;
   // ① The earlier messages, for the model: each tool result as toModelWeather() gives it (the weather only), found by
   // its tool's name among every lane's tools, since the chat may have changed lanes; and without a tool call that a
   // Stop left unfinished. If they can't be read, the lane is closed before giving up.
@@ -153,9 +172,12 @@ export async function runChat(
     // ③ The logs: each tool call and model step, then one line for how the answer ended: done, stopped, cut short by a
     // time budget, or failed.
     onToolExecutionEnd: (event) => logToolCall(log, event, signal),
-    onStepEnd: (step) => logStep(log, step, lane.tools),
-    onEnd: ({ steps, totalUsage, finishReason }) => {
-      if (!hasFailed) {
+    onStepEnd: (step) => {
+      stepsDone += 1;
+      logStep(log, step, lane.tools);
+    },
+    onEnd: ({ steps, totalUsage, finishReason }) =>
+      endOnce(() =>
         log.info({
           event: "chat.done",
           ms: elapsedMs(),
@@ -164,22 +186,19 @@ export async function runChat(
           inputTokens: totalUsage.inputTokens,
           outputTokens: totalUsage.outputTokens,
           finishReason,
-        });
-      }
-    },
-    onAbort: ({ steps }) => {
-      if (hasFailed) {
-        return;
-      }
-      const fields = { ms: elapsedMs(), steps: steps.length };
-      if (toAbortKind(signal) === "stop") {
-        log.info({ event: "chat.aborted", ...fields });
-      } else {
-        log.warn({ event: "budget.exceeded", ...fields });
-      }
-    },
+        }),
+      ),
+    onAbort: ({ steps }) =>
+      endOnce(() => {
+        const fields = { ms: elapsedMs(), steps: steps.length };
+        if (toAbortKind(signal) === "stop") {
+          log.info({ event: "chat.aborted", ...fields });
+        } else {
+          log.warn({ event: "budget.exceeded", ...fields });
+        }
+      }),
     onError: ({ error }) => {
-      hasFailed = true;
+      hasEnded = true;
       logFailure(log, "chat.failed", toAppError(error, signal), { ms: elapsedMs() });
     },
   });
@@ -201,7 +220,12 @@ export async function runChat(
         return part.type === "abort" ? { createdAt: startedAt.getTime(), isCutShort: true } : undefined;
       },
       onError: (error) => toUserMessage(toAppError(error, signal), requestId),
-      onEnd: () => closeLane(lane, log),
+      onEnd: async () => {
+        // The page went, and its going reached this stream first: AI SDK, its queue full, may never call onAbort.
+        endOnce(() => log.info({ event: "chat.aborted", ms: elapsedMs(), steps: stepsDone }));
+        await closeLane(lane, log);
+        onEnded();
+      },
     }),
   });
 }

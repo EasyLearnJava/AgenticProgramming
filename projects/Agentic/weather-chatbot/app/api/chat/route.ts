@@ -2,6 +2,7 @@
  * app/api/chat/route.ts: the chat endpoint, POST /api/chat, which the chat page's useChat calls. It checks the body,
  * opens the chosen lane and streams the answer from runChat(); every line it logs carries the request's id.
  */
+import { waitUntil } from "@vercel/functions";
 import { type ChatRequest, parseChatRequest, toQuestion } from "@/lib/chat/chat-request";
 import { getChatModel } from "@/lib/chat/model";
 import { runChat } from "@/lib/chat/run-chat";
@@ -47,10 +48,15 @@ export async function POST(request: Request): Promise<Response> {
   const startedAt = performance.now();
   const requestId = toRequestId(request.headers.get(VERCEL_ID_HEADER));
   let log = logger.child({ requestId, route: CHAT_API_PATH });
+  // On Vercel, the page's going ends this function as soon as it's told (vercel.json turns cancellation on for this
+  // route), so it's kept alive until the request's last line is written and its lane closed.
+  const ended = Promise.withResolvers<void>();
+  waitUntil(ended.promise);
   try {
     // ② Check the body: the messages, their sizes, the lane. From here on, each line also names the chat and the lane.
-    const body: unknown = await request.json().catch(() => {
-      throw new InputError("its body isn't JSON.");
+    const body: unknown = await request.json().catch((error: unknown) => {
+      // A page that goes while its message is read has stopped; it didn't send a bad one.
+      throw request.signal.aborted ? error : new InputError("its body isn't JSON.");
     });
     const chatRequest = await parseChatRequest(body, toAvailableLaneIds(config.apify.token));
     log = log.child({ chatId: chatRequest.chatId, ...toLaneFields(chatRequest.laneId) });
@@ -64,13 +70,25 @@ export async function POST(request: Request): Promise<Response> {
       requestId,
       log,
     });
-    // ④ Hand over: runChat() streams the answer and logs how it went; Stop (the request's signal) cancels it.
-    return await runChat(chatRequest, { model, lane, signal: request.signal, requestId, log });
+    // ④ Hand over: runChat() streams the answer and logs how it went; Stop, or the page's going, cancels it through the
+    // request's signal (on Vercel too: vercel.json turns cancellation on for this route).
+    return await runChat(chatRequest, {
+      model,
+      lane,
+      signal: request.signal,
+      requestId,
+      log,
+      onEnded: ended.resolve,
+    });
   } catch (error) {
     // ⑤ Anything that fails before the answer starts gets its class's sentence (PLAN.md 9.2), never the error's own
     // text, and the request's last line: refused (bad input), stopped, or failed at its class's level.
     const failure = toAppError(error, request.signal);
-    logEarlyEnd(log, failure, Math.round(performance.now() - startedAt));
+    try {
+      logEarlyEnd(log, failure, Math.round(performance.now() - startedAt));
+    } finally {
+      ended.resolve();
+    }
     return toErrorResponse(failure, requestId);
   }
 }

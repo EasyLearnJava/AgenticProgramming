@@ -509,7 +509,8 @@ The latest versions on npm on 2026-10-29. Step 1 pins them exactly and checks th
 3. **The MCP lanes load only allowlisted tools, with pinned schemas.** `mcpClient.tools({ schemas })` loads only the
    tools we name, with Zod input and output schemas. A tool a server adds never reaches the model, and a changed schema
    fails the contract test, not a user.
-4. **A time budget on every hop** (9.3), and the request's abort signal passed down, so Stop cancels everything.
+4. **A time budget on every hop** (9.3), and the request's abort signal passed down, so Stop cancels everything (on
+   Vercel, through the cancellation `vercel.json` turns on for the chat route: issue 101).
 5. **At most 5 steps per answer** (`stopWhen: isStepCount(5)`) and a cap on output tokens.
 6. **Tool output is data, not instructions.** All tools are read-only. The page renders Markdown with raw HTML off.
 7. **Lane URLs come from settings, never from user input**, and the MCP transport keeps `redirect: 'error'` (the
@@ -663,6 +664,7 @@ weather-chatbot/
 ├── vitest.evals.config.ts           the golden questions, against a running deployment
 ├── playwright.config.ts             end-to-end tests, with the bypass header
 ├── next.config.ts                   security headers; BotID
+├── vercel.json                      request cancellation for the chat route (issue 101)
 ├── instrumentation.ts               OpenTelemetry and Sentry start-up
 ├── instrumentation-client.ts        BotID's browser side
 ├── app/                             routes and pages only, each one thin
@@ -969,8 +971,9 @@ lost when the function ends; on Pro, a log drain does it with no code.
 to Open-Meteo or Apify that goes out, with status, time and tries; the token masked), `model.step` (tokens per step),
 `chat.done` (total time, steps, tool calls, fallback, cost), `chat.aborted`, `budget.exceeded`, and `chat.failed` (an
 answer that failed; its only ending, even when the page then goes: issue 96); and `lane.close`, when closing a lane
-fails. A failure is logged at its class's level once in each function, by the code that handles it; the
-hops it passed write their usual line, saying it failed (step 5). The cost waits for the paid model path (step 11). Requests the WAF rate-limits never reach our code; they show in Vercel's Firewall tab.
+fails. A failure is logged at its class's level once in each function, by the code that handles it; the hops it
+passed write their usual line, saying it failed (step 5). The cost waits for the paid model path (step 11). Requests
+the WAF rate-limits never reach our code; they show in Vercel's Firewall tab.
 
 **Levels:** `debug` only on a laptop; `info` for the normal path, including an ambiguous or unknown place; `warn` for
 trouble we handled (a retry, a fallback); `error` for a failure the user saw, or one we didn't expect.

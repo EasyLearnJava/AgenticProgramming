@@ -45,7 +45,7 @@ it opens with the real bugs, each told as a story.
 | `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`) and the issues log (`issues.md`) |
 | `tests/` | The unit tests (`unit/`), Open-Meteo's and Apify's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
-| Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts`, `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
+| Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts`, `vercel.json` (Vercel tells the chat when the page goes), `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
 
 CI lives at the repository's root, in `.github/workflows/weather-chatbot.yml`.
 
@@ -87,7 +87,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 111 files in 326ms. No fixes applied.
+Checked 112 files in 233ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -95,18 +95,18 @@ Generating route types...
 
 $ npm test
  Test Files  34 passed (34)
-      Tests  238 passed (238)
+      Tests  243 passed (243)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 30ms
+✓ Running next.config.ts took 32ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1087ms
+✓ Compiled successfully in 1131ms
   Running TypeScript ...
-  Finished TypeScript in 398ms ...
+  Finished TypeScript in 376ms ...
   Collecting page data using 11 workers ...
   Generating static pages using 11 workers (0/16) ...
-✓ Generating static pages using 11 workers (16/16) in 1678ms
+✓ Generating static pages using 11 workers (16/16) in 1569ms
   Finalizing page optimization ...
 
 Route (app)
@@ -129,7 +129,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  48 passed (19.7s)
+  48 passed (16.7s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -149,7 +149,8 @@ HTTPS goes through its own certificate, add `NODE_OPTIONS=--use-system-ca` so No
 1. In Vercel, choose **Add New → Project** and import the GitHub repository `EasyLearnJava/AgenticProgramming`.
 2. Set **Root Directory** to `projects/Agentic/weather-chatbot`. Vercel detects Next.js; keep the default build
    settings.
-3. Choose **Deploy**. The Node.js version comes from `package.json` (`22.x`).
+3. Choose **Deploy**. The Node.js version comes from `package.json` (`22.x`), and `vercel.json` turns on request
+   cancellation for the chat route, so that Vercel tells the chat when the page goes (issue 101).
 4. In the project's settings, set **Ignored Build Step** to `git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" HEAD -- .`.
    Vercel runs it in the Root Directory: it exits with 0 (skip the build) only when nothing in this folder changed
    since the last successful deployment. On the first deployment the variable is empty, so `git` fails, and Vercel
@@ -185,5 +186,5 @@ for example in Claude or Cursor:
 
 ## Next
 
-Issue 101's fix: Stop reaches the function on Vercel too (the issues log, entry 101). Then step 8 in
-[PLAN.md](PLAN.md): protection, with BotID, the rate limit and the security headers.
+Issue 101's check on the live site; then step 8 in [PLAN.md](PLAN.md): protection, with BotID, the rate limit and the
+security headers.

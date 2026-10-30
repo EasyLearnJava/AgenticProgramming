@@ -322,6 +322,75 @@ describe("runChat, when the model sends an error part and goes on", () => {
   });
 });
 
+describe("runChat on Vercel, where the page's going ends the function", () => {
+  // The page goes while the model's text is still coming: Vercel aborts the request's signal and cancels the answer's
+  // stream, in either order. With the stream first, AI SDK can stall on its full queue and never call onAbort. The
+  // lane's close is held open, to see what waits for it.
+  it.each([
+    ["its signal first", ["signal", "stream"]],
+    ["its stream first", ["stream", "signal"]],
+  ] as const)(
+    "ends the answer once, stopped, and says it has ended only once the lane has closed: %s",
+    async (_, order) => {
+      const model = new MockLanguageModelV4({
+        doStream: [
+          {
+            stream: new ReadableStream<LanguageModelV4StreamPart>({
+              start(controller) {
+                controller.enqueue({ type: "stream-start", warnings: [] });
+                controller.enqueue({ type: "text-start", id: "text-1" });
+              },
+              pull(controller) {
+                controller.enqueue({ type: "text-delta", id: "text-1", delta: "Rain " });
+              },
+            }),
+          },
+        ],
+      });
+      const closing = Promise.withResolvers<void>();
+      let endings = 0;
+      const page = new AbortController();
+      const { log, events } = createTestLog();
+      const openMeteo = createOpenMeteoClient({
+        fetch: createFakeFetch([]).fetch,
+        cache: createMemoryCache(),
+        now: () => NOW,
+        random: () => 0,
+      });
+      const response = await runChat(CHAT_REQUEST, {
+        model,
+        lane: { ...openRestNoAuthLane({ openMeteo, log }), close: () => closing.promise },
+        signal: page.signal,
+        requestId: REQUEST_ID,
+        log,
+        now: () => NOW,
+        onEnded: () => {
+          endings += 1;
+        },
+      });
+      const reader = response.body?.getReader();
+      if (reader === undefined) {
+        throw new Error("The answer has no body.");
+      }
+      await reader.read();
+      for (const step of order) {
+        if (step === "signal") {
+          page.abort();
+        } else {
+          void reader.cancel();
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(endings).toBe(0);
+      closing.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(endings).toBe(1);
+      expect(events()).toEqual(["info chat.aborted"]);
+    },
+  );
+});
+
 describe("runChat, closing the lane", () => {
   it("logs a lane that fails to close, and still ends the answer as it was", async () => {
     const { chunks, events } = await runTurn(

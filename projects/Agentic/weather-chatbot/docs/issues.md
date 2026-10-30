@@ -939,7 +939,8 @@ deciding what an event means, read what the other end does with it.
     the answer as failed was right after all: the page stops at the first error chunk (entry 100). A close that fails
     is logged, `lane.close`, where AI SDK's callbacks had swallowed it. Bug story 15. **Check:**
     `tests/unit/chat/run-chat.test.ts` (an error part, then a tool call; the page going after an error; a close that
-    fails).
+    fails). On the live site, once `214e4ec` was live, an Austin question on `MCP · with auth` ended with `chat.done`,
+    and no `lane.close` line: the lane's close didn't fail.
 97. **The compare view's MCP requests left out a header.** *Testing a real API* (step 7's live check). The chip's
     recorded request to Apify's server matched the compare view's cell but for `user-agent: ai-sdk/2.0.86 node.js/22`,
     which AI SDK's MCP client adds to every request: its own version, then Node's. The `MCP · no auth` cell had left
@@ -978,8 +979,17 @@ deciding what an event means, read what the other end does with it.
      much. Live, on 30 October, a chat that hung up after its first bytes, 2.1 s in, still ran its tool calls and
      model steps, and ended with `chat.done` after 3.7 s. On Next.js's own server, Next.js aborts the request's signal
      when the page goes (its request adapter, bug story 10; the unit tests stand in for it), so Stop would stop the
-     answer there, and our code's comments and docs say it does. **Fix:** next, its own change: turn cancellation on
-     for `/api/chat`; keep the work that must finish, the lane's close and the last line, alive with `waitUntil`,
-     since Vercel ends a cancelled function; and so make true the four places that say Stop stops the answer
-     (`app/api/chat/route.ts`, `docs/system-design.md`, `PLAN.md` 7.4, `docs/step-5.md`). **Check:** Stop on the
-     live site, then Vercel's logs: `chat.aborted`, and no `chat.done`.
+     answer there, and our code's comments and docs say it does. **Fix:** `vercel.json` turns cancellation on for
+     `app/api/chat/route.ts`, so the page's going aborts the request's signal. Since Vercel then ends the function,
+     the route keeps it alive with `waitUntil`, from its start until the request's last line is written and its lane
+     closed, an early failure included; `runChat` says when its lane has closed. A page that goes while its message
+     is still being read is logged as stopped, not as a refused message. And the answer gets its last line
+     however the page's going arrives: if its stream is cancelled while the model's text is still coming, AI SDK can
+     stall on its full queue and never call `onAbort` (the review showed it with a script), so the stream's own end
+     writes `chat.aborted` when no other line has. With that, the four places that say Stop stops the answer should
+     hold on Vercel too (`app/api/chat/route.ts`, `docs/system-design.md`, `PLAN.md` 7.4, `docs/step-5.md`): the
+     live check is to show it. **Check:** `tests/unit/chat/run-chat.test.ts` (the page's going while the text is
+     coming, its signal or its stream first: one `chat.aborted`, and the end said only once the lane has closed),
+     `tests/unit/app/api/chat/route.test.ts` (`vercel.json` names the route; the function kept alive until an early
+     failure's last line; a page gone while its message is read); on the live site, a hang-up mid-answer, then
+     Vercel's logs: `chat.aborted`, no `chat.done`.
