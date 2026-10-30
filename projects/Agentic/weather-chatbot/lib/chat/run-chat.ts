@@ -1,7 +1,7 @@
 /*
  * lib/chat/run-chat.ts: one chat turn. Streams the model's answer with the chosen lane's tools, within the step cap
- * and the time budgets; logs each tool call, each model step and how the answer ended; and closes the lane however the
- * answer ends.
+ * and the time budgets; logs each tool call, each model step and how the answer ended, once; and closes the lane once
+ * the answer's stream has ended, however it ends.
  */
 import "server-only";
 import {
@@ -95,6 +95,18 @@ function logStep(log: Logger, step: StepResult<ToolSet>, tools: ToolSet): void {
   });
 }
 
+/**
+ * Closes the lane, once the answer's stream has ended. A close that fails is logged, never thrown: the answer has been
+ * sent by then, and a throw would end its stream with an error.
+ */
+async function closeLane(lane: Lane, log: Logger): Promise<void> {
+  try {
+    await lane.close();
+  } catch (error) {
+    logFailure(log, "lane.close", toAppError(error));
+  }
+}
+
 /** A lane's own tool budgets, as AI SDK names them: the tool's name, then "Ms". */
 function toToolBudgets(lane: Lane): Record<string, number> {
   return Object.fromEntries(Object.entries(lane.toolBudgetsMs ?? {}).map(([name, ms]) => [`${name}Ms`, ms]));
@@ -107,7 +119,9 @@ export async function runChat(
 ): Promise<Response> {
   const startedAt = now();
   const elapsedMs = (): number => now().getTime() - startedAt.getTime();
-  // AI SDK still calls onEnd after onError once a step has finished, so an answer that failed must not also say done.
+  // An answer that failed has ended, for the page too, which stops at the first error chunk and goes. AI SDK still
+  // calls onEnd after onError once a step has finished, and onAbort when the page's going reaches us, and neither may
+  // log a second ending. (Aborting the run here ourselves would drop the error part before the page got it.)
   let hasFailed = false;
   // ① The earlier messages, for the model: each tool result as toModelWeather() gives it (the weather only), found by
   // its tool's name among every lane's tools, since the chat may have changed lanes; and without a tool call that a
@@ -116,7 +130,7 @@ export async function runChat(
     tools: HISTORY_TOOLS,
     ignoreIncompleteToolCalls: true,
   }).catch(async (error: unknown) => {
-    await lane.close();
+    await closeLane(lane, log);
     throw error;
   });
   // ② Stream the answer: the rules, the lane's tools, at most 5 steps, and a budget for each part (a lane can give a
@@ -137,10 +151,10 @@ export async function runChat(
     timeout: { ...budgets, tools: toToolBudgets(lane) },
     abortSignal: signal,
     // ③ The logs: each tool call and model step, then one line for how the answer ended: done, stopped, cut short by a
-    // time budget, or failed. However it ends, the lane is closed.
+    // time budget, or failed.
     onToolExecutionEnd: (event) => logToolCall(log, event, signal),
     onStepEnd: (step) => logStep(log, step, lane.tools),
-    onEnd: async ({ steps, totalUsage, finishReason }) => {
+    onEnd: ({ steps, totalUsage, finishReason }) => {
       if (!hasFailed) {
         log.info({
           event: "chat.done",
@@ -152,25 +166,27 @@ export async function runChat(
           finishReason,
         });
       }
-      await lane.close();
     },
-    onAbort: async ({ steps }) => {
+    onAbort: ({ steps }) => {
+      if (hasFailed) {
+        return;
+      }
       const fields = { ms: elapsedMs(), steps: steps.length };
       if (toAbortKind(signal) === "stop") {
         log.info({ event: "chat.aborted", ...fields });
       } else {
         log.warn({ event: "budget.exceeded", ...fields });
       }
-      await lane.close();
     },
-    onError: async ({ error }) => {
+    onError: ({ error }) => {
       hasFailed = true;
       logFailure(log, "chat.failed", toAppError(error, signal), { ms: elapsedMs() });
-      await lane.close();
     },
   });
   // ④ To the page: when the answer started, and whether a time budget cut it short (the page isn't told otherwise);
-  // errors as our plain sentences, with the ref when they're logged as errors; and the request's id, in a header.
+  // errors as our plain sentences, with the ref when they're logged as errors; and the request's id, in a header. Once
+  // this stream has ended, however the answer ended, or the page has gone, the lane is closed: not at an error part,
+  // after which the model can go on and call tools (Gemini's provider sends one for a chunk it can't read).
   return createUIMessageStreamResponse({
     headers: { [REQUEST_ID_HEADER]: requestId },
     stream: toUIMessageStream({
@@ -185,6 +201,7 @@ export async function runChat(
         return part.type === "abort" ? { createdAt: startedAt.getTime(), isCutShort: true } : undefined;
       },
       onError: (error) => toUserMessage(toAppError(error, signal), requestId),
+      onEnd: () => closeLane(lane, log),
     }),
   });
 }

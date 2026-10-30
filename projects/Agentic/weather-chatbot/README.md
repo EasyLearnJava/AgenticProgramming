@@ -87,7 +87,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 111 files in 260ms. No fixes applied.
+Checked 111 files in 326ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -95,18 +95,18 @@ Generating route types...
 
 $ npm test
  Test Files  34 passed (34)
-      Tests  235 passed (235)
+      Tests  238 passed (238)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 142ms
+✓ Running next.config.ts took 30ms
   Creating an optimized production build ...
-✓ Compiled successfully in 930ms
+✓ Compiled successfully in 1087ms
   Running TypeScript ...
-  Finished TypeScript in 466ms ...
+  Finished TypeScript in 398ms ...
   Collecting page data using 11 workers ...
   Generating static pages using 11 workers (0/16) ...
-✓ Generating static pages using 11 workers (16/16) in 1949ms
+✓ Generating static pages using 11 workers (16/16) in 1678ms
   Finalizing page optimization ...
 
 Route (app)
@@ -129,7 +129,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  48 passed (18.7s)
+  48 passed (19.7s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -185,5 +185,5 @@ for example in Claude or Cursor:
 
 ## Next
 
-Issue 96's fix: the lane closes once the answer's stream has ended (the issues log, entry 96). Then step 8 in
+Issue 101's fix: Stop reaches the function on Vercel too (the issues log, entry 101). Then step 8 in
 [PLAN.md](PLAN.md): protection, with BotID, the rate limit and the security headers.

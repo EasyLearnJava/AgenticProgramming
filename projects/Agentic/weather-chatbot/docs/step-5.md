@@ -70,7 +70,9 @@ One line per event, as JSON, written by pino to stdout, which Vercel's logs show
 
 An answer ends with one of five lines: `chat.done`; `chat.aborted` (Stop); `budget.exceeded` (a time budget cut it
 short); `chat.failed` (it failed, at its class's level); or, before it starts, `chat.rejected` (a refused message).
-Every line also names the build: `env`, `commit` and `deploymentId`.
+Only one: after `chat.failed`, the page, which stops at the error, going away isn't logged as a stop too; and a lane
+that fails to close writes `lane.close` (both since issue 96). Every line also names the build: `env`, `commit` and
+`deploymentId`.
 
 ### Logged once, where it's handled
 

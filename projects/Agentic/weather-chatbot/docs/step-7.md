@@ -181,5 +181,6 @@ On 30 October 2026, once this step was live as `f32d6c3` (its CI run had passed)
 
 ## What's next
 
-**Issue 96's fix** first: the lane closes once the answer's stream has ended (issues log, entry 96). Then **step 8:**
-protection: BotID, the rate limit, and the security headers.
+**Issue 101's fix:** Stop reaches the function on Vercel too (the issues log, entry 101). Then **step 8:** protection:
+BotID, the rate limit, and the security headers. Issue 96's fix is in: the lane closes once the answer's stream has
+ended (entries 96 and 100, bug story 15).

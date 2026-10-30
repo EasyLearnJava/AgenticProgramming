@@ -463,7 +463,7 @@ sequenceDiagram
   S-->>R: structured result
   M-->>R: the answer, streamed
   R-->>P: answer and weather card
-  R->>S: close the connection (onEnd, onAbort or onError)
+  R->>S: close the connection, once the stream has ended
 ```
 
 On `rest-no-auth` the picture is the same without the MCP server: the chat route runs the tool itself, so the
@@ -502,9 +502,10 @@ The latest versions on npm on 2026-10-29. Step 1 pins them exactly and checks th
 
 1. **Every lane runs on the server.** Tokens never reach the browser, and every call is logged.
 2. **MCP lanes connect per request and close however the answer ends.** In AI SDK 7, `onEnd` runs only when an
-   answer finishes; a stopped answer calls `onAbort` and a failed one `onError`. All three call one close that runs
-   once, so no connection outlives its request. REST lanes hold no connection. (Step 4 measures what connecting
-   costs; only if it's slow do we keep one client per warm instance.)
+   answer finishes, a stopped answer calls `onAbort`, and `onError` comes for every error part, after which the answer
+   can go on. So the lane is closed once the answer's stream has ended, whichever way, or the page has gone: by the
+   UI stream's `onEnd` (issue 96). No connection outlives its request. REST lanes hold no connection. (Step 4
+   measures what connecting costs; only if it's slow do we keep one client per warm instance.)
 3. **The MCP lanes load only allowlisted tools, with pinned schemas.** `mcpClient.tools({ schemas })` loads only the
    tools we name, with Zod input and output schemas. A tool a server adds never reaches the model, and a changed schema
    fails the contract test, not a user.
@@ -592,14 +593,11 @@ export async function runChat(chatRequest: ChatRequest, { log, signal }: RunChat
     },
     abortSignal: signal,
     telemetry: { isEnabled: true, functionId: "chat" },
-    // ③ Close the lane however the answer ends; lane.close runs only once, and does nothing for a REST lane.
-    onEnd: lane.close,
-    onAbort: lane.close,
-    onError: lane.close,
   });
-  // ④ Errors reach the page as plain messages with the ref, never as upstream text.
+  // ③ Errors reach the page as plain messages with the ref, never as upstream text. Once the stream has ended, however
+  // the answer ended, the lane is closed; lane.close runs only once, and does nothing for a REST lane.
   return createUIMessageStreamResponse({
-    stream: result.toUIMessageStream({ onError: (error) => toUserMessage(error, log) }),
+    stream: result.toUIMessageStream({ onError: (error) => toUserMessage(error, log), onEnd: lane.close }),
   });
 }
 ```
@@ -970,7 +968,8 @@ lost when the function ends; on Pro, a log drain does it with no code.
 `tool.call`, `mcp.call` (our MCP server's own line for each call, from any MCP client), `upstream.http` (each request
 to Open-Meteo or Apify that goes out, with status, time and tries; the token masked), `model.step` (tokens per step),
 `chat.done` (total time, steps, tool calls, fallback, cost), `chat.aborted`, `budget.exceeded`, and `chat.failed` (an
-answer that failed). A failure is logged at its class's level once in each function, by the code that handles it; the
+answer that failed; its only ending, even when the page then goes: issue 96); and `lane.close`, when closing a lane
+fails. A failure is logged at its class's level once in each function, by the code that handles it; the
 hops it passed write their usual line, saying it failed (step 5). The cost waits for the paid model path (step 11). Requests the WAF rate-limits never reach our code; they show in Vercel's Firewall tab.
 
 **Levels:** `debug` only on a laptop; `info` for the normal path, including an ambiguous or unknown place; `warn` for

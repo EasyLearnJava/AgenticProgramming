@@ -1,10 +1,10 @@
 /*
  * tests/unit/chat/run-chat.test.ts: one whole chat turn, on REST · no auth and through MCP · no auth, with AI SDK's
  * mock model in place of Gemini and Open-Meteo's recorded answers in place of the network: what the page receives,
- * what the model reads (after a change of lane too), and the lines the turn logs.
+ * what the model reads (after a change of lane too), the lines the turn logs, and when the lane is closed.
  */
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
-import { APICallError } from "ai";
+import { APICallError, JSONParseError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { type ChatRequest, parseChatRequest } from "@/lib/chat/chat-request";
@@ -59,38 +59,45 @@ const CHAT_REQUEST: ChatRequest = {
   ],
 };
 
+/** What a turn may change: its time budgets, its signal (the page's Stop, or its going), and what closing does. */
+type TurnOptions = { budgets?: AnswerBudgets; signal?: AbortSignal; close?: () => Promise<void> };
+
 /**
- * Runs one turn: the UI message stream's chunks as the page receives them, the lines it logged, and how often the lane
- * was closed.
+ * Runs one turn: the UI message stream's chunks as the page receives them, the lines it logged, how often the lane
+ * was closed, and how often it had been closed when each request went to Open-Meteo.
  */
-async function runTurn(model: MockLanguageModelV4, answers: FakeAnswer[], budgets?: AnswerBudgets) {
+async function runTurn(model: MockLanguageModelV4, answers: FakeAnswer[], options: TurnOptions = {}) {
   const fake = createFakeFetch(answers);
+  let closings = 0;
+  const closingsAtFetch: number[] = [];
   const openMeteo = createOpenMeteoClient({
-    fetch: fake.fetch,
+    fetch: ((input: string | URL | Request, init?: RequestInit) => {
+      closingsAtFetch.push(closings);
+      return fake.fetch(input, init);
+    }) as typeof fetch,
     cache: createMemoryCache(),
     now: () => NOW,
     random: () => 0,
   });
   const { log, lines, events } = createTestLog();
-  let closings = 0;
   const lane = {
     ...openRestNoAuthLane({ openMeteo, log }),
     close: async () => {
       closings += 1;
+      await options.close?.();
     },
   };
-  const signal = new AbortController().signal;
   const response = await runChat(CHAT_REQUEST, {
     model,
     lane,
-    signal,
+    signal: options.signal ?? new AbortController().signal,
     requestId: REQUEST_ID,
     log,
     now: () => NOW,
-    budgets,
+    budgets: options.budgets,
   });
   const chunks = toChunks(await response.text());
-  return { response, chunks, lines, events, urls: fake.urls, closings: () => closings };
+  return { response, chunks, lines, events, urls: fake.urls, closings: () => closings, closingsAtFetch };
 }
 
 describe("runChat on REST · no auth", () => {
@@ -199,7 +206,8 @@ describe("runChat on REST · no auth", () => {
   it("marks an answer a time budget cut short, so the page can say so, logs it, and closes the lane", async () => {
     const silent = { stream: new ReadableStream<LanguageModelV4StreamPart>({ start: () => undefined }) };
     const model = new MockLanguageModelV4({ doStream: [silent] });
-    const { chunks, events, closings } = await runTurn(model, [], { totalMs: 60_000, firstChunkMs: 50, toolMs: 8000 });
+    const budgets = { totalMs: 60_000, firstChunkMs: 50, toolMs: 8000 };
+    const { chunks, events, closings } = await runTurn(model, [], { budgets });
     expect(chunks).toContainEqual({
       type: "message-metadata",
       messageMetadata: { createdAt: NOW.getTime(), isCutShort: true },
@@ -257,6 +265,76 @@ describe("runChat, when the model fails after a finished step", () => {
     const { events, lines } = await runTurn(model, [{ fixture: "geocode-paris" }]);
     expect(events()).toEqual(["info upstream.http", "info tool.call", "info model.step", "error chat.failed"]);
     expect(lines.at(-1)).toMatchObject({ errorClass: "ModelError", causeClass: "AI_APICallError" });
+  });
+});
+
+describe("runChat, when the model sends an error part and goes on", () => {
+  // Gemini's provider sends an error part for a chunk it can't read, and keeps streaming (@ai-sdk/google).
+  const unreadable: LanguageModelV4StreamPart = {
+    type: "error",
+    error: new JSONParseError({ text: '{"candidates": [', cause: new SyntaxError("Unexpected end of JSON input") }),
+  };
+  const errorChunk = { type: "error", errorText: "Something went wrong. (ref b1a0d9e8)" };
+
+  it("gives the page our sentence, keeps the lane open for a tool call after it, ends once, closes once", async () => {
+    const model = new MockLanguageModelV4({
+      doStream: [
+        step([unreadable, toolCall("call-1", "geocode_location", { query: "Paris" })], "tool-calls"),
+        textStep(ANSWER),
+      ],
+    });
+    const { chunks, events, closings, closingsAtFetch } = await runTurn(model, [{ fixture: "geocode-paris" }]);
+    expect(chunks).toContainEqual(errorChunk);
+    expect(closingsAtFetch).toEqual([0]);
+    expect(events()).toEqual([
+      "error chat.failed",
+      "info upstream.http",
+      "info tool.call",
+      "info model.step",
+      "info model.step",
+    ]);
+    expect(closings()).toBe(1);
+  });
+
+  it("isn't logged as stopped too when the page, which stops at the error, goes away", async () => {
+    const page = new AbortController();
+    const model = new MockLanguageModelV4({
+      doStream: [
+        {
+          stream: new ReadableStream<LanguageModelV4StreamPart>({
+            start(controller) {
+              controller.enqueue({ type: "stream-start", warnings: [] });
+              controller.enqueue(unreadable);
+            },
+            // Asked for more once the error part is read: the page has shown the error and stopped reading, and its
+            // going aborts the request a moment later, as on Next.js's own server (on Vercel, with cancellation on).
+            pull() {
+              setTimeout(() => page.abort(), 0);
+            },
+          }),
+        },
+      ],
+    });
+    const { chunks, events, closings } = await runTurn(model, [], { signal: page.signal });
+    expect(chunks).toContainEqual(errorChunk);
+    expect(events()).toEqual(["error chat.failed"]);
+    expect(closings()).toBe(1);
+  });
+});
+
+describe("runChat, closing the lane", () => {
+  it("logs a lane that fails to close, and still ends the answer as it was", async () => {
+    const { chunks, events } = await runTurn(
+      parisModel(),
+      [{ fixture: "geocode-paris" }, { fixture: "forecast-paris" }],
+      {
+        close: async () => {
+          throw new Error("socket hang up");
+        },
+      },
+    );
+    expect(chunks.at(-1)).toMatchObject({ type: "finish" });
+    expect(events().slice(-2)).toEqual(["info chat.done", "error lane.close"]);
   });
 });
 

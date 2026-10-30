@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These fourteen were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These fifteen were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -29,6 +29,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 12 | The Actor's answer wasn't the shape we assumed | 6 | deploying |
 | 13 | Tomorrow, by whose clock? | after 6 | deploying |
 | 14 | The MCP door that would have run any build | 7 | the review |
+| 15 | An error part closed the lane while the answer went on | after 7 | the review |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -494,6 +495,45 @@ build, so the pin itself will only show on a run once a newer build is tagged la
 look at the server's other tools before you document the gap, and test twin doors against each other, so they can't
 drift apart.
 
+### 15. An error part closed the lane while the answer went on
+
+*After step 7 · found by the review · entries 96 and 100*
+
+**The request.** "Do I need an umbrella in Paris tomorrow afternoon?" on an MCP lane, when Gemini's stream holds a
+chunk its provider can't read: `@ai-sdk/google` sends an error part for it and keeps streaming, here a tool call.
+
+**What went wrong.** Nothing yet on the live site: the review found it in the code. The lane's connections would have
+been closed at the error part, so the tool call after it would have met a closed MCP connection and failed. And where
+the page's going reaches the function, the answer would have ended twice: the page stops at the error and goes, and
+its going would have been logged as `chat.aborted` after `chat.failed`.
+
+**Why it happened.** `runChat` closed the lane in AI SDK's `onError`, as if it were the answer's end. But AI SDK calls
+`onError` for every error part and goes on after one: it still runs a step's tools if the step then ends with
+`tool-calls`. Its `onEnd` and `onAbort`, which closed the lane too, come at the end.
+
+**How we traced it.** The review read Gemini's provider and AI SDK's `streamText` in their built code. Writing the fix,
+we read the other end as well: AI SDK's chat, on the page, throws on the first error chunk, shows our sentence and
+stops reading, so for the user the answer ends there. Three tests, written first, failed: the tool call went out after
+the lane's close (`[1]`, on a REST lane whose closes we count), the page's going added `chat.aborted`, and a close that
+failed left no line at all.
+
+**How we fixed it.** The lane is closed once, by the UI message stream's `onEnd`, which AI SDK calls when the stream
+has ended or the page has gone (from its transform's `flush` and `cancel`; Node 22 calls `cancel` when the stream
+feeding it fails, too). An answer that failed has one ending: after `chat.failed`, `onAbort` writes nothing. A close
+that fails is logged as `lane.close`, never thrown into the stream's end, where it would turn a finished answer into an
+error on the page. We also tried stopping the run ourselves at the error part, since the page has stopped reading: in
+a test, it dropped the error part, and the page got only `start` and `abort`, without our sentence. AI SDK awaits
+`onError` before it passes a model's error part on (it checks first whether to retry the stream), so a stop there
+cancels the part. So the run stops when the page's going reaches it: on Next.js's own server now, and on Vercel once
+cancellation is on (entry 101).
+
+**How we confirmed it.** The three tests pass: the page gets our sentence and the tool call finds the lane open
+(`[0]`), the lines end at `chat.failed`, the lane is closed once, and a failing close leaves `chat.done`, then
+`lane.close`. Undoing each part of the fix fails at least one of them.
+
+**The lesson.** Tie clean-up to the end of the stream, not to an event that can come in the middle of it; and before
+deciding what an event means, read what the other end does with it.
+
 ## While Planning
 
 1. **The "no auth" MCP server needed a sign-in.** *Testing a real API.* MCPBundles' Open-Meteo server answered an MCP
@@ -894,8 +934,12 @@ drift apart.
     `stop` or `tool-calls`. So a tool call after such a part would meet a closed MCP connection and fail, and the
     answer, which went on, would be logged as failed. A tool call could meet it since step 4, the first lane with a
     connection to close, and the answer has been logged as failed since step 5; step 7's Apify client no longer loses
-    a connection opened after an early close (entry 93). **Fix:** its own change, next, before step 8: close the lane
-    once the answer's stream has ended, whichever way.
+    a connection opened after an early close (entry 93). **Fix:** the lane is closed once, by the UI message stream's
+    `onEnd`, once the stream has ended or the page has gone, so tool calls after an error part find it open. Logging
+    the answer as failed was right after all: the page stops at the first error chunk (entry 100). A close that fails
+    is logged, `lane.close`, where AI SDK's callbacks had swallowed it. Bug story 15. **Check:**
+    `tests/unit/chat/run-chat.test.ts` (an error part, then a tool call; the page going after an error; a close that
+    fails).
 97. **The compare view's MCP requests left out a header.** *Testing a real API* (step 7's live check). The chip's
     recorded request to Apify's server matched the compare view's cell but for `user-agent: ai-sdk/2.0.86 node.js/22`,
     which AI SDK's MCP client adds to every request: its own version, then Node's. The `MCP · no auth` cell had left
@@ -917,3 +961,25 @@ drift apart.
     `next start` on port 3123 had been left running since the day before, entry 85's lesson not kept. Neither changed
     a result. **Fix:** we stopped the server and ran the deploy check again, in the foreground: step 7 was live, and
     its CI run had passed. **Check:** the live check ran on `f32d6c3`, the step's own commit.
+100. **After a failed answer, the page's going would be logged as a stop.** *Reading a package's code* (AI SDK's chat,
+     while fixing entry 96). The page's chat throws on the first error chunk: it shows our sentence, stops reading and
+     goes. Where that going aborts the request, on Next.js's own server and on Vercel once cancellation is on (entry
+     101), `onAbort` would then write `chat.aborted` after `chat.failed`: two endings for one answer, as in bug story
+     2. Stopping the run ourselves at the error part looked cheaper, since no one reads what follows, but in a test it
+     dropped the error part: the page got only `start` and `abort`. AI SDK awaits `onError` before it passes a
+     model's error part on, to check whether to retry the stream, so a stop there cancels the part. **Fix:** after
+     `chat.failed`, an abort writes no line, and the run stops when the page's going reaches it. **Check:**
+     `tests/unit/chat/run-chat.test.ts`.
+101. **On Vercel, Stop doesn't reach the function.** *Review* (of issue 96's fix), *reading Vercel's docs, and
+     testing the live site*. Vercel tells a function that its caller has gone, through `request.signal`, only when
+     cancellation is turned on for it (`"supportsCancellation": true` in `vercel.json`), and this project has none.
+     So on the live site, Stop, or closing the page, ends the stream on the page, but the answer goes on to its end,
+     with its model calls, tool calls and any paid Actor run, and is logged as `chat.done`; AI SDK's docs say as
+     much. Live, on 30 October, a chat that hung up after its first bytes, 2.1 s in, still ran its tool calls and
+     model steps, and ended with `chat.done` after 3.7 s. On Next.js's own server, Next.js aborts the request's signal
+     when the page goes (its request adapter, bug story 10; the unit tests stand in for it), so Stop would stop the
+     answer there, and our code's comments and docs say it does. **Fix:** next, its own change: turn cancellation on
+     for `/api/chat`; keep the work that must finish, the lane's close and the last line, alive with `waitUntil`,
+     since Vercel ends a cancelled function; and so make true the four places that say Stop stops the answer
+     (`app/api/chat/route.ts`, `docs/system-design.md`, `PLAN.md` 7.4, `docs/step-5.md`). **Check:** Stop on the
+     live site, then Vercel's logs: `chat.aborted`, and no `chat.done`.
