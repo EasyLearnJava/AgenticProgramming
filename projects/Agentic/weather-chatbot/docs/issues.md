@@ -444,7 +444,11 @@ zone, the days are the place's own.
 **How we confirmed it.** Unit tests: at 22:00 in Dallas the prompt says today is Thursday the 29th and tomorrow Friday
 the 30th, though UTC is on the 30th; both forecast paths give `localNow`; the Open-Meteo client tells a cached answer's
 fetch time from the time it answered. Two golden questions, asked from a time zone whose date isn't UTC's, must
-name the user's tomorrow.
+name the user's tomorrow. On the live site (`9e2d18a`), at 22:50 on Thursday in Dallas, already Friday in UTC, the
+same question got "Tomorrow afternoon (Friday, October 30, 2026) in Dallas, Texas, the chance of rain is 0% for every
+hour from 12:00 to 18:00 local time", and "Will it rain in Paris tomorrow?" asked from Dallas got Friday the 30th,
+though Paris was already on Friday; it didn't add that Paris was already on Friday, which the prompt asks for. The two
+golden questions passed on all three lanes, 6 of 6, and the browser tests against the live site, 48 of 48.
 
 **The lesson.** "Today" belongs to a person and a place, not to a timestamp. Give the model the dates it needs, already
 worked out, rather than a UTC instant and a rule for converting it.
@@ -780,8 +784,9 @@ worked out, rather than a UTC instant and a rule for converting it.
     the model didn't always work out the place's own date. It predated step 6, on every lane. Bug story 13. **Fix:**
     the page sends the browser's time zone; "today" and "tomorrow" are the user's own days, wherever the place is,
     worked out in the system prompt (the user's choice, 29 October 2026); and every forecast says the place's time now
-    (`localNow`). **Check:** `tests/unit/chat/system-prompt.test.ts`, `tests/unit/utils.test.ts`, and two golden
-    questions asked from a time zone whose date isn't UTC's (`tests/evals/golden.eval.ts`).
+    (`localNow`). **Check:** `tests/unit/chat/system-prompt.test.ts`, `tests/unit/utils.test.ts`, two golden
+    questions asked from a time zone whose date isn't UTC's (`tests/evals/golden.eval.ts`), and the live site: the
+    same question at 22:50 in Dallas named Friday the 30th (bug story 13).
 88. **Smaller review findings on issue 87.** *Review.* The golden questions, first asked from Dallas, could tell the
     bug apart only in Dallas's evening, when UTC's date runs ahead, and wanted the weekday named: they're now asked from
     a time zone whose date isn't UTC's at that moment (Pago Pago or Kiritimati), and take the date too. And the
