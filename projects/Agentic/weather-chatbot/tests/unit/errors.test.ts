@@ -7,7 +7,9 @@ import { describe, expect, it } from "vitest";
 import {
   AbortedError,
   type AppError,
+  AuthError,
   BadToolCallError,
+  BudgetExceededError,
   ConfigError,
   ContractError,
   InputError,
@@ -45,6 +47,8 @@ describe("the error map", () => {
         new UpstreamUnavailableError("Open-Meteo answered 503."),
         new UpstreamRateLimitedError("Open-Meteo answered 429.", undefined),
         new ContractError("Open-Meteo refused the request with 400."),
+        new AuthError("Apify answered 401: user-or-token-not-found."),
+        new BudgetExceededError("Apify answered 402: x402-payment-required."),
         new ModelError("Gemini answered 503."),
         new BadToolCallError("Invalid input for tool get_forecast."),
         new AbortedError("The request was stopped."),
@@ -57,6 +61,8 @@ describe("the error map", () => {
       ["UpstreamUnavailableError", "warn", true],
       ["UpstreamRateLimitedError", "warn", true],
       ["ContractError", "error", false],
+      ["AuthError", "error", false],
+      ["BudgetExceededError", "warn", false],
       ["ModelError", "error", true],
       ["BadToolCallError", "warn", true],
       ["AbortedError", "info", false],
@@ -146,7 +152,7 @@ describe("toUserMessage", () => {
 });
 
 describe("toErrorResponse", () => {
-  it("answers 400 for a bad request, 503 when the chat isn't set up, and 500 for anything else, in plain text", async () => {
+  it("answers 400 for a bad request, 503 if the chat isn't set up, 500 for anything else, as plain text", async () => {
     const bad = toErrorResponse(new InputError("it's empty."), REQUEST_ID);
     expect([bad.status, bad.headers.get("content-type"), await bad.text()]).toEqual([
       400,

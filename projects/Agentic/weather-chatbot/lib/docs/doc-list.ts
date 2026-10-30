@@ -46,6 +46,14 @@ export const DOC_PAGES: readonly DocEntry[] = [
       "One error map for every failure (its sentence, its log level, its retry rule), a request id that both " +
       "functions log under, the ref at the end of an error's sentence, and the lines a question writes.",
   },
+  {
+    slug: "step-6",
+    step: 6,
+    title: "REST · With Auth, Through Apify's Actor",
+    summary:
+      "The third lane: forecasts from an Apify Actor through Apify's REST API, with a token kept on the server; how " +
+      "its answer is read, and how the lane falls back to REST · no auth, saying so on the chip.",
+  },
 ];
 
 // ② The issues log, docs/issues.md: the problems met in each step, and their fixes; and the system design,

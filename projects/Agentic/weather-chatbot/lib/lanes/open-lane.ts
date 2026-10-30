@@ -1,11 +1,14 @@
 /*
- * lib/lanes/open-lane.ts: opens the lane the user picked. Each build step adds the lane it makes live; the auth lanes
- * will come with their fallback to the no-auth lane behind the same door (steps 6 and 7).
+ * lib/lanes/open-lane.ts: opens the lane the user picked. Each build step adds the lane it makes live; an auth lane
+ * opens only with Apify's token, and falls back to the no-auth lane behind the same door (steps 6 and 7).
  */
 import "server-only";
 import { type Config, config } from "@/lib/config";
+import { LIVE_LANE_IDS, TOKEN_LANE_IDS } from "@/lib/constants";
+import { ConfigError } from "@/lib/errors";
 import type { Lane } from "@/lib/lanes/lane";
 import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
+import { openRestAuthLane } from "@/lib/lanes/rest-auth";
 import { openRestNoAuthLane } from "@/lib/lanes/rest-no-auth";
 import type { Logger } from "@/lib/logger";
 import type { LiveLaneId } from "@/lib/types";
@@ -30,8 +33,22 @@ export function toSelfOrigin(requestUrl: string, deployment: Config["deployment"
   return deployment.hosts.includes(host) ? `https://${host}` : `https://${deployment.url}`;
 }
 
+/** The lanes this deployment can run: every lane built so far, an auth lane only when Apify's token is set. */
+export function toAvailableLaneIds(apifyToken: string | undefined): LiveLaneId[] {
+  return LIVE_LANE_IDS.filter((laneId) => apifyToken !== undefined || !TOKEN_LANE_IDS.includes(laneId));
+}
+
 const OPEN_BY_LANE: Readonly<Record<LiveLaneId, (options: OpenLaneOptions) => Promise<Lane>>> = {
   "rest-no-auth": async ({ log }) => openRestNoAuthLane({ log }),
+  "rest-auth": async ({ log, requestId }) => {
+    // The page offers this lane only when the token is set, and the request's rules refuse it without one; this is
+    // the last guard.
+    const token = config.apify.token;
+    if (token === undefined) {
+      throw new ConfigError("APIFY_TOKEN isn't set, so REST · with auth can't run.");
+    }
+    return openRestAuthLane({ token, requestId, log });
+  },
   "mcp-no-auth": ({ requestUrl, signal, requestId, log }) =>
     openMcpNoAuthLane({
       origin: toSelfOrigin(requestUrl, config.deployment),

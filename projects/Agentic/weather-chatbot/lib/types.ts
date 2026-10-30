@@ -7,8 +7,8 @@ import type { UIMessage } from "ai";
 /** The four lanes: the door (REST or MCP), then the auth. */
 export type LaneId = "rest-no-auth" | "rest-auth" | "mcp-no-auth" | "mcp-auth";
 
-/** The lanes that answer for real so far; each build step adds the lane it makes live. */
-export type LiveLaneId = Extract<LaneId, "rest-no-auth" | "mcp-no-auth">;
+/** The lanes built so far; each build step adds the lane it makes live. An auth lane also needs its token to run. */
+export type LiveLaneId = Extract<LaneId, "rest-no-auth" | "mcp-no-auth" | "rest-auth">;
 
 /** One lane, as the page describes it. */
 export type LaneInfo = {
@@ -30,6 +30,20 @@ export type WireRequest = {
 
 /** Metric (°C, km/h, mm) or imperial (°F, mph, inches); Open-Meteo converts for us. */
 export type Units = "metric" | "imperial";
+
+/** One place, as the Apify Actor takes it: a name for its records, and the coordinates geocoding found. */
+export type ActorLocation = { name: string; latitude: number; longitude: number };
+
+/**
+ * The auth lanes' forecast input: the Actor's own three fields (one location, 1 to 16 days, daily or hourly), plus the
+ * units, which the lane applies itself: the Actor has no such option, and never sees this one.
+ */
+export type ActorForecastInput = {
+  locations: ActorLocation[];
+  forecastDays: number;
+  mode: "daily" | "hourly";
+  units: Units;
+};
 
 // ① The tools' inputs, as the model sends them.
 
@@ -114,6 +128,9 @@ export type AirQuality = {
 
 // ③ What each tool call sends the page: the result the model reads, a one-line summary, and how the call went.
 
+/** When an auth lane couldn't answer and its no-auth twin did: which lane failed, and the sentence the chip shows. */
+export type LaneFallback = { from: LaneId; sentence: string };
+
 /** How one tool call travelled: the lane, the request, whether the cache answered, and how long it took. */
 export type ToolCallRecord = {
   laneId: LaneId;
@@ -122,15 +139,24 @@ export type ToolCallRecord = {
   durationMs: number;
 };
 
-export type ToolResult<Result> = { result: Result; summary: string; call: ToolCallRecord };
+/** A tool's result, its summary and how the call went; and, when an auth lane fell back, what happened. */
+export type ToolResult<Result> = { result: Result; summary: string; call: ToolCallRecord; fallback?: LaneFallback };
 
-/** The four weather tools, by name: the input each one takes and the result it gives back. */
-export type WeatherToolTypes = {
+/** The four Open-Meteo tools, by name: the input each one takes and the result it gives back. */
+export type OpenMeteoToolTypes = {
   geocode_location: { input: GeocodeInput; output: ToolResult<GeocodeResult> };
   get_current_weather: { input: CurrentWeatherInput; output: ToolResult<CurrentWeather> };
   get_forecast: { input: ForecastInput; output: ToolResult<Forecast> };
   get_air_quality: { input: AirQualityInput; output: ToolResult<AirQuality> };
 };
+
+/** The auth lanes' forecast tool, under the Apify Actor's name: the same result as get_forecast. */
+export type ActorToolTypes = {
+  "gochujang--open-meteo-weather-forecast": { input: ActorForecastInput; output: ToolResult<Forecast> };
+};
+
+/** Every tool a message can hold. */
+export type WeatherToolTypes = OpenMeteoToolTypes & ActorToolTypes;
 
 // ④ The chat's messages: AI SDK's UI messages, with when each was written, and our tools.
 
@@ -152,6 +178,7 @@ export type ToolCallView = {
   errorText?: string;
   output?: unknown;
   call?: ToolCallRecord;
+  fallback?: LaneFallback;
 };
 
 /** One cell of the compare view: the same call, through one lane. */

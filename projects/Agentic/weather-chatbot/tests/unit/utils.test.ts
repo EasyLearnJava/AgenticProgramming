@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  celsiusToFahrenheit,
   formatDuration,
   formatLocalTime,
   newRequestId,
@@ -213,5 +214,14 @@ describe("request ids", () => {
   it("shows a request id as its ref, its last 8 letters and digits", () => {
     expect(toRef("iad1::iad1::abcde-1730211234567-f3c2b1a0d9e8")).toBe("b1a0d9e8");
     expect(toRef("7f3a9c01aa55bb66")).toBe("aa55bb66");
+  });
+});
+
+describe("celsiusToFahrenheit", () => {
+  it("converts to a tenth of a degree, as Open-Meteo gives temperatures", () => {
+    expect(celsiusToFahrenheit(0)).toBe(32);
+    expect(celsiusToFahrenheit(11.9)).toBe(53.4);
+    expect(celsiusToFahrenheit(15.6)).toBe(60.1);
+    expect(celsiusToFahrenheit(-40)).toBe(-40);
   });
 });

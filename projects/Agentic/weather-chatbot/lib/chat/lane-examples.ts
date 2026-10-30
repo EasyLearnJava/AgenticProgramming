@@ -1,12 +1,13 @@
 /*
  * lib/chat/lane-examples.ts: one forecast call, for the plan's Paris question, as each lane sends it: what the compare
- * view shows. The live lanes' requests are the ones they send: REST · no auth's from the code that builds it, MCP · no
- * auth's as AI SDK's MCP client sends it (MCP 2026-07-28); the auth lanes' are the plan's (PLAN.md 4.3), until they're
- * live.
+ * view shows. The built lanes' requests are the ones they send: REST · no auth's and REST · with auth's from the code
+ * that builds them (the token masked), MCP · no auth's as AI SDK's MCP client sends it (MCP 2026-07-28); MCP · with
+ * auth's is the plan's (PLAN.md 4.3), until step 7.
  */
 import "server-only";
-import { LANE_BY_ID, LANE_IDS } from "@/lib/constants";
+import { ACTOR_TOOL_NAME, LANE_BY_ID, LANE_IDS } from "@/lib/constants";
 import type { CompareCell, ForecastInput, LaneId, WireRequest } from "@/lib/types";
+import { type ActorRunInput, toActorRequest } from "@/lib/upstream/apify";
 import { toForecastRequest } from "@/lib/upstream/open-meteo";
 
 // ① The call as the model makes it: Paris's coordinates from geocoding, 2 days, hourly, in metric units.
@@ -17,9 +18,9 @@ const FORECAST_INPUT: ForecastInput = {
   includeHourly: true,
   units: "metric",
 };
-const ACTOR_TOOL = "gochujang--open-meteo-weather-forecast";
-const ACTOR_INPUT = {
-  locations: [{ name: "Paris", latitude: 48.85341, longitude: 2.3488 }],
+// The same call as the Actor gets it: Paris with its coordinates rounded to about 1 km, as the lane sends them.
+const ACTOR_INPUT: ActorRunInput = {
+  locations: [{ name: "Paris", latitude: 48.85, longitude: 2.35 }],
   forecastDays: 2,
   mode: "hourly",
 };
@@ -75,22 +76,14 @@ function toOurToolsCall(tool: string, input: unknown): WireRequest {
 const FORECAST_BY_LANE: Readonly<Record<LaneId, { tool: string; wire: WireRequest }>> = {
   "rest-no-auth": { tool: "get_forecast", wire: toForecastRequest(FORECAST_INPUT, FORECAST_INPUT) },
   "mcp-no-auth": { tool: "get_forecast", wire: toOurToolsCall("get_forecast", FORECAST_INPUT) },
-  "rest-auth": {
-    tool: ACTOR_TOOL,
-    wire: {
-      method: "POST",
-      url: "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items?build=1.0.9&timeout=18&maxTotalChargeUsd=0.01",
-      headers: { ...TOKEN_HEADER, "Content-Type": "application/json" },
-      body: JSON.stringify(ACTOR_INPUT),
-    },
-  },
+  "rest-auth": { tool: ACTOR_TOOL_NAME, wire: toActorRequest(ACTOR_INPUT) },
   "mcp-auth": {
-    tool: ACTOR_TOOL,
+    tool: ACTOR_TOOL_NAME,
     wire: {
       method: "POST",
       url: "https://mcp.apify.com/?tools=gochujang/open-meteo-weather-forecast",
       headers: { ...TOKEN_HEADER, ...MCP_HEADERS },
-      body: toToolsCallBody(ACTOR_TOOL, ACTOR_INPUT),
+      body: toToolsCallBody(ACTOR_TOOL_NAME, ACTOR_INPUT),
     },
   },
 };

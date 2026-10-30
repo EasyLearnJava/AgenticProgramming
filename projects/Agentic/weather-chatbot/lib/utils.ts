@@ -4,6 +4,9 @@
 import type { WireRequest } from "@/lib/types";
 
 const MS_PER_SECOND = 1000;
+const FAHRENHEIT_PER_CELSIUS = 1.8;
+const FAHRENHEIT_AT_ZERO_CELSIUS = 32;
+const TENTHS = 10;
 const SHORTEST_SHOWN_MS = 50;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 const REQUEST_ID_CHARS = 16;
@@ -21,6 +24,11 @@ export function toWireText(request: WireRequest): string {
 /** The host part of a URL, as written: "https://api.apify.com/v2/acts" → "api.apify.com". */
 export function toHost(url: string): string {
   return url.replace(/^[a-z]+:\/\//i, "").split(/[/?#]/, 1)[0] ?? url;
+}
+
+/** A temperature in °F, from °C, to a tenth of a degree, as Open-Meteo gives it: 11.9 → 53.4. */
+export function celsiusToFahrenheit(celsius: number): number {
+  return Math.round((celsius * FAHRENHEIT_PER_CELSIUS + FAHRENHEIT_AT_ZERO_CELSIUS) * TENTHS) / TENTHS;
 }
 
 /** Rounds a latitude or longitude; 2 decimals is about 1 km. */
@@ -78,8 +86,8 @@ export function once<T>(fn: () => T): () => T {
 }
 
 /**
- * Why a signal fired: "timeout" when a time limit fired it (a TimeoutError), "stop" for any other reason (Stop, a closed
- * browser, which Next.js marks with its own error, or the answer's end), "none" when it hasn't fired.
+ * Why a signal fired: "timeout" when a time limit fired it (a TimeoutError), "stop" for any other reason (Stop, a
+ * closed browser, which Next.js marks with its own error, or the answer's end), "none" when it hasn't fired.
  */
 export function toAbortKind(signal: AbortSignal | undefined): "none" | "timeout" | "stop" {
   if (signal?.aborted !== true) {

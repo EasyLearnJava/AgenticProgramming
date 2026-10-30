@@ -7,7 +7,7 @@ import { type CallToolResult, createMCPClient, type MCPClient, type MCPClientCon
 import type { JSONValue, Tool } from "ai";
 import { MCP_API_PATH, MCP_CONNECT_TIMEOUT_MS, REQUEST_ID_HEADER } from "@/lib/constants";
 import { ContractError, toAppErrorByName, UpstreamTimeoutError, UpstreamUnavailableError } from "@/lib/errors";
-import type { Lane } from "@/lib/lanes/lane";
+import { type Lane, toModelWeather } from "@/lib/lanes/lane";
 import { type Logger, logger } from "@/lib/logger";
 import type { ToolResult, WireRequest } from "@/lib/types";
 import { once, timeoutSignal, toAbortKind } from "@/lib/utils";
@@ -222,6 +222,6 @@ function toMcpTool<Name extends string, Input, Output extends JSONValue>(
       };
     },
     // The model reads only the weather; the request and the time are for the page.
-    toModelOutput: ({ output }: { output: ToolResult<Output> }) => ({ type: "json", value: output.result }),
+    toModelOutput: toModelWeather,
   };
 }

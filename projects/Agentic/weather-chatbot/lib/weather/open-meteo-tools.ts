@@ -3,7 +3,7 @@
  * can't drift apart (PLAN.md 7.6).
  */
 import "server-only";
-import type { WeatherToolTypes } from "@/lib/types";
+import type { OpenMeteoToolTypes } from "@/lib/types";
 import { geocodeLocation } from "@/lib/weather/tools/geocode-location";
 import { getAirQuality } from "@/lib/weather/tools/get-air-quality";
 import { getCurrentWeather } from "@/lib/weather/tools/get-current-weather";
@@ -12,10 +12,10 @@ import type { WeatherTool } from "@/lib/weather/weather-tool";
 
 /** Each tool under its own name, typed by the shapes in types.ts: a wrong name or shape doesn't compile. */
 export type OpenMeteoTools = {
-  [Name in keyof WeatherToolTypes]: WeatherTool<
+  [Name in keyof OpenMeteoToolTypes]: WeatherTool<
     Name,
-    WeatherToolTypes[Name]["input"],
-    WeatherToolTypes[Name]["output"]["result"]
+    OpenMeteoToolTypes[Name]["input"],
+    OpenMeteoToolTypes[Name]["output"]["result"]
   >;
 };
 

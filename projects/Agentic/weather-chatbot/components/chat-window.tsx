@@ -16,7 +16,7 @@ import { useNearbyCity } from "@/hooks/use-nearby-city";
 import { CHAT_API_PATH, DEFAULT_LANE_ID, MAX_HISTORY_CHARS, MAX_MESSAGES, OWN_ERROR_HEADER } from "@/lib/constants";
 import type { ChatMessage as ChatMessageData, CompareCell, LiveLaneId } from "@/lib/types";
 
-type ChatWindowProps = { compareCells: readonly CompareCell[] };
+type ChatWindowProps = { compareCells: readonly CompareCell[]; availableLaneIds: readonly LiveLaneId[] };
 
 const UNREACHABLE_MESSAGE = "The chat couldn't be reached. Please try again.";
 const HTTP_UNAVAILABLE = 503;
@@ -79,7 +79,7 @@ function toAnnouncement({
 }
 
 /** The live chat, through the chosen lane; the compare view shows one call through all four lanes. */
-export function ChatWindow({ compareCells }: ChatWindowProps): ReactNode {
+export function ChatWindow({ compareCells, availableLaneIds }: ChatWindowProps): ReactNode {
   // ① The lane the next question goes through, whether the compare view is open, and what to announce.
   const [laneId, setLaneId] = useState<LiveLaneId>(DEFAULT_LANE_ID);
   const [isComparing, setIsComparing] = useState(false);
@@ -138,7 +138,7 @@ export function ChatWindow({ compareCells }: ChatWindowProps): ReactNode {
             </button>
           </div>
         </header>
-        <LanePicker value={laneId} onChange={setLaneId} />
+        <LanePicker value={laneId} onChange={setLaneId} availableLaneIds={availableLaneIds} />
         <ol className="messages" aria-label="Conversation">
           {messages.length === 0 ? <ChatWelcome onPick={ask} isBusy={isBusy} nearbyCity={nearbyCity} /> : null}
           {messages.map((message, index) => (
@@ -163,7 +163,7 @@ export function ChatWindow({ compareCells }: ChatWindowProps): ReactNode {
           {announcement}
         </p>
       </section>
-      {isComparing ? <CompareGrid cells={compareCells} /> : null}
+      {isComparing ? <CompareGrid cells={compareCells} availableLaneIds={availableLaneIds} /> : null}
     </>
   );
 }

@@ -6,8 +6,9 @@ import { z } from "zod";
 
 // ① What the app reads from the environment. Vercel sets the commit and the environment on deployments made from
 // Git, the deployment's id and own addresses (its URL, its branch's, the project's production domain) on every
-// deployment, and the bypass secret when the project's Protection Bypass for Automation is on; you set the Gemini key,
-// in Vercel's project settings or in .env.local on a laptop, and LOG_LEVEL if you want more or fewer log lines.
+// deployment, and the bypass secret when the project's Protection Bypass for Automation is on; you set the Gemini key
+// and Apify's token, in Vercel's project settings or in .env.local on a laptop, and LOG_LEVEL if you want more or fewer
+// log lines.
 const EnvSchema = z.object({
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
@@ -18,6 +19,7 @@ const EnvSchema = z.object({
   VERCEL_AUTOMATION_BYPASS_SECRET: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),
   CHAT_MODEL: z.string().optional(),
+  APIFY_TOKEN: z.string().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
 });
 
@@ -28,6 +30,7 @@ export type Config = {
   build: { commit: string | undefined; environment: string };
   chat: { googleApiKey: string | undefined; model: string };
   mcp: { bypassSecret: string | undefined };
+  apify: { token: string | undefined };
   deployment: { id: string | undefined; url: string | undefined; hosts: string[] };
   log: { level: LogLevel };
 };
@@ -51,6 +54,7 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     },
     chat: { googleApiKey: parsed.GOOGLE_API_KEY, model: parsed.CHAT_MODEL ?? DEFAULT_CHAT_MODEL },
     mcp: { bypassSecret: parsed.VERCEL_AUTOMATION_BYPASS_SECRET },
+    apify: { token: parsed.APIFY_TOKEN },
     deployment: {
       id: parsed.VERCEL_DEPLOYMENT_ID,
       url: parsed.VERCEL_URL,

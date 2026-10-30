@@ -1,6 +1,7 @@
 /*
- * components/tool-chip.tsx: one tool call: what it asked and how it's going; once done, the lane, the host and the time.
- * Opened, the request on the wire, the input and the output.
+ * components/tool-chip.tsx: one tool call: what it asked and how it's going; once done, the lane, the host and the
+ * time, and, when an auth lane fell back, which lane answered instead. Opened, the request on the wire, the input and
+ * the output.
  */
 import type { ReactNode } from "react";
 import { LANE_BY_ID } from "@/lib/constants";
@@ -12,7 +13,9 @@ type ToolChipProps = { call: ToolCallView };
 const MARK_BY_STATUS = { running: "…", done: "✓", failed: "✗", stopped: "■" } as const;
 const WORD_BY_STATUS = { running: "Running", done: "Done", failed: "Failed", stopped: "Stopped" } as const;
 
-/** What a cache hit means on a lane: on REST no request went out; on MCP the call did, and the server's cache answered. */
+/**
+ * What a cache hit means on a lane: on REST no request went out; on MCP the call did, and the server's cache answered.
+ */
 function toCacheNote(laneId: LaneId): string {
   return LANE_BY_ID[laneId].transport === "rest"
     ? "Answered from the cache: no request went out this time. This is the request that fetched it."
@@ -40,6 +43,12 @@ export function ToolChip({ call }: ToolChipProps): ReactNode {
           <span className="tool-chip-lane">
             {LANE_BY_ID[record.laneId].label} · {toHost(record.wire.url)} · {formatDuration(record.durationMs)}
             {record.cache === "hit" ? " · cached" : ""}
+          </span>
+        ) : null}
+        {call.fallback ? (
+          <span className="tool-chip-fallback">
+            <span aria-hidden="true">! </span>
+            {call.fallback.sentence}
           </span>
         ) : null}
       </summary>

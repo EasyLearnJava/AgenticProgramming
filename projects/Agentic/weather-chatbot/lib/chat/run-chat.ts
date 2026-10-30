@@ -15,7 +15,7 @@ import {
   type ToolSet,
   toUIMessageStream,
 } from "ai";
-import type { ChatRequest } from "@/lib/chat/chat-request";
+import { type ChatRequest, HISTORY_TOOLS } from "@/lib/chat/chat-request";
 import { toSystemPrompt } from "@/lib/chat/system-prompt";
 import {
   ANSWER_TIMEOUT_MS,
@@ -62,8 +62,8 @@ function logToolCall(
 ): void {
   const fields = { event: "tool.call", tool: toolCall.toolName, ms: Math.round(toolExecutionMs) };
   if (toolOutput.type === "tool-result") {
-    const { call } = toolOutput.output as ToolResult<unknown>;
-    log.info({ ...fields, status: "ok", cache: call.cache });
+    const { call, fallback } = toolOutput.output as ToolResult<unknown>;
+    log.info({ ...fields, status: "ok", cache: call.cache, ...(fallback ? { fallbackFrom: fallback.from } : {}) });
     return;
   }
   const failure = toAppError(toolOutput.error, signal);
@@ -95,6 +95,11 @@ function logStep(log: Logger, step: StepResult<ToolSet>, tools: ToolSet): void {
   });
 }
 
+/** A lane's own tool budgets, as AI SDK names them: the tool's name, then "Ms". */
+function toToolBudgets(lane: Lane): Record<string, number> {
+  return Object.fromEntries(Object.entries(lane.toolBudgetsMs ?? {}).map(([name, ms]) => [`${name}Ms`, ms]));
+}
+
 /** Streams one answer, as a UI message stream: the model's text, and each tool call as it starts and ends. */
 export async function runChat(
   chatRequest: ChatRequest,
@@ -104,26 +109,27 @@ export async function runChat(
   const elapsedMs = (): number => now().getTime() - startedAt.getTime();
   // AI SDK still calls onEnd after onError once a step has finished, so an answer that failed must not also say done.
   let hasFailed = false;
-  // ① The earlier messages, for the model: each tool result as the tool's toModelOutput gives it (the weather only),
-  // and without a tool call that a Stop left unfinished. If they can't be read, the lane is closed before giving up.
+  // ① The earlier messages, for the model: each tool result as toModelWeather() gives it (the weather only), found by
+  // its tool's name among every lane's tools, since the chat may have changed lanes; and without a tool call that a
+  // Stop left unfinished. If they can't be read, the lane is closed before giving up.
   const messages = await convertToModelMessages(chatRequest.messages, {
-    tools: lane.tools,
+    tools: HISTORY_TOOLS,
     ignoreIncompleteToolCalls: true,
   }).catch(async (error: unknown) => {
     await lane.close();
     throw error;
   });
-  // ② Stream the answer: the rules, the lane's tools, at most 5 steps, and a budget for each part. The last step
-  // can't call a tool, so an answer never ends on tool results without words.
+  // ② Stream the answer: the rules, the lane's tools, at most 5 steps, and a budget for each part (a lane can give a
+  // tool its own). The last step can't call a tool, so an answer never ends on tool results without words.
   const result = streamText({
     model,
-    instructions: toSystemPrompt({ now: startedAt, locale: chatRequest.locale }),
+    instructions: toSystemPrompt({ now: startedAt, locale: chatRequest.locale, toolNames: Object.keys(lane.tools) }),
     messages,
     tools: lane.tools,
     stopWhen: isStepCount(MAX_STEPS),
     prepareStep: ({ stepNumber }) => (stepNumber === LAST_STEP_NUMBER ? { toolChoice: "none" } : undefined),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
-    timeout: budgets,
+    timeout: { ...budgets, tools: toToolBudgets(lane) },
     abortSignal: signal,
     // ③ The logs: each tool call and model step, then one line for how the answer ended: done, stopped, cut short by a
     // time budget, or failed. However it ends, the lane is closed.

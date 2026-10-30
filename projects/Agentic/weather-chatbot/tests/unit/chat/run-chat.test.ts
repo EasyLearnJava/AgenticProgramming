@@ -1,17 +1,21 @@
 /*
  * tests/unit/chat/run-chat.test.ts: one whole chat turn, on REST · no auth and through MCP · no auth, with AI SDK's
  * mock model in place of Gemini and Open-Meteo's recorded answers in place of the network: what the page receives,
- * what the model reads, and the lines the turn logs.
+ * what the model reads (after a change of lane too), and the lines the turn logs.
  */
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
-import type { ChatRequest } from "@/lib/chat/chat-request";
+import { type ChatRequest, parseChatRequest } from "@/lib/chat/chat-request";
 import { type AnswerBudgets, runChat } from "@/lib/chat/run-chat";
+import { LIVE_LANE_IDS } from "@/lib/constants";
 import { openMcpNoAuthLane } from "@/lib/lanes/mcp-no-auth";
+import { openRestAuthLane } from "@/lib/lanes/rest-auth";
 import { openRestNoAuthLane } from "@/lib/lanes/rest-no-auth";
+import { createApifyClient } from "@/lib/upstream/apify";
 import { createOpenMeteoClient } from "@/lib/upstream/open-meteo";
+import { createApifyFetch } from "@/tests/stubs/apify-stand-ins";
 import { createTestLog } from "@/tests/stubs/log-stand-ins";
 import { createMcpServerFetch, TEST_ORIGIN } from "@/tests/stubs/mcp-stand-ins";
 import { step, textStep, toChunks, toolCall } from "@/tests/stubs/model-stand-ins";
@@ -130,7 +134,7 @@ describe("runChat on REST · no auth", () => {
     expect(sent).not.toContain("durationMs");
   });
 
-  it("logs each tool call, each model step, then the answer's end: its time, steps, tool calls and tokens", async () => {
+  it("logs each tool call, each model step, then the answer's end: time, steps, tool calls and tokens", async () => {
     const { response, events, lines } = await runTurn(parisModel(), [
       { fixture: "geocode-paris" },
       { fixture: "forecast-paris" },
@@ -203,7 +207,7 @@ describe("runChat on REST · no auth", () => {
     expect(closings()).toBe(1);
   });
 
-  it("logs Gemini's failure as a ModelError, gives the page our sentence with the ref, and closes the lane", async () => {
+  it("logs Gemini's failure as a ModelError, gives the page our sentence and ref, and closes the lane", async () => {
     const model = new MockLanguageModelV4({
       doStream: async () => {
         throw new APICallError({
@@ -276,5 +280,69 @@ describe("runChat through MCP · no auth", () => {
     expect(outputs[1].output.result).toMatchObject({ timeZone: "Europe/Paris" });
     const text = chunks.filter((chunk) => chunk.type === "text-delta").map((chunk) => chunk.delta);
     expect(text.join("")).toBe(ANSWER);
+  });
+});
+
+describe("runChat after the chat changes lanes", () => {
+  it("still gives the model only the weather from a result whose tool the new lane doesn't have", async () => {
+    // A get_forecast result from REST · no auth, then a question on REST · with auth, which has no get_forecast.
+    const earlier = {
+      id: "a1",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-get_forecast",
+          toolCallId: "c1",
+          state: "output-available",
+          input: { latitude: 48.85, longitude: 2.35, days: 2, includeHourly: false, units: "metric" },
+          output: {
+            result: { timeZone: "Europe/Paris", days: [] },
+            summary: "2 days · 6 to 16 °C · rain up to 0%",
+            call: {
+              laneId: "rest-no-auth",
+              cache: "miss",
+              durationMs: 412,
+              wire: { method: "GET", url: "https://api.open-meteo.com/v1/forecast?latitude=48.85", headers: {} },
+            },
+          },
+        },
+      ],
+      metadata: { createdAt: NOW.getTime() },
+    };
+    const chatRequest = await parseChatRequest(
+      {
+        ...CHAT_REQUEST,
+        id: "chat-1",
+        laneId: "rest-auth",
+        messages: [...CHAT_REQUEST.messages, earlier, { ...CHAT_REQUEST.messages[0], id: "u2" }],
+      },
+      LIVE_LANE_IDS,
+    );
+    const { log } = createTestLog();
+    const lane = openRestAuthLane({
+      token: "test-token-not-real",
+      requestId: REQUEST_ID,
+      log,
+      apify: createApifyClient({ token: "test-token-not-real", fetch: createApifyFetch([]).fetch }),
+      openMeteo: createOpenMeteoClient({
+        fetch: createFakeFetch([]).fetch,
+        cache: createMemoryCache(),
+        random: () => 0,
+      }),
+    });
+    const model = new MockLanguageModelV4({ doStream: [textStep(ANSWER)] });
+    const response = await runChat(chatRequest, {
+      model,
+      lane,
+      signal: new AbortController().signal,
+      requestId: REQUEST_ID,
+      log,
+      now: () => NOW,
+    });
+    await response.text();
+    const sent = JSON.stringify(model.doStreamCalls[0]?.prompt.find((message) => message.role === "tool"));
+    expect(sent).toContain("Europe/Paris");
+    expect(sent).not.toContain("api.open-meteo.com");
+    expect(sent).not.toContain("durationMs");
   });
 });

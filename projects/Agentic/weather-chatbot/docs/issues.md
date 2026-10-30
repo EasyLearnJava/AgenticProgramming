@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These nine were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These eleven were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -24,6 +24,8 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 7 | The golden questions met the live site | 3 | deploying |
 | 8 | The deploy check that never saw CI finish | 2 | deploying |
 | 9 | A test that couldn't fail | 2 | the review |
+| 10 | The fallback that Stop couldn't reach | 6 | checking our work, then the review |
+| 11 | A lane change showed the model the page's records | 6 | the review |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -304,6 +306,76 @@ and on a 360-pixel phone screen.
 
 **The lesson.** For each test, ask what would make it fail. If the answer is "nothing", it proves nothing.
 
+### 10. The fallback that Stop couldn't reach
+
+*Step 6 · found by checking our work, then the review · entry 75*
+
+**The request.** On `REST · with auth`, the forecast tool runs the Apify Actor; when Apify fails or is too slow, it
+asks `REST · no auth` for the same forecast instead. Stop, closing the page, or the answer's own 50-second budget
+running out should end whatever is running, and nothing should start after it.
+
+**What went wrong.** Three ways, all before release. Once the Actor's run had used up its 20 s, the fallback started
+with a fresh 8-second timer and nothing else, so Stop no longer reached it, and it ran on for an answer nobody would
+see. When Apify gave up by itself (its `408`, at about 18 s), the fallback got the tool's last 2 s. And when the
+answer's own budget ran out during a run, the lane took it for Apify being slow: it fell back, logged `lane.fallback`
+after the answer had ended, and started a call that nothing could stop.
+
+**Why it happened.** AI SDK gives a tool one abort signal: Stop, the answer's budget and the tool's own budget,
+merged. The Actor's 20 s was that tool budget, so once it fired, the signal was spent, and the fallback was given
+`AbortSignal.timeout(8000)` alone. And a spent signal doesn't say which source fired it: both budgets end with the
+same `TimeoutError`.
+
+**How we traced it.** Writing this step's page, the sentence "Stop ends both" sent us back to our code, then to AI
+SDK's, which merges a tool's budget into the signal it passes the tool without racing the call (`mergeAbortSignals`,
+in `ai`'s tool runner): a fallback that starts after the budget is still used, but only a signal of our own can stop
+it. A first fix joined the fallback's 8 s to the request's own signal; the independent review then asked what happens
+when the answer's budget fires mid-run: the same `TimeoutError`, read as Apify being slow.
+
+**How we fixed it.** The run's 20 s is now the lane's own timer, joined to the tool's signal, and the tool's budget
+covers the run and the fallback: 28 s. So the tool's signal fires only when the answer is ending (Stop, the answer's
+budget) or the tool's whole time is gone, and then nothing falls back. Otherwise the fallback gets the tool's last 8 s,
+joined to the same signal, so Stop and the answer's budget still reach it.
+
+**How we confirmed it.** Three tests in `tests/unit/lanes/rest-auth.test.ts`. The run's own timer fires, Open-Meteo
+hangs, then Stop: the call ends with Stop's own error (before the fix, it ran past the test's 5-second limit). The
+tool's signal fires with a `TimeoutError` during the run, as the answer's budget does: the call fails, and there's no
+fallback and no `lane.fallback` line (before the fix, both). And the run's own timer still falls back.
+
+**The lesson.** A merged signal says that something fired, not what. Give each limit whose firing means something
+different its own timer, and check the shared signal before deciding what a failure means.
+
+### 11. A lane change showed the model the page's records
+
+*Step 6 · found by the review · entry 77*
+
+**The request.** A chat asks about Paris on `REST · no auth`, then moves to `REST · with auth` and asks again. Each
+turn sends the earlier messages, and the model should read only the weather from an earlier result: the request on
+the wire, the times and a fallback's sentence are for the page.
+
+**What went wrong.** In step 6's first version, after the move, the earlier `get_forecast` result reached Gemini
+whole: the weather, and with it the wire record (Open-Meteo's address and the headers), the time it took and the
+chip's summary. It was caught before release.
+
+**Why it happened.** AI SDK's `convertToModelMessages` finds a result's `toModelOutput` by the tool's name, among the
+tools it's given, and we gave it the current lane's. Until this step, every lane had the same four names, so the
+lookup always found one. `REST · with auth` has two tools, and `get_forecast` isn't one of them, so AI SDK sent the
+whole output instead.
+
+**How we traced it.** The reviewer followed an earlier result from the page to the model: `run-chat.ts` passed
+`lane.tools` to `convertToModelMessages`, and AI SDK looks the tool up with `getOwn(options.tools, toolName)`,
+sending the whole output as JSON when it finds none.
+
+**How we fixed it.** One function, `toModelWeather()` in `lib/lanes/lane.ts`, is what the model reads of every
+tool's result, on every lane. The history is converted with every lane's tools (`HISTORY_TOOLS`, the same list that
+checks a history's tool calls), not only the current lane's.
+
+**How we confirmed it.** A test in `tests/unit/chat/run-chat.test.ts` sends a chat on `REST · with auth` whose
+history holds a `get_forecast` result, and reads what the mock model received: the weather, with no Open-Meteo address
+and no `durationMs`. Before the fix, it failed, showing the whole record.
+
+**The lesson.** When a library looks something up by name, check which set it looks in. A rule that held by
+coincidence (every lane had the same tool names) breaks the day the coincidence does.
+
 ## While Planning
 
 1. **The "no auth" MCP server needed a sign-in.** *Testing a real API.* MCPBundles' Open-Meteo server answered an MCP
@@ -552,3 +624,60 @@ and on a 360-pixel phone screen.
     asked; the question goes to Gemini as typed, as the note under the input box says; a second diagram marker in
     `docs/system-design.md` would have dropped text silently, so the build now fails without exactly one; and the
     diagram's file held four components, against one per file, so three are now plain drawing functions.
+
+## Step 6 · REST · With Auth, Through Apify's Actor
+
+71. **The Actor's answer isn't documented.** *Testing a real API* (the Actor's page and its dataset's schema, 29
+    October 2026). Its README says each record is one location, with daily and hourly arrays, and its dataset's
+    overview lists five fields, but nothing shows a whole record. **Fix:** `lib/weather/actor-items.ts` reads that
+    shape, with Open-Meteo's own names inside the arrays, and checks it with Zod; any other shape is a `ContractError`
+    that names the field (without an array's index, and never a value), and the lane falls back instead of guessing.
+    The tests use an answer in that shape, holding Open-Meteo's real Paris numbers, and named as assumed
+    (`tests/fixtures/apify/actor-paris-assumed.json`). **Check:** the first run on the live site, against the real
+    thing.
+72. **What a `402` means with a token isn't documented.** *Testing a real API.* Without a token, Apify's REST door
+    answers `402` with an x402 request for payment (PLAN.md section 3, row 13), and the plan read every `402` that
+    way, as an `AuthError`. But this lane never runs without a token, and Apify's docs don't say which status a
+    used-up monthly credit gets. **Fix:** a `402` is a `BudgetExceededError`, at warn ("Apify's credit for this month
+    is used up"), and the `lane.fallback` line keeps Apify's error type and message, so the first real one confirms
+    or corrects the reading; the plan's error map (9.2) says so. **Check:** `tests/unit/upstream/apify.test.ts`.
+73. **The chat page reads the token when it's built.** *Checking our work* (the build's route list: `/` is static).
+    The picker's states come from the page, which Next.js prerenders once per deployment, so setting `APIFY_TOKEN`
+    changes nothing until the next deployment. **Fix:** none in the code: Vercel applies a changed variable only to
+    new deployments anyway, the functions included, and decrypts Secret variables during builds too; this step's page
+    and the README say "then redeploy". **Check:** the live check, once a deployment is built with the token.
+74. **Vercel's "Sensitive" variables are now "Secret".** *Deploying* (Vercel's docs, read while checking the token).
+    Vercel now offers two types: Config, readable after saving, and Secret, write-only; Sensitive variables, like our
+    Gemini key (entry 40), count as Secret. **Fix:** the README, this step's page and the system design say Secret.
+75. **Stop couldn't reach the fallback, and the answer's end looked like Apify being slow.** *Checking our work*
+    (writing this step's page), *then the review.* Bug story 10. **Fix:** the run's 20 s is the lane's own timer inside
+    a 28 s tool budget; when the tool's signal fires, nothing falls back; the fallback's 8 s joins the same signal.
+    **Check:** `tests/unit/lanes/rest-auth.test.ts`.
+76. **The fallback's line would have pushed the chip's arrow down.** *Checking our work* (the chip's CSS). A chip's
+    first line is a wrapping flex row; written as `display: block`, the fallback's sentence was one more item in it,
+    and the row's last item, the ▸ arrow, would have wrapped onto a line of its own under the sentence. **Fix:** the
+    sentence takes the row's full width and comes after the arrow (`flex-basis: 100%`, `order: 1`). **Check:** the
+    browser test of a fallback, with axe.
+77. **After a lane change, earlier results reached the model whole.** *Review.* Bug story 11. **Fix:** one
+    `toModelWeather()` for every lane, and the history converted with every lane's tools (`HISTORY_TOOLS`). **Check:**
+    `tests/unit/chat/run-chat.test.ts`.
+78. **A Stop while Apify's answer arrived read as an answer we can't read.** *Review.* Reading the body fails when the
+    signal fires, and that failure became a `ContractError` ("isn't JSON") before the signal was looked at, so a Stop
+    fell back and logged at error. **Fix:** a failed run looks at the signal first. **Check:**
+    `tests/unit/upstream/apify.test.ts`.
+79. **One refusal quoted the Actor's own unit.** *Review.* "The Actor answered in °F" put a string from Apify's answer,
+    of any length, into the message and its log line, against the rule that a refusal names a field, never a value.
+    **Fix:** "The Actor's temperature unit isn't °C." **Check:** `tests/unit/weather/actor-items.test.ts`.
+80. **Asking for `REST · with auth` without a token was an error.** *Review.* Every preview runs without the token, so
+    a request for that lane, from an old tab or a script, got `503` and an error-level line, which the plan alerts on
+    (9.2). **Fix:** the request's rules refuse it at info, as a broken rule: "that lane needs an Apify token, which
+    this deployment doesn't have."; the `ConfigError` stays as a last guard. **Check:**
+    `tests/unit/chat/chat-request.test.ts`.
+81. **Our Actor tool adds `units`, which Apify's doesn't have.** *Review.* The auth pair shares the Actor tool's name
+    and schema (PLAN.md 7.4, rule 9), and step 7 pins Apify's own MCP tool against ours, which won't take `units`.
+    **Fix:** the plan says both auth lanes add `units` for the model and strip it before calling Apify, and step 7's
+    pin compares the rest.
+82. **A fallback could start without time to finish.** *Checking our work* (the plan's time budgets, 9.3). The plan
+    starts a fallback only with 12 s of the answer's 50 left, the twin's 8 s and time to write the answer; the first
+    version always fell back. **Fix:** with less left, the call fails with its own sentence. **Check:**
+    `tests/unit/lanes/rest-auth.test.ts`.

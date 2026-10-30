@@ -8,8 +8,10 @@ import { safeValidateUIMessages, type ToolSet } from "ai";
 import { z } from "zod";
 import { LIVE_LANE_IDS, MAX_HISTORY_CHARS, MAX_MESSAGE_CHARS, MAX_MESSAGES } from "@/lib/constants";
 import { InputError } from "@/lib/errors";
+import { toModelWeather } from "@/lib/lanes/lane";
 import type { ChatMessage, LiveLaneId } from "@/lib/types";
 import { OPEN_METEO_TOOLS } from "@/lib/weather/open-meteo-tools";
+import { openMeteoActor } from "@/lib/weather/tools/open-meteo-actor";
 
 // A chat's id, which useChat makes up: letters, digits, _ and -. It's logged, so it can't be anything else.
 const CHAT_ID_PATTERN = /^[\w-]{1,100}$/;
@@ -41,16 +43,23 @@ const ChatRequestSchema = z.object({
 // When a message was written: shown beside it, so a message without it still goes through.
 const MetadataSchema = z.object({ createdAt: z.number(), isCutShort: z.boolean().optional() }).optional();
 
-// Our tools' input schemas: a tool call in the history is checked as a new one would be.
-const TOOL_INPUTS: ToolSet = Object.fromEntries(
-  Object.values(OPEN_METEO_TOOLS).map((tool) => [tool.name, { inputSchema: tool.inputSchema }]),
+/**
+ * Every lane's tools, by name, as a chat's history meets them: the input schema a tool call in it is checked against,
+ * as a new one would be, and what the model reads of its result (the weather only). AI SDK finds the second by the
+ * tool's name when it converts the history, and the chat may have changed lanes since, so every lane's tools are here.
+ */
+export const HISTORY_TOOLS: ToolSet = Object.fromEntries(
+  [...Object.values(OPEN_METEO_TOOLS), openMeteoActor].map((tool) => [
+    tool.name,
+    { inputSchema: tool.inputSchema, toModelOutput: toModelWeather },
+  ]),
 );
 
 // The parts the page sends back: your text, and the bot's text, steps and tool calls. Never files, or anything else.
 const SENT_PART_TYPES: ReadonlySet<string> = new Set([
   "text",
   "step-start",
-  ...Object.keys(OPEN_METEO_TOOLS).map((name) => `tool-${name}`),
+  ...Object.keys(HISTORY_TOOLS).map((name) => `tool-${name}`),
 ]);
 
 /** What to tell the user when the body's own fields break a rule, by the field that broke it. */
@@ -74,13 +83,19 @@ export function toQuestion(chatRequest: ChatRequest): string {
   return last === undefined ? "" : toMessageText(last);
 }
 
-/** Checks a chat request's body; throws InputError, saying which rule it breaks. */
-export async function parseChatRequest(body: unknown): Promise<ChatRequest> {
-  // ② The body's own fields: the number of messages, the lane, the locale.
+/**
+ * Checks a chat request's body; throws InputError, saying which rule it breaks. `availableLaneIds` are the lanes this
+ * deployment runs: an auth lane only where Apify's token is set.
+ */
+export async function parseChatRequest(body: unknown, availableLaneIds: readonly LiveLaneId[]): Promise<ChatRequest> {
+  // ② The body's own fields: the number of messages, the lane, the locale; and a lane this deployment runs.
   const parsed = ChatRequestSchema.safeParse(body);
   if (!parsed.success) {
     const field = String(parsed.error.issues[0]?.path[0]);
     throw new InputError(RULE_BY_FIELD[field] ?? "the request isn't one the chat understands.");
+  }
+  if (!availableLaneIds.includes(parsed.data.laneId)) {
+    throw new InputError("that lane needs an Apify token, which this deployment doesn't have.");
   }
   // ③ The whole history's size: everything in it goes to the model.
   if (JSON.stringify(parsed.data.messages).length > MAX_HISTORY_CHARS) {
@@ -90,7 +105,7 @@ export async function parseChatRequest(body: unknown): Promise<ChatRequest> {
   const validated = await safeValidateUIMessages<ChatMessage>({
     messages: parsed.data.messages,
     metadataSchema: MetadataSchema,
-    tools: TOOL_INPUTS,
+    tools: HISTORY_TOOLS,
   });
   if (!validated.success) {
     throw new InputError("its messages aren't in the shape the chat sends.");

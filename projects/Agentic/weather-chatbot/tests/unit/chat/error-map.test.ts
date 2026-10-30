@@ -1,7 +1,8 @@
 /*
  * tests/unit/chat/error-map.test.ts: the error map (PLAN.md 9.2), played out: each class, triggered the way it happens
  * in a chat turn (Open-Meteo slow, failing or refusing; the model failing or calling a tool wrong; a bug; Stop), and
- * what the page shows for it and the line it logs. InputError and ConfigError come before the answer starts:
+ * what the page shows for it and the line it logs. On REST · with auth, AuthError and BudgetExceededError don't fail
+ * the call: the lane falls back, and the chip says so. InputError and ConfigError come before the answer starts:
  * tests/unit/app/api/chat/route.test.ts plays those.
  */
 import { APICallError, RetryError, type ToolSet } from "ai";
@@ -10,8 +11,11 @@ import { describe, expect, it } from "vitest";
 import type { ChatRequest } from "@/lib/chat/chat-request";
 import { type AnswerBudgets, runChat } from "@/lib/chat/run-chat";
 import type { Lane } from "@/lib/lanes/lane";
+import { openRestAuthLane } from "@/lib/lanes/rest-auth";
 import { openRestNoAuthLane } from "@/lib/lanes/rest-no-auth";
+import { createApifyClient } from "@/lib/upstream/apify";
 import { createOpenMeteoClient } from "@/lib/upstream/open-meteo";
+import { type ApifyAnswer, apifyError, createApifyFetch } from "@/tests/stubs/apify-stand-ins";
 import { createTestLog } from "@/tests/stubs/log-stand-ins";
 import { step, textStep, toChunks, toolCall } from "@/tests/stubs/model-stand-ins";
 import { createFakeFetch, createMemoryCache, type FakeAnswer, hangingFetch } from "@/tests/stubs/open-meteo-stand-ins";
@@ -45,8 +49,8 @@ type Turn = {
 };
 
 /**
- * Plays one turn on REST · no auth: the sentences the page shows (each failed chip's last one, since a bad call gets one
- * for its input and one for its output; then the error box's), and the lines logged.
+ * Plays one turn on REST · no auth: the sentences the page shows (each failed chip's last one, since a bad call gets
+ * one for its input and one for its output; then the error box's), and the lines logged.
  */
 async function play({ model, answers = [], lane = (opened) => opened, budgets, stopAfterMs }: Turn) {
   const { log, lines } = createTestLog();
@@ -183,10 +187,71 @@ describe("the error map, in a chat turn", () => {
     expect(JSON.stringify(lines)).not.toMatch(/48\.8534123|2\.3488123|"days":30/);
   });
 
-  it("AbortedError, when you press Stop during a tool call: no sentence, and the answer's line says it stopped", async () => {
+  it("AbortedError, on Stop during a tool call: no sentence, and the answer's line says it stopped", async () => {
     const { shown, lines } = await play({ model: oneCallThenAnswer(), answers: hangingFetch, stopAfterMs: 30 });
     expect(shown).toEqual([]);
     expect(lines.filter((line) => line.status === "failed")).toEqual([]);
     expect(lines.at(-1)).toMatchObject({ level: "info", event: "chat.aborted" });
+  });
+});
+
+describe("the error map, on REST · with auth: the auth classes become a fallback", () => {
+  const ActorTool = "gochujang--open-meteo-weather-forecast";
+  const ActorInput = {
+    locations: [{ name: "Paris", latitude: 48.85, longitude: 2.35 }],
+    forecastDays: 2,
+    mode: "daily",
+    units: "metric",
+  };
+
+  /** Plays one turn on REST · with auth, whose Apify call gets this answer: the Actor call's chunk, and the lines. */
+  async function playAuth(apifyAnswer: ApifyAnswer) {
+    const { log, lines } = createTestLog();
+    const lane = openRestAuthLane({
+      token: "test-token-not-real",
+      requestId: REQUEST_ID,
+      log,
+      apify: createApifyClient({ token: "test-token-not-real", fetch: createApifyFetch([apifyAnswer]).fetch }),
+      openMeteo: createOpenMeteoClient({
+        fetch: createFakeFetch([{ fixture: "forecast-paris" }]).fetch,
+        cache: createMemoryCache(),
+        random: () => 0,
+      }),
+    });
+    const response = await runChat(
+      { ...CHAT_REQUEST, laneId: "rest-auth" },
+      {
+        model: oneCallThenAnswer(ActorTool, ActorInput),
+        lane,
+        signal: new AbortController().signal,
+        requestId: REQUEST_ID,
+        log,
+      },
+    );
+    const output = toChunks(await response.text()).find((chunk) => chunk.type === "tool-output-available")?.output;
+    return { output, lines };
+  }
+
+  it("AuthError, a rejected token: the chip names the lane that answered, with the ref; an error line", async () => {
+    const { output, lines } = await playAuth({ fixture: "error-401-fake-token", status: 401 });
+    expect(output.fallback.sentence).toBe(
+      `REST · with auth is unavailable: Apify didn't accept our token. Answered through REST · no auth instead. ${REF}`,
+    );
+    expect(output.call.laneId).toBe("rest-no-auth");
+    expect(lines.filter((line) => line.status === "failed" && line.event !== "upstream.http")).toEqual([
+      expect.objectContaining({ level: "error", event: "lane.fallback", errorClass: "AuthError" }),
+    ]);
+    expect(lines.find((line) => line.event === "tool.call")).toMatchObject({ status: "ok", fallbackFrom: "rest-auth" });
+  });
+
+  it("BudgetExceededError, when Apify asks for payment: the same fallback, without a ref; a warn line", async () => {
+    const { output, lines } = await playAuth(apifyError(402, "x402-payment-required", "Payment required."));
+    expect(output.fallback.sentence).toBe(
+      "REST · with auth is unavailable: Apify's credit for this month is used up. " +
+        "Answered through REST · no auth instead.",
+    );
+    expect(lines.filter((line) => line.status === "failed" && line.event !== "upstream.http")).toEqual([
+      expect.objectContaining({ level: "warn", event: "lane.fallback", errorClass: "BudgetExceededError" }),
+    ]);
   });
 });

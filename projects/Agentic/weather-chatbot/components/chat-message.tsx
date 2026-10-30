@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ToolChip } from "@/components/tool-chip";
 import { WeatherCard } from "@/components/weather-card";
+import { ACTOR_TOOL_NAME } from "@/lib/constants";
 import type { ChatMessage as ChatMessageData, Forecast, Place, ToolCallView, WeatherToolTypes } from "@/lib/types";
 import { roundCoordinate } from "@/lib/utils";
 
@@ -17,6 +18,8 @@ type AnyToolPart = WeatherToolPart | DynamicToolUIPart;
 
 // A place geocoding found counts as the forecast's place when it's this close, in degrees.
 const SAME_PLACE_DEGREES = 0.05;
+// The tools whose result is a forecast: ours, and the auth lanes' Actor tool.
+const FORECAST_PART_TYPES: ReadonlySet<string> = new Set(["tool-get_forecast", `tool-${ACTOR_TOOL_NAME}`]);
 
 /** A short form of a tool's input, for its chip: "“Paris”", or "48.85, 2.35 · 2 days, hourly". */
 function toInputSummary(input: unknown): string {
@@ -26,6 +29,11 @@ function toInputSummary(input: unknown): string {
   const fields: Record<string, unknown> = { ...input };
   if (typeof fields.query === "string") {
     return `“${fields.query}”`;
+  }
+  // The Actor tool's input: its one location's name and coordinates, its days, and its mode.
+  if (Array.isArray(fields.locations) && typeof fields.locations[0] === "object" && fields.locations[0] !== null) {
+    const { forecastDays, mode, units } = fields;
+    return toInputSummary({ ...fields.locations[0], days: forecastDays, includeHourly: mode === "hourly", units });
   }
   const parts: string[] = [];
   if (typeof fields.latitude === "number" && typeof fields.longitude === "number") {
@@ -60,6 +68,7 @@ function toToolCallView(part: AnyToolPart, isAnswering: boolean): ToolCallView {
             resultSummary: part.output.summary,
             output: part.output.result,
             call: part.output.call,
+            fallback: part.output.fallback,
           };
     case "output-error":
       return { ...base, status: "failed", errorText: part.errorText };
@@ -76,10 +85,10 @@ function toForecasts(parts: readonly AnyToolPart[]): { forecast: Forecast; place
     part.type === "tool-geocode_location" && part.state === "output-available" ? part.output.result.candidates : [],
   );
   return parts.flatMap((part) => {
-    if (part.type !== "tool-get_forecast" || part.state !== "output-available") {
+    if (!FORECAST_PART_TYPES.has(part.type) || part.state !== "output-available") {
       return [];
     }
-    const forecast = part.output.result;
+    const forecast = (part.output as { result: Forecast }).result;
     const place = places.find(
       (candidate) =>
         Math.abs(candidate.latitude - forecast.latitude) <= SAME_PLACE_DEGREES &&

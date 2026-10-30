@@ -189,7 +189,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     width: 270,
     height: 110,
     title: "Settings and secrets",
-    lines: ["Vercel's environment", "variables; the key is", "Sensitive · lib/config.ts"],
+    lines: ["Vercel's environment", "variables; the key is", "a Secret · lib/config.ts"],
   },
   {
     band: "C",

@@ -19,11 +19,14 @@ export type ToolContext = { openMeteo: OpenMeteoClient; signal?: AbortSignal; lo
 /** A tool's answer, and the request to Open-Meteo behind it. */
 export type ToolRun<Output> = { output: Output; request: WireRequest; cache: "hit" | "miss" };
 
-/** One weather tool: its name and description for the model, its input schema, how it runs, and its one-line summary. */
-export type WeatherTool<Name extends string, Input, Output> = {
+/**
+ * One weather tool: its name and description for the model, its input schema, how it runs (with Open-Meteo, unless
+ * it's given another context), and its one-line summary.
+ */
+export type WeatherTool<Name extends string, Input, Output, Context = ToolContext> = {
   name: Name;
   description: string;
   inputSchema: z.ZodType<Input>;
-  run(input: Input, context: ToolContext): Promise<ToolRun<Output>>;
+  run(input: Input, context: Context): Promise<ToolRun<Output>>;
   summarize(output: Output): string;
 };

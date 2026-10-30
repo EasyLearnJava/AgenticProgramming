@@ -49,7 +49,8 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 - **The conversation** lives in your browser tab, in `useChat`. Each question sends the recent messages; no server
   keeps a chat.
 - **Settings and secrets** are Vercel's environment variables, and `lib/config.ts` is the only file that reads them.
-  The Gemini key is a Sensitive variable, which can't be read back from the dashboard.
+  The Gemini key is a Secret variable (Vercel's "Sensitive" until lately), which can't be read back from the
+  dashboard.
 - **Vercel's Runtime Cache** keeps Open-Meteo's answers by their exact request, for 30 days (places), 10 minutes (the
   weather now) and 30 minutes (forecasts and air quality). Both lanes share it; a chip says when the cache answered.
 - **The docs** are Markdown in the repository, built into static pages with each deployment.
@@ -83,7 +84,7 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 | 08 · Human in the loop | None | The bot only reads the weather: nothing is high-risk enough to need a person |
 | Knowledge ingestion, change events, index refresh | None | No documents to ingest; cached answers expire by themselves |
 | Session store | Your browser tab | No server keeps a chat |
-| Secure storage | Vercel's environment variables, the key a Sensitive one | Only `lib/config.ts` reads them; nothing secret reaches the browser |
+| Secure storage | Vercel's environment variables, the key a Secret one | Only `lib/config.ts` reads them; nothing secret reaches the browser |
 | 09 · Observability: traces, p95 latency, tokens, cost, alerts | Log lines with a request id across both functions, levels from the error map, tokens per step | Traces, dashboards, alerts and Sentry in step 9; cost with the paid model (step 11) |
 | 09 · Evaluation: golden set, safety tests, feedback | The golden questions on each lane, live; unit, browser and accessibility tests in CI | Failure tests and a lane-by-lane report in step 10 |
 | 09 · Reliability and scale: autoscaling, caps, queues, breakers | Vercel Functions, time budgets, retries, the MCP request guard | Rate limits in step 8, a load test in step 10. No queue: each answer is one request |

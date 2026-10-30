@@ -48,8 +48,10 @@ export const LANE_GRID: readonly (readonly [LaneId, LaneId])[] = [
 
 export const LANE_IDS: readonly LaneId[] = LANE_GRID.flat();
 
-// ③ The lanes that answer for real, and the one a new chat starts on: MCP · no auth (PLAN.md 4.5).
-export const LIVE_LANE_IDS: readonly LiveLaneId[] = ["rest-no-auth", "mcp-no-auth"];
+// ③ The lanes built so far, and the one a new chat starts on: MCP · no auth (PLAN.md 4.5). An auth lane also needs
+// Apify's token on the deployment, or it waits.
+export const LIVE_LANE_IDS: readonly LiveLaneId[] = ["rest-no-auth", "mcp-no-auth", "rest-auth"];
+export const TOKEN_LANE_IDS: readonly LiveLaneId[] = ["rest-auth"];
 export const DEFAULT_LANE_ID: LiveLaneId = "mcp-no-auth";
 
 // ④ What one chat request may carry (PLAN.md 9.2, InputError): messages, each of yours, and the whole history.
@@ -67,6 +69,11 @@ export const FIRST_CHUNK_TIMEOUT_MS = 10_000;
 export const TOOL_TIMEOUT_MS = 8000;
 // Connecting to an MCP lane: the handshake and the tool list, before the model starts.
 export const MCP_CONNECT_TIMEOUT_MS = 3000;
+// An Actor run on an auth lane takes seconds, not milliseconds: it gets 20 s, then its tool's budget leaves the
+// fallback a tool's usual 8 s.
+export const AUTH_TOOL_TIMEOUT_MS = 20_000;
+// A fallback starts only with this much of the answer's budget left: the twin's 8 s, and time to write the answer.
+export const FALLBACK_MIN_LEFT_MS = 12_000;
 
 // ⑦ Each call to Open-Meteo: 3 s a try, two tries, a short random wait between; a 429 is retried only when its
 // Retry-After fits in the tool's budget.
@@ -116,3 +123,14 @@ export const VERCEL_ID_HEADER = "x-vercel-id";
 export const REQUEST_ID_HEADER = "x-request-id";
 export const MAX_LOGGED_CAUSE_CHARS = 300;
 export const MAX_LOGGED_STACK_LINES = 8;
+
+// ⑭ The Apify Actor behind the auth lanes (PLAN.md 4.3): its run-sync address, pinned to build 1.0.9, stopped by
+// Apify at 18 s (before our 20 s budget) and at a charge of $0.01; and its tool's name, as Apify's MCP server gives it.
+export const APIFY_ACTOR_RUN_URL =
+  "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items";
+export const APIFY_ACTOR_BUILD = "1.0.9";
+export const APIFY_RUN_TIMEOUT_SECONDS = 18;
+export const APIFY_MAX_CHARGE_USD = 0.01;
+export const ACTOR_TOOL_NAME = "gochujang--open-meteo-weather-forecast";
+// Apify's own words about a failed run are cut to this many characters before they go in our message.
+export const MAX_APIFY_DETAIL_CHARS = 200;

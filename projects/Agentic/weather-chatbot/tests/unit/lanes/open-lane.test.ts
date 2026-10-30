@@ -3,7 +3,7 @@
  * request made up.
  */
 import { describe, expect, it } from "vitest";
-import { toSelfOrigin } from "@/lib/lanes/open-lane";
+import { toAvailableLaneIds, toSelfOrigin } from "@/lib/lanes/open-lane";
 
 const ON_VERCEL = {
   id: "dpl_abc123",
@@ -35,5 +35,12 @@ describe("toSelfOrigin", () => {
     expect(toSelfOrigin("http://localhost:3000/api/chat", { id: undefined, url: undefined, hosts: [] })).toBe(
       "http://localhost:3000",
     );
+  });
+});
+
+describe("toAvailableLaneIds", () => {
+  it("runs both no-auth lanes anywhere, and REST · with auth only where Apify's token is set", () => {
+    expect(toAvailableLaneIds(undefined)).toEqual(["rest-no-auth", "mcp-no-auth"]);
+    expect(toAvailableLaneIds("test-token-not-real")).toEqual(["rest-no-auth", "mcp-no-auth", "rest-auth"]);
   });
 });

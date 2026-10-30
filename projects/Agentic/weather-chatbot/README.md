@@ -2,19 +2,20 @@
 
 > **Status:** steps 1 to 5 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
 > through `REST · no auth`, `MCP · no auth` through our own MCP server, and errors and logs. Step 6, `REST · with
-> auth`, needs an Apify token, which you set in Vercel.
-> Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings:
-> [Deploy it on Vercel](#deploy-it-on-vercel)).
+> auth`, is built: Apify's weather Actor with a token, falling back to `REST · no auth`; its check on the live site is
+> next. Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and
+> `REST · with auth` an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 
 Nimbus is a weather chatbot on Vercel. You ask about the weather in plain words and see every tool call it makes,
-through four lanes: REST or MCP, with or without auth. Today the two no-auth lanes are live: Gemini calls our four
-weather tools, either directly (`REST · no auth`) or through our own MCP server at `/api/mcp` (`MCP · no auth`, the
-default), and they call Open-Meteo. Each call shows as a chip that opens to show its request, and a forecast gets a
-weather card. A left menu leads to the documentation, one page per finished build step.
+through four lanes: REST or MCP, with or without auth. Today three are live: Gemini calls our four weather tools,
+either directly (`REST · no auth`) or through our own MCP server at `/api/mcp` (`MCP · no auth`, the default), and
+they call Open-Meteo; on `REST · with auth`, the forecast comes from an Apify Actor instead, with a token, and falls
+back to `REST · no auth` when Apify can't answer. Each call shows as a chip that opens to show its request, and a
+forecast gets a weather card. A left menu leads to the documentation, one page per finished build step.
 
 **In one line:** a question → `useChat` posts it to `/api/chat` → the route checks it → Gemini, with our four tools →
-each tool calls Open-Meteo, itself (REST) or through `/api/mcp` (MCP) → the answer streams back, with a chip per tool
-call.
+each tool calls Open-Meteo, itself (REST) or through `/api/mcp` (MCP), or, for `REST · with auth`'s forecast, runs
+Apify's Actor → the answer streams back, with a chip per tool call.
 
 ## Documentation
 
@@ -30,6 +31,7 @@ it opens with the real bugs, each told as a story.
 - Node.js 22: the version Vercel runs this project on (`engines` in `package.json`)
 - npm
 - A Gemini API key, the one the repo's other projects use, for the chat itself (the page and the tests run without it)
+- An Apify API token, only for `REST · with auth` (the other lanes run without it)
 
 ## How it's organised
 
@@ -38,9 +40,9 @@ it opens with the real bugs, each told as a story.
 | `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the issues log (`issues/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
 | `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), the system design's diagram, and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
 | `hooks/` | The React hook that asks for the nearby city |
-| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
+| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo and Apify (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
 | `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`) and the issues log (`issues.md`) |
-| `tests/` | The unit tests (`unit/`), Open-Meteo's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
+| `tests/` | The unit tests (`unit/`), Open-Meteo's and Apify's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
 | Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts`, `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
 
@@ -65,9 +67,10 @@ npm run dev
 ```
 
 (A `Network:` line with your machine's address is left out.) Open `.env.local` in an editor and put your Gemini key
-after `GOOGLE_API_KEY=`; it never goes into git. Then open http://localhost:3000: the chat card with Nimbus's first
-message and questions to try, the menu on the left and `Build: local` at its foot. Ask the Paris question, and open
-the `get_forecast` chip to see the request it sent. Without the key, the page says the chat isn't set up yet.
+after `GOOGLE_API_KEY=`, and, for `REST · with auth`, an Apify token after `APIFY_TOKEN=`; the file never goes into
+git. Then open http://localhost:3000: the chat card with Nimbus's first message and questions to try, the menu on the
+left and `Build: local` at its foot. Ask the Paris question, and open the `get_forecast` chip to see the request it
+sent. Without the key, the page says the chat isn't set up yet.
 `npm run build`, then `npm run start`, serves the production build instead.
 
 ## Test it
@@ -83,26 +86,26 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 98 files in 453ms. No fixes applied.
+Checked 106 files in 320ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  28 passed (28)
-      Tests  164 passed (164)
+ Test Files  31 passed (31)
+      Tests  198 passed (198)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 48ms
+✓ Running next.config.ts took 53ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1370ms
+✓ Compiled successfully in 3.1s
   Running TypeScript ...
-  Finished TypeScript in 522ms ...
+  Finished TypeScript in 953ms ...
   Collecting page data using 11 workers ...
-  Generating static pages using 11 workers (0/14) ...
-✓ Generating static pages using 11 workers (14/14) in 2.2s
+  Generating static pages using 11 workers (0/15) ...
+✓ Generating static pages using 11 workers (15/15) in 2.6s
   Finalizing page optimization ...
 
 Route (app)
@@ -116,7 +119,7 @@ Route (app)
 │ ├ ● /docs/step-1
 │ ├ ● /docs/step-2
 │ ├ ● /docs/step-3
-│ └ ● [+2 more paths]
+│ └ ● [+3 more paths]
 ├ ○ /issues
 └ ○ /system-design
 
@@ -125,7 +128,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  46 passed (17.8s)
+  48 passed (19.5s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -154,12 +157,17 @@ HTTPS goes through its own certificate, add `NODE_OPTIONS=--use-system-ca` so No
 5. In **Settings → Environment Variables**, add `GOOGLE_API_KEY` with your Gemini key, for Production and Preview;
    then redeploy, since a deployment keeps the settings it was built with. Without it, the chat answers that it isn't
    set up yet.
+6. For `REST · with auth`, make a token in an Apify account used only for this bot, since the token opens the whole
+   account (Apify Console: **Settings → API & Integrations**). Add it as `APIFY_TOKEN`, type **Secret**, then
+   redeploy: the chat page reads whether it's set when the deployment is built. Without it, the picker says the lane
+   needs a token.
 
 ## Read the logs
 
 Each request logs a few JSON lines (pino, to stdout), which Vercel shows under **Logs** in the project's dashboard:
 one when it starts (`chat.request`), one per hop (connecting to MCP, each tool call, each call to Open-Meteo, each
-model step), and one when it ends (`chat.done`, or how it stopped or failed). Every line carries the request's id;
+model step; on `REST · with auth`, each run of Apify's Actor, and `lane.fallback` when it falls back), and one when
+it ends (`chat.done`, or how it stopped or failed). Every line carries the request's id;
 `MCP · no auth` sends it on to `/api/mcp`, so the server's lines carry it too. When the page shows an error, its
 sentence ends with the ref, the id's last 8 characters: search the logs for it. `LOG_LEVEL` (`info` unless set) says
 how much to log. A line never holds your question (only its length), a token or a key.
@@ -175,5 +183,5 @@ for example in Claude or Cursor:
 
 ## Next
 
-Step 6 in [PLAN.md](PLAN.md): `REST · with auth`: Apify's weather Actor through its REST API, with a token, and its
-fallback to `REST · no auth`.
+Step 6's check on the live site, with the token; then step 7 in [PLAN.md](PLAN.md): `MCP · with auth`: Apify's MCP
+server with the same token and Actor, and its fallback to `MCP · no auth`.

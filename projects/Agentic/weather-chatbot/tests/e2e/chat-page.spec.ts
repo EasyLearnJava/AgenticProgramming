@@ -1,14 +1,17 @@
 /*
  * tests/e2e/chat-page.spec.ts: the chat page in a real browser. /api/chat is answered in the browser with a recorded
  * answer (tests/e2e/chat-stream.ts), so no model is called, here or against a live URL: the welcome, the lanes, an
- * answer with its chips and weather card, a failure, Stop, the location pin, the nearby city, the compare view,
- * accessibility (axe) and a 360-pixel screen.
+ * answer with its chips and weather card, an auth lane's fallback, a failure, Stop, the location pin, the nearby city,
+ * the compare view, accessibility (axe) and a 360-pixel screen. REST · with auth runs only where the deployment has
+ * Apify's token, so the tests read from the picker which it is, and check the page says the same everywhere.
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import {
   ANSWER,
   CUT_SHORT_STREAM_BODY,
+  FALLBACK_PARIS_STREAM_BODY,
+  FALLBACK_SENTENCE,
   FORECAST_URL,
   LEAK_IMAGE_URL,
   MARKDOWN_STREAM_BODY,
@@ -19,6 +22,15 @@ import {
 } from "@/tests/e2e/chat-stream";
 
 const PARIS_QUESTION = "Do I need an umbrella in Paris tomorrow afternoon?";
+// REST · with auth's request: the Apify Actor's run, with its build, time and cost in the URL.
+const ACTOR_RUN_URL =
+  "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items" +
+  "?build=1.0.9&timeout=18&maxTotalChargeUsd=0.01";
+
+/** Whether this deployment runs REST · with auth, as its picker says: it does only with Apify's token. */
+async function hasApifyToken(page: Page): Promise<boolean> {
+  return page.getByLabel(/REST · with auth/).isEnabled();
+}
 
 /** Answers the page's /api/chat with the recorded Paris answer, and keeps each request body it sent. */
 async function answerWithParis(page: Page): Promise<unknown[]> {
@@ -53,26 +65,27 @@ test("shows the welcome and the questions to try, with the menu and the build li
   await expect(page.getByText(/^Build/)).toBeVisible();
 });
 
-test("starts on MCP · no auth, the plan's default; REST · no auth is live too; the auth lanes wait", async ({
+test("starts on MCP · no auth, the default; REST · with auth needs the token; MCP · with auth waits", async ({
   page,
 }) => {
   await expect(page.getByLabel(/MCP · no auth/)).toBeChecked();
   await expect(page.getByLabel(/REST · no auth/)).toBeEnabled();
-  for (const [label, step] of [
-    ["REST · with auth", 6],
-    ["MCP · with auth", 7],
-  ] as const) {
-    const lane = page.getByLabel(new RegExp(label));
-    await expect(lane).toBeDisabled();
-    await expect(page.locator(".lane-option", { has: lane })).toContainText(`live from step ${step}`);
-  }
+  const stateOf = (label: RegExp) =>
+    page.locator(".lane-option", { has: page.getByLabel(label) }).locator(".lane-option-step");
+  await expect(stateOf(/REST · with auth/)).toHaveText((await hasApifyToken(page)) ? "live" : "needs an Apify token");
+  await expect(page.getByLabel(/MCP · with auth/)).toBeDisabled();
+  await expect(stateOf(/MCP · with auth/)).toHaveText("live from step 7");
 });
 
-test("moves between the two live lanes with the arrow keys, skipping the ones that wait", async ({ page }) => {
+test("moves between the lanes this deployment runs with the arrow keys, skipping the ones that wait", async ({
+  page,
+}) => {
+  // In the grid's order, the lane before MCP · no auth is REST · with auth, when it runs here.
+  const before = (await hasApifyToken(page)) ? /REST · with auth/ : /REST · no auth/;
   const mcpNoAuth = page.getByLabel(/MCP · no auth/);
   await mcpNoAuth.focus();
   await page.keyboard.press("ArrowLeft");
-  await expect(page.getByLabel(/REST · no auth/)).toBeChecked();
+  await expect(page.getByLabel(before)).toBeChecked();
   await page.keyboard.press("ArrowRight");
   await expect(mcpNoAuth).toBeChecked();
 });
@@ -122,6 +135,25 @@ test("answers: two chips with their lane and request, the answer, and the weathe
   await expect(card).toBeVisible();
   await expect(card.getByText("Friday 30")).toBeVisible();
   await expect(card.getByText("6 to 15 °C")).toBeVisible();
+});
+
+test("says on the chip when REST · with auth fell back, and shows the forecast it got instead", async ({ page }) => {
+  // A recorded answer: the page shows a tool call's lane from its result, whichever lane is picked.
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ status: 200, headers: STREAM_HEADERS, body: FALLBACK_PARIS_STREAM_BODY }),
+  );
+  await askParis(page);
+  const chips = page.locator("details.tool-chip");
+  await expect(chips.nth(0).locator("summary")).toContainText("REST · with auth · geocoding-api.open-meteo.com");
+  const forecastSummary = chips.nth(1).locator("summary");
+  await expect(forecastSummary).toContainText("gochujang--open-meteo-weather-forecast");
+  await expect(forecastSummary).toContainText("48.85, 2.35 · 2 days, hourly");
+  // The call says which lane answered, and the sentence says why, with the ref to find its log line.
+  await expect(forecastSummary).toContainText("REST · no auth · api.open-meteo.com");
+  await expect(forecastSummary.locator(".tool-chip-fallback")).toHaveText(`! ${FALLBACK_SENTENCE}`);
+  await expect(page.getByRole("region", { name: "Forecast for Paris, Île-de-France Region, France" })).toBeVisible();
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
 });
 
 test("shows the server's sentence when the chat can't answer, with its ref and Try again", async ({ page }) => {
@@ -224,12 +256,18 @@ test.describe("the location pin", () => {
 });
 
 test("shows the same forecast call through the four lanes, side by side", async ({ page }) => {
+  const hasToken = await hasApifyToken(page);
   await page.getByRole("button", { name: "Compare the four lanes" }).click();
   const cells = page.locator(".compare-cell");
   await expect(cells).toHaveCount(4);
   await expect(cells.nth(0).getByText(`GET ${FORECAST_URL}`)).toBeVisible();
   await expect(cells.nth(0)).toContainText("Live: ask in the chat on this lane");
-  await expect(cells.nth(1)).toContainText("Live from step 6");
+  // REST · with auth: the Actor's run, the token masked; live where this deployment has the token, as the picker says.
+  await expect(cells.nth(1).getByText(`POST ${ACTOR_RUN_URL}`)).toBeVisible();
+  await expect(cells.nth(1).getByText("authorization: Bearer <APIFY_TOKEN>")).toBeVisible();
+  await expect(cells.nth(1)).toContainText(
+    hasToken ? "Live: ask in the chat on this lane" : "Built: it runs once this deployment has an Apify token",
+  );
   await expect(cells.nth(2)).toContainText("Live: ask in the chat on this lane");
   await expect(cells.nth(2).getByText("mcp-method: tools/call")).toBeVisible();
   await expect(cells.nth(3)).toContainText("Live from step 7");

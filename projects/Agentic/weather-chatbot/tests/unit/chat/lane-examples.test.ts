@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { COMPARE_CELLS } from "@/lib/chat/lane-examples";
 import { LANE_IDS } from "@/lib/constants";
 import type { CompareCell, LaneId } from "@/lib/types";
+import { toActorRequest } from "@/lib/upstream/apify";
 import { toForecastRequest } from "@/lib/upstream/open-meteo";
 import { toHost } from "@/lib/utils";
 
@@ -43,9 +44,27 @@ describe("the lane examples", () => {
     expect(JSON.parse(cellFor("rest-auth").wire.body ?? "")).toEqual(toolsCallArguments(cellFor("mcp-auth")));
   });
 
-  it("puts a token on every request to Apify, and on no other request", () => {
+  it("puts a token on every request to Apify, and on no other request, always masked", () => {
     for (const { wire } of COMPARE_CELLS) {
-      expect(wire.headers.Authorization !== undefined, wire.url).toBe(APIFY_HOSTS.includes(toHost(wire.url)));
+      const authorization = Object.entries(wire.headers).find(([name]) => name.toLowerCase() === "authorization")?.[1];
+      expect(authorization !== undefined, wire.url).toBe(APIFY_HOSTS.includes(toHost(wire.url)));
+      expect(authorization ?? "Bearer <APIFY_TOKEN>").toBe("Bearer <APIFY_TOKEN>");
     }
+  });
+
+  it("shows REST · with auth's request as the Apify client builds it: the build, time and cost in the URL", () => {
+    const { wire, tool } = cellFor("rest-auth");
+    expect(tool).toBe("gochujang--open-meteo-weather-forecast");
+    expect(wire).toEqual(
+      toActorRequest({
+        locations: [{ name: "Paris", latitude: 48.85, longitude: 2.35 }],
+        forecastDays: 2,
+        mode: "hourly",
+      }),
+    );
+    expect(wire.url).toBe(
+      "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items" +
+        "?build=1.0.9&timeout=18&maxTotalChargeUsd=0.01",
+    );
   });
 });

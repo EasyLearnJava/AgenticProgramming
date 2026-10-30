@@ -5,9 +5,10 @@
 import { type ChatRequest, parseChatRequest, toQuestion } from "@/lib/chat/chat-request";
 import { getChatModel } from "@/lib/chat/model";
 import { runChat } from "@/lib/chat/run-chat";
+import { config } from "@/lib/config";
 import { CHAT_API_PATH, VERCEL_ID_HEADER } from "@/lib/constants";
 import { AbortedError, type AppError, InputError, toAppError, toErrorResponse } from "@/lib/errors";
-import { openLane } from "@/lib/lanes/open-lane";
+import { openLane, toAvailableLaneIds } from "@/lib/lanes/open-lane";
 import { type Logger, logFailure, logger, toLaneFields } from "@/lib/logger";
 import { toRequestId } from "@/lib/utils";
 
@@ -50,7 +51,7 @@ export async function POST(request: Request): Promise<Response> {
     const body: unknown = await request.json().catch(() => {
       throw new InputError("its body isn't JSON.");
     });
-    const chatRequest = await parseChatRequest(body);
+    const chatRequest = await parseChatRequest(body, toAvailableLaneIds(config.apify.token));
     log = log.child({ chatId: chatRequest.chatId, ...toLaneFields(chatRequest.laneId) });
     logRequest(log, chatRequest);
     // ③ The model (ConfigError if GOOGLE_API_KEY isn't set), and the lane the user picked; an MCP lane connects to

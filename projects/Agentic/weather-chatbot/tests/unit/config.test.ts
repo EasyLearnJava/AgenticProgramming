@@ -63,6 +63,12 @@ describe("parseConfig", () => {
     expect(() => parseConfig({ LOG_LEVEL: "loud" })).toThrow();
   });
 
+  it("reads Apify's token when it's set, and counts an empty one as missing", () => {
+    expect(parseConfig({}).apify).toEqual({ token: undefined });
+    expect(parseConfig({ APIFY_TOKEN: "" }).apify).toEqual({ token: undefined });
+    expect(parseConfig({ APIFY_TOKEN: "test-token-not-real" }).apify).toEqual({ token: "test-token-not-real" });
+  });
+
   it("reads the bypass secret Vercel sets for Protection Bypass for Automation, when it's there", () => {
     expect(parseConfig({}).mcp).toEqual({ bypassSecret: undefined });
     expect(parseConfig({ VERCEL_AUTOMATION_BYPASS_SECRET: "test-secret" }).mcp).toEqual({

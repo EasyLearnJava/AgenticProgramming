@@ -89,6 +89,25 @@ export class ContractError extends AppError {
   override readonly isRetryable = false;
 }
 
+/** Apify didn't accept our token: a 401 or a 403. An auth lane falls back to its no-auth twin. */
+export class AuthError extends AppError {
+  override readonly name = "AuthError";
+  override readonly userMessage = "The weather service didn't accept our credentials.";
+  override readonly level = "error";
+  override readonly isRetryable = false;
+}
+
+/**
+ * Apify asked for payment though our token was sent (a 402): most likely, the account's monthly credit is used up.
+ * An auth lane falls back to its no-auth twin.
+ */
+export class BudgetExceededError extends AppError {
+  override readonly name = "BudgetExceededError";
+  override readonly userMessage = "The weather service's credit is used up for this month.";
+  override readonly level = "warn";
+  override readonly isRetryable = false;
+}
+
 /** The model didn't answer: Gemini timed out, answered with a 5xx, or a 429 when the free tier's quota is used up. */
 export class ModelError extends AppError {
   override readonly name = "ModelError";
@@ -215,7 +234,9 @@ function toStatus(error: AppError): number {
   return error instanceof ConfigError ? HTTP_UNAVAILABLE : HTTP_INTERNAL_ERROR;
 }
 
-/** A failure before the answer starts, as a plain sentence, marked as ours so the page shows it, with the request id. */
+/**
+ * A failure before the answer starts, as a plain sentence, marked as ours so the page shows it, with the request id.
+ */
 export function toErrorResponse(error: unknown, requestId: string): Response {
   const appError = toAppError(error);
   return new Response(toUserMessage(appError, requestId), {

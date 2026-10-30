@@ -109,7 +109,11 @@
       }
     },
     {
-      "includes": ["lib/upstream/open-meteo.ts"],
+      "includes": [
+        "lib/upstream/open-meteo.ts",
+        "lib/weather/actor-items.ts",
+        "tests/unit/weather/actor-items.test.ts"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -130,7 +134,8 @@
         "lib/types.ts",
         "lib/weather/open-meteo-tools.ts",
         "lib/lanes/rest-no-auth.ts",
-        "lib/lanes/mcp-no-auth.ts"
+        "lib/lanes/mcp-no-auth.ts",
+        "lib/lanes/rest-auth.ts"
       ],
       "linter": {
         "rules": {

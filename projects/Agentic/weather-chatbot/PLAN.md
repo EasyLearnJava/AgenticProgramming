@@ -1,7 +1,7 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
 > **Status:** 🚧 Being built, step by step (section 11): steps 1 to 5 are done, and each finished step has a page in
-> the app's documentation. Step 6 needs an Apify token, which you set. Live at
+> the app's documentation. Step 6 is built; its check on the live site, with the Apify token you set, is next. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
 > **Facts checked on 2026-10-29** by calling the real endpoints and reading the current docs and package files
@@ -122,7 +122,7 @@ Added later the same day:
 | 10 | The design | Read the image's pixels | The bot bubble is `#45C5A1` with white text: **2.15:1** contrast; WCAG AA asks for 4.5:1 | Keep the teal, make that text dark teal `#053B30` (5.82:1). Section 6 |
 | 11 | Current versions | npm registry; the packages' type files | `ai` 7.0.156 (AI SDK 7); `@ai-sdk/mcp` 2.0.86 with `createMCPClient`, an HTTP transport, an OAuth `authProvider`, retries and tool `schemas`; `next` 16.4.3, which runs TypeScript 7.0.2 through the `tsc` command line | Pin exact versions (7.3). Lint with Biome, which doesn't need TypeScript's JavaScript API (TypeScript 7 doesn't ship one yet) |
 | 12 | Your Open-Meteo REST example | Ran it as given, then with `timezone=auto` and `wind_speed_unit=mph` | `200` in 0.28 s, no key: it fits the no-auth pair. But as given, the answer is in GMT: "now" said 17:00 when it was 12:00 in Dallas, and the daily highs and lows were worked out on GMT days (3 November: 80.4 °F, against 75.4 °F on Dallas's own day). The wind came back in km/h next to °F | Every Open-Meteo call sends `timezone=auto` and matching units. Since both no-auth doors use the same function, the fix is made once |
-| 13 | Your Apify REST example | Called without a token and with an obviously fake one (nothing runs, nothing is charged); Apify's API docs | No token: `402 Payment Required`, with an x402 `payment-required` header asking for up to 1 USDC on Base ("PAYMENT-SIGNATURE header is required."). Fake token: `401`, `{"error":{"type":"user-or-token-not-found","message":"User was not found or authentication token is not valid"}}`. Docs: success is `201` with the Actor's items as a JSON array, so this door returns the forecast itself; a run over 300 s gets `408`; the query parameters `build`, `timeout` and `maxTotalChargeUsd` pin the build and cap the run's time and cost | It fits the auth pair: the same Actor and token as the MCP door. The same bad token looks different at each door (a JSON body here, a `WWW-Authenticate` header on MCP); both become one `AuthError` (9.2). We never pay a `402`: it means the token is missing |
+| 13 | Your Apify REST example | Called without a token and with an obviously fake one (nothing runs, nothing is charged); Apify's API docs | No token: `402 Payment Required`, with an x402 `payment-required` header asking for up to 1 USDC on Base ("PAYMENT-SIGNATURE header is required."). Fake token: `401`, `{"error":{"type":"user-or-token-not-found","message":"User was not found or authentication token is not valid"}}`. Docs: success is `201` with the Actor's items as a JSON array, so this door returns the forecast itself; a run over 300 s gets `408`; the query parameters `build`, `timeout` and `maxTotalChargeUsd` pin the build and cap the run's time and cost | It fits the auth pair: the same Actor and token as the MCP door. The same bad token looks different at each door (a JSON body here, a `WWW-Authenticate` header on MCP); both become one `AuthError` (9.2). We never pay a `402`: without a token it asks for payment, and the auth lanes don't run without one, so a `402` we get is read as the credit used up (9.2) |
 | 14 | A token check that runs nothing | `GET https://api.apify.com/v2/users/me` without a token, and with a fake one | `401` `token-not-provided`, and `401` `user-or-token-not-found`; a valid token gets the account's details (step 0 confirms) | The health check verifies the token for both auth lanes without starting a run (9.5) |
 | 15 | How Open-Meteo's geocoding reads a name (step 3) | Searched Paris, Springfield, "Springfield, MA", Atlantis, Narnia, Hogwarts and Mordor on 2026-10-29 | Results come by relevance, not population: Springfield gives Missouri (170,188), Illinois (114,394), then Massachusetts (154,341). A region after a comma narrows it: "Springfield, MA" and "Springfield, Massachusetts" give Massachusetts first; without the comma, nothing. `countryCode=US` changes nothing for Springfield (all five are in the US). **Atlantis is a real town** (Western Cape, South Africa, 82,736 people). Narnia's candidates have no population. Hogwarts and Mordor return no `results` key at all. A `+` in the query reads as a space | The ambiguity rule sorts by population itself, and treats an unknown largest population as ambiguous (7.6). The system prompt tells the model to put a region after a comma. The "can't find it" golden question uses Hogwarts, not Atlantis (section 10) |
 
@@ -513,8 +513,8 @@ The latest versions on npm on 2026-10-29. Step 1 pins them exactly and checks th
    which gets it through Deployment Protection on previews and past the WAF rate limit (9.4), and, from step 5, the
    request id (`x-request-id`), so both functions log the same id. Neither is MCP auth.
 9. **Within a pair, the model sees the same tools.** The no-auth pair shares one set of tool definitions (7.6); the
-   auth pair shares the Actor tool's name and schema. Switching doors changes how calls travel, never what the model
-   is asked to do.
+   auth pair shares the Actor tool's name and schema, plus our `units`, which both auth lanes strip before calling
+   Apify (7.6). Switching doors changes how calls travel, never what the model is asked to do.
 
 ### 7.5 The Chat Route, as a Sketch
 
@@ -620,11 +620,12 @@ ambiguous; "Paris" (2,138,551, then 24,782) isn't; nor is "Springfield, MA", who
 Massachusetts. A place the user narrows goes in as the query, with the region after a comma.
 
 **The auth pair's Actor tool,** `lib/weather/tools/open-meteo-actor.ts`, has Apify's name
-(`gochujang--open-meteo-weather-forecast`) and the Actor's input (`locations`, `forecastDays`, `mode`). `rest-auth`
-runs it through `lib/upstream/apify.ts`; for `mcp-auth`, the same schema is the pin that Apify's tool must match
-(7.4, rule 3). Both auth lanes map the Actor's items to our `Forecast` with one function,
-`lib/weather/actor-items.ts`, which also converts to imperial units when asked, since the Actor's input has no units
-option.
+(`gochujang--open-meteo-weather-forecast`) and the Actor's input (`locations`, `forecastDays`, `mode`), plus `units`:
+the model picks units on every lane, so both auth lanes take it, apply it to the items and strip it before calling
+Apify (step 6). `rest-auth` runs it through `lib/upstream/apify.ts`; for `mcp-auth`, the same schema, less `units`,
+is the pin that Apify's tool must match (7.4, rule 3). Both auth lanes map the Actor's items to our `Forecast` with
+one function, `lib/weather/actor-items.ts`, which also converts to imperial units when asked, since the Actor's input
+has no units option.
 
 **`lib/upstream/open-meteo.ts`** rounds coordinates to 2 decimals for the cache key, always sends `timezone=auto` and
 matching units, has a 3 s HTTP timeout with one retry (after a short random wait) on `5xx` or a network error, and
@@ -984,8 +985,8 @@ alert are decided once. "Its twin" is the no-auth lane behind the same door.
 | `UpstreamTimeoutError` | Open-Meteo or a lane past its budget; Apify's `408` (a run over 300 s) | the chip turns amber: "slow, retrying" (step 10; until then, the chip's sentence) | once | an auth lane: its twin; else the cache (step 10) | warn | over 5% of calls in 10 min |
 | `UpstreamRateLimitedError` | `429` from Open-Meteo or Apify | "The weather service is busy", plus cached data with its age (step 10) | after `Retry-After` | the cache (step 10) | warn | yes |
 | `UpstreamUnavailableError` | `5xx`, DNS, a dropped connection | as for a timeout | once | an auth lane: its twin; else the cache | warn | if it lasts 5 min |
-| `AuthError` | the token is rejected: `401` (MCP door: a `WWW-Authenticate` header; REST door: a `user-or-token-not-found` body) or `403`; or `402` from Apify's REST door, which means no token was sent | "MCP · with auth is unavailable: Apify didn't accept our token. Answered through MCP · no auth instead." (with the lane's own label) | no | its twin | error | on the first one |
-| `BudgetExceededError` | Apify's credit is gone | as `AuthError` | no | its twin | warn | yes |
+| `AuthError` | the token is rejected: `401` (MCP door: a `WWW-Authenticate` header; REST door: a `user-or-token-not-found` body) or `403`. Without a token, Apify's REST door answers `402`, but the auth lanes never run without one (`ConfigError`) | "MCP · with auth is unavailable: Apify didn't accept our token. Answered through MCP · no auth instead." (with the lane's own label) | no | its twin | error | on the first one |
+| `BudgetExceededError` | Apify's credit is gone: a `402` with our token (our reading, since Apify doesn't document that status; step 6) | as `AuthError` | no | its twin | warn | yes |
 | `ContractError` | a tool missing or renamed; output that fails its schema | as for an unavailable lane | no | an auth lane: its twin; else the cache | error | yes |
 | `ModelError` | Gemini times out or answers `5xx`, or `429` when the free tier's quota is used up | "The assistant didn't answer. Try again." with a button | 2 (AI SDK) | none for now: one model | error | if it lasts 5 min |
 | `BadToolCallError` | the model calls a tool that doesn't exist, or with input the tool doesn't take (added in step 5) | on the chip: "The assistant called a weather tool the wrong way." The model is told, and tries again | the model's next step | — | warn | no |
@@ -1009,9 +1010,9 @@ Starting values; steps 0, 3 and 4 measure the real times, and these are set from
 | The whole answer | 50 s; the function stops at 60 s | `timeout.totalMs`; `export const maxDuration = 60` |
 | Connecting to an MCP lane (the handshake and `tools/list`) | 3 s | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
 | A tool call on a no-auth lane, REST or MCP | 8 s: two tries of 3 s, with a short random wait between | `timeout.toolMs`, and `open-meteo.ts`'s own HTTP timeout |
-| A tool call on an auth lane, REST or MCP | 20 s | `timeout.tools`, per tool; the REST door also sends Apify `timeout=18`, so the run stops before we give up instead of running on without us |
+| A tool call on an auth lane, REST or MCP | 28 s: 20 s for the run, then 8 s for the fallback | `timeout.tools`, per tool, and the lane's own 20 s timer for the run (step 6); the REST door also sends Apify `timeout=18`, so the run stops before we give up instead of running on without us |
 | The model's first chunk | 10 s | `timeout.firstChunkMs` |
-| Time left to start a fallback | at least 12 s: the twin's 8 s, plus time to write the answer | the answer's start time, and `getDeadline()` for the function's own limit |
+| Time left to start a fallback | at least 12 s: the twin's 8 s, plus time to write the answer | the answer's 50 s, counted from when the lane opens, just before the answer starts (step 6); the function's own 60 s comes later |
 
 On the slowest path (geocoding, 20 s on an auth lane, then 8 s on its twin) the tools take at most 36 s of the 50. A
 fallback starts only if 12 s are left; otherwise the bot says the forecast took too long and offers to try again.
@@ -1168,9 +1169,13 @@ each adds one thing to the one before.
 6. [ ] **REST · auth:** `lib/upstream/apify.ts` (the run with `build`, `timeout` and `maxTotalChargeUsd`, and the token
    check), the Actor tool definition, `lib/weather/actor-items.ts`, and `lib/lanes/rest-auth.ts` with its fallback to
    `rest-no-auth`. **Done when:** a Dallas question runs the Actor through the REST door on preview, and with a fake
-   token the lane falls back to `REST · no auth` and logs the `401` body.
+   token the lane falls back to `REST · no auth` and logs the `401` body. *Built 29 October 2026 (`docs/step-6.md`).
+   The token is set for Production only, so the Dallas question runs on the live site, not on preview; the fake
+   token's fallback is checked by the tests, against Apify's real `401`. The token check that runs nothing comes with
+   the health check (step 9), its first user.*
 7. [ ] **MCP · auth:** `lib/lanes/mcp-auth.ts`: Apify's MCP server with the same token, the Actor's tool pinned to the
-   same schema, the same item mapping, the fallback to `mcp-no-auth`. **Done when:** the same Dallas question gives
+   same schema (less our `units`, which the lane strips before calling), the same item mapping, the fallback to
+   `mcp-no-auth`. **Done when:** the same Dallas question gives
    the same numbers as step 6, and the failure case in 5.5 plays out on preview through point 6 (the logs); the alert
    and the status dots come in step 9.
 8. [ ] **Protection:** BotID, the two WAF rules, the security headers. **Done when:** a script

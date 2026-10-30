@@ -458,6 +458,14 @@ body {
   color: var(--fail);
 }
 
+/* When an auth lane fell back: a line of its own, in the warning colour, under the chip's first line and its arrow. */
+.tool-chip-fallback {
+  flex-basis: 100%;
+  order: 1;
+  font-size: 0.8125rem;
+  color: var(--warn);
+}
+
 .tool-chip-note {
   margin: 0 0 6px;
   font-size: 0.8125rem;

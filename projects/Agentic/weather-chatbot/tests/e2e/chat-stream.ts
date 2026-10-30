@@ -1,6 +1,7 @@
 /*
  * tests/e2e/chat-stream.ts: an answer to the Paris question, as /api/chat streams it (AI SDK's UI message stream,
- * typed by AI SDK's own chunk type), with Open-Meteo's real numbers from 29 October 2026. The end-to-end tests answer
+ * typed by AI SDK's own chunk type), with Open-Meteo's real numbers from 29 October 2026: through REST · no auth,
+ * through MCP · no auth, and through REST · with auth when Apify didn't accept the token. The end-to-end tests answer
  * the page's /api/chat with it, so they test the page without calling a model.
  */
 import type { UIMessageChunk } from "ai";
@@ -179,6 +180,35 @@ const MARKDOWN_CHUNKS: UIMessageChunk[] = [
   { type: "finish", messageMetadata: METADATA },
 ];
 
+// The same answer through REST · with auth when Apify didn't accept the token: geocoding through this lane, then the
+// Actor's forecast tool, answered through REST · no auth, with the sentence its chip shows.
+export const FALLBACK_SENTENCE =
+  "REST · with auth is unavailable: Apify didn't accept our token. Answered through REST · no auth instead. " +
+  "(ref b1a0d9e8)";
+const ACTOR_INPUT = {
+  locations: [{ name: "Paris", latitude: 48.85341, longitude: 2.3488 }],
+  forecastDays: 2,
+  mode: "hourly",
+  units: "metric",
+};
+const AUTH_GEOCODE_OUTPUT: ToolResult<GeocodeResult> = {
+  ...GEOCODE_OUTPUT,
+  call: { ...GEOCODE_OUTPUT.call, laneId: "rest-auth" },
+};
+const FALLBACK_FORECAST_OUTPUT: ToolResult<Forecast> = {
+  ...FORECAST_OUTPUT,
+  fallback: { from: "rest-auth", sentence: FALLBACK_SENTENCE },
+};
+const FALLBACK_PARIS_CHUNKS: UIMessageChunk[] = PARIS_CHUNKS.map((chunk) => {
+  if (chunk.type === "tool-input-available" && chunk.toolCallId === "call-2") {
+    return { ...chunk, toolName: "gochujang--open-meteo-weather-forecast", input: ACTOR_INPUT };
+  }
+  if (chunk.type === "tool-output-available") {
+    return { ...chunk, output: chunk.toolCallId === "call-1" ? AUTH_GEOCODE_OUTPUT : FALLBACK_FORECAST_OUTPUT };
+  }
+  return chunk;
+});
+
 /** Chunks as an HTTP response body: one `data:` line per chunk, then `[DONE]`. */
 function toStreamBody(chunks: readonly UIMessageChunk[]): string {
   return `${chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("")}data: [DONE]\n\n`;
@@ -192,9 +222,11 @@ const MCP_PARIS_CHUNKS: UIMessageChunk[] = PARIS_CHUNKS.map((chunk) => {
   return { ...chunk, output: chunk.toolCallId === "call-1" ? MCP_GEOCODE_OUTPUT : MCP_FORECAST_OUTPUT };
 });
 
-/** The Paris answer (REST · no auth, then MCP · no auth), and an answer a time budget cut short, as /api/chat sends them. */
+/** The Paris answer (REST · no auth, MCP · no auth, REST · with auth falling back), and an answer a time budget cut
+ * short, as /api/chat sends them. */
 export const PARIS_STREAM_BODY = toStreamBody(PARIS_CHUNKS);
 export const MCP_PARIS_STREAM_BODY = toStreamBody(MCP_PARIS_CHUNKS);
+export const FALLBACK_PARIS_STREAM_BODY = toStreamBody(FALLBACK_PARIS_CHUNKS);
 export const CUT_SHORT_STREAM_BODY = toStreamBody(CUT_SHORT_CHUNKS);
 export const MARKDOWN_STREAM_BODY = toStreamBody(MARKDOWN_CHUNKS);
 
