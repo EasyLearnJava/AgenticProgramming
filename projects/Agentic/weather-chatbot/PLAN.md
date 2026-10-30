@@ -1,7 +1,7 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
-> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 4 are done, step 5 is built and waits for its
-> live check, and each finished step has a page in the app's documentation. Live at
+> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 5 are done, and each finished step has a page in
+> the app's documentation. Step 6 needs an Apify token, which you set. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
 > **Facts checked on 2026-10-29** by calling the real endpoints and reading the current docs and package files
@@ -1156,11 +1156,12 @@ each adds one thing to the one before.
    `tests/evals/mcp-server.eval.ts`) lists and calls the tools on the deployed URL, and the handshake and the hop have
    measured times. *Done 29 October 2026: from a laptop, connecting took 192 ms, the tool list 78 ms, a call about
    100 ms (`docs/step-4.md`).*
-5. [ ] **Errors and logs:** the error map, request ids (passed on to `/api/mcp`), pino with redaction and the `lane`,
+5. [x] **Errors and logs:** the error map, request ids (passed on to `/api/mcp`), pino with redaction and the `lane`,
    `transport` and `auth` fields, messages with the ref. **Done when:** a test triggers each class in 9.2 except
    `RateLimitedError` and `BotBlockedError` (step 8) and `AuthError` and `BudgetExceededError` (step 6, the first code
    that can raise them), and each shows the right message and log line. Sentry, planned here, needs an account and a
-   project key only you can create: it moves to step 9.
+   project key only you can create: it moves to step 9. *Done 29 October 2026: a live answer's lines, in both
+   functions, found in Vercel's logs under one request id (`docs/step-5.md`).*
 6. [ ] **REST · auth:** `lib/upstream/apify.ts` (the run with `build`, `timeout` and `maxTotalChargeUsd`, and the token
    check), the Actor tool definition, `lib/weather/actor-items.ts`, and `lib/lanes/rest-auth.ts` with its fallback to
    `rest-no-auth`. **Done when:** a Dallas question runs the Actor through the REST door on preview, and with a fake

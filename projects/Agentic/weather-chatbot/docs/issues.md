@@ -491,7 +491,7 @@ and on a 360-pixel phone screen.
 55. **pino's default stream could drop a function's last lines.** *Reading a package's code.* Without a destination,
     pino writes to stdout through sonic-boom without waiting, so a function that ends right after a line, as each answer
     does with `chat.done`, could stop before the line is out. **Fix:** `pino.destination({ dest: 1, sync: true })`.
-    **Check:** the live logs, after the deployment.
+    **Check:** the live logs: every line of a live answer reached Vercel's, `chat.done` included (29 October 2026).
 56. **Our MCP server's setup can't see the request.** *Reading a package's code.* mcp-handler builds a fresh MCP
     server for every request, but the setup function it calls isn't given the request, so it can't read the request
     id there. **Fix:** each tool reads it from the request the MCP SDK passes the tool (`ctx.http.req`). **Check:**
@@ -530,3 +530,8 @@ and on a 360-pixel phone screen.
     messages (`MAX_BATCH_SIZE` in `@modelcontextprotocol/server` 2.4.0), so one request could carry up to 100 tool
     calls. **Fix:** entry 45, step 4's page, the guard's comment and its test say so; the guard stays, since a
     per-request limit still counts those 100 calls as one.
+66. **Vercel showed the MCP server's lines twice.** *Deploying.* In Vercel's logs, each `mcp.call` and `upstream.http`
+    line of a live answer showed twice, under `/api/mcp` and under `/api/chat`, with the same time to the millisecond:
+    the chat request was still running when the MCP requests it made were served, and the log viewer filed each line
+    under both. **Fix:** none needed in the code: each line says which function wrote it (`route`), and on `/api/mcp`
+    its own `invocationId`; filter on `route` to see one function's lines.

@@ -139,6 +139,23 @@ npm run e2e
 Then, on the live site, ask a question and open Vercel's logs for the project (**Logs** in the project's dashboard):
 each line of that answer has the same `requestId`, in `/api/chat` and, on `MCP · no auth`, in `/api/mcp` too.
 
+## Checked on the live site
+
+On 29 October 2026, once this step was live as `0943c74` (and its CI run had passed):
+
+- **The request id, end to end.** An answer through `MCP · no auth` came back with `x-request-id:
+  cle1::jnxr9-1793313250023-c454c392268a`, Vercel's own id for the request, and both of its MCP calls carried the same
+  id to `/api/mcp`. A refused request (a body that isn't JSON) got its own id, and "That message can't be sent: its body
+  isn't JSON.", without a ref, since a refusal isn't an error.
+- **The lines, in Vercel's logs.** A search for that id found the answer's lines from both functions: `chat.request`,
+  `lane.connect` (1,107 ms: the first connection after the deployment), a `tool.call`, an `mcp.call` and an
+  `upstream.http` for each of the two tools, three `model.step` lines, and `chat.done`, the last line, written as the
+  function ended, so pino's synchronous stream kept it. The refused request's `chat.rejected` line was there too.
+  Vercel showed each `/api/mcp` line twice (issues log, entry 66).
+- **No step went backwards.** The golden questions passed on both lanes (11 of 11, with the MCP server's own check),
+  and the browser tests passed against the live site (44 of 44, once this laptop's network was back; the first run's
+  three failures were `ERR_INTERNET_DISCONNECTED`).
+
 ## What's next
 
 **Step 6:** `REST · with auth`: Apify's weather Actor through its REST API, with a token, and its fallback to

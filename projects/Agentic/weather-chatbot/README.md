@@ -1,8 +1,8 @@
 # Weather Chatbot (Nimbus)
 
-> **Status:** steps 1 to 4 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
-> through `REST · no auth`, and `MCP · no auth` through our own MCP server. Step 5, errors and logs, is built and
-> waits for its live check.
+> **Status:** steps 1 to 5 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
+> through `REST · no auth`, `MCP · no auth` through our own MCP server, and errors and logs. Step 6, `REST · with
+> auth`, needs an Apify token, which you set in Vercel.
 > Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings:
 > [Deploy it on Vercel](#deploy-it-on-vercel)).
 
