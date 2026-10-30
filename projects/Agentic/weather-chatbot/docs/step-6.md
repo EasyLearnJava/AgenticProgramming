@@ -194,6 +194,16 @@ On 29 October 2026, once this step was live as `7ad3904` (its CI run had passed)
   chip, with the ref `96b42d86`; the answer, from `REST · no auth`, was right. Bug story 12 tells the rest.
 - **Hourly mode.** Two hourly runs gave 24 and 48 items, one an hour, and no day's summary, for $0.005 each: the
   price is per place, whatever the days or mode, so the $0.01 cap can't cut a forecast short.
+- **After the fix, through the Actor.** Once `a6365c5` was live (its CI run had passed), the same Dallas question ran
+  the Actor with no fallback: its chip said `REST · with auth`, its wire view showed the `POST` to Apify with
+  `authorization: Bearer <APIFY_TOKEN>`, and the call took 3,642 ms. The answer gave Thursday's high of 80 °F and low
+  of 68 °F. An hourly question got its 48 hours in 4,498 ms, also with no fallback.
+- **One wrong answer, from the model.** Asked about "tomorrow afternoon" at 21:50 in Dallas, already 30 October in UTC,
+  the model evidently took tomorrow to be 31 October: it said the hours didn't reach that afternoon; they did.
+  `REST · no auth`'s answer had made the same slip earlier that evening, so it isn't this lane's. It's open in the
+  issues log (entry 87), with its fix.
+- **No step went backwards.** The browser tests passed against the live site, 48 of 48, with the token set: the
+  picker and the compare view showed `REST · with auth` as live.
 
 ## What's next
 

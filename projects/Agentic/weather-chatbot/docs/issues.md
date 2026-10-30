@@ -406,8 +406,9 @@ forecast of hours gets its own summary ("24 hours · 20 to 27 °C · rain up to 
 covers at most 3 days, like `get_forecast`'s hours. The tests read the Actor's real answers, saved whole
 (`tests/fixtures/apify/actor-dallas-daily.json` and `actor-dallas-hourly.json`), in place of the assumed one.
 
-**How we confirmed it.** The tests against the Actor's real answers, then the same questions on the live site (step
-6's page, Checked on the live site).
+**How we confirmed it.** The tests read the Actor's real answers. On the live site, once the fix was live
+(`a6365c5`), the same Dallas question ran through the Actor in 3.6 s with no fallback, its chip showing the `POST` to
+Apify with the token masked; an hourly question got its 48 hours in 4.5 s.
 
 **The lesson.** When a dependency's output isn't documented, read it in the shape you expect, refuse anything else
 loudly, and keep a fallback. Then the first real call costs a log line, not a wrong answer, and the line says exactly
@@ -737,3 +738,11 @@ what to fix.
     checked to follow one another. **Fix:** the lane passes the coordinates it sent, which the Actor echoes, and every
     item must be within 0.01° of them; the days must follow one another; "1 day", not "1 days". **Check:**
     `tests/unit/weather/actor-items.test.ts`.
+87. **"Tomorrow" by the UTC date (open).** *Deploying* (the live check). At 21:50 in Dallas, already 30 October in UTC,
+    the model evidently took "tomorrow afternoon" to be 31 October: it said the hours it had didn't reach that
+    afternoon; they did, since tomorrow there was the 30th. Earlier that evening, `REST · no auth`'s answer called the
+    30th "this afternoon". The system prompt gives the time now in UTC and says a forecast's first day is today in its
+    place, but the model doesn't always work out the place's own date. It predates step 6, and its fix touches every
+    lane's forecasts, so it's open. **Fix (planned):** each forecast says the time now in its place (for example
+    `"localNow": "2026-10-29T21:50"`), from the fetch time and the place's time zone, and the system prompt points the
+    model to it. **Check (planned):** a golden question asked when the place's date is behind UTC's.

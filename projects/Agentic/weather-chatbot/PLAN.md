@@ -1,7 +1,7 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
-> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 5 are done, and each finished step has a page in
-> the app's documentation. Step 6 is built and live with the Apify token you set; its last check is next. Live at
+> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 6 are done, and each finished step has a page in
+> the app's documentation. Step 6 runs with the Apify token you set. Issue 87 in the issues log is open. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
 > **Facts checked on 2026-10-29** by calling the real endpoints and reading the current docs and package files
@@ -1169,13 +1169,13 @@ each adds one thing to the one before.
    that can raise them), and each shows the right message and log line. Sentry, planned here, needs an account and a
    project key only you can create: it moves to step 9. *Done 29 October 2026: a live answer's lines, in both
    functions, found in Vercel's logs under one request id (`docs/step-5.md`).*
-6. [ ] **REST · auth:** `lib/upstream/apify.ts` (the run with `build`, `timeout` and `maxTotalChargeUsd`, and the token
+6. [x] **REST · auth:** `lib/upstream/apify.ts` (the run with `build`, `timeout` and `maxTotalChargeUsd`, and the token
    check), the Actor tool definition, `lib/weather/actor-items.ts`, and `lib/lanes/rest-auth.ts` with its fallback to
    `rest-no-auth`. **Done when:** a Dallas question runs the Actor through the REST door on preview, and with a fake
-   token the lane falls back to `REST · no auth` and logs the `401` body. *Built 29 October 2026 (`docs/step-6.md`).
-   The token is set for Production only, so the Dallas question runs on the live site, not on preview; the fake
-   token's fallback is checked by the tests, against Apify's real `401`. The token check that runs nothing comes with
-   the health check (step 9), its first user.*
+   token the lane falls back to `REST · no auth` and logs the `401` body. *Done 29 October 2026 (`docs/step-6.md`), on
+   the live site, since the token is set for Production only: the Dallas question ran the Actor in 3.6 s, once its first
+   run had shown the Actor's real answer (bug story 12). The fake token's fallback is checked by the tests, against
+   Apify's real `401`. The token check that runs nothing comes with the health check (step 9), its first user.*
 7. [ ] **MCP · auth:** `lib/lanes/mcp-auth.ts`: Apify's MCP server with the same token, the Actor's tool pinned to the
    same schema (less our `units`, which the lane strips before calling), the same item mapping, the fallback to
    `mcp-no-auth`. **Done when:** the same Dallas question gives

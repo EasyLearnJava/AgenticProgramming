@@ -1,10 +1,9 @@
 # Weather Chatbot (Nimbus)
 
-> **Status:** steps 1 to 5 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
-> through `REST · no auth`, `MCP · no auth` through our own MCP server, and errors and logs. Step 6, `REST · with
-> auth`, is built and live with the token: Apify's weather Actor, falling back to `REST · no auth`; its last check
-> is next. Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and
-> `REST · with auth` an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
+> **Status:** steps 1 to 6 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
+> through `REST · no auth`, `MCP · no auth` through our own MCP server, errors and logs, and `REST · with auth`
+> through Apify's weather Actor, with a token. Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your
+> Gemini key in Vercel's settings, and `REST · with auth` an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 
 Nimbus is a weather chatbot on Vercel. You ask about the weather in plain words and see every tool call it makes,
 through four lanes: REST or MCP, with or without auth. Today three are live: Gemini calls our four weather tools,
@@ -183,5 +182,6 @@ for example in Claude or Cursor:
 
 ## Next
 
-Step 6's check on the live site, with the token; then step 7 in [PLAN.md](PLAN.md): `MCP · with auth`: Apify's MCP
-server with the same token and Actor, and its fallback to `MCP · no auth`.
+The open issue in the issues log, entry 87: the model can read "tomorrow" by the UTC date. Then step 7 in
+[PLAN.md](PLAN.md): `MCP · with auth`: Apify's MCP server with the same token and Actor, and its fallback to
+`MCP · no auth`.
