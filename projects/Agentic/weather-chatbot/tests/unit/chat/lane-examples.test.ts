@@ -1,16 +1,29 @@
 /*
  * tests/unit/chat/lane-examples.test.ts: the compare view's examples keep the plan's rules: within a pair, the same
- * tool with the same input, only the door changing; a token to Apify and to no other host.
+ * tool with the same input, only the door changing; a token to Apify and to no other host. And the MCP doors' requests
+ * name AI SDK's client as its real requests do.
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { COMPARE_CELLS } from "@/lib/chat/lane-examples";
 import { LANE_IDS } from "@/lib/constants";
+import { AuthError } from "@/lib/errors";
 import type { CompareCell, LaneId } from "@/lib/types";
-import { toActorRequest } from "@/lib/upstream/apify";
+import { type ActorRunInput, toActorRequest } from "@/lib/upstream/apify";
+import { createApifyMcpClient } from "@/lib/upstream/apify-mcp";
 import { toForecastRequest } from "@/lib/upstream/open-meteo";
 import { toHost } from "@/lib/utils";
+import { createApifyMcp401Fetch } from "@/tests/stubs/apify-stand-ins";
+import { createTestLog } from "@/tests/stubs/log-stand-ins";
 
 const APIFY_HOSTS = ["api.apify.com", "mcp.apify.com"];
+// The Actor's input for the plan's Paris question, as the auth lanes send it.
+const PARIS_RUN: ActorRunInput = {
+  locations: [{ name: "Paris", latitude: 48.85, longitude: 2.35 }],
+  forecastDays: 2,
+  mode: "hourly",
+};
 
 /** The example for one lane. */
 function cellFor(laneId: LaneId): CompareCell {
@@ -69,16 +82,26 @@ describe("the lane examples", () => {
   it("shows REST · with auth's request as the Apify client builds it: the build, time and cost in the URL", () => {
     const { wire, tool } = cellFor("rest-auth");
     expect(tool).toBe("gochujang--open-meteo-weather-forecast");
-    expect(wire).toEqual(
-      toActorRequest({
-        locations: [{ name: "Paris", latitude: 48.85, longitude: 2.35 }],
-        forecastDays: 2,
-        mode: "hourly",
-      }),
-    );
+    expect(wire).toEqual(toActorRequest(PARIS_RUN));
     expect(wire.url).toBe(
       "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items" +
         "?build=1.0.9&timeout=18&maxTotalChargeUsd=0.01",
     );
+  });
+
+  it("names AI SDK's MCP client on both MCP doors as its real requests do, with the deployment's Node", async () => {
+    // AI SDK's own client, asking a stand-in that answers with Apify MCP's real 401: the user-agent it really sends.
+    const apify = createApifyMcp401Fetch();
+    const client = createApifyMcpClient({ token: "test-token-not-real", fetch: apify.fetch });
+    await expect(client.runActor(PARIS_RUN, { log: createTestLog().log })).rejects.toBeInstanceOf(AuthError);
+    const sent = new Headers(apify.inits[0]?.headers).get("user-agent");
+    // Node's part is the deployment's, which package.json pins by its major version ("22.x"); the tests' may differ.
+    const { engines }: { engines: { node: string } } = JSON.parse(
+      readFileSync(path.join(import.meta.dirname, "..", "..", "..", "package.json"), "utf8"),
+    );
+    const deployed = sent?.replace(/node\.js\/\d+/, `node.js/${engines.node.split(".")[0]}`);
+    for (const laneId of ["mcp-no-auth", "mcp-auth"] as const) {
+      expect(cellFor(laneId).wire.headers["user-agent"], laneId).toBe(deployed);
+    }
   });
 });

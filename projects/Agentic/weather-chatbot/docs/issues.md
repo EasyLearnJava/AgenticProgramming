@@ -485,7 +485,10 @@ renamed limit would vanish the same way (entry 94).
 
 **How we confirmed it.** `tests/unit/chat/lane-examples.test.ts` reads the REST request's URL and checks that the MCP
 request carries the same build, time and cost; `tests/unit/upstream/apify-mcp.test.ts` checks the message sent, and
-that a `call-actor` whose `callOptions` doesn't take `build` fails the pin.
+that a `call-actor` whose `callOptions` doesn't take `build` fails the pin. On the live site, on 30 October 2026,
+Apify Console showed `callOptions` reaching a run through the MCP door: an 18-second timeout, not the Actor's default
+300 s, and $0.01 at most, as on the REST door's run beside it. Its build was 1.0.9, but that is also the Actor's latest
+build, so the pin itself will only show on a run once a newer build is tagged latest.
 
 **The lesson.** "Can't" is a claim like any other: check it before you write it down. When one tool lacks an option,
 look at the server's other tools before you document the gap, and test twin doors against each other, so they can't
@@ -893,3 +896,24 @@ drift apart.
     connection to close, and the answer has been logged as failed since step 5; step 7's Apify client no longer loses
     a connection opened after an early close (entry 93). **Fix:** its own change, next, before step 8: close the lane
     once the answer's stream has ended, whichever way.
+97. **The compare view's MCP requests left out a header.** *Testing a real API* (step 7's live check). The chip's
+    recorded request to Apify's server matched the compare view's cell but for `user-agent: ai-sdk/2.0.86 node.js/22`,
+    which AI SDK's MCP client adds to every request: its own version, then Node's. The `MCP · no auth` cell had left
+    it out since step 4, and step 7's copied it. **Fix:** both MCP cells show it, from one constant. **Check:**
+    `tests/unit/chat/lane-examples.test.ts` holds both cells to the header AI SDK's real client sends, with Node's
+    version as `package.json` pins it for the deployment, so an upgrade can't leave it stale.
+98. **Apify's server can answer a run up to 5 s after it ends.** *Testing a real API* (the live check) *and reading
+    a package's code* (Apify's MCP server). On `MCP · with auth` the forecast took 10.5 s, against 3.6 s on
+    `REST · with auth`, for runs of 4 s and 3 s. When a run has succeeded but its dataset's count still reads 0, which
+    can lag by up to about 5 s, Apify's server reads the dataset again after 1, 3 and 5 s before it answers
+    (`src/tools/actors/actor_run_response.ts`). **Fix:** none in the code. At the live check's speeds (0.7 s to
+    connect, 5 to 6 s of `call-actor` around the run, 0.1 s for the items), the Actor call's 25 s only just hold an
+    18-second run and that wait, about 24 to 25 s; a slower start or handshake makes such a late run fall back, and
+    the chip says Apify took too long (entry 92). Runs have taken 2 to 4 s so far (step 6's 2 to 3 s, these 4 s and
+    3 s), far from the 18 s limit. Step 7's page and the plan give the measured times. **Check:** step 7's live
+    check, on its page.
+99. **The deploy check was stopped, and a local server was still running.** *Deploying* (step 7's live check). This
+    laptop ran low on memory, and the background deploy check was stopped before it saw step 7 live; and a
+    `next start` on port 3123 had been left running since the day before, entry 85's lesson not kept. Neither changed
+    a result. **Fix:** we stopped the server and ran the deploy check again, in the foreground: step 7 was live, and
+    its CI run had passed. **Check:** the live check ran on `f32d6c3`, the step's own commit.

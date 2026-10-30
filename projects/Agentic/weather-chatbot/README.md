@@ -1,10 +1,10 @@
 # Weather Chatbot (Nimbus)
 
-> **Status:** steps 1 to 6 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
-> through `REST · no auth`, `MCP · no auth` through our own MCP server, errors and logs, and `REST · with auth`
-> through Apify's weather Actor, with a token. Step 7, `MCP · with auth`, the same Actor through Apify's MCP server,
-> is built; its check on the live site is next. Live at https://weather-chatbot-hazel.vercel.app/ (the chat needs your
-> Gemini key in Vercel's settings, and the auth lanes an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
+> **Status:** steps 1 to 7 of the [plan](PLAN.md) are done: the project skeleton, the chat page, the live chat
+> through `REST · no auth`, `MCP · no auth` through our own MCP server, errors and logs, `REST · with auth` through
+> Apify's weather Actor, with a token, and `MCP · with auth`, the same Actor through Apify's MCP server. Live at
+> https://weather-chatbot-hazel.vercel.app/ (the chat needs your Gemini key in Vercel's settings, and the auth lanes
+> an Apify token: [Deploy it on Vercel](#deploy-it-on-vercel)).
 
 Nimbus is a weather chatbot on Vercel. You ask about the weather in plain words and see every tool call it makes,
 through four lanes: REST or MCP, with or without auth. Gemini calls our four weather tools, either directly
@@ -87,7 +87,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 111 files in 238ms. No fixes applied.
+Checked 111 files in 260ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -95,18 +95,18 @@ Generating route types...
 
 $ npm test
  Test Files  34 passed (34)
-      Tests  234 passed (234)
+      Tests  235 passed (235)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 30ms
+✓ Running next.config.ts took 142ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1034ms
+✓ Compiled successfully in 930ms
   Running TypeScript ...
-  Finished TypeScript in 420ms ...
+  Finished TypeScript in 466ms ...
   Collecting page data using 11 workers ...
   Generating static pages using 11 workers (0/16) ...
-✓ Generating static pages using 11 workers (16/16) in 1935ms
+✓ Generating static pages using 11 workers (16/16) in 1949ms
   Finalizing page optimization ...
 
 Route (app)
@@ -185,5 +185,5 @@ for example in Claude or Cursor:
 
 ## Next
 
-Step 7's check on the live site; then step 8 in [PLAN.md](PLAN.md): protection, with BotID, the rate limit and the
-security headers.
+Issue 96's fix: the lane closes once the answer's stream has ended (the issues log, entry 96). Then step 8 in
+[PLAN.md](PLAN.md): protection, with BotID, the rate limit and the security headers.

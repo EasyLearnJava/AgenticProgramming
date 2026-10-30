@@ -1,8 +1,7 @@
 # Weather Chatbot on Vercel, With REST and MCP · Plan
 
-> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 6 are done, and each finished step has a page in
-> the app's documentation. The auth lanes run with the Apify token you set; step 7 is built, and its live check is
-> next. Live at
+> **Status:** 🚧 Being built, step by step (section 11): steps 1 to 7 are done, and each finished step has a page in
+> the app's documentation. All four lanes are live; the auth lanes run with the Apify token you set. Live at
 > https://weather-chatbot-hazel.vercel.app/.
 >
 > **Facts checked on 2026-10-29** by calling the real endpoints and reading the current docs and package files
@@ -116,7 +115,7 @@ Added later the same day:
 | 3 | What the tools take | MCPBundles' bundle page; the Actor's input schema | MCPBundles: `weather_current`, `weather_forecast` (up to 16 days) and `weather_air_quality`, all by coordinates. The Actor: `locations` (each a `name`, `latitude` and `longitude`), `forecastDays` 1 to 16, `mode` daily or hourly; no units option | **Neither can find a place.** We add `geocode_location` (Open-Meteo's geocoding API, no key). Section 8 shows what goes wrong without it |
 | 4 | The Apify Actor | Apify's public API | Created 2026-09-02: 111 runs, 3 users, 0 reviews. Limited permissions, so it runs through MCP without an approval step. Defaults: 1 GB memory, 300 s timeout; current build 1.0.9. Pay per event since 2026-10-09: **$0.003 per start** (per GB of memory) **+ $0.002 per forecast**; it was $0.001 per start until then | About **$0.005 a forecast**, so $5 is about 1,000 forecasts a month (step 6's live runs confirm it: $0.005 a run, platform usage included, whatever its days or mode). A two-month-old Actor with one developer, whose price already went up once, is a dependency risk: pin it, contract-test it, keep a fallback |
 | 5 | Apify's free plan | apify.com/pricing | $5 of usage a month; unused credit doesn't roll over; when it runs out, "your access to Apify's services will be blocked until the beginning of the next monthly cycle." Pay-per-event charges draw on the same credit | Running out is a failure we must handle: both auth lanes go dark for the rest of the month |
-| 6 | How Apify's MCP server behaves | Apify's MCP docs and README | Selecting one Actor adds 4 helper tools (`get-dataset-items`, `get-key-value-store-record`, `get-actor-run`, `abort-actor-run`). The Actor's tool is named `gochujang--open-meteo-weather-forecast`. `call-actor` waits up to 45 s (30 s by default) and returns the run's status and storage ids. Limit: 30 requests a second per user. The docs don't say whether a selected Actor's own tool returns the data or only ids | Allowlist only what we use; give each call a time budget. **Spike first** (step 0): run it once and record the real output and time. *Step 7 read the server's source: a run's answer holds ids, from the Actor's own tool or `call-actor`, so a run is two messages, the second `get-dataset-items`; and only `call-actor` takes the run's build, timeout and charge cap (`callOptions`), so the lane runs the Actor through it* |
+| 6 | How Apify's MCP server behaves | Apify's MCP docs and README | Selecting one Actor adds 4 helper tools (`get-dataset-items`, `get-key-value-store-record`, `get-actor-run`, `abort-actor-run`). The Actor's tool is named `gochujang--open-meteo-weather-forecast`. `call-actor` waits up to 45 s (30 s by default) and returns the run's status and storage ids. Limit: 30 requests a second per user. The docs don't say whether a selected Actor's own tool returns the data or only ids | Allowlist only what we use; give each call a time budget. **Spike first** (step 0): run it once and record the real output and time. *Step 7 read the server's source: a run's answer holds ids, from the Actor's own tool or `call-actor`, so a run is two messages, the second `get-dataset-items`; and only `call-actor` takes the run's build, timeout and charge cap (`callOptions`), so the lane runs the Actor through it. Live, it answered a run about 5 s after the run ended: when a finished run's dataset still reads empty, it waits up to 5 s for its items to show (step 7's page)* |
 | 7 | Open-Meteo's terms | open-meteo.com/en/terms | Free API: non-commercial use only; under 600 calls a minute, 5,000 an hour, 10,000 a day, 300,000 a month; data under CC BY 4.0; "uninterrupted provision" not guaranteed | Credit Open-Meteo on screen; cache; ads or subscriptions would need the paid API. **All four lanes end at Open-Meteo** (the Actor calls it too), so when it's down, every lane is down |
 | 8 | Vercel's Hobby plan | Vercel docs | Functions: up to 300 s. Runtime logs: 1 hour (Pro: 1 day; 30 days with Observability Plus), at most 256 lines per request. Log drains: Pro and Enterprise only. Cron jobs: at most once a day. WAF: 3 custom rules, one of which may rate-limit (a 10 s to 10 min window, by IP or JA4); a bypass rule skips every rule after it. BotID Basic, Runtime Cache and Protection Bypass for Automation: all plans | On Hobby the app ships its own logs (9.1), an outside monitor calls the health check (9.5), and our own server-to-server calls carry the bypass secret (7.4, 9.4) |
 | 9 | The model (the repo uses Gemini's free tier) | Gemini API terms | Free tier: Google uses prompts and responses to improve its products, and human reviewers may read them; "Do not submit sensitive, confidential, or personal information". Serving users in the EEA, Switzerland or the UK needs the paid service | Fine for local runs; a public URL needs a paid path (decision 3). A user's location is personal data |
@@ -158,7 +157,7 @@ URL answering POSTs with JSON or a stream. AI SDK's `transport: { type: "http" }
 | Auth | None | None (the Vercel bypass header our calls carry isn't MCP auth: 7.4, rule 8) | `Authorization: Bearer` with `APIFY_TOKEN` | The same header and the same token |
 | Tools the model sees | `geocode_location`, `get_current_weather`, `get_forecast`, `get_air_quality`, defined in our code | The same four, found with `tools/list` | `geocode_location` and `gochujang--open-meteo-weather-forecast`, defined in our code to match Apify's | The same two, defined in our code: geocoding through our MCP server, and the Actor's tool, run through Apify's server |
 | The data comes from | Open-Meteo | Open-Meteo, through the same function | The Actor, which calls Open-Meteo | The same Actor |
-| Speed | 0.3 to 0.6 s a call (a laptop, three samples) | The same, plus the MCP handshake and hop (measured in step 4) | An Actor run per call (measured in step 0) | The same run, plus the MCP handshake and a second message for the items (step 7) |
+| Speed | 0.3 to 0.6 s a call (a laptop, three samples) | The same, plus the MCP handshake and hop (measured in step 4) | An Actor run per call: 3.6 s for Dallas, live (step 6) | The same run, plus the MCP handshake, a second message for the items, and up to 5 s that Apify's server may wait for them: 10.5 s for Dallas, live (step 7) |
 | Cost | Free (non-commercial) | Free | About $0.005 a forecast, from the free plan's $5 monthly credit | The same |
 | Falls back to | The cache | The cache | `rest-no-auth` | `mcp-no-auth` |
 
@@ -1019,7 +1018,7 @@ Starting values; steps 0, 3 and 4 measure the real times, and these are set from
 | The whole answer | 50 s; the function stops at 60 s | `timeout.totalMs`; `export const maxDuration = 60` |
 | Connecting to an MCP lane (the handshake and `tools/list`) | 3 s; to Apify's server, 5 s, on the first forecast, inside the Actor call's 25 s (step 7) | an abort signal around `createMCPClient`; REST lanes have nothing to connect |
 | A tool call on a no-auth lane, REST or MCP | 8 s: two tries of 3 s, with a short random wait between | `timeout.toolMs`, and `open-meteo.ts`'s own HTTP timeout |
-| A tool call on an auth lane | REST: 28 s, 20 s for the run, then 8 s for the fallback (step 6); MCP: 33 s, the run's 20 and 5 to connect, then the fallback's 8 (step 7) | `timeout.tools`, per tool, and the lane's own timer for the run, 20 s or 25 s; both doors send Apify an 18 s `timeout`, in the URL or in `call-actor`'s `callOptions`, so the run stops before we give up instead of running on without us |
+| A tool call on an auth lane | REST: 28 s, 20 s for the run, then 8 s for the fallback (step 6); MCP: 33 s, the run's 20 and 5 to connect, then the fallback's 8 (step 7); Apify's server may spend up to 5 s of the 25 after a run succeeds, waiting for its items to show, so a run that succeeds near its 18 s only just fits (step 7's live check) | `timeout.tools`, per tool, and the lane's own timer for the run, 20 s or 25 s; both doors send Apify an 18 s `timeout`, in the URL or in `call-actor`'s `callOptions`, so the run stops before we give up instead of running on without us |
 | Closing Apify's MCP session | 1 s | AI SDK ends the session with a `DELETE` that has no time limit of its own; the lane waits for it at most 1 s (step 7) |
 | The model's first chunk | 10 s | `timeout.firstChunkMs` |
 | Time left to start a fallback | at least 12 s: the twin's 8 s, plus time to write the answer | the answer's 50 s, counted from when the lane opens, just before the answer starts (step 6); the function's own 60 s comes later |
@@ -1147,7 +1146,11 @@ each adds one thing to the one before.
    questions in section 3 (rows 4, 6 and 14) are answered, and the auth lanes' budget in 9.3 has a measured number.
    *The REST door's half was answered by step 6's first live runs, on 29 October 2026 (`docs/step-6.md`): the Actor
    returns an item a day, or an hour, in °C; a run takes 2 to 3 s (1.2 s of it pulling the container) and costs
-   $0.005, whatever its days or mode. The MCP door's half waits for step 7.*
+   $0.005, whatever its days or mode. The MCP door's half was answered by step 7 (`docs/step-7.md`). Reading Apify's
+   MCP server's source as it was built: a run answers with its ids, so the items take a second message, and only
+   `call-actor` takes the run's limits. Its live check, on 30 October: the same run costs the same $0.005, and Apify's
+   server can answer it up to 5 s after it ends (5 s, live). The token check that runs nothing (row 14) comes with the
+   health check (step 9).*
 1. [x] **Scaffold** `projects/Agentic/weather-chatbot/` (a folder name without spaces keeps Vercel's Root Directory and
    shell commands simple) with the layout in 7.8: Next.js; TypeScript with the settings in 7.10 and the `@/` alias;
    Biome with the rules in 7.10; Vitest; exact versions (`.npmrc`); the README's first version; the left menu and the
@@ -1187,14 +1190,15 @@ each adds one thing to the one before.
    the live site, since the token is set for Production only: the Dallas question ran the Actor in 3.6 s, once its first
    run had shown the Actor's real answer (bug story 12). The fake token's fallback is checked by the tests, against
    Apify's real `401`. The token check that runs nothing comes with the health check (step 9), its first user.*
-7. [ ] **MCP · auth:** `lib/lanes/mcp-auth.ts`: Apify's MCP server with the same token, the Actor's tool pinned to the
+7. [x] **MCP · auth:** `lib/lanes/mcp-auth.ts`: Apify's MCP server with the same token, the Actor's tool pinned to the
    same schema (less our `units`, which the lane strips before calling), the same item mapping, the fallback to
    `mcp-no-auth`. **Done when:** the same Dallas question gives
    the same numbers as step 6, and the failure case in 5.5 plays out on preview through point 6 (the logs); the alert
-   and the status dots come in step 9. *Built 29 October 2026 (`docs/step-7.md`): a run's answer holds its ids, so
-   a forecast is two messages, `call-actor`, with the REST door's build, 18 s and $0.01, then `get-dataset-items`.
-   Previews have no token, so the failure case plays out in the tests, with Apify MCP's real `401`, until the `CHAOS`
-   setting (step 10).*
+   and the status dots come in step 9. *Done 30 October 2026 (`docs/step-7.md`), on the live site: the Dallas question
+   gave the same numbers as on `REST · with auth`. A run's answer holds its ids, so a forecast is two messages,
+   `call-actor`, with the REST door's build, 18 s and $0.01, then `get-dataset-items`; Apify Console showed the 18 s
+   and the $0.01 on the run, and build 1.0.9, which is also the Actor's latest. Previews have no token, so the failure
+   case plays out in the tests, with Apify MCP's real `401`, until the `CHAOS` setting (step 10).*
 8. [ ] **Protection:** BotID, the two WAF rules, the security headers. **Done when:** a script
    without BotID's token is refused, the 21st request in a minute gets `429`, the chat route's own calls to
    `/api/mcp` aren't limited, and the headers show on a response.

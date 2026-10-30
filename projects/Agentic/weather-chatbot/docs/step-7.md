@@ -55,7 +55,9 @@ forecast never pays for it, and a second forecast in the same answer reuses it. 
 `callOptions`, since Apify's server drops a key it doesn't know without a word (entry 94); the Actor's own tool,
 taking `locations`, `forecastDays` and `mode`; and `get-dataset-items`. Nothing is retried: a retried run would be a
 second, paid one. Connecting may take 5 s, so on this lane the Actor's call has 25 s, the run's 20 and those 5, where
-`REST · with auth` has 20 (entry 92).
+`REST · with auth` has 20 (entry 92). Apify's server can also wait up to 5 s after a run succeeds, for the run's
+dataset to show its items (entry 98). At the live check's speeds, an 18-second run and that wait would take about 24
+to 25 of those 25 s: they only just fit, and a slower start or handshake makes such a run fall back.
 
 ### The same limits as the REST door, through `call-actor`
 
@@ -111,7 +113,8 @@ tool, status and time; and, when it falls back, `lane.fallback`. No line holds t
   run still going, failed, or in another shape; error results; too many items; past the budget; Stop; closing, within
   its 1 s even when Apify never answers.
 - **The twin doors** (`tests/unit/chat/lane-examples.test.ts`): the auth pair's requests carry the same tool, Actor
-  input and limits, in the REST URL and in `call-actor`'s `callOptions`.
+  input and limits, in the REST URL and in `call-actor`'s `callOptions`; and, since the live check, both MCP doors'
+  requests carry the `user-agent` that AI SDK's real client sends, with the deployment's Node version (entry 97).
 - **The lane** (`tests/unit/lanes/mcp-auth.test.ts`): its two tools and 33 s; geocoding through our server, as this
   lane's call, with Apify not asked; a forecast through Apify's server; the fallback to our server's `get_forecast`
   when Apify rejects the token, with the chip's sentence and one `lane.fallback` line.
@@ -146,6 +149,37 @@ With `APIFY_TOKEN` set (step 6's page says how), ask on `MCP · with auth` about
 and open the forecast chip: its lane says `MCP · with auth`, and its wire view shows the `tools/call` to
 `mcp.apify.com`.
 
+## Checked on the live site
+
+On 30 October 2026, once this step was live as `f32d6c3` (its CI run had passed), asked in Dallas's time zone:
+
+- **The same numbers through both auth doors.** "What's the weather in Dallas for the next 3 days?" on
+  `MCP · with auth`: the forecast chip said `MCP · with auth` and "3 days · 66 to 81 °F · rain up to 22%", with no
+  fallback. On `REST · with auth`, right after, the same line; and the answers gave the same highs and lows, one
+  rounded to whole degrees: 75 and 68 °F on Friday, 77 and 66 on Saturday, 81 and 66 on Sunday.
+- **Apify ran it with our limits.** Apify Console showed the MCP run's origin as MCP, with an 18-second timeout, where
+  the Actor's own default is 300 s, and $0.01 at most: `call-actor`'s `callOptions` reached the run. Its build was
+  1.0.9 and its cost $0.005; the REST run showed the same, with the origin API. Build 1.0.9 is also the Actor's latest,
+  so the build pin itself will only show on a run once a newer build is tagged latest; the tests check that it's sent
+  (bug story 14).
+- **The request, as sent.** The chip's wire view showed `call-actor`'s `tools/call` to `mcp.apify.com`, the token and
+  the session's id masked: the Actor, Dallas rounded to about 1 km, `waitSecs: 18`, and `callOptions` with build
+  1.0.9, 18 s and $0.01. It matched the compare view's cell but for one header, `user-agent`
+  (`ai-sdk/2.0.86 node.js/22`), which AI SDK's client adds and the `MCP · no auth` cell had left out since step 4.
+  Both MCP cells show it now (entry 97).
+- **The log lines.** Vercel's logs for the request held `lane.connect` to our server (1,366 ms, 4 tools); the
+  geocoding through it (590 ms, seen from the chat); `lane.connect` with `host: "mcp.apify.com"` (670 ms, 6 tools:
+  `call-actor`, the Actor's own tool and four helpers); one `upstream.mcp` line for `call-actor` (9,724 ms) and one
+  for `get-dataset-items` (68 ms); the tool call, 10,473 ms; and `chat.done`, after 16,363 ms. No line held the token.
+- **The MCP door is slower, by Apify's own wait.** The forecast took 10.5 s here and 3.6 s on `REST · with auth`, for
+  runs of 4 s and 3 s. Connecting and reading the items took 0.7 s; `call-actor` answered about 5 s after its run had
+  ended. Apify's MCP server waits on purpose: when a run has succeeded but its dataset's count still reads 0, which
+  can lag by up to about 5 s, it reads the dataset again after 1, 3 and 5 s before it answers (its
+  `src/tools/actors/actor_run_response.ts`). Entry 98 says what that does to our 25 s.
+- **No step went backwards.** The browser tests passed against the live site, 48 of 48, with the token set: the
+  picker and the compare view showed both auth lanes as live.
+
 ## What's next
 
-**Step 8:** protection: BotID, the rate limit, and the security headers.
+**Issue 96's fix** first: the lane closes once the answer's stream has ended (issues log, entry 96). Then **step 8:**
+protection: BotID, the rate limit, and the security headers.

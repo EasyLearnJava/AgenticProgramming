@@ -37,6 +37,9 @@ const MCP_CLIENT_META = {
   "io.modelcontextprotocol/clientCapabilities": {},
   "io.modelcontextprotocol/clientInfo": { name: "ai-sdk-mcp-client", version: "1.0.0" },
 };
+// On both MCP doors, the client also names itself in a header: its version, then Node's (22 on Vercel, as package.json
+// pins it); the chips record it.
+const MCP_USER_AGENT = "ai-sdk/2.0.86 node.js/22";
 
 /**
  * A tools/call to Apify's MCP server, as AI SDK's MCP client sends it to a 2025 server: the token and the session's id
@@ -52,6 +55,7 @@ function toApifyToolsCall(tool: string, input: unknown): WireRequest {
       "content-type": "application/json",
       "mcp-protocol-version": "2025-11-25",
       "mcp-session-id": "<session id>",
+      "user-agent": MCP_USER_AGENT,
     },
     body: JSON.stringify({
       method: "tools/call",
@@ -76,6 +80,7 @@ function toOurToolsCall(tool: string, input: unknown): WireRequest {
       "mcp-method": "tools/call",
       "mcp-name": tool,
       "mcp-protocol-version": MCP_PROTOCOL_VERSION,
+      "user-agent": MCP_USER_AGENT,
       "x-request-id": "<this chat request's id>",
     },
     body: JSON.stringify({
