@@ -29,6 +29,16 @@ test("opens Issues and fixes from the menu: a section for each step", async ({ p
   await expect(page.getByRole("heading", { level: 2, name: /^Step 3 · / })).toBeVisible();
 });
 
+test("opens System design from the menu: the diagram, then each part against the reference", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "System design" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "System Design" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "System design" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("img", { name: "How Nimbus is built today, steps 1 to 5" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Compared with the reference" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "None for answers" })).toBeVisible();
+});
+
 test("answers an unknown address with the app's own 404 page", async ({ page }) => {
   const response = await page.goto("/docs/step-unknown");
   expect(response?.status()).toBe(404);
@@ -37,7 +47,7 @@ test("answers an unknown address with the app's own 404 page", async ({ page }) 
 });
 
 test("has no accessibility violations on a documentation page, or on the issues log", async ({ page }) => {
-  for (const address of ["/docs/step-5", "/issues"]) {
+  for (const address of ["/docs/step-5", "/system-design", "/issues"]) {
     await page.goto(address);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, address).toEqual([]);
@@ -45,7 +55,8 @@ test("has no accessibility violations on a documentation page, or on the issues 
 });
 
 test("fits a documentation page, tables included, on the screen without scrolling sideways", async ({ page }) => {
-  for (const address of ["/docs/step-1", "/docs/step-2", "/docs/step-3", "/docs/step-4", "/docs/step-5", "/issues"]) {
+  const addresses = ["/docs/step-1", "/docs/step-2", "/docs/step-3", "/docs/step-4", "/docs/step-5"];
+  for (const address of [...addresses, "/system-design", "/issues"]) {
     await page.goto(address);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, address).toBeLessThanOrEqual(0);

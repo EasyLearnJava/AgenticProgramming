@@ -48,8 +48,10 @@ export const DOC_PAGES: readonly DocEntry[] = [
   },
 ];
 
-// ② The issues log, docs/issues.md: the problems met in each step, and their fixes; it has its own menu link.
+// ② The issues log, docs/issues.md: the problems met in each step, and their fixes; and the system design,
+// docs/system-design.md: how the app is built, against a reference design. Each has its own menu link.
 export const ISSUES_SLUG = "issues";
+export const SYSTEM_DESIGN_SLUG = "system-design";
 
 /** Finds a documentation page by its slug. */
 export function findDoc(slug: string): DocEntry | undefined {

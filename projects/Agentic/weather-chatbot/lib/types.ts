@@ -156,3 +156,42 @@ export type ToolCallView = {
 
 /** One cell of the compare view: the same call, through one lane. */
 export type CompareCell = { lane: LaneInfo; tool: string; wire: WireRequest };
+
+// ⑥ The System design page's diagram: bands, parts, the lines between them, and a legend, in the drawing's units.
+
+/** One of the diagram's four bands, top to bottom. */
+export type DiagramBand = { letter: string; title: string; y: number; height: number };
+
+/** A part of the app: where it's drawn, its name, a few short lines about it, and its badge. */
+export type DiagramBox = {
+  band: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  title: string;
+  lines: readonly string[];
+  badge?: string;
+};
+
+/** How a line between parts reads: a request and its answer, our MCP hop, or a cache. */
+export type ArrowKind = "request" | "mcp" | "state";
+
+/** A line between parts, as an SVG path; a trunk that splits into branches has no arrowhead of its own. */
+export type DiagramArrow = { path: string; kind: ArrowKind; hasHead: boolean };
+
+/** Words on the drawing, outside the boxes: what a line carries. */
+export type DiagramLabel = { x: number; y: number; text: string };
+
+/** The whole diagram, with its title and a description for screen readers. */
+export type SystemDiagram = {
+  width: number;
+  height: number;
+  title: string;
+  description: string;
+  bands: readonly DiagramBand[];
+  boxes: readonly DiagramBox[];
+  arrows: readonly DiagramArrow[];
+  labels: readonly DiagramLabel[];
+  legend: { y: number; items: readonly { kind: ArrowKind; text: string }[]; note: string };
+};

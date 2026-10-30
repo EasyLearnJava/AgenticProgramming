@@ -651,7 +651,7 @@ weather-chatbot/
 ├── README.md                        started in step 1, finished in step 11, in project 01's shape
 ├── package.json                     exact versions; scripts: dev, build, lint, typecheck, test, e2e, evals
 ├── .npmrc                           save-exact=true, so every install pins an exact version
-├── .env.example                     the settings to copy into .env.local (names only, no values), like the other projects
+├── .env.example                     settings to copy into .env.local (names only, no values), like the other projects
 ├── tsconfig.json                    strict; the @/ import alias
 ├── biome.json                       formatting and lint rules (7.10)
 ├── vitest.config.ts                 unit and route tests
@@ -668,6 +668,7 @@ weather-chatbot/
 │   ├── docs/
 │   │   ├── page.tsx                 the documentation's first page: one link per finished step
 │   │   └── [slug]/page.tsx          one documentation page, rendered from docs/<slug>.md at build time
+│   ├── system-design/page.tsx       System design: the app against a reference design, from docs/system-design.md
 │   ├── issues/page.tsx              Issues and fixes: the problems met in each step, from docs/issues.md
 │   └── api/
 │       ├── chat/route.ts            POST: check, parse, then runChat()
@@ -675,8 +676,9 @@ weather-chatbot/
 │       ├── mcp/route.ts             mcp-no-auth's server: registerTools() mounted with mcp-handler
 │       └── health/route.ts          GET: checkLanes()
 ├── components/                      one React component per file; display only
-│   ├── side-menu.tsx                the left menu: Chat, Documentation, the running build
+│   ├── side-menu.tsx                the left menu: Chat, Documentation, System design, Issues and fixes, the build
 │   ├── markdown-doc.tsx             shows a Markdown document; raw HTML never rendered
+│   ├── system-design-diagram.tsx    the System design page's diagram, drawn as SVG from data the page passes in
 │   ├── answer-markdown.tsx          shows an answer's Markdown: no images, links in a new tab
 │   ├── chat-window.tsx              the chat card: useChat, the lane, the compare switch
 │   ├── chat-welcome.tsx             the first message, with questions to try
@@ -696,7 +698,7 @@ weather-chatbot/
 │   ├── types.ts                     shared types: LaneId, Place, Forecast, ToolStatus, ...
 │   ├── config.ts                    the only file that reads process.env; checked with Zod at start-up
 │   ├── errors.ts                    the error classes, toAppError(), the user messages (9.2)
-│   ├── logger.ts                    pino: one JSON line per event, redaction, the request id and lane fields (step 5); Axiom (9.1)
+│   ├── logger.ts                    pino: one JSON line per event, redaction, request id, lane fields (step 5); Axiom
 │   ├── chat/
 │   │   ├── chat-request.ts          the Zod schema for POST /api/chat, and parseChatRequest()
 │   │   ├── model.ts                 the model: Gemini through @ai-sdk/google; the one file to change it
@@ -729,12 +731,13 @@ weather-chatbot/
 │   │   └── wmo-codes.ts             WMO code to words and an icon
 │   ├── docs/
 │   │   ├── doc-list.ts              the documentation pages, one per finished step
-│   │   └── read-doc.ts              reads a page's Markdown from docs/
+│   │   ├── read-doc.ts              reads a page's Markdown from docs/
+│   │   └── system-design-diagram.ts the System design diagram, as data: its bands, parts and lines
 │   └── health/
 │       └── check-lanes.ts           the health check, per lane (9.5)
-├── docs/                            the in-app documentation: step-1.md, step-2.md, ... one per finished step; issues.md
+├── docs/                            the in-app docs: step-1.md, ... one per finished step; system-design.md; issues.md
 └── tests/
-    ├── stubs/                       stand-ins the unit tests need (server-only; Open-Meteo's fetch and the cache; our MCP server; the mock model's steps; a logger to read)
+    ├── stubs/                       stand-ins for the unit tests: server-only, Open-Meteo, MCP, the model, a logger
     ├── unit/                        one test file per lib file, at the same path: utils.test.ts, lanes/rest-auth.test.ts, ...
     ├── fixtures/                    recorded Open-Meteo and Apify answers
     ├── e2e/                         Playwright: the page, with /api/chat answered by a recorded stream

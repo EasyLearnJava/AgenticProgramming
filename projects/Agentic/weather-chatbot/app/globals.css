@@ -17,6 +17,7 @@
   --fail: #b91c1c;
   --line: rgb(5 59 48 / 12%);
   --code-bg: #f1f5f4;
+  --mcp: #6d28d9;
   --shadow: 0 20px 50px rgb(5 59 48 / 12%);
   --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
 }
@@ -757,6 +758,123 @@ body {
   color: var(--muted);
 }
 
+/* The System design page: wider, for its diagram, which scales to the page (pinch to zoom on a phone). */
+.doc-wide {
+  max-width: 1240px;
+}
+
+.sd-figure {
+  margin: 16px 0 24px;
+}
+
+.sd-figure figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sd-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sd-band {
+  fill: var(--bg-top);
+  stroke: var(--line);
+  stroke-width: 2;
+}
+
+.sd-band-letter,
+.sd-badge {
+  fill: var(--accent);
+}
+
+.sd-badge-ours {
+  fill: var(--mcp);
+}
+
+.sd-band-letter-text,
+.sd-badge-text {
+  fill: var(--card);
+  font-weight: 700;
+}
+
+.sd-band-letter-text {
+  font-size: 17px;
+}
+
+.sd-badge-text {
+  font-size: 12px;
+}
+
+.sd-band-title {
+  fill: var(--bot-text);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sd-box {
+  fill: var(--card);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.sd-box-ours {
+  stroke: var(--mcp);
+  stroke-width: 2;
+}
+
+.sd-box-title {
+  fill: var(--bot-text);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.sd-box-line,
+.sd-label,
+.sd-legend {
+  fill: var(--user-text);
+  font-size: 14px;
+}
+
+.sd-label {
+  font-size: 13px;
+  font-style: italic;
+}
+
+.sd-arrow {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.sd-arrow-request {
+  stroke: var(--accent);
+}
+
+.sd-arrow-mcp {
+  stroke: var(--mcp);
+}
+
+.sd-arrow-state {
+  stroke: var(--warn);
+  stroke-dasharray: 7 5;
+}
+
+.sd-head-request path {
+  fill: var(--accent);
+}
+
+.sd-head-mcp path {
+  fill: var(--mcp);
+}
+
+.sd-head-state path {
+  fill: var(--warn);
+}
+
 @media (max-width: 720px) {
   .shell {
     grid-template-columns: 1fr;
@@ -777,6 +895,7 @@ body {
 
   .side-menu-items {
     flex-direction: row;
+    flex-wrap: wrap;
   }
 
   .side-menu-build {

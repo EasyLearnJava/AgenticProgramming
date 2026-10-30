@@ -19,8 +19,11 @@ call.
 ## Documentation
 
 The app explains itself: open **Documentation** in its left menu, or read the same pages in [`docs/`](docs/). There's
-one page per build step: what it built, how it works, and how to check it. **Issues and fixes**, also in the menu
-([`docs/issues.md`](docs/issues.md)), logs every problem met while building and deploying it, and how it was fixed.
+one page per build step: what it built, how it works, and how to check it. **System design**, also in the menu
+([`docs/system-design.md`](docs/system-design.md)), draws how the app is built today, in the four bands of a common
+reference design for AI assistants, and sets each part against it. **Issues and fixes**
+([`docs/issues.md`](docs/issues.md)) logs every problem met while building and deploying it, and how it was fixed;
+it opens with the real bugs, each told as a story.
 
 ## Before you start
 
@@ -32,11 +35,11 @@ one page per build step: what it built, how it works, and how to check it. **Iss
 
 | Folder or file | What's in it |
 |---|---|
-| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the issues log (`issues/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
-| `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
+| `app/` | The pages: the chat (`page.tsx`), the documentation (`docs/`), the system design (`system-design/`), the issues log (`issues/`), the 404 page (`not-found.tsx`), the shell around them (`layout.tsx`), and every style (`globals.css`); the endpoints in `api/`: the chat (`chat/`), our MCP server (`mcp/`) and the nearby city (`nearby-city/`) |
+| `components/` | The React components: the left menu, the Markdown viewers (documentation, answers), the system design's diagram, and the chat's parts (the chat window, the welcome, the lane picker, a message, a tool chip, the weather card, the input, the compare view) |
 | `hooks/` | The React hook that asks for the nearby city |
-| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo (`upstream/`), the weather tools (`weather/`), and the documentation's list and reader (`docs/`) |
-| `docs/` | The documentation pages, one Markdown file per step, and the issues log (`issues.md`) |
+| `lib/` | The settings (`config.ts`, the only reader of environment variables), the shared types, constants and helpers (`types.ts`, `constants.ts`, `utils.ts`), the error map and the logger (`errors.ts`, `logger.ts`); the chat (`chat/`: the request's rules, the model, the system prompt, one chat turn), the lanes (`lanes/`), the calls to Open-Meteo (`upstream/`), the weather tools (`weather/`), and the documentation's list, reader and system design diagram (`docs/`) |
+| `docs/` | The documentation pages, one Markdown file per step, the system design (`system-design.md`) and the issues log (`issues.md`) |
 | `tests/` | The unit tests (`unit/`), Open-Meteo's recorded answers (`fixtures/`), the end-to-end tests in a real browser (`e2e/`), the golden questions (`evals/`), and stand-ins the unit tests need (`stubs/`) |
 | `PLAN.md` | The plan for the whole build |
 | Settings files | `package.json` (scripts, exact versions), `tsconfig.json`, `biome.json`, `vitest.config.ts`, `vitest.evals.config.ts`, `playwright.config.ts`, `next.config.ts`, `.env.example`, `.npmrc`, `.gitignore`, `.gitattributes` |
@@ -80,26 +83,26 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 94 files in 366ms. No fixes applied.
+Checked 98 files in 453ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
 ✓ Types generated successfully
 
 $ npm test
- Test Files  27 passed (27)
-      Tests  160 passed (160)
+ Test Files  28 passed (28)
+      Tests  164 passed (164)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 127ms
+✓ Running next.config.ts took 48ms
   Creating an optimized production build ...
-✓ Compiled successfully in 1647ms
+✓ Compiled successfully in 1370ms
   Running TypeScript ...
-  Finished TypeScript in 1027ms ...
-  Collecting page data using 10 workers ...
-  Generating static pages using 10 workers (0/13) ...
-✓ Generating static pages using 10 workers (13/13) in 2.7s
+  Finished TypeScript in 522ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/14) ...
+✓ Generating static pages using 11 workers (14/14) in 2.2s
   Finalizing page optimization ...
 
 Route (app)
@@ -114,14 +117,15 @@ Route (app)
 │ ├ ● /docs/step-2
 │ ├ ● /docs/step-3
 │ └ ● [+2 more paths]
-└ ○ /issues
+├ ○ /issues
+└ ○ /system-design
 
 ○  (Static)   prerendered as static content
 ●  (SSG)      prerendered as static HTML (uses generateStaticParams)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  44 passed (18.0s)
+  46 passed (17.8s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of

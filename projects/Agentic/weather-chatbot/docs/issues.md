@@ -535,3 +535,20 @@ and on a 360-pixel phone screen.
     the chat request was still running when the MCP requests it made were served, and the log viewer filed each line
     under both. **Fix:** none needed in the code: each line says which function wrote it (`route`), and on `/api/mcp`
     its own `invocationId`; filter on `route` to see one function's lines.
+
+## The System Design Page
+
+67. **The diagram's component reached into server code.** *Checking our work* (the code rules). Its first version
+    imported the diagram's data from `lib/docs/`, but the code layout lets a component import only the shared types,
+    constants and helpers; data from a server file comes in as props from the page (`PLAN.md`, 7.8). **Fix:** the
+    diagram's types live in `lib/types.ts`, and the page passes the data in.
+68. **Four menu links crowded a phone's menu bar.** *Checking our work* (a 360-pixel screenshot). With System design
+    added, "Issues and fixes" wrapped onto three lines. **Fix:** on a narrow screen, the links wrap to a second row
+    instead. **Check:** the end-to-end test that no page scrolls sideways, now on `/system-design` too.
+69. **The diagram said CI comes before the deployment.** *Review.* "push → CI → Vercel deploy" read as if CI had to
+    pass first, but Vercel deploys a push alongside CI, and a failing CI doesn't stop it: story 8's push was live
+    after 47 s, and its CI passed at 63 s. **Fix:** the diagram and the comparison say "side by side".
+70. **Smaller review findings.** Open-Meteo does see something of ours: the places asked about, though never who
+    asked; the question goes to Gemini as typed, as the note under the input box says; a second diagram marker in
+    `docs/system-design.md` would have dropped text silently, so the build now fails without exactly one; and the
+    diagram's file held four components, against one per file, so three are now plain drawing functions.

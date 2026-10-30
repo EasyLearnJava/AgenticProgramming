@@ -7,9 +7,13 @@ import remarkGfm from "remark-gfm";
 
 type MarkdownDocProps = { markdown: string };
 
-/** A link to another step's page is written for GitHub ("step-3.md"); in the app it goes to that page ("/docs/step-3"). */
+/**
+ * A link to another page is written for GitHub ("step-3.md", "issues.md"); in the app it goes to that page
+ * ("/docs/step-3", "/issues").
+ */
 function toAppUrl(url: string): string {
-  return defaultUrlTransform(url.replace(/^(step-\d+)\.md$/, "/docs/$1"));
+  const appUrl = url.replace(/^(step-\d+)\.md$/, "/docs/$1").replace(/^(issues|system-design)\.md$/, "/$1");
+  return defaultUrlTransform(appUrl);
 }
 
 /** Renders Markdown as HTML: headings, lists, tables, code; no raw HTML. */
