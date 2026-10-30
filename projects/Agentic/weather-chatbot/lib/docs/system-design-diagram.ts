@@ -8,14 +8,14 @@ import type { ArrowKind, DiagramArrow, DiagramBand, DiagramBox, DiagramLabel, Sy
 
 // ① The drawing's size, in its own units: the page scales it to fit.
 const DIAGRAM_WIDTH = 1400;
-const DIAGRAM_HEIGHT = 1200;
+const DIAGRAM_HEIGHT = 1220;
 
 // ② The four bands, as the reference has them.
 const DIAGRAM_BANDS: readonly DiagramBand[] = [
   { letter: "A", title: "Online request path", y: 10, height: 300 },
   { letter: "B", title: "Controlled execution", y: 320, height: 470 },
   { letter: "C", title: "State and data freshness", y: 800, height: 185 },
-  { letter: "D", title: "09 · Production operations", y: 995, height: 155 },
+  { letter: "D", title: "09 · Production operations", y: 995, height: 175 },
 ];
 
 // ③ The parts, band by band, left to right.
@@ -38,7 +38,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     height: 150,
     title: "Vercel's edge",
     badge: "02",
-    lines: ["HTTPS · routing", "its x-vercel-id is", "our request id", "no sign-in: it's public"],
+    lines: ["HTTPS · routing", "x-vercel-id: request id", "security headers", "BotID off · no sign-in"],
   },
   {
     band: "A",
@@ -95,7 +95,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     width: 370,
     height: 64,
     title: "Pages",
-    lines: ["/docs · /issues · /system-design: static"],
+    lines: ["docs · issues · interview · to do: static"],
   },
   // B: the tools behind each lane, and the model.
   {
@@ -250,16 +250,16 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     x: 30,
     y: 1055,
     width: 320,
-    height: 80,
+    height: 100,
     title: "Observability",
-    lines: ["pino lines → Vercel, Axiom", "errors → Sentry · one request id"],
+    lines: ["pino lines → Vercel's logs, Axiom", "errors, traces → Sentry: one id", "/api/health → the lanes' dots"],
   },
   {
     band: "D",
     x: 370,
     y: 1055,
     width: 320,
-    height: 80,
+    height: 100,
     title: "Evaluation",
     lines: ["golden questions, live, per lane", "unit, browser and a11y tests"],
   },
@@ -268,7 +268,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     x: 710,
     y: 1055,
     width: 320,
-    height: 80,
+    height: 100,
     title: "Reliability and scale",
     lines: ["Vercel Functions scale on demand", "budgets · retries · MCP guard"],
   },
@@ -277,7 +277,7 @@ const DIAGRAM_BOXES: readonly DiagramBox[] = [
     x: 1050,
     y: 1055,
     width: 320,
-    height: 80,
+    height: 100,
     title: "Release and recovery",
     lines: ["each push: CI, and a deploy", "side by side · roll back in Vercel"],
   },
@@ -330,18 +330,21 @@ const LEGEND_ITEMS: readonly { kind: ArrowKind; text: string }[] = [
 export const SYSTEM_DIAGRAM: SystemDiagram = {
   width: DIAGRAM_WIDTH,
   height: DIAGRAM_HEIGHT,
-  title: "How Nimbus is built today, steps 1 to 7",
+  title: "How Nimbus is built today, steps 1 to 9",
   description:
-    "Four bands. A: you ask in the chat page; Vercel's edge routes the request; the input rules check it; the chat " +
+    "Four bands. A: you ask in the chat page; Vercel's edge routes the request and sends the security headers (the " +
+    "bot check is off for now); the input rules check it; the chat " +
     "turn runs the model and streams your answer. B: the chat turn calls the tools through the lane you picked, REST " +
     "or MCP (through our own MCP server), and Gemini; the tools call Open-Meteo. On the auth lanes, the forecast " +
     "comes from Apify's Actor instead, with a token, through Apify's REST API or its MCP server, and falls back to " +
     "the no-auth lane behind the same door. C: the conversation stays in " +
     "your browser; settings are Vercel's environment variables; Open-Meteo's answers are cached; the docs are " +
-    "Markdown. D: logs with one request id, golden questions and tests, Vercel Functions, and deploys from each push.",
+    "Markdown. D: logs in Vercel's logs and Axiom, errors and traces in Sentry, all under one request id; a health " +
+    "check per lane, which the lane picker's dots show; golden questions and tests; Vercel Functions; and deploys " +
+    "from each push.",
   bands: DIAGRAM_BANDS,
   boxes: DIAGRAM_BOXES,
   arrows: DIAGRAM_ARROWS,
   labels: DIAGRAM_LABELS,
-  legend: { y: 1175, items: LEGEND_ITEMS, note: "01–09: the reference's parts · +: only in Nimbus" },
+  legend: { y: 1195, items: LEGEND_ITEMS, note: "01–09: the reference's parts · +: only in Nimbus" },
 };

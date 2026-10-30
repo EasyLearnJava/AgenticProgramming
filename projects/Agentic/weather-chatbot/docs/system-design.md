@@ -1,10 +1,10 @@
 # System Design
 
-How Nimbus is built today, after steps 1 to 7, drawn the way a common reference design for AI assistants draws an
-online shop's assistant: in four bands, from the request's path at the top to running it in production at the bottom.
-A number on a box is the reference's number for the part it plays (01 for the guardrails, 04 for the orchestrator,
-and so on); **+** marks a part only Nimbus has. Below the diagram, each band is described, then each part of the
-reference is set against what Nimbus has, or why it doesn't.
+How Nimbus is built today, after steps 1 to 9 (step 9's dashboards and alerts wait on your accounts), drawn the way a
+common reference design for AI assistants draws an online shop's assistant: in four bands, from the request's path at
+the top to running it in production at the bottom. A number on a box is the reference's number for the part it plays (01
+for the guardrails, 04 for the orchestrator, and so on); **+** marks a part only Nimbus has. Below the diagram, each
+band is described, then each part of the reference is set against what Nimbus has, or why it doesn't.
 
 <!-- the diagram -->
 
@@ -15,7 +15,8 @@ reference is set against what Nimbus has, or why it doesn't.
 1. **You**, in the chat page (Next.js and AI SDK's `useChat`), pick a lane and ask. The page sends your question, with
    the recent messages, your browser's locale and its time zone, to `POST /api/chat`.
 2. **Vercel's edge** serves HTTPS and routes the request to the chat function. Its id for the request, `x-vercel-id`,
-   becomes our request id. There's no sign-in: the weather is public.
+   becomes our request id. Every response carries the security headers (step 8); BotID's bot check is built but off
+   for now, since it refused real browsers (bug story 17). There's no sign-in: the weather is public.
 3. **01 · The input rules** (`lib/chat/chat-request.ts`) check the body before anything runs: at most 20 messages, each
    of yours at most 2,000 characters, the whole history at most 200,000, only the parts the page sends, a lane this
    deployment runs, a real language tag and time zone, a chat id of the kind the page makes. A broken rule gets its own
@@ -30,7 +31,9 @@ reference is set against what Nimbus has, or why it doesn't.
    the sentence ends with its ref.
 
 The same edge also serves **the nearby city** (`GET /api/nearby-city`: a city near you, from Vercel's location
-headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this one), which are static.
+headers, for one suggested question), **the health check** (`GET /api/health`, which the lane picker's status dots
+read) and **the pages** (the docs, the issues log, this one, the interview guide and the to-do list), which are
+static.
 
 ### B · Controlled execution
 
@@ -62,8 +65,8 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 - **The conversation** lives in your browser tab, in `useChat`. Each question sends the recent messages; no server
   keeps a chat.
 - **Settings and secrets** are Vercel's environment variables, and `lib/config.ts` is the only file that reads them.
-  The Gemini key and Apify's token are Secret variables (Vercel's "Sensitive" until lately), which can't be read
-  back from the dashboard.
+  The Gemini key, Apify's token, and Axiom's and Sentry's tokens are Secret variables (Vercel's "Sensitive"), which
+  can't be read back from the dashboard.
 - **Vercel's Runtime Cache** keeps Open-Meteo's answers by their exact request, for 30 days (places), 10 minutes (the
   weather now) and 30 minutes (forecasts and air quality). The no-auth lanes share it, and a chip says when it
   answered. Apify's runs are never cached: each one costs money.
@@ -88,7 +91,7 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 | The reference | Nimbus today | Why, or when |
 |---|---|---|
 | Shopper: web or mobile chat | You, in the chat page, on a computer or a phone | |
-| 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, a request id; Deployment Protection on previews | The weather is public, so there's no sign-in. A WAF rate limit and BotID come in step 8 |
+| 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, a request id; the security headers; Deployment Protection on previews | The weather is public, so there's no sign-in. BotID is built but off for now (bug story 17); the WAF rate limit waits on its rules (the To do page) |
 | 01 · Input guardrails: injection, PII, scope | The input rules (`lib/chat/chat-request.ts`) | No PII scrubbing: the question is never stored or logged, but it goes to Gemini as typed, as the note under the input box says |
 | 03 · Semantic cache: safe answers, by similarity | None for answers | The weather changes by the hour, so a cached answer would go stale. Open-Meteo's answers are cached instead, by their exact request (band C) |
 | 04 · Router and orchestrator: intent, step limits, time budgets | The chat turn: AI SDK's `streamText`, at most 5 steps, with time budgets | You choose the lane; the model chooses the tools |
@@ -102,9 +105,9 @@ headers, for one suggested question) and **the pages** (`/docs`, `/issues`, this
 | Knowledge ingestion, change events, index refresh | None | No documents to ingest; cached answers expire by themselves |
 | Session store | Your browser tab | No server keeps a chat |
 | Secure storage | Vercel's environment variables, the Gemini key and Apify's token Secret ones | Only `lib/config.ts` reads them; nothing secret reaches the browser |
-| 09 · Observability: traces, p95 latency, tokens, cost, alerts | Log lines with a request id across both functions, kept in Axiom; levels from the error map, tokens per step; errors in Sentry; a health check per lane, shown as the lane picker's dots; a trace per request | Dashboards and alerts in step 9; cost with the paid model (step 11) |
+| 09 · Observability: traces, p95 latency, tokens, cost, alerts | Log lines with a request id across both functions, kept in Axiom; levels from the error map, tokens per step; errors in Sentry; a health check per lane, shown as the lane picker's dots; a trace per request | Dashboards and alerts, written out on step 9's page, to set up in your accounts; cost with the paid model (step 11) |
 | 09 · Evaluation: golden set, safety tests, feedback | The golden questions on each lane, live; unit, browser and accessibility tests in CI | Failure tests and a lane-by-lane report in step 10 |
-| 09 · Reliability and scale: autoscaling, caps, queues, breakers | Vercel Functions, time budgets, retries, the MCP request guard | Rate limits in step 8, a load test in step 10. No queue: each answer is one request |
+| 09 · Reliability and scale: autoscaling, caps, queues, breakers | Vercel Functions, time budgets, retries, the MCP request guard | The rate limit waits on its firewall rules; a load test in step 10. No queue: each answer is one request |
 | 09 · Release and recovery: load tests, canary, rollback, backups | Each push runs CI and deploys, side by side; Vercel can roll back | CI doesn't gate the deployment, so a failure shows after it's live. A load test in step 10. No backups: Nimbus stores no data |
 
 ## What Nimbus has that the reference doesn't

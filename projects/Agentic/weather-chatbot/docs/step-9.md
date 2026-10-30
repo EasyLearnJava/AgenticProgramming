@@ -175,9 +175,108 @@ build's output lists it.
 The lines go to Axiom only when both its token and its dataset are set. The address is Axiom's US deployment, where
 this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` in `lib/constants.ts`.
 
+## Dashboards and alerts, ready to set up
+
+They live in your Axiom and Sentry accounts, so they're written out here, ready to paste. The Axiom queries run against
+the lines this step ships; the answer-time, cache and health ones were run on the live lines on 30 October.
+
+### An Axiom dashboard, `Nimbus`
+
+**Answers per lane:**
+
+```text
+['weather-chatbot']
+| where event == 'chat.done'
+| summarize count() by bin_auto(_time), lane
+```
+
+**Answer time, p50 and p95, per lane** (PLAN.md 9.6's target: no-auth lanes under 6 s at p95):
+
+```text
+['weather-chatbot']
+| where event == 'chat.done'
+| summarize p50 = percentile(ms, 50), p95 = percentile(ms, 95) by bin_auto(_time), lane
+```
+
+**How answers end** (an answer can write `chat.failed` more than once, so this counts requests):
+
+```text
+['weather-chatbot']
+| where event in ('chat.done', 'chat.failed', 'chat.aborted', 'budget.exceeded')
+| summarize answers = dcount(requestId) by bin_auto(_time), event
+```
+
+**Tool calls by status, and the fallbacks:**
+
+```text
+['weather-chatbot']
+| where event == 'tool.call' or event == 'lane.fallback'
+| summarize count() by bin_auto(_time), event, status
+```
+
+**The cache's hit rate, per lane:**
+
+```text
+['weather-chatbot']
+| where event == 'tool.call' and isnotempty(cache)
+| summarize calls = count(), hits = countif(cache == 'hit') by lane
+| extend hitRate = 100.0 * hits / calls
+```
+
+**Open-Meteo calls a day** (each try counts; its free limit is 10,000), **Apify runs a day, per door** ($0.005
+each), and **tokens a day** (every step's, whether its answer finished or not):
+
+```text
+['weather-chatbot']
+| where event == 'upstream.http' and upstream == 'open-meteo'
+| summarize calls = sum(attempts) by bin(_time, 1d)
+```
+
+```text
+['weather-chatbot']
+| where route == '/api/chat'
+| where (event == 'upstream.http' and upstream == 'apify') or (event == 'upstream.mcp' and tool == 'call-actor')
+| summarize runs = count() by bin(_time, 1d), lane
+```
+
+```text
+['weather-chatbot']
+| where event == 'model.step'
+| summarize sum(inputTokens), sum(outputTokens) by bin(_time, 1d)
+```
+
+**The live site's health,** by address, so a protected deployment's runs don't count (bug story 19):
+
+```text
+['weather-chatbot']
+| where event == 'health.done'
+| summarize runs = count(), down = countif(status == 'down') by origin
+```
+
+### Alerts, by email
+
+| Where | Alert | When |
+|---|---|---|
+| Axiom monitor | The live site down | `['weather-chatbot'] \| where event == 'health.done' and status == 'down' and origin == 'https://weather-chatbot-hazel.vercel.app' \| summarize count()` above 0, checked every 5 minutes; it needs the uptime monitor, or visitors, to call `/api/health` |
+| Axiom monitor | Answers slow | `['weather-chatbot'] \| where event == 'chat.done' and lane in ('rest-no-auth', 'mcp-no-auth') \| summarize answers = count(), p95 = percentile(ms, 95) \| where answers >= 5 \| summarize p95 = max(p95)` above 15,000 over 15 minutes, so one slow answer doesn't fire it: the target is 6 s, but Gemini's free tier has slow hours (bug story 18), so 6 s waits for the paid model (step 11) |
+| Axiom monitor | Open-Meteo near its limit | `['weather-chatbot'] \| where event == 'upstream.http' and upstream == 'open-meteo' \| summarize sum(attempts)` above 7,000 over a day, 70% of its free 10,000 |
+| Axiom monitor | Rate-limited | `['weather-chatbot'] \| where errorClass == 'UpstreamRateLimitedError' \| summarize count()` above 0 over 15 minutes: Open-Meteo limits by IP address too, and Vercel's are shared, so a `429` can come well before our own count says so |
+| Axiom monitor | Apify's credit gone | `['weather-chatbot'] \| where errorClass == 'BudgetExceededError' \| summarize count()` above 0 over 15 minutes: Apify answered `402` to our token, and the auth lanes fall back |
+| Axiom monitor | Fallbacks | `['weather-chatbot'] \| where event == 'lane.fallback' \| summarize count()` above 5 over 15 minutes |
+| Sentry | High-priority issues | Already chosen when the project was made: Sentry's default alert emails each high-priority issue. Sentry starts an error-level event high on the free plan; on a Business or trial plan it also weighs whether the error was handled, and ours all are, so add a rule that ignores priority there: "A new issue is created" or "A resolved issue regresses", then email. Check the rule is listed under Alerts |
+| Sentry | `Apify: AuthError` | A new issue alert: when "an event or issue activity is captured" whose `exception.type` equals `AuthError`, email (PLAN.md 5.5), at most once a day for an issue: each health run that meets a refused token sends two, one from each Apify check |
+| Uptime monitor | `/api/health` | UptimeRobot or Better Stack, on a free plan: `https://weather-chatbot-hazel.vercel.app/api/health` every 5 minutes, alerting on anything but `200` |
+
 ## Not in this step yet
 
-- **The rest of part 3:** dashboards and alerts, in Axiom and Sentry, and an outside uptime monitor.
+- **The rest of part 3, set up:** the dashboards and alerts above, and an outside uptime monitor, which need your
+  accounts (the To do page).
+- **Alerts that wait for real traffic to set their thresholds:** `UpstreamTimeoutError` over 5% of calls in 10
+  minutes, `UpstreamUnavailableError` lasting 5 minutes (the live site's health alert covers most of it), and
+  `BotBlockedError` spikes (BotID is off).
+- **Not measured yet:** the time to the first token (PLAN.md 9.6's target is 2.5 s, but nothing logs it); Apify's
+  credit at 80% (about 800 runs a month, of its $5); and the model's spend at 80%, which waits for the paid model
+  (step 11).
 - **A Sentry event from the live site.** Nothing on the live site fails at `error` on demand: the first event comes
   with the first real error, or with step 10's forced `AuthError` (`CHAOS`), which plays out the rest of PLAN.md 5.5.
 - **Previews:** the variables are set for Production only, so a preview's lines stay in Vercel's logs.
@@ -260,5 +359,5 @@ beside each lane.
 
 ## What's next
 
-The rest of part 3: dashboards and alerts, in Axiom and Sentry, and an uptime monitor calling `/api/health` every 5
-minutes, which needs an account of yours (the To do page).
+Setting up the dashboards, the alerts and the uptime monitor, above, in your accounts; then step 10: the evals, the
+failure tests and the load test.

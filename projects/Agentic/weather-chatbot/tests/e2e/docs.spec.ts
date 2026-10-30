@@ -54,7 +54,7 @@ test("opens System design from the menu: the diagram, then each part against the
   await page.getByRole("link", { name: "System design" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "System Design" })).toBeVisible();
   await expect(page.getByRole("link", { name: "System design" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("img", { name: "How Nimbus is built today, steps 1 to 7" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "How Nimbus is built today, steps 1 to 9" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Compared with the reference" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "None for answers" })).toBeVisible();
 });
