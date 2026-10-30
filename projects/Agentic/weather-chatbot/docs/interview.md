@@ -45,16 +45,29 @@ with its fix.
   with a browser test that fails on any report; input limits checked with Zod; read-only tools, Markdown without raw
   HTML or images, so a tool's output can't carry the chat away; and a bot check on the chat, built with a kill switch,
   and switched off for now (bug story 17).
-- **Tests that can fail.** 291 unit tests and 58 browser tests (with accessibility, a phone's width, and the policy's
+- **Tests that can fail.** 292 unit tests and 58 browser tests (with accessibility, a phone's width, and the policy's
   reports), golden questions asked of the live site, and CI on every push. Since step 7, new tests are checked by
   breaking the code they guard ("mutation checks"): each must fail without its fix.
 - **Process.** An independent reviewer reads every change before its commit (all but one emergency switch, read just
-  after); every deploy is checked on the live site; every problem goes in the issues log (133 entries), and the real
+  after); every deploy is checked on the live site; every problem goes in the issues log (136 entries), and the real
   bugs become stories.
 
 ## The stories to tell
 
 Each is a bug story in **Issues and fixes**; here is the short version, in the order an interview might want them.
+
+### The health check that blamed the live site (bug story 19)
+
+- **What happened:** as each deploy went out, something loaded the new deployment at its own, protected address, from
+  Vercel's `sfo1` region; its health check called our MCP server through that address, got Vercel's `401`, and said
+  the MCP lanes were down. The
+  route kept one result per copy of the function for a minute, whatever the address, so the live site's dots could
+  have shown those lanes as not answering for a minute after a deploy.
+- **How it was found:** within the hour, in the new logs: `health.done` said `down` at each deploy, from Vercel's
+  `sfo1` region, with the `401` as the failed check's cause.
+- **How it was fixed:** one result per address, and each health line names its origin, so an alert can watch the
+  live site alone.
+- **The lesson:** key a cache by everything its answer depends on; and read the logs right after a deploy.
 
 ### The slowness that crossed six services (bug story 18)
 
@@ -133,7 +146,7 @@ Each is a bug story in **Issues and fixes**; here is the short version, in the o
 | A cold start, with Sentry | on a laptop, about 2.4 s more on the first request (3.1 s with Sentry, 0.7 s without); on Vercel, a cold MCP connection took 4.2 s inside the chat with it, 1.1 to 1.8 s before step 9 |
 | The health check, live | four checks, each lane `ok`; our MCP server's cold connection 4.0 s; the CDN's kept answer 0.37 s |
 | Gemini's slow hour | steps of 3 to 27 s, against about 1 s or less; the same code an hour later answered in 2.4 to 3.9 s |
-| Tests | 291 unit, 58 browser, golden questions on the live site |
+| Tests | 292 unit, 58 browser, golden questions on the live site |
 
 ## Questions you may get
 

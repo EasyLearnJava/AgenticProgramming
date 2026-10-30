@@ -1079,12 +1079,12 @@ again.
 - **Health:** `GET /api/health` checks each lane's ways out, as cheaply as it can, running nothing that costs:
   Open-Meteo geocodes "London" with the cache skipped, so an outage shows; our MCP server connects and lists its tools;
   `GET https://api.apify.com/v2/users/me` with the token runs nothing; and Apify's MCP server connects and lists its
-  tools, checked against our pin, which runs nothing either. A lane works when every check its answers depend on
-  passes. (Built in step 9, `mcp-no-auth`'s check connects rather than geocoding through our server, which can't skip
-  its cache for one caller without letting any caller skip it.) `200` when every lane that's on works, `503` when one
-  doesn't; at most one run a minute per copy of the function, and a `200` kept a minute at Vercel's CDN. The four
-  status dots read it. Hobby's cron jobs run at most once a day, so a free
-  outside uptime monitor calls it every 5 minutes (on Pro, a Vercel cron can).
+  tools, checked against our pin, which runs nothing either. A lane works when every check its answers depend on passes.
+  (Built in step 9, `mcp-no-auth`'s check connects rather than geocoding through our server, which can't skip its cache
+  for one caller without letting any caller skip it.) `200` when every lane that's on works, `503` when one doesn't; at
+  most one run a minute per copy of the function and address, and a `200` kept a minute at Vercel's CDN. The four status
+  dots read it. Hobby's cron jobs run at most once a day, so a free outside uptime monitor calls it every 5 minutes (on
+  Pro, a Vercel cron can).
 - **Alerts** (email first, Slack later): every condition in the Alert column of the error map (9.2), plus: p95 over its
   target for 15 minutes; Open-Meteo calls at 70% of the daily limit; Apify credit at 80%; model spend at 80% of its
   budget.

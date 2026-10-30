@@ -94,7 +94,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 128 files in 544ms. No fixes applied.
+Checked 128 files in 454ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -102,22 +102,22 @@ Generating route types...
 
 $ npm test
  Test Files  40 passed (40)
-      Tests  291 passed (291)
+      Tests  292 passed (292)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 999ms
+✓ Running next.config.ts took 824ms
 - Experiments (use with caution):
   · clientTraceMetadata
   Creating an optimized production build ...
-✓ Compiled successfully in 8.7s
+✓ Compiled successfully in 3.9s
   Running next.config.js provided runAfterProductionCompile ...
-✓ Completed runAfterProductionCompile in 675ms
+✓ Completed runAfterProductionCompile in 689ms
   Running TypeScript ...
-  Finished TypeScript in 1353ms ...
+  Finished TypeScript in 1026ms ...
   Collecting page data using 14 workers ...
   Generating static pages using 14 workers (0/21) ...
-✓ Generating static pages using 14 workers (21/21) in 7.4s
+✓ Generating static pages using 14 workers (21/21) in 7.2s
   Finalizing page optimization ...
 
 Route (app)
@@ -143,7 +143,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  58 passed (33.5s)
+  58 passed (30.8s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of
@@ -211,7 +211,8 @@ header or address.
 `GET /api/health` says which lanes work, as JSON, without running anything that costs: it geocodes London on
 Open-Meteo (the cache skipped), connects to our MCP server, reads the account behind Apify's token, and connects to
 Apify's MCP server. It answers `200` when every lane that's on works and `503` when one doesn't, so an uptime monitor
-needs only the status code. Each copy of the function runs the checks at most once a minute, and Vercel's CDN keeps a
+needs only the status code. Each copy of the function runs the checks at most once a minute for each address it's
+asked on, and Vercel's CDN keeps a
 `200` for a minute, so an answer can be up to two minutes old.
 
 ```bash

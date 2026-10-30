@@ -1,8 +1,8 @@
 /*
  * app/api/health/route.ts: GET /api/health, the health check (step 9): what works, per lane, for the lane picker's
  * status dots and an outside uptime monitor. 200 when every lane that's on works, 503 when one doesn't. Each copy of
- * the function runs the checks at most once a minute, and Vercel's CDN keeps a 200 for a minute, so repeat requests
- * stop at the edge; a 503 is never kept. Its lines go to Axiom, and an error to Sentry.
+ * the function runs the checks at most once a minute for each address it's asked on, and Vercel's CDN keeps a 200 for
+ * a minute, so repeat requests stop at the edge; a 503 is never kept. Its lines go to Axiom, and an error to Sentry.
  */
 import { waitUntil } from "@vercel/functions";
 import { config } from "@/lib/config";
@@ -22,27 +22,32 @@ const HTTP_UNAVAILABLE = 503;
 const WORKING_CACHE_CONTROL = `public, max-age=0, s-maxage=${HEALTH_CDN_MAX_AGE_SECONDS}`;
 const DOWN_CACHE_CONTROL = "no-store";
 
-// This copy's latest run: the requests that come within a minute of its start get its result, waiting if need be.
-let latest: { startedAt: number; report: Promise<HealthReport> } | undefined;
+// This copy's latest run for each address: the requests to that address within a minute of the run's start get its
+// result, waiting if need be. One address's run never answers for another's: our MCP server, reached through a
+// deployment's own protected address, refuses the check (Vercel's 401) where the live site's works (bug story 19).
+// toSelfOrigin keeps to the deployment's own addresses: on Vercel, three at most.
+const latestByOrigin = new Map<string, { startedAt: number; report: Promise<HealthReport> }>();
 
-/** The latest run's result if it started less than a minute ago; else a new run, whose lines go out when it's done. */
+/** This address's latest result if its run started less than a minute ago; else a new run, sent out when it's done. */
 function toReport(request: Request): Promise<HealthReport> {
   const now = Date.now();
+  const origin = toSelfOrigin(request.url, config.deployment);
+  const latest = latestByOrigin.get(origin);
   if (latest !== undefined && now - latest.startedAt < HEALTH_RESULT_TTL_MS) {
     return latest.report;
   }
   const requestId = toRequestId(request.headers.get(VERCEL_ID_HEADER));
-  const log = logger.child({ requestId, route: HEALTH_API_PATH });
+  const log = logger.child({ requestId, route: HEALTH_API_PATH, origin });
   markTrace(requestId);
   const checks = createHealthChecks({
-    origin: toSelfOrigin(request.url, config.deployment),
+    origin,
     requestId,
     bypassSecret: config.mcp.bypassSecret,
     apifyToken: config.apify.token,
     log,
   });
   const report = checkLanes(checks, { log });
-  latest = { startedAt: now, report };
+  latestByOrigin.set(origin, { startedAt: now, report });
   waitUntil(report.then(flushLogs));
   return report;
 }

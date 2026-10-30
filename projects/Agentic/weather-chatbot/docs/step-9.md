@@ -52,6 +52,12 @@ cold, as in bug story 18. A second request came from Vercel's CDN in 0.37 s (`x-
 page, nothing mocked, showed all four lanes *working*, about 5 s after it opened, its `/api/health` answered afresh
 after the deploy (entry 129).
 
+Once the traces were live (`2ae5466`), a cold question's trace was found in Sentry by its ref, through both functions:
+AI SDK's spans for the model's three steps and the two tool calls, and every call out with its address cut at the query;
+no span held a `url.query`. The cold connection to our MCP server took 3,355 ms, within the 6 s (entry 134). Axiom's
+lines from those deploys showed a bug: a health check run through a new deployment's own, protected address said the MCP
+lanes were down, and its result could answer the live site's requests for a minute (bug story 19).
+
 ## How it works
 
 ### The lines, to Axiom
@@ -113,13 +119,16 @@ build's output lists it.
    Apify's MCP server, our MCP server (its geocoding) and Open-Meteo. Without Apify's token, the auth lanes are off.
 3. **`200` when every lane that's on works, `503` when one doesn't,** so an uptime monitor needs only the status code;
    the body names a failed check's class.
-4. **At most one run a minute, per copy of the function.** A run's result answers every request that reaches that copy
-   within a minute of the run's start, waiting for it if it's still going; Vercel may run several copies, each with
-   its own. And Vercel's CDN keeps a `200` for a minute, so repeat requests stop at the edge, before any function; a
-   `503` is never kept (entry 126). So an answer can be up to two minutes old.
-5. **Its lines** go to Axiom like any request's: one `health.check` a check, at its class's level when it fails, and
-   one `health.done`. A token Apify refuses is an `AuthError`, logged at error, so Sentry hears of it the first time a
-   visitor or the monitor asks, before any user picks an auth lane (PLAN.md 5.5).
+4. **At most one run a minute, per copy of the function and per address.** A run's result answers every request to
+   the same address that reaches that copy within a minute of the run's start, waiting for it if it's still going;
+   one address's result never answers for another's (bug story 19). Vercel may run several copies, each with its own.
+   And Vercel's CDN keeps a `200` for a minute, so repeat requests stop at the edge, before any function; a `503` is
+   never kept (entry 126). So an answer can be up to two minutes old.
+5. **Its lines** go to Axiom like any request's, each naming the address its checks went through (`origin`): one
+   `health.check`
+   a check, at its class's level when it fails, and one `health.done`. A token Apify refuses is an `AuthError`, logged
+   at error, so Sentry hears of it the first time a visitor or the monitor asks, before any user picks an auth lane
+   (PLAN.md 5.5).
 6. **Not quite the plan:** PLAN.md 9.5 had `mcp-no-auth` geocode London through our MCP server, with the cache
    skipped. Our server can't skip its cache for one caller without letting any caller skip it, so its check connects
    and reads the tool list, and Open-Meteo's own check stands for the geocoding.
@@ -193,7 +202,7 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
   token in its header only and the account's details unread; Apify's MCP server connected, its pin checked, closed,
   and no tool called.
 - **The health route** (`tests/unit/app/api/health/route.test.ts`): a `200` kept a minute at the CDN, a `503` never;
-  one run a minute; and its lines sent once the run is done.
+  one run a minute, for each address; and its lines sent once the run is done.
 - **The dots** (`tests/unit/utils.test.ts`, `tests/e2e/chat-page.spec.ts`): `toLaneHealths` reads each lane's
   health from the answer, a `503`'s too, and says unknown for anything it can't read; in the browser, a working lane's
   green dot and words, a lane not answering in red and still enabled, and an answer the page can't read leaving each
@@ -202,7 +211,7 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
   request traced; trace headers to our own `/api/mcp` and to nothing else we call; a span's query strings cut and
   `url.query` dropped, a question mark that starts no query left, the lifecycle that runs the cut pinned; the trace
   marked with the id and ref; and the chat's telemetry recording no input or output.
-- **Each new test can fail:** 20 changes that break the code a test guards in part 1, 16 in the health check, 5 in the
+- **Each new test can fail:** 20 changes that break the code a test guards in part 1, 17 in the health check, 5 in the
   dots and 9 in the traces, each caught by it.
 
 ## Files in this step
@@ -216,7 +225,7 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
 | `app/api/chat/route.ts`, `app/api/mcp/route.ts` | Each request's lines and errors sent at its end |
 | `lib/config.ts`, `lib/constants.ts` | The new settings; Axiom's address, the 2 s and the 1,000 lines; the health check's place, 8 s and minute |
 | `lib/health/check-lanes.ts` | The four checks, and each lane's status from the checks it depends on |
-| `app/api/health/route.ts` | `GET /api/health`: `200` (kept a minute at the CDN) or `503`; one run a minute per copy |
+| `app/api/health/route.ts` | `GET /api/health`: `200` (kept a minute at the CDN) or `503`; one run a minute per copy and address |
 | `lib/upstream/apify.ts`, `lib/upstream/apify-mcp.ts` | The token checks, which run nothing |
 | `hooks/use-lane-status.ts` | Asks `/api/health` for the dots: when the page opens, then every 5 minutes |
 | `components/lane-picker.tsx`, `components/chat-window.tsx` | Each lane's dot and words |

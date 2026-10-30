@@ -1,8 +1,8 @@
 /*
  * tests/unit/app/api/health/route.test.ts: GET /api/health: what works, per lane, as JSON: 200 when every lane that's
- * on works, kept a minute at the CDN; 503 when one doesn't, never kept; one run answers every request to this copy of
- * the function for a minute; its lines go out once the run is done. The checks are stand-ins, so nothing leaves the
- * machine.
+ * on works, kept a minute at the CDN; 503 when one doesn't, never kept; one run answers every request to the same
+ * address on this copy of the function for a minute; its lines go out once the run is done. The checks are stand-ins,
+ * so nothing leaves the machine.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LogLine } from "@/tests/stubs/log-stand-ins";
@@ -110,6 +110,23 @@ describe("GET /api/health", () => {
     now += 31_000;
     await get(healthGet());
     expect(scenario.runs).toBe(2);
+  });
+
+  it("keeps one result per address: a protected deployment's run never answers for the live site", async () => {
+    // Through the deployment's own, protected address, our MCP server refuses the check; through the live site's, not.
+    scenario.isOurMcpDown = true;
+    const protectedAnswer = await get(new Request("https://weather-chatbot-q2in2huab-silverado.vercel.app/api/health"));
+    expect(protectedAnswer.status).toBe(503);
+    scenario.isOurMcpDown = false;
+    const liveAnswer = await get(new Request("https://weather-chatbot-hazel.vercel.app/api/health"));
+    expect(liveAnswer.status).toBe(200);
+    expect(scenario.runs).toBe(2);
+    await get(new Request("https://weather-chatbot-hazel.vercel.app/api/health"));
+    expect(scenario.runs).toBe(2);
+    expect(lines.filter((line) => line.event === "health.done").map((line) => line.origin)).toEqual([
+      "https://weather-chatbot-q2in2huab-silverado.vercel.app",
+      "https://weather-chatbot-hazel.vercel.app",
+    ]);
   });
 
   it("sends its lines out once its run is done", async () => {

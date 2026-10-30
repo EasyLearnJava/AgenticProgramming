@@ -9,7 +9,7 @@ each told in full.
 
 ## Bug Stories: Found, Traced, Fixed, Verified
 
-Most entries in the log are small. These eighteen were real bugs or holes, the kind worth telling in an interview. Each
+Most entries in the log are small. These nineteen were real bugs or holes, the kind worth telling in an interview. Each
 story gives the request that went wrong, what we saw, why it happened, how we traced it, how we fixed it, and how we
 checked the fix, with the test that now keeps it fixed. The entry numbers point into the log below.
 
@@ -33,6 +33,7 @@ checked the fix, with the test that now keeps it fixed. The entry numbers point 
 | 16 | Stop that didn't stop | after 7 | the review, then the live site |
 | 17 | The bot check that blocked every user | 8 | the live site |
 | 18 | The first question after a cold start | 9 | the live site |
+| 19 | The health check that blamed the live site | 9 | the logs, after a deploy |
 
 ### 1. A bad tool call blamed the assistant
 
@@ -658,6 +659,37 @@ within the 6 s, where the 3 s would have failed it again (entry 122).
 **The lesson.** Time the cold start before and after adding an SDK: an observability tool can slow the app it watches.
 When a request crosses many services, cut its path into hops and time each one, compare cold with warm and the same code
 at another hour before blaming a change, and log every hop under one request id: that made the search one query.
+
+### 19. The health check that blamed the live site
+
+*Step 9 · found in the logs, after a deploy · entries 135 and 136*
+
+**The request.** Not a user's: as each deploy went out, something loaded the new deployment at its own address
+(`weather-chatbot-<hash>-silverado.vercel.app`), from Vercel's `sfo1` region; the page asked `/api/health`, as every
+page does.
+
+**What went wrong.** That run checked our MCP server through the same address, which Vercel's Deployment Protection
+guards, and got `401 Protected deployment`: the run said both MCP lanes were down. And the route kept one result per
+copy of the function for a minute, whatever the address it was asked on: a visitor to the live site, served by that
+copy within the minute, would have seen the MCP lanes *not answering*, though they worked.
+
+**Why it happened.** The result depends on the address our MCP server is checked through, and the route's memory
+didn't keep the address with it. A deployment's own address is protected; the live site's isn't; and the app's own
+calls carry no bypass secret, since the project's Protection Bypass for Automation isn't on.
+
+**How we noticed it.** Reading the new logs in Axiom after a deploy: two `health.done` lines said `down`, at 13:28 and
+13:49, each as a deploy went out, from `sfo1`, with `our-mcp` failed in 0.3 s and every other check fine. The failed
+check's cause held Vercel's `401` and the protected address.
+
+**How we fixed it.** One result per address: a run answers only requests to its own address, for a minute, and each
+health line names its origin, so an alert can watch the live site alone. The bypass secret for protected addresses is
+on the To do page.
+
+**How we confirmed it.** `tests/unit/app/api/health/route.test.ts`: a protected deployment's run and the live site's
+are two runs, and the live site's second request in the minute gets its own; it failed before the fix.
+
+**The lesson.** Key a cache by everything its answer depends on, the address included; and read the logs right after
+a deploy: the new ones showed this within the hour, where no test would have.
 
 ## While Planning
 
@@ -1302,3 +1334,22 @@ at another hour before blaming a change, and log every hop under one request id:
      like ours only in its `stream` lifecycle: the default, but Sentry also reads `SENTRY_TRACE_LIFECYCLE`, and set to
      `static`, it skips the callback silently, sending every span as it is. **Fix:** `traceLifecycle: "stream"`,
      pinned in `toSentryOptions`. **Check:** `tests/unit/sentry.test.ts`, which failed before the fix.
+134. **Part 3a, checked on the live site.** *Deploying* (`2ae5466`). A cold question on `MCP · no auth` (ref
+     `55a66b84`): Sentry's search for `ref:55a66b84` found its `POST /api/chat` span (20.81 s) and our MCP server's four
+     `POST /api/mcp` spans. The trace held AI SDK's `invoke_agent chat`, three `generate_content gemini-3.5-flash-lite`
+     and two `execute_tool` spans, and every call out with its address cut at the query: `GET
+     https://geocoding-api.open-meteo.com/v1/search`, `.../v1/forecast`, Gemini's `:streamGenerateContent`. No span held
+     a `url.query` (0 of 70). The cold connection to our MCP server took 3,355 ms with tracing on, within the 6 s.
+     **Check:** Sentry's Explore, Traces.
+135. **The health check's result answered for every address.** *Deploying* (reading the logs after `2ae5466`). Bug
+     story 19: a run through a deployment's own, protected address said the MCP lanes were down (Vercel's `401`), and
+     the route's one result a minute could answer the live site's requests with it. **Fix:** one result per address,
+     and each health line names its origin. **Check:** `tests/unit/app/api/health/route.test.ts`, which failed
+     before the fix.
+136. **The app's own calls through a protected address carry no bypass secret.** *Deploying* (bug story 19's cause).
+     The project's Protection Bypass for Automation isn't on, so `VERCEL_AUTOMATION_BYPASS_SECRET` isn't set, and our
+     MCP server, called through any deployment's own address (a preview's, or a production deployment's own or branch
+     URL), answers `401`: both MCP lanes and the health check's MCP check fail there; only the live site's address
+     isn't protected. **Fix, next:** turn it on in Vercel (the To do page); the code sends the secret from the next
+     deployment on, since Vercel sets the variable when it builds one, so redeploy after turning it on. **Check:** a
+     preview made after it's on: its `/api/health`.
