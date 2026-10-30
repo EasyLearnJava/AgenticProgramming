@@ -258,6 +258,53 @@ and the menu, every menu link inside the menu, and a deprecated page's diagram a
 The mutation check breaks one rule at a time, the way a bug would, and runs the unit tests: each change must fail
 one. Issue 4 tells the one that didn't, at first.
 
+## Deploy it
+
+Vercel deploys every push to `main`. Before this step's push, the project's Framework Preset was switched from
+Next.js, which Vercel had detected for the TypeScript version, to FastAPI, with no command overrides (Settings, Build
+and Deployment). The push then built and went live in 14 seconds. Its build log, without the times:
+
+```text
+Running "vercel build"
+Vercel CLI 65.4.0
+Using Python 3.13 from projects/Agentic/weather-chatbot/.python-version
+Using uv 0.13.5 (x86_64-unknown-linux-gnu)
+Creating virtual environment at "/vercel/path0/projects/Agentic/weather-chatbot/.vercel/python/.venv"...
+Installing required dependencies from uv.lock...
+Compiling Python bytecode...
+Build Completed in /vercel/output [7s]
+Deploying outputs...
+Deployment completed
+```
+
+The deployment is one function, `/fastapi`: Python 3.13, 8.4 MB, without the dev group (pytest, Playwright, mypy and
+Ruff aren't in it), in Washington, D.C. (`iad1`); and the CDN's two files, the stylesheet and the icon. Vercel read the
+lock with its own uv, 0.13.5, newer than the 0.9.18 that wrote it and that CI uses.
+
+Checked on the live site, https://weather-chatbot-hazel.vercel.app:
+
+- `/api/health` answered
+  `{"status":"ok","checkedAt":"2026-10-30T23:30:45.561Z","commit":"369e149","environment":"production"}`, with
+  `cache-control: no-store`, the security headers, and `x-request-id: cle1::nmzgg-1793403045507-1e71e313788a`:
+  Vercel's id for the request, as the function got it (the response's `x-vercel-id` adds the function's region:
+  `cle1::iad1::nmzgg-...`). `HEAD` answered 200, without a body.
+- Sent with its own `x-vercel-id: forged-id-123`, a request still got Vercel's id back: Vercel replaces the header, so
+  there the id is always Vercel's, and the app's check of it matters on a computer.
+- Each of the 21 pages answered 200, with the security headers and "Build 369e149 · production"; in Edge, at 1,280
+  and 360 pixels, none logged an error (so the policy refused nothing) or scrolled sideways.
+- `/static/app.css` and `/static/favicon.svg` came from the CDN with the same five headers, from `vercel.json`, and no
+  `x-request-id`: the app never saw them. The docs' pictures come from the function, with an id.
+- A missing page got the 404 page; a missing API address got `{"detail":"Not Found"}`, as JSON.
+- Searched for the request's id, Vercel's logs found its one line:
+
+```json
+{"method": "GET", "path": "/api/health", "status": 200, "ms": 1, "event": "http.request", "level": "info",
+ "ts": "2026-10-30T23:30:45.562565Z", "env": "production", "commit": "369e149",
+ "deploymentId": "dpl_85W8gAmSCsmU34mV5AG4dvfKjoKY", "requestId": "cle1::nmzgg-1793403045507-1e71e313788a"}
+```
+
+CI ran every check on the same push, and passed, in about two minutes.
+
 ## Things to take care of, and pitfalls
 
 - **FastAPI's own `/docs`.** FastAPI serves its API pages at `/docs` unless told not to; here that address is ours, so
@@ -284,6 +331,9 @@ one. Issue 4 tells the one that didn't, at first.
 - **On Windows, Git Bash rewrites arguments that start with `/`**, and a script run from another folder can't import
   the app (issue 6).
 - **On Vercel, a changed variable reaches only the next deployment.** Redeploy after changing one.
+- **Vercel keeps the framework it detected when the project was made.** A project that changes framework needs its
+  Framework Preset switched by hand, before the push: Vercel builds with the preset in the project's settings, not
+  with what the repository now holds.
 
 ## Issues we hit
 
@@ -306,6 +356,7 @@ one. Issue 4 tells the one that didn't, at first.
 17. Smaller review findings.
 18. A pulled `.env.local` would have made a computer look like Vercel: Vercel's own settings come from the real
     environment only.
+19. A build-log line copied wrong: copied again, from the page's own text.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 

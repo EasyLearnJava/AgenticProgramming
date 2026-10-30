@@ -20,24 +20,29 @@ working, and each with a chapter written while it's built. The first version's p
 | Tools | LangChain tools with Pydantic inputs; `httpx2` for the calls out, `tenacity` for retries |
 | MCP | The official `mcp` SDK (FastMCP) for our server; `langchain-mcp-adapters` for the MCP lanes |
 | Settings | pydantic-settings: one module reads the environment |
-| Database | Neon Postgres: the chats (LangGraph's checkpointer) and the weather cache (from step 6) |
+| State between requests | No database: each chat stays in the browser, sent back with every question (step 6); Open-Meteo's answers in Vercel's Runtime Cache, through the `vercel` package (step 7) |
 | Logs | structlog, JSON lines with a request id; Axiom (from step 12) |
 | Errors, traces | Sentry; LangSmith for the agent's runs (from step 4) |
 | Tests | pytest; Playwright for Python with axe; mutation checks |
 | Lint, types | Ruff; mypy in strict mode |
 | CI, hosting | GitHub Actions with uv; Vercel's Python runtime |
 
+Why no database: Vercel runs many copies of the app, which share no memory, so whatever must last from one request to
+the next lives outside them. The conversation lives in the visitor's browser, so nothing a visitor types is ever
+stored on our side; the weather lives in Vercel's Runtime Cache. A database would pay off with accounts, or with runs
+that pause for a person's approval (LangGraph's checkpoints); neither is planned.
+
 ## 2. The roadmap
 
 | Step | What it builds | What you do |
 |---|---|---|
-| 1 | The project: uv, FastAPI, Ruff, mypy, pytest, CI, the first deploy; the page shell in Jinja2; the docs, the deprecated ones included; security headers; JSON logs with a request id | Switch the Framework Preset to FastAPI; delete the three `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` variables |
+| 1 | The project: uv, FastAPI, Ruff, mypy, pytest, CI, the first deploy; the page shell in Jinja2; the docs, the deprecated ones included; security headers; JSON logs with a request id | Switch the Framework Preset to FastAPI (done); delete the three `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` variables |
 | 2 | The chat streams a fixed answer over server-sent events with HTMX; Stop; our own error sentences | |
 | 3 | Gemini through LangChain, streamed; the system prompt; the input rules | |
-| 4 | The four weather tools and a prebuilt agent: the REST · no auth lane; tool chips with the wire view; LangSmith | The LangSmith variables |
+| 4 | The four weather tools and a prebuilt agent: the REST · no auth lane; tool chips with the wire view; LangSmith | The LangSmith variables (done) |
 | 5 | The agent as our own LangGraph graph: step limit, last step without tools, time limits | |
-| 6 | Chat memory: Postgres checkpoints, a chat cookie, CSRF protection, New chat | Neon, from Vercel's Marketplace |
-| 7 | Caching Open-Meteo's answers in Postgres, with a key that can't collide or leak | |
+| 6 | Chat memory: the conversation kept in the browser and sent back with each question, as untrusted input: only the visitor's and Nimbus's text, checked and capped, never a tool result (the tools run again); New chat | |
+| 7 | Caching Open-Meteo's answers in Vercel's Runtime Cache, under our own namespace (on Hobby, a team's projects share one cache), with a key that can't collide or leak | |
 | 8 | Our MCP server, with FastMCP, at `/api/mcp` | |
 | 9 | The MCP · no auth lane, and the compare view | |
 | 10 | The auth lanes: Apify's Actor over REST and over Apify's MCP server, each falling back to its no-auth twin | |
@@ -49,9 +54,10 @@ working, and each with a chapter written while it's built. The first version's p
 
 Each step's chapter (`docs/step-N.md`) has the same sections, in this order: the step in a paragraph and one line; What
 you'll build; What you'll learn; Before you start; The design (a picture, and a table of decisions and why); Files; How
-it works (a section per file, citing the circled numbers in its code); Run it; Test it; Things to take care of, and
-pitfalls; Issues we hit; Interview questions; Things to try; What's next. Every output shown is from a real run. The
-Interview guide collects each chapter's questions word for word (a script copies them; a test checks they match).
+it works (a section per file, citing the circled numbers in its code); Run it; Test it; Deploy it (the build, and checks
+on the live site); Things to take care of, and pitfalls; Issues we hit; Interview questions; Things to try; What's next.
+Every output shown is from a real run. The Interview guide collects each chapter's questions word for word (a script
+copies them; a test checks they match).
 
 ## 4. Code standards
 

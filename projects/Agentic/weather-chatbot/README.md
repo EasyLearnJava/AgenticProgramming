@@ -12,11 +12,10 @@ agent calls the weather tools.)
 
 ## What you'll build
 
-Step by step: a FastAPI app with Nimbus's pages and docs (step 1); a chat that streams its answer with HTMX (2);
-answers from Gemini through LangChain (3); a LangGraph agent with four weather tools (4, 5); chats kept in Postgres
-(6) and a weather cache (7); our own MCP server (8) and a lane through it (9); two lanes through Apify, with
-fallbacks (10); then security (11), monitoring (12), and evals and the release (13). The full roadmap is in
-[PLAN.md](PLAN.md).
+Step by step: a FastAPI app with Nimbus's pages and docs (step 1); a chat that streams its answer with HTMX (2); answers
+from Gemini through LangChain (3); a LangGraph agent with four weather tools (4, 5); chat memory kept in the browser (6)
+and a weather cache (7); our own MCP server (8) and a lane through it (9); two lanes through Apify, with fallbacks (10);
+then security (11), monitoring (12), and evals and the release (13). The full roadmap is in [PLAN.md](PLAN.md).
 
 ## What you'll learn
 

@@ -98,7 +98,12 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 18. **A pulled `.env.local` would have made a computer look like Vercel.** *The review* (of issue 12's fix).
     `vercel env pull` copies Vercel's own variables into `.env.local`, `VERCEL="1"` and `VERCEL_ENV="development"`
     among them, and the settings read that file: with it, a computer's app took itself for Vercel's, mounted no
-    `/static`, and its pages had no stylesheet (the review reproduced it: `/static/app.css` answered 404). It would
-    have come at step 6, when Neon's address is pulled the same way. **Fix:** Vercel's own settings come only from the
-    real environment: a settings source drops them from the `.env` files' values (`WithoutVercelFields`). **Check:** a
-    unit test with such a file; the mutation check's "Vercel's own settings never come from a .env file".
+    `/static`, and its pages had no stylesheet (the review reproduced it: `/static/app.css` answered 404). Anyone who
+    pulled the project's variables, to run the app with them, would have met it. **Fix:** Vercel's own settings come
+    only from the real environment: a settings source drops them from the `.env` files' values
+    (`WithoutVercelFields`). **Check:** a unit test with such a file; the mutation check's "Vercel's own settings never
+    come from a .env file".
+19. **A build-log line copied wrong.** *The review.* The chapter's "Deploy it" showed Vercel's line
+    `Creating virtual environment at "...` without its closing quote and dots: it was copied from a browser tool's
+    outline of the page, which cut the line's end. **Fix:** the line copied again, from the page's own text.
+    **Check:** each line of the block compared with the build log's text.
