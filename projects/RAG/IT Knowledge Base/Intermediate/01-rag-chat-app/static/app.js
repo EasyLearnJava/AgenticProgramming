@@ -89,6 +89,7 @@ const STAGE_NAMES = {
   "pipeline.build": "Build the knowledge base",
   "ingestion.load": "Read the knowledge base file",
   "chunking.split": "Cut the articles into chunks",
+  "embeddings.load_vectors": "Read the saved vectors",
   "embeddings.embed_documents": "Turn every chunk into a vector",
   "vectordb.recreate": "Make a new, empty collection",
   "vectordb.upsert": "Store each chunk with its vector",
@@ -97,7 +98,11 @@ const STAGE_NAMES = {
 // What kind of work a stage is, from its layer; its colour on the page says the same, with this label beside it
 const KIND_LABELS = { model: "model call", store: "vector store", app: "the app's own work" };
 
+// Stages in a model's layer that call no model: reading the saved vectors reads a file
+const APP_STAGES = new Set(["embeddings.load_vectors"]);
+
 function stageKind(span) {
+  if (APP_STAGES.has(span)) return "app";
   const layer = span.split(".")[0];
   if (layer === "embeddings" || layer === "llm") return "model";
   if (layer === "vectordb") return "store";
@@ -119,6 +124,9 @@ function stageDetail(event) {
   }
   switch (event.span) {
     case "embeddings.embed_query": return `${f.model}`;
+    case "embeddings.load_vectors":
+      return f.used ? `${count(f.vectors, "vector")} from ${f.file}, saved ${f.saved_at}: no call to the model`
+        : `not used, so the chunks are embedded: ${f.reason}`;
     case "embeddings.embed_documents": return `${f.model}: ${count(f.texts, "text")}, in ${count(f.batches, "call")}`;
     case "vectordb.search": return `${f.collection}: ${count(f.hits, "chunk")} back, the best scoring ${f.top_score}`;
     case "vectordb.recreate": return `${f.collection}, for vectors of ${f.vector_size} numbers`;

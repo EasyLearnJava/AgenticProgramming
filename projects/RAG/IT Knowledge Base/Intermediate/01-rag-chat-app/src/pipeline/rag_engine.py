@@ -3,21 +3,25 @@ IT Knowledge Base: The RAG Engine
 =================================
 
 The whole pipeline as one object, wired from the parts it's handed: it never picks a provider itself (factory.py
-does). build() is the ingestion half, run once; query() and aquery() are the query half, run for each question. It
-handles:
-  1. Build: load the articles, split them into chunks, embed the chunks, store them in a new collection
-  2. Answer: find the closest chunks, fill in the prompt with them and the question, and ask the model
-  3. Sources: up to max_sources different articles among the chunks found, each with a snippet and its score
-  4. A span for the build and one for each question, around the spans of the parts inside it; the question, the
-     prompt and the answer at DEBUG, so a trace shows what the model was given and what it said
-  5. Readiness: built, and the store still holds every chunk
+does). build() is the ingestion half, run once per start; query() and aquery() are the query half, run for each
+question. It handles:
+  1. Build: load the articles, split them into chunks, take the chunks' vectors from the vector file when it holds
+     exactly theirs (else embed them), and store them in a new collection
+  2. Index: load, split and embed, then save the vectors in the vector file, for each later build to load
+  3. Answer: find the closest chunks, fill in the prompt with them and the question, and ask the model
+  4. Sources: up to max_sources different articles among the chunks found, each with a snippet and its score
+  5. A span for the build, the indexing and each question, around the spans of the parts inside it; the question,
+     the prompt and the answer at DEBUG, so a trace shows what the model was given and what it said
+  6. Readiness: built, and the store still holds every chunk
 
     question -> retriever (embed, search) -> chunks ──┐
     question ─────────────────────────────────────────┴─> prompt -> LLM client -> answer + sources
 
 Usage:
     engine = create_engine(settings, api_key)     # factory.py: the parts config.yaml names
-    engine.build()                                ->  read, chunk, embed and store (one call per 100 chunks)
+    engine.build()                                ->  read, chunk, embed (one call per 100 chunks; none when the
+                                                      vector file holds the chunks' vectors) and store
+    engine.index()                                ->  28: read, chunk, embed, save the vectors (python main.py index)
     engine.query(question)                        ->  QueryResult: the answer and its sources (two calls)
     await engine.aquery(question)                 ->  the same, for async code such as the API's routes
 """
@@ -30,7 +34,8 @@ from langchain_core.documents import Document
 
 from src.chunking.chunker import Chunker
 from src.embeddings.embedder import Embedder
-from src.exceptions import NotReadyError
+from src.embeddings.vector_file import VectorFile
+from src.exceptions import ConfigError, NotReadyError
 from src.llm.llm_client import LLMClient, LLMResponse
 from src.observability.tracing import NO_TRACE, current_trace_id, span
 from src.prompts.prompt_templates import ANSWER_PROMPT, PROMPT_VERSION, format_context
@@ -65,33 +70,51 @@ class RAGEngine:
     The RAG pipeline as one object.
 
     Step 1: Configure: the constructor stores the parts; nothing is read and no call is made
-    Step 2: Build: build() loads, splits, embeds and stores the articles
+    Step 2: Build: build() loads and splits the articles, loads or embeds the chunks' vectors, and stores them; or
+            index() embeds them and saves their vectors, for each later build to load
     Step 3: Answer: query() or aquery() answers one question with its sources
     """
 
     def __init__(self, *, loader: BaseLoader, chunker: Chunker, embedder: Embedder, store: BaseVectorStore,
-                 retriever: KBRetriever, llm: LLMClient, max_sources: int, snippet_length: int):
+                 retriever: KBRetriever, llm: LLMClient, max_sources: int, snippet_length: int,
+                 vector_file: VectorFile | None = None):
         self.loader, self.chunker, self.embedder, self.store = loader, chunker, embedder, store
         self.retriever, self.llm = retriever, llm
         self.max_sources, self.snippet_length = max_sources, snippet_length
+        self.vector_file = vector_file              # None: no saved vectors, so every build embeds the chunks
         self.documents: list[Document] = []
         self.chunks: list[Document] = []
         self.built_at: datetime | None = None
         self.build_trace_id: str | None = None      # the build's trace: the page shows how the knowledge base was built
 
     def build(self) -> None:
-        """Load and split the articles, embed the chunks and store them in a new collection. Raises AppError."""
+        """Load and split the articles; take the chunks' vectors from the vector file when it holds exactly theirs, or
+        else embed them; store them in a new collection. Raises AppError."""
         with span("pipeline.build") as fields:
-            documents = self.loader.load()
-            chunks = self.chunker.split(documents)
-            vectors = self.embedder.embed_documents([chunk.page_content for chunk in chunks])
-            # Embedded before the old collection is deleted: a failed call leaves the old chunks searchable
+            documents, chunks = self._load_and_split()
+            texts = [chunk.page_content for chunk in chunks]
+            saved = self.vector_file.load(texts) if self.vector_file else None
+            vectors = saved if saved is not None else self.embedder.embed_documents(texts)
+            # The vectors are in hand before the old collection goes: a failed call leaves the old chunks searchable
             self.store.recreate(self.embedder.dimensions)
             self.store.upsert(chunks, vectors)
             self.documents, self.chunks = documents, chunks
             self.built_at = datetime.now(UTC)
             self.build_trace_id = None if current_trace_id() == NO_TRACE else current_trace_id()
+            fields.update(documents=len(documents), chunks=len(chunks),
+                          vectors_from="file" if saved is not None else "model")
+
+    def index(self) -> int:
+        """Load and split the articles, embed the chunks, and save their vectors in the vector file, for each later
+        build to load (python main.py index). Returns how many were saved. Raises AppError."""
+        if self.vector_file is None:
+            raise ConfigError("embeddings.vector_file in config.yaml is null: there's no file to save the vectors in")
+        with span("pipeline.index") as fields:
+            documents, chunks = self._load_and_split()
+            texts = [chunk.page_content for chunk in chunks]
+            self.vector_file.save(texts, self.embedder.embed_documents(texts))
             fields.update(documents=len(documents), chunks=len(chunks))
+            return len(chunks)
 
     def query(self, question: str) -> QueryResult:
         """Answer one question with its sources. Raises NotReadyError before build(), or the parts' AppErrors."""
@@ -131,6 +154,11 @@ class RAGEngine:
     def _require_built(self) -> None:
         if self.built_at is None:
             raise NotReadyError("The engine isn't built yet: build() must run first")
+
+    def _load_and_split(self) -> tuple[list[Document], list[Document]]:
+        """The articles and their chunks: one way for build() and index(), so saved vectors are for the same chunks."""
+        documents = self.loader.load()
+        return documents, self.chunker.split(documents)
 
     @staticmethod
     def _messages(found: list[Document], question: str) -> list:

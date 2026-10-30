@@ -10,7 +10,7 @@ with **FastAPI**, **LangChain**, **Gemini** (`gemini-embedding-001` and `gemini-
 memory), **Pydantic** and Python's `logging`.
 
 > **Needs:** Python 3.11 or newer, a Gemini API key, and a web browser. Starting it makes 1 call to Gemini (the 28
-> chunks, embedded in one batch); each question makes 2.
+> chunks, embedded in one batch), or none once `python main.py index` has saved their vectors; each question makes 2.
 
 ---
 
@@ -39,6 +39,9 @@ memory), **Pydantic** and Python's `logging`.
   the start with one line naming the problem, never a traceback
 - **Bounds every outside call**: each call to Gemini has a 30-second timeout and up to 3 attempts; each question
   the API answers has a 60-second deadline, or a 504
+- **Embeds the knowledge base once, not at every start**: `python main.py index` saves the chunks' vectors in
+  `data/vectors.json`, and each start loads them, with no call to Gemini, when every one of its chunks has one from
+  the same model; otherwise it embeds the chunks, and the log says why. On Vercel, each deployment's build runs it
 - **Checks what comes in**: `config.yaml` (unknown keys, missing values, ranges), the data file (every row read, or
   none), and each question (1 to 500 characters, no unknown fields), before any of it costs a call
 - **Is built from replaceable parts**: each provider sits behind an interface (LangChain's `BaseLoader`,
@@ -65,6 +68,7 @@ The same articles, chunks, prompt and sources; everything around them is new:
 | An error | FastAPI's `{"detail": ...}`: a 422, or a 502 for any failure | `{"error": {"code", "message", "trace_id", "retryable"}}`, with its own status: 400, 404, 422, 500, 502, 503 or 504 |
 | Calls to Gemini | the libraries' defaults: no timeout; 6 attempts for the chat model, 1 for the embeddings | 30 s per attempt and 3 attempts for both; 60 s per question in the API |
 | The data file | read as it is | every row checked first: a bad one stops the start, named |
+| The chunks' vectors | embedded at every start | embedded at every start, or once, by `python main.py index`, and then loaded at each start |
 | The log | uvicorn's lines, and a traceback when an answer fails | a trace ID on every line, a span per stage, JSON lines in `logs/app.log`, each request's trace on the page |
 
 ---
@@ -76,10 +80,11 @@ main.py   the one way in: check the settings and the key → set up logging → 
    │
    ├── serve ──→ src/api: TraceMiddleware → error handlers → routes ──┐
    │                                                                  ↓
-   └── ask ──────────────────────────────────────────────→ src/pipeline: RAGEngine (factory.py wires it)
-                                                              │
-                     build(), once:   ingestion → chunking → embeddings → vectordb
-                     query(), each:   retrieval (embeddings → vectordb) → prompts → llm
+   ├── ask ──────────────────────────────────────────────→ src/pipeline: RAGEngine (factory.py wires it)
+   │                                                          │
+   └── index ─────────→ index(), once per deploy:  ingestion → chunking → embeddings → the vector file
+                        build(), at each start:    ingestion → chunking → the vector file, or embeddings → vectordb
+                        query(), each question:    retrieval (embeddings → vectordb) → prompts → llm
                                                               │
    across every layer:  src/config        the settings, from config.yaml; the key, from .env
                         src/observability the trace ID and a timed span per stage, on every log line; the trace
@@ -113,10 +118,13 @@ where it started.
 
 ```text
 01-rag-chat-app/
-├── main.py                           # the one way in: python main.py (serve) or python main.py ask; app, for Vercel
+├── main.py                           # the one way in: python main.py (serve), ask or index; app, for Vercel
 ├── config.yaml                       # every setting except the key: one section per layer
+├── vercel.json                       # Vercel's build runs python main.py index: the vectors, once per deployment
 ├── .env.example                      # copy to .env and put your Gemini key in it; .env never goes into git
-├── data/sample_it_kb.csv             # the knowledge base: 10 IT support articles
+├── data/
+│   ├── sample_it_kb.csv              # the knowledge base: 10 IT support articles
+│   └── vectors.json                  # the chunks' vectors, once python main.py index saves them (not in git)
 ├── logs/                             # app.log (JSON lines) and its rotated copies, written at run time
 ├── static/                           # the chat page: index.html, app.js (each request's boxes too), styles.css
 ├── src/
@@ -128,13 +136,15 @@ where it started.
 │   │   └── trace_store.py            # TraceStore: each API request's log lines, kept for the page to show
 │   ├── ingestion/loader.py           # KBLoader: the CSV file → Documents, all rows checked
 │   ├── chunking/chunker.py           # Chunker: Documents → chunks, each with a stable chunk_id
-│   ├── embeddings/embedder.py        # create_embedding_model(); Embedder: batches, checks, errors
+│   ├── embeddings/
+│   │   ├── embedder.py               # create_embedding_model(); Embedder: batches, checks, errors
+│   │   └── vector_file.py            # VectorFile: the chunks' vectors saved, loaded only when every chunk has one
 │   ├── vectordb/vector_store.py      # BaseVectorStore (the interface), QdrantStore, create_vector_store()
 │   ├── retrieval/retriever.py        # KBRetriever: a LangChain retriever; embed, then search
 │   ├── prompts/prompt_templates.py   # ANSWER_PROMPT, PROMPT_VERSION, format_context()
 │   ├── llm/llm_client.py             # create_chat_model(); LLMClient: one call, timed, tokens logged
 │   ├── pipeline/
-│   │   ├── rag_engine.py             # RAGEngine: build(), query(), aquery(), check_ready(), stats()
+│   │   ├── rag_engine.py             # RAGEngine: build(), index(), query(), aquery(), check_ready(), stats()
 │   │   └── factory.py                # create_engine(): the one place the parts are chosen
 │   ├── api/
 │   │   ├── app.py                    # create_app(): routes, error handlers, middleware, the page's files
@@ -143,12 +153,12 @@ where it started.
 │   │   ├── errors.py                 # every failure → the one error shape, logged once
 │   │   └── middleware.py             # TraceMiddleware: trace ID, request log line, headers, last-resort 500
 │   └── utils/helpers.py              # elapsed_ms(), truncate(), print_result()
-├── tests/                            # 164 tests: one file per layer, plus the API and main.py
+├── tests/                            # 185 tests: one file per layer, plus the API and main.py
 ├── requirements.txt                  # the packages, each pinned to an exact version
 ├── requirements-dev.txt              # requirements.txt plus pytest and httpx2, for the tests
 ├── pytest.ini                        # lets the tests import main and src, and finds them in tests/
 ├── ruff.toml                         # the linter's rules, PEP 8 naming among them
-└── .gitignore                        # .env, logs, .venv and caches stay out of git
+└── .gitignore                        # .env, logs, the saved vectors, .venv and caches stay out of git
 ```
 
 Each package's `__init__.py` says what the package is for. Every module starts with what it handles and how it's
@@ -250,6 +260,19 @@ Each answer is printed with its sources and its trace ID; the log goes to the co
 `logs/app.log` is the server's, so `ask` can run while the server does. Each question is bounded by each call's
 timeout and attempts; the 60-second deadline is the API's.
 
+### Or: Embed the Chunks Once
+
+```bash
+python main.py index                         # embeds the 28 chunks and saves their vectors in data/vectors.json
+```
+
+Every start embeds the 28 chunks again, since the index lives in the app's memory and goes when it stops. After
+`index`, a start loads the saved vectors instead: no call to Gemini, and the build's boxes on the page say
+`0 model calls`. Each chunk's vector is found by a hash of the chunk's text, and the file is used only when every
+chunk the start makes has one, from the same model at the same size. Edit an article, change the chunking or the
+model, and the start embeds the chunks again, with a warning saying why; run `index` again to save the new ones.
+The file is under 0.5 MB, and it isn't in git: it's made from the data.
+
 ### Or: Run It in One Command, in GitHub Codespaces Too
 
 From the repo root (where a codespace's terminal opens), this one command does Steps 2 to 5 for you:
@@ -288,22 +311,29 @@ In GitHub Codespaces, step by step:
 
 Vercel doesn't run `python main.py`: it imports `main.py` and serves its `app`. Importing builds nothing; when Vercel
 starts the app, the app's start-up (FastAPI's lifespan) runs the same steps `python main.py` does: the settings, the
-key, logging, then the build.
+key, logging, then the build. Before that, once per deployment, Vercel's build runs `python main.py index`, as
+`vercel.json` says, so the chunks are embedded there and not at each start.
 
 1. On Vercel, click **Add New...**, then **Project**, and import your copy of this repo from GitHub.
 2. Set **Root Directory** to `projects/RAG/IT Knowledge Base/Intermediate/01-rag-chat-app`. Vercel finds `main.py`
-   there, and installs `requirements.txt`.
-3. Under **Environment Variables**, add `GOOGLE_API_KEY`, with your key. It's all the deployment needs: `config.yaml`
-   and the data file go with the code.
+   and `vercel.json` there, installs `requirements.txt`, then runs `python main.py index`.
+3. Under **Environment Variables**, add `GOOGLE_API_KEY`, with your key. The build uses it to embed the chunks, and
+   the app to answer. It's all the deployment needs: `config.yaml` and the data file go with the code.
 4. Click **Deploy**. When it's done, open the address it gives you: the chat page.
 
 What's different there:
 
 - **The log goes to the console only.** Vercel sets `VERCEL=1`, and then the app writes no `logs/app.log` (a
   deployment's files are read-only). Vercel keeps the console's lines: open the deployment's **Logs**.
-- **Each instance builds the engine itself**, before its first request: a few seconds, and 28 embedded texts of your
-  key's quota. Vercel starts an instance when a request comes and none is running (after a quiet spell, say), and
-  more when requests come at once.
+- **Vercel runs the app as instances: copies it starts and stops.** It starts one when a request comes and none is
+  free (after a quiet spell, say), and more when requests come at once: a page load sends several. Each copy has its
+  own memory, so each builds its own index at start. On their own, 4 copies starting together embed 4 × 28 = 112
+  chunks within seconds, over the free tier's 100 a minute.
+- **So the build embeds the chunks once.** `python main.py index`, in the build, saves their vectors in
+  `data/vectors.json`, which goes into the deployment; each copy loads them at start, with no call to Gemini. In the
+  build's log, `embeddings.save_vectors ok`; in the deployment's, at each start, `embeddings.load_vectors ok` with
+  `used=True`; a start that finds no file logs a warning (see Troubleshooting). Should the build fail (no key, or
+  Gemini refuses), the deployment stops there, and Vercel goes on serving the one before.
 - **Traces live in one instance's memory.** The page reads each request's trace right after its answer; should that
   read reach another instance, the page says `The trace isn't available: ...` instead of the boxes.
 - **Unless you protect it, the address is public**: anyone who has it can ask questions on your key, and read a
@@ -326,7 +356,7 @@ and `tracing` are read by `src/observability`):
 | `app` | `name`, `sample_questions` | the page's title in `/docs`; the page's buttons, and what `python main.py ask` answers |
 | `ingestion` | `path`, `encoding`, `text_columns`, `metadata_columns`, `required_columns` | the data file, which columns are searched and which are shown, and which a row can't be without |
 | `chunking` | `chunk_size`, `chunk_overlap` | 512 and 50 characters |
-| `embeddings` | `provider`, `model`, `dimensions`, `batch_size`, `timeout_seconds`, `max_attempts` | Gemini's `gemini-embedding-001` at 768 numbers; 100 texts per call; 30 s per attempt, 3 attempts |
+| `embeddings` | `provider`, `model`, `dimensions`, `batch_size`, `timeout_seconds`, `max_attempts`, `vector_file` | Gemini's `gemini-embedding-001` at 768 numbers; 100 texts per call; 30 s per attempt, 3 attempts; `data/vectors.json`, where `index` saves the vectors (`null`: every start embeds) |
 | `vectordb` | `provider`, `location`, `collection` | Qdrant, `:memory:` (inside the app), `it_knowledge_base` |
 | `retrieval` | `top_k` | 5 chunks per question |
 | `llm` | `provider`, `model`, `max_output_tokens`, `timeout_seconds`, `max_attempts` | `gemini-3.5-flash-lite`; answers of at most 500 tokens; 30 s per attempt, 3 attempts |
@@ -345,6 +375,7 @@ a connection error, a 429, or a 500, 502, 503 or 504; `max_attempts: 1` turns re
 |---|---|---|
 | `serve` | the default command | builds the engine, then serves the page and the API |
 | `ask [QUESTION]` | | builds the engine, then answers your question, or the sample questions |
+| `index` | | embeds the chunks and saves their vectors in `embeddings.vector_file`, for each start to load (Vercel's build runs it) |
 | `--config FILE` | `config.yaml`, next to `main.py` | another settings file, e.g. one per environment |
 | `--log-level LEVEL` | `logging.level` | `DEBUG`, `INFO`, `WARNING` or `ERROR` for this run |
 
@@ -417,9 +448,9 @@ What each line tells you:
 A stage that fails writes `<stage> failed` with its `error_type`, and one stopped by the deadline writes
 `<stage> cancelled`; then one `Request failed` line gives the error's code and full detail. The build at start-up
 has a trace ID of its own, so its lines (`pipeline.create`, the engine's parts made; `ingestion.load`,
-`chunking.split`, `embeddings.embed_documents`, `vectordb.recreate`, `vectordb.upsert`, `pipeline.build`) group
-together too. Lines written outside any trace,
-such as uvicorn's `Uvicorn running on ...`, show `[-]`.
+`chunking.split`, `embeddings.load_vectors`, then `embeddings.embed_documents` unless the saved vectors were used,
+`vectordb.recreate`, `vectordb.upsert`, `pipeline.build`) group together too, and so do `python main.py index`'s.
+Lines written outside any trace, such as uvicorn's `Uvicorn running on ...`, show `[-]`.
 
 ---
 
@@ -443,8 +474,9 @@ other on a screen narrower than 960 px). Its head says what you asked, how it we
 The colours say what kind of work a step is, and a label beside each says it too: purple, a call to a model; teal,
 a call to the vector store; gray, the app's own work. Red with ✕ is a step that failed, amber with ■ one that a
 deadline or Ctrl+C stopped. Below the sample questions, **How the knowledge base was built** shows boxes 2 to 5 for
-the build at start-up: making the engine's parts, reading the file, cutting the chunks, embedding them (one call to
-Gemini) and storing them. Only the newest request stays open; click a request's head to open or close it.
+the build at start-up: making the engine's parts, reading the file, cutting the chunks, reading the saved vectors
+(gray: the app reads a file, and calls no model) and, when they can't be used, embedding the chunks (one call to
+Gemini), then storing them. Only the newest request stays open; click a request's head to open or close it.
 
 The trace store keeps the app's own lines from `DEBUG` up whatever `logging.level` is (the question, the chunks found,
 the prompt and the answer are `DEBUG` lines), and the libraries' from `INFO` up (httpx's line for each HTTP call,
@@ -502,8 +534,9 @@ before the app is shared.
 
 At start-up, there's no API yet: a bad `config.yaml`, key or log file is printed as one line starting
 `Can't start:`, and a failed build is logged as one line starting `Start-up failed:`, with its code; either way the
-exit code is 1. The page's own files (`/`, `/static/...`) are files, not API answers: an error there, such as a
-malformed `Range` header, is Starlette's own plain-text 400 or 416.
+exit code is 1. `python main.py index` does the same, its failure logged as `Indexing failed:` (`VECTOR_FILE_ERROR`
+when the file can't be written). The page's own files (`/`, `/static/...`) are files, not API answers: an error
+there, such as a malformed `Range` header, is Starlette's own plain-text 400 or 416.
 
 ---
 
@@ -538,7 +571,7 @@ with its raw name and fields.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 162 passed, 2 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 183 passed, 2 deselected  (add -v for one line per test)
 ```
 
 The plain tests need no key and make no calls: they use stand-ins for Gemini, and Google's own client faked at the
@@ -564,10 +597,18 @@ client sends with, is stopped from sending anything. They check each layer on it
 - **The app a host serves**: `main.py` has the top-level `app` Vercel looks for, and importing it builds nothing;
   starting it builds the engine, as `python main.py` does; without a key, the host's start fails with the one line;
   on Vercel, the log goes to the console only
+- **The saved vectors**: `index` embeds the chunks once and saves their vectors, and the next start loads them with
+  no call to the model and gives the same answers; they load back exact, each found by its text in any order (rows
+  reordered or an article removed: still used), but only when every chunk has one from the same model and size (an
+  edited or added text, another model or size: a warning says why, and the chunks are embedded); a missing file
+  isn't a warning, except on Vercel, a broken one is; the file is written whole or not at all; a failed `index`
+  exits 1 (Ctrl+C: 130), so Vercel's build stops; `vercel.json`'s build command runs `index`. Each test's vector
+  file is in its own temporary folder, never `data/vectors.json`
 
 The 2 deselected tests are live tests, marked `live`: they build the real engine and ask the real Gemini, once
 through the engine and once through the API, so they need your key in `.env`; with no key, `tests/conftest.py`
-skips them. Together they embed 30 texts, within the free tier's 100 a minute: `python -m pytest -m live`.
+skips them. Together they embed 30 texts (they never use saved vectors), within the free tier's 100 a minute:
+`python -m pytest -m live`.
 
 The linter checks the code against `ruff.toml`'s rules, PEP 8 naming among them; it isn't needed to run the app or the
 tests:
@@ -586,7 +627,7 @@ ruff check .                         # All checks passed!
 ```python
 settings = load_settings(config)                 # main.py, start_up(): checked before anything runs
 engine = create_engine(settings, api_key)        # factory.py: the parts config.yaml names; nothing runs yet
-engine.build()                                   # the work: read, chunk, embed, store
+engine.build()                                   # the work: read, chunk, embed (or load the saved vectors), store
 ```
 
 `main.py` is the only file that runs anything; every other file only defines things. `factory.py` is the only file
@@ -659,6 +700,22 @@ times, but only for a timeout, a 429 or a 5xx: a bad key fails at once. Above th
 `api.request_timeout_seconds` in all, so one slow call can't keep a request, or the page, waiting forever. The page
 learns that deadline from `/api/v1/info`, and waits 30 seconds more, so the server's 504 comes first.
 
+### 8. Embed Once, Start Many Times
+
+```python
+saved = self.vector_file.load(texts) if self.vector_file else None              # rag_engine.py, build()
+vectors = saved if saved is not None else self.embedder.embed_documents(texts)
+```
+
+Qdrant here lives in the app's memory, and memory belongs to one process: a copy of the app that starts can't see
+the index another copy built, and neither keeps it once it stops. One server that runs for hours embeds once; a host
+that starts copies on demand, like Vercel, would embed once per copy. So the work that's the same for every copy,
+turning the chunks into vectors, is done once, before any copy starts (`index`, in Vercel's build), and each copy
+loads the result. The saved vectors stand in for embedding only when they're exactly what embedding would give: the
+file names the model and size they were made with, and the hash of each chunk's text, so an edited article or a new
+model can't quietly be answered from old vectors. The same idea, at a larger scale, is a vector database outside the
+app, which every copy shares.
+
 ---
 
 ## 🛠️ Troubleshooting
@@ -683,6 +740,23 @@ other issues here). Most often `GOOGLE_API_KEY` isn't set for the deployment: ad
 **Settings** > **Environment Variables**, then redeploy. A variable reaches only the deployments made after it's
 added.
 
+**Issue**: On Vercel, the deployment fails at the build, whose log shows `Can't start: GOOGLE_API_KEY is not set...`
+or `Indexing failed: ...`
+**Fix**: The build runs `python main.py index`, which embeds the chunks, so it needs the key too: add
+`GOOGLE_API_KEY` under **Settings** > **Environment Variables**, then redeploy. After `Indexing failed:
+UPSTREAM_RATE_LIMITED`, wait a minute and redeploy. Until a build succeeds, Vercel goes on serving the deployment
+before it.
+
+**Issue**: On Vercel, each start's log shows `WARNING [...] main: No saved vectors on Vercel (<the path>): each instance embeds the chunks as it starts, and instances starting together can use up Gemini's quota. vercel.json has the build save them with python main.py index`, then `embeddings.load_vectors ok ... used=False reason="there's no file: python main.py index makes it"` and `embeddings.embed_documents`
+**Fix**: The deployment has no saved vectors, so each copy embeds the chunks, as before the build step. Check that
+`vercel.json` is in the folder set as **Root Directory**, that the project's **Framework Preset** is FastAPI (the
+build command runs for a Python preset), and that the build's log shows `Running "python main.py index"`.
+
+**Issue**: `WARNING [...] src.embeddings.vector_file: The saved vectors aren't used: there's no saved vector for 18 of the 37 chunks (an article, the columns read or the chunking changed since they were saved). The chunks are embedded instead; python main.py index saves their vectors`
+**Fix**: An article, the columns read or the chunking changed after `index` saved the vectors (another model or size
+says so too). The start embedded the chunks instead, so the answers are right; it just cost a call. Run
+`python main.py index` again to save the new vectors. On Vercel, the next deployment's build does it.
+
 **Issue**: `Can't start: GOOGLE_API_KEY is still the placeholder from .env.example: put your real key in .env.`
 **Fix**: `.env` still says `your-key-here`. Replace it with your key.
 
@@ -705,7 +779,8 @@ Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `ERROR [...] main: Start-up failed: UPSTREAM_RATE_LIMITED: embeddings: GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. ...`, or the page shows `The AI service is busy (rate limited). Try again in a minute.`
 **Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute; starting the app embeds
-28, and each question 1 more. Wait a minute, then try again.
+28 (none when it loads the saved vectors: see Or: Embed the Chunks Once), and each question 1 more. Wait a minute,
+then try again.
 
 **Issue**: `Can't start: the log file can't be opened (Permission denied): <the full path>`
 **Fix**: `logging.file` in `config.yaml` leads to a folder, or to a place you can't write. Point it at a file in a
@@ -759,4 +834,7 @@ port 8000.
 - Set `tracing.enabled: false`, start it again, and ask: only the answer's box, and the console and the file log as
   before.
 - Put a typo in `config.yaml`, such as `chunk_szie: 400`, and start it.
+- Run `python main.py index`, start it, and open **How the knowledge base was built**: the vectors are read from the
+  file, and its head says `0 model calls`. Then set `chunk_size: 400`, start it again, and read the warning saying why
+  the saved vectors weren't used.
 - Open http://127.0.0.1:8000/docs to try the API, and read each route's error shapes there.

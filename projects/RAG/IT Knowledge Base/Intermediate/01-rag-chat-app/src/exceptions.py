@@ -12,6 +12,7 @@ log only. It handles:
     AppError                    INTERNAL_ERROR         500
     ├── ConfigError             CONFIG_ERROR           config.yaml or the API key can't be used (start-up only)
     ├── IngestionError          INGESTION_ERROR        the knowledge base file can't be read (start-up only)
+    ├── VectorFileError         VECTOR_FILE_ERROR      the vectors can't be saved (python main.py index only)
     ├── TraceNotFoundError      TRACE_NOT_FOUND        404  no trace is kept with this ID
     ├── NotReadyError           NOT_READY              503  the engine isn't built
     ├── VectorStoreError        VECTOR_STORE_ERROR     503  the vector store failed
@@ -40,6 +41,10 @@ class ConfigError(AppError):
 
 class IngestionError(AppError):
     code = "INGESTION_ERROR"
+
+
+class VectorFileError(AppError):
+    code = "VECTOR_FILE_ERROR"
 
 
 class TraceNotFoundError(AppError):

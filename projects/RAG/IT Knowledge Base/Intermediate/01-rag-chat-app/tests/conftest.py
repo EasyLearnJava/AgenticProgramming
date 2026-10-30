@@ -6,9 +6,9 @@ code runs first:
     no key                                   ->  live tests are skipped
 
 Whatever the key, a plain test can't reach Google: the HTTP library Google's client uses can't send.
-The fixtures give each test the shipped settings (with stand-in sizes and no log file), an engine built on stand-ins,
-the log lines it wrote, each with its trace ID, a trace store, and logging put back as it was after
-setup_logging().
+The fixtures give each test the shipped settings (with stand-in sizes, no log file, and a vector file of its own, not
+saved yet), an engine built on stand-ins, the log lines it wrote, each with its trace ID, a trace store, and logging
+put back as it was after setup_logging().
 """
 import logging
 
@@ -57,9 +57,11 @@ def no_network(request, monkeypatch):
 
 
 @pytest.fixture
-def settings() -> Settings:
-    """The shipped config.yaml, with the stand-in embeddings' size and no log file."""
-    return change(load_settings(), embeddings={"dimensions": SIZE}, logging={"file": None})
+def settings(tmp_path) -> Settings:
+    """The shipped config.yaml, with the stand-in embeddings' size, no log file, and the vector file in tmp_path (not
+    saved yet), so no test reads or writes data/vectors.json."""
+    return change(load_settings(), embeddings={"dimensions": SIZE, "vector_file": tmp_path / "vectors.json"},
+                  logging={"file": None})
 
 
 @pytest.fixture

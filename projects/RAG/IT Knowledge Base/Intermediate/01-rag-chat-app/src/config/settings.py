@@ -116,6 +116,7 @@ class EmbeddingsSettings(Section):
     batch_size: int = Field(ge=1, le=100)        # Gemini takes at most 100 texts per call
     timeout_seconds: float = Field(gt=0)
     max_attempts: int = Field(ge=1, le=10)
+    vector_file: ConfigPath | None               # null: no saved vectors, so every start-up embeds the chunks
 
 
 class VectorDBSettings(Section):

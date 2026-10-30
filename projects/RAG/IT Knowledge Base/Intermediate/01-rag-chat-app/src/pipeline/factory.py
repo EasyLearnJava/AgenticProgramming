@@ -5,8 +5,9 @@ IT Knowledge Base: The Engine's Parts
 The one place that decides which classes the app runs with: every part is made from its section of config.yaml and
 handed to RAGEngine, which makes none of them itself. To replace a part, change it here (or in config.yaml): nothing
 else has to know. It handles:
-  1. Building each part from its settings: loader, chunker, embedder, vector store, retriever, LLM client
-  2. Building the two models with the API key, unless stand-ins are passed in (the tests pass them)
+  1. Building each part from its settings: loader, chunker, embedder, vector file, vector store, retriever, LLM client
+  2. Building the two models with the API key, unless stand-ins are passed in (the tests pass them). The vector file
+     knows the model that runs, so a stand-in's vectors and Gemini's are never mixed up
   3. A span for it all, pipeline.create: making the providers' clients takes time of its own, before the build
 
 Usage:
@@ -19,6 +20,7 @@ from pydantic import SecretStr
 from src.chunking.chunker import Chunker
 from src.config.settings import Settings
 from src.embeddings.embedder import Embedder, create_embedding_model
+from src.embeddings.vector_file import VectorFile
 from src.ingestion.loader import KBLoader
 from src.llm.llm_client import LLMClient, create_chat_model
 from src.observability.tracing import span
@@ -34,6 +36,9 @@ def create_engine(settings: Settings, api_key: SecretStr | None = None, *, embed
               vectordb=settings.vectordb.provider) as fields:
         embedder = Embedder(embedding_model or create_embedding_model(settings.embeddings, api_key),
                             dimensions=settings.embeddings.dimensions, batch_size=settings.embeddings.batch_size)
+        vector_file = (VectorFile(settings.embeddings.vector_file, provider=settings.embeddings.provider,
+                                  model=embedder.model_name, dimensions=embedder.dimensions)
+                       if settings.embeddings.vector_file else None)
         store = create_vector_store(settings.vectordb)
         engine = RAGEngine(
             loader=KBLoader(settings.ingestion.path, text_columns=settings.ingestion.text_columns,
@@ -46,6 +51,7 @@ def create_engine(settings: Settings, api_key: SecretStr | None = None, *, embed
             llm=LLMClient(chat_model or create_chat_model(settings.llm, api_key)),
             max_sources=settings.pipeline.max_sources,
             snippet_length=settings.pipeline.snippet_length,
+            vector_file=vector_file,
         )
         fields.update(embedding_model=embedder.model_name, chat_model=engine.llm.model_name)
         return engine

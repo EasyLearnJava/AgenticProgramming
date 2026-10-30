@@ -25,6 +25,7 @@ def test_the_shipped_config_loads_with_its_values():
 def test_paths_are_found_from_the_config_files_folder():
     settings = load_settings()
     assert settings.ingestion.path == PROJECT_DIR / "data" / "sample_it_kb.csv"
+    assert settings.embeddings.vector_file == PROJECT_DIR / "data" / "vectors.json"
     assert settings.logging.file == PROJECT_DIR / "logs" / "app.log"
 
 

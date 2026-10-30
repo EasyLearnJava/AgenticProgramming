@@ -289,8 +289,10 @@ def test_the_build_has_its_own_trace_which_info_names(traced):
     assert info["traces"] is True
     events = traced.get(f"/api/v1/traces/{info['build_trace_id']}").json()["events"]
     assert [(event["span"], event["depth"]) for event in events if event["span"]] == [
-        ("pipeline.build", 0), ("ingestion.load", 1), ("chunking.split", 1), ("embeddings.embed_documents", 1),
-        ("vectordb.recreate", 1), ("vectordb.upsert", 1)]
+        ("pipeline.build", 0), ("ingestion.load", 1), ("chunking.split", 1), ("embeddings.load_vectors", 1),
+        ("embeddings.embed_documents", 1), ("vectordb.recreate", 1), ("vectordb.upsert", 1)]
+    looked = next(event for event in events if event["span"] == "embeddings.load_vectors")
+    assert looked["fields"]["used"] is False                  # nothing saved yet, so the build embedded the chunks
 
 
 @pytest.mark.parametrize("path", ["/health/live", "/static/app.js", "/"])

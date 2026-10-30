@@ -6,6 +6,8 @@
 # What running and testing the app makes
 logs/*
 !logs/.gitkeep
+data/vectors.json
+data/vectors.json.*.tmp
 .venv/
 __pycache__/
 .pytest_cache/

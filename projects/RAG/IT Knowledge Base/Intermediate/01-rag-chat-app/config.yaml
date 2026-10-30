@@ -29,6 +29,8 @@ embeddings:
   batch_size: 100                        # texts per call; Gemini takes at most 100
   timeout_seconds: 30                    # for each attempt
   max_attempts: 3                        # the first included: a timeout, a 429 or a 5xx is tried again
+  vector_file: data/vectors.json         # python main.py index saves the chunks' vectors here, and a start-up loads
+                                         # them when every chunk has one, from the same model; null: always embed
 
 vectordb:
   provider: qdrant
