@@ -12,6 +12,7 @@ import { ChatMessage } from "@/components/chat-message";
 import { ChatWelcome } from "@/components/chat-welcome";
 import { CompareGrid } from "@/components/compare-grid";
 import { LanePicker } from "@/components/lane-picker";
+import { useLaneStatus } from "@/hooks/use-lane-status";
 import { useNearbyCity } from "@/hooks/use-nearby-city";
 import { CHAT_API_PATH, DEFAULT_LANE_ID, MAX_HISTORY_CHARS, MAX_MESSAGES, OWN_ERROR_HEADER } from "@/lib/constants";
 import type { ChatMessage as ChatMessageData, CompareCell, LiveLaneId } from "@/lib/types";
@@ -92,6 +93,7 @@ export function ChatWindow({ compareCells, availableLaneIds }: ChatWindowProps):
   });
   const isBusy = status === "submitted" || status === "streaming";
   const nearbyCity = useNearbyCity();
+  const laneHealths = useLaneStatus();
   // The browser's locale picks the units to start with; its time zone says which days "today" and "tomorrow" are.
   const requestBody = (): { laneId: LiveLaneId; locale: string; timeZone: string } => ({
     laneId,
@@ -144,7 +146,7 @@ export function ChatWindow({ compareCells, availableLaneIds }: ChatWindowProps):
             </button>
           </div>
         </header>
-        <LanePicker value={laneId} onChange={setLaneId} availableLaneIds={availableLaneIds} />
+        <LanePicker value={laneId} onChange={setLaneId} availableLaneIds={availableLaneIds} healths={laneHealths} />
         <ol className="messages" aria-label="Conversation">
           {messages.length === 0 ? <ChatWelcome onPick={ask} isBusy={isBusy} nearbyCity={nearbyCity} /> : null}
           {messages.map((message, index) => (

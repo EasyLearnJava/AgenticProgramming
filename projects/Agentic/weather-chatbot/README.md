@@ -15,7 +15,8 @@ through four lanes: REST or MCP, with or without auth. Gemini calls our four wea
 Open-Meteo; on the auth lanes, the forecast comes from an Apify Actor instead, with a token, through Apify's REST API
 (`REST · with auth`) or its MCP server (`MCP · with auth`), and falls back to the no-auth lane behind the same door
 when Apify can't answer. Each call shows as a chip that opens to show its request, and a
-forecast gets a weather card. A left menu leads to the documentation, one page per finished build step.
+forecast gets a weather card; each lane shows its health, a dot from `/api/health`. A left menu leads to the
+documentation, one page per finished build step.
 
 **In one line:** a question → `useChat` posts it to `/api/chat` → the route checks it → Gemini, with our four tools →
 each tool calls Open-Meteo, itself (REST) or through `/api/mcp` (MCP), or, for `REST · with auth`'s forecast, runs
@@ -93,7 +94,7 @@ npm run evals       # against a running deployment (EVAL_BASE_URL): the golden q
 
 ```text
 $ npm run lint
-Checked 127 files in 415ms. No fixes applied.
+Checked 128 files in 580ms. No fixes applied.
 
 $ npm run typecheck
 Generating route types...
@@ -101,22 +102,22 @@ Generating route types...
 
 $ npm test
  Test Files  40 passed (40)
-      Tests  282 passed (282)
+      Tests  284 passed (284)
 
 $ npm run build
 ▲ Next.js 16.4.3 (Turbopack)
-✓ Running next.config.ts took 1146ms
+✓ Running next.config.ts took 989ms
 - Experiments (use with caution):
   · clientTraceMetadata
   Creating an optimized production build ...
-✓ Compiled successfully in 6.1s
+✓ Compiled successfully in 799ms
   Running next.config.js provided runAfterProductionCompile ...
-✓ Completed runAfterProductionCompile in 514ms
+✓ Completed runAfterProductionCompile in 552ms
   Running TypeScript ...
-  Finished TypeScript in 1098ms ...
+  Finished TypeScript in 634ms ...
   Collecting page data using 14 workers ...
   Generating static pages using 14 workers (0/21) ...
-✓ Generating static pages using 14 workers (21/21) in 7.8s
+✓ Generating static pages using 14 workers (21/21) in 7.7s
   Finalizing page optimization ...
 
 Route (app)
@@ -142,7 +143,7 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 $ npm run e2e
-  54 passed (30.1s)
+  58 passed (32.3s)
 ```
 
 npm also prints each script's name and command first, Vitest a start time and duration, Next.js a line per batch of

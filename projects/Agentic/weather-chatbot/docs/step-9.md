@@ -1,13 +1,14 @@
 # Step 9 · Observability: Axiom, Sentry and the Health Check
 
-**What this step built, so far:** most of step 9's first two parts. Every line our logger writes now also goes to
-Axiom, which keeps it long past Vercel's hour, and searches it; every failure logged as an error goes to Sentry, with
-its stack trace and nothing private; and `/api/health` says which lanes work, running nothing that costs. Next come
-the lane picker's status dots, which read it; then part 3: the dashboards, alerts, traces and an uptime monitor.
+**What this step built, so far:** step 9's first two parts. Every line our logger writes now also goes to Axiom,
+which keeps it long past Vercel's hour, and searches it; every failure logged as an error goes to Sentry, with its
+stack trace and nothing private; `/api/health` says which lanes work, running nothing that costs; and the lane picker
+shows it, a dot beside each lane. Part 3 comes next: the dashboards, alerts, traces and an uptime monitor.
 
 ## What you see
 
-- **Nothing new on the page.**
+- **On the page,** each lane the deployment runs shows its health in the lane picker, a dot and words: *working*
+  (green), *not answering* (red), and *checking…* or *status unknown* (grey).
 - **In Axiom,** in the `weather-chatbot` dataset: each line our logger writes, soon after its request ends (not
   Next.js's own output, nor Vercel's line for each request). One request id finds a question's lines from both
   functions, `/api/chat` and `/api/mcp`:
@@ -42,6 +43,10 @@ than its 3 s budget. Bug story 18 tells how the causes were found: Sentry makes 
 laptop), and Gemini's free tier was slow that hour. Connecting to our MCP server now gets 6 s (entry 122): after that
 went live (`b427de1`), the first question, both functions cold, connected in 4,164 ms and answered in 9.2 s, within
 the new budget and past the old one. A lighter Sentry is on the To do page.
+
+Once `/api/health` was live (`41a54a6`), with Apify's token, all four checks passed; our MCP server's took 3,968 ms,
+cold, as in bug story 18. A second request came from Vercel's CDN in 0.37 s (`x-vercel-cache: HIT`), and Vercel kept
+`s-maxage` for itself, so a browser sees `public, max-age=0` (entry 127).
 
 ## How it works
 
@@ -116,6 +121,18 @@ build's output lists it.
    skipped. Our server can't skip its cache for one caller without letting any caller skip it, so its check connects
    and reads the tool list, and Open-Meteo's own check stands for the geocoding.
 
+### The status dots
+
+1. **Asked when the page opens,** then every 5 minutes while it's open (`hooks/use-lane-status.ts`). A `503` carries
+   the same answer, saying which lane is down. Until the first answer, each lane says *checking…*; an answer the page
+   can't read leaves each *status unknown*.
+2. **A dot and words** beside each lane the deployment runs: green and *working*, red and *not answering*, grey
+   otherwise. The words say it, not the colour alone, and screen readers skip the dot.
+3. **A lane not answering can still be picked:** its answer may fall back to its twin, or it may be back already.
+4. **It can keep our MCP server warm, too:** when the page's ask makes `/api/health` run its checks (rather than the
+   CDN answer), its connection to our MCP server wakes it, so a first question pays less of a cold start (bug story
+   18). The chat's own function still starts cold.
+
 ### The settings
 
 | Variable | What it's for | Set as |
@@ -131,7 +148,6 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
 
 ## Not in this step yet
 
-- **The status dots** in the lane picker, which read `/api/health` (next).
 - **Part 3:** dashboards and alerts, in Axiom and Sentry; traces; an outside uptime monitor.
 - **A Sentry event from the live site.** Nothing on the live site fails at `error` on demand: the first event comes
   with the first real error, or with step 10's forced `AuthError` (`CHAOS`), which plays out the rest of PLAN.md 5.5.
@@ -158,8 +174,12 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
   and no tool called.
 - **The health route** (`tests/unit/app/api/health/route.test.ts`): a `200` kept a minute at the CDN, a `503` never;
   one run a minute; and its lines sent once the run is done.
-- **Each new test can fail:** 20 changes that break the code a test guards in part 1, and 14 in the health check,
-  each caught by it.
+- **The dots** (`tests/unit/utils.test.ts`, `tests/e2e/chat-page.spec.ts`): `toLaneHealths` reads each lane's
+  health from the answer, a `503`'s too, and says unknown for anything it can't read; in the browser, a working lane's
+  green dot and words, a lane not answering in red and still enabled, and an answer the page can't read leaving each
+  unknown. The browser tests answer `/api/health` themselves, so none calls Open-Meteo or Apify.
+- **Each new test can fail:** 20 changes that break the code a test guards in part 1, 16 in the health check, and 5
+  in the dots, each caught by it.
 
 ## Files in this step
 
@@ -174,6 +194,10 @@ this project's organisation is; one in the EU would change `AXIOM_INGEST_HOST` i
 | `lib/health/check-lanes.ts` | The four checks, and each lane's status from the checks it depends on |
 | `app/api/health/route.ts` | `GET /api/health`: `200` (kept a minute at the CDN) or `503`; one run a minute per copy |
 | `lib/upstream/apify.ts`, `lib/upstream/apify-mcp.ts` | The token checks, which run nothing |
+| `hooks/use-lane-status.ts` | Asks `/api/health` for the dots: when the page opens, then every 5 minutes |
+| `components/lane-picker.tsx`, `components/chat-window.tsx` | Each lane's dot and words |
+| `lib/utils.ts`, `lib/types.ts` | `toLaneHealths()`, and `LaneHealth` |
+| `app/globals.css` | The dots: green, red, grey |
 | `next.config.ts` | Sentry's build step: the source maps, with its token |
 | `biome.json` | Sentry's `genAI` setting allowed by the naming rule (entry 117) |
 | `.env.example` | The new variables' names, empty |
@@ -194,9 +218,10 @@ npm run build
 On the live site, ask a question on `MCP · no auth`. Then, in Axiom's Query tab,
 `['weather-chatbot'] | where event == "chat.request" | sort by _time desc | take 1` gives its request id, and
 `['weather-chatbot'] | where requestId == "<that id>"` lists its lines from both functions. And
-`curl -s https://weather-chatbot-hazel.vercel.app/api/health` says which lanes work.
+`curl -s https://weather-chatbot-hazel.vercel.app/api/health` says which lanes work, and the live page shows the same
+beside each lane.
 
 ## What's next
 
-The lane picker's status dots, which read `/api/health`; then part 3: dashboards, alerts, traces and an uptime
-monitor.
+Part 3: dashboards and alerts, in Axiom and Sentry; traces; and an uptime monitor calling `/api/health` every 5
+minutes, which needs an account of yours (the To do page).

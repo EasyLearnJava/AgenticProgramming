@@ -168,3 +168,5 @@ export const HEALTH_PLACE = "London";
 export const HEALTH_CHECK_TIMEOUT_MS = 8000;
 export const HEALTH_RESULT_TTL_MS = 60_000;
 export const HEALTH_CDN_MAX_AGE_SECONDS = 60;
+// How often an open page asks /api/health again, for the lane picker's status dots: every 5 minutes.
+export const LANE_STATUS_REFRESH_MS = 300_000;

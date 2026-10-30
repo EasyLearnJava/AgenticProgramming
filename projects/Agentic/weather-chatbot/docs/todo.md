@@ -8,6 +8,7 @@ begun.
 
 | What | Why it's needed | Where |
 |---|---|---|
+| An uptime monitor, calling `https://weather-chatbot-hazel.vercel.app/api/health` every 5 minutes | It alerts you when a lane goes down (a `503`), and it can keep our MCP server warm, so a first question pays less of a cold start (bug story 18); the chat's own function still starts cold | UptimeRobot or Better Stack, on a free plan; PLAN.md 9.5 |
 | The two firewall rules: a bypass, then a rate limit of 20 requests a minute on `/api/*` | The rate limit caps abuse, and matters more while BotID is off; the bypass lets the chat's own calls to `/api/mcp` through, and later our evals past BotID | README, "Deploy it on Vercel", step 7 |
 | The Ignored Build Step, in Vercel's project settings | Without it, every push to the repository rebuilds the app, even when nothing in its folder changed | README, "Deploy it on Vercel", step 4 |
 | `GOOGLE_API_KEY` and `APIFY_TOKEN` for Preview deployments | Previews can't chat without them; today they're set for Production only. PLAN.md 9.4 splits the secrets between Production and Preview: a separate Apify token, or account, for Preview keeps previews from spending production's credit | Vercel, Settings, Environment Variables |
@@ -62,7 +63,7 @@ budget shrinks first: the answer's 50 s to 47, or the connection's 6 s to 5 (ent
 
 | Step | What | Why |
 |---|---|---|
-| 9 · Observability | Done: the log lines to Axiom, the errors to Sentry, the source maps (part 1); `/api/health`, each lane checked without running anything that costs (part 2a). Next: the lane picker's status dots, which read it (part 2b); then dashboards, alerts, traces and an uptime monitor (part 3) | To know the app is down before a user says so; the health check also checks Apify's token without running anything (PLAN.md section 3, row 14) |
+| 9 · Observability | Done: the log lines to Axiom, the errors to Sentry, the source maps (part 1); `/api/health`, each lane checked without running anything that costs, and the lane picker's status dots, which read it (part 2). Next: dashboards, alerts, traces and the uptime monitor (part 3) | To know the app is down before a user says so; the health check also checks Apify's token without running anything (PLAN.md section 3, row 14) |
 | 10 · Evals and failure tests | The golden questions on all four lanes, with the comparison report; the `CHAOS` setting to play failures on a preview, and Playwright on previews in CI; the no-auth lanes' cache fallback and the amber "slow, retrying" chip, both moved from step 5; a daily check of Apify's tool list against our pin; a load test | To catch a model, a third party or a change going wrong before users do |
 | 11 · Launch | Production settings, the paid model path, the README finished in project 01's shape, the runbook and the demo | The free tier's terms don't fit a public app, and a launch needs its runbook |
 | 12 · OAuth 2.1 + PKCE | "Connect your Apify account" for `MCP · with auth`, through `@ai-sdk/mcp`'s auth provider | So a user's own Apify account pays for their runs, instead of the bot's token |

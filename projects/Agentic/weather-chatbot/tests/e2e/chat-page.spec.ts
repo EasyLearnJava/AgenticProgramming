@@ -3,7 +3,8 @@
  * answer (tests/e2e/chat-stream.ts), so no model is called, here or against a live URL: the welcome, the lanes, an
  * answer with its chips and weather card, an auth lane's fallback, a failure, Stop, the location pin, the nearby city,
  * the compare view, accessibility (axe) and a 360-pixel screen. REST · with auth runs only where the deployment has
- * Apify's token, so the tests read from the picker which it is, and check the page says the same everywhere.
+ * Apify's token, so the tests read from the picker which it is, and check the page says the same everywhere. The
+ * lanes' health, for the picker's status dots, is answered in the browser too, so no test calls Open-Meteo or Apify.
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
@@ -26,6 +27,17 @@ const PARIS_QUESTION = "Do I need an umbrella in Paris tomorrow afternoon?";
 const ACTOR_RUN_URL =
   "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items" +
   "?build=1.0.9&timeout=18&maxTotalChargeUsd=0.01";
+
+// /api/health's answer when every lane works.
+const ALL_WORKING = {
+  status: "ok",
+  lanes: { "rest-no-auth": "ok", "mcp-no-auth": "ok", "rest-auth": "ok", "mcp-auth": "ok" },
+};
+
+/** What a lane's option says under its name: its health beside its dot, or why it can't run. */
+function stateOf(page: Page, label: RegExp) {
+  return page.locator(".lane-option", { has: page.getByLabel(label) }).locator(".lane-option-step");
+}
 
 /** Whether this deployment runs REST · with auth, as its picker says: it does only with Apify's token. */
 async function hasApifyToken(page: Page): Promise<boolean> {
@@ -54,6 +66,8 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/chat", (route) => route.abort());
   // No nearby city unless a test gives one: on a laptop there's none anyway.
   await page.route("**/api/nearby-city", (route) => route.fulfill({ json: { city: null } }));
+  // Every lane working, unless a test says otherwise.
+  await page.route("**/api/health", (route) => route.fulfill({ json: ALL_WORKING }));
   await page.goto("/");
 });
 
@@ -65,14 +79,33 @@ test("shows the welcome and the questions to try, with the menu and the build li
   await expect(page.getByText(/^Build/)).toBeVisible();
 });
 
+test("shows each lane's health from /api/health, a dot and words; a lane not answering can still be picked", async ({
+  page,
+}) => {
+  const lanes = { "rest-no-auth": "ok", "mcp-no-auth": "down", "rest-auth": "ok", "mcp-auth": "down" };
+  await page.route("**/api/health", (route) => route.fulfill({ status: 503, json: { status: "down", lanes } }));
+  await page.reload();
+  await expect(stateOf(page, /MCP · no auth/)).toHaveText("not answering");
+  await expect(stateOf(page, /MCP · no auth/).locator(".lane-dot")).toHaveClass(/lane-dot-down/);
+  await expect(stateOf(page, /REST · no auth/)).toHaveText("working");
+  await expect(stateOf(page, /REST · no auth/).locator(".lane-dot")).toHaveClass(/lane-dot-ok/);
+  await expect(page.getByLabel(/MCP · no auth/)).toBeEnabled();
+});
+
+test("a health check the page can't read leaves each lane's health unknown", async ({ page }) => {
+  await page.route("**/api/health", (route) => route.abort());
+  await page.reload();
+  await expect(stateOf(page, /REST · no auth/)).toHaveText("status unknown");
+  await expect(stateOf(page, /MCP · no auth/)).toHaveText("status unknown");
+});
+
 test("starts on MCP · no auth, the default; both auth lanes run only with Apify's token", async ({ page }) => {
   await expect(page.getByLabel(/MCP · no auth/)).toBeChecked();
   await expect(page.getByLabel(/REST · no auth/)).toBeEnabled();
-  const stateOf = (label: RegExp) =>
-    page.locator(".lane-option", { has: page.getByLabel(label) }).locator(".lane-option-step");
-  const authState = (await hasApifyToken(page)) ? "live" : "needs an Apify token";
-  await expect(stateOf(/REST · with auth/)).toHaveText(authState);
-  await expect(stateOf(/MCP · with auth/)).toHaveText(authState);
+  const authState = (await hasApifyToken(page)) ? "working" : "needs an Apify token";
+  await expect(stateOf(page, /REST · no auth/)).toHaveText("working");
+  await expect(stateOf(page, /REST · with auth/)).toHaveText(authState);
+  await expect(stateOf(page, /MCP · with auth/)).toHaveText(authState);
 });
 
 test("moves between the lanes this deployment runs with the arrow keys, skipping the ones that wait", async ({

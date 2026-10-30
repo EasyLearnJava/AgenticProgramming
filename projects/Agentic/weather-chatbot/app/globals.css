@@ -244,6 +244,25 @@ body {
   color: var(--bot-text);
 }
 
+/* A live lane's health, from /api/health (step 9): a dot beside the words, which say the same. Grey while it's being
+   checked, or unknown; green when it works; red when it's not answering. */
+.lane-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.375rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.lane-dot-ok {
+  background: var(--ok);
+}
+
+.lane-dot-down {
+  background: var(--fail);
+}
+
 /* A lane that isn't live yet: a dashed border, and no pointer; its text keeps full contrast. */
 .lane-option:has(input:disabled) {
   border-style: dashed;

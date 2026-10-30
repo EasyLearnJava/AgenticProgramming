@@ -16,6 +16,7 @@ import {
   toAbortKind,
   toFieldNames,
   toHost,
+  toLaneHealths,
   toLocalDateTime,
   toRef,
   toRequestId,
@@ -381,5 +382,28 @@ describe("toFieldNames", () => {
       { path: [], message: "Too small" },
     ];
     expect(toFieldNames(issues)).toBe("daily.time, timezone, Too small");
+  });
+});
+
+describe("toLaneHealths", () => {
+  const Lanes = ["rest-no-auth", "mcp-no-auth", "rest-auth", "mcp-auth"] as const;
+
+  it("reads each lane's health from /api/health's answer, a 503's too: ok, down or off", () => {
+    const body = { status: "down", lanes: { "rest-no-auth": "ok", "mcp-no-auth": "down", "rest-auth": "off" } };
+    expect(toLaneHealths(body, Lanes)).toEqual({
+      "rest-no-auth": "ok",
+      "mcp-no-auth": "down",
+      "rest-auth": "off",
+      "mcp-auth": "unknown",
+    });
+  });
+
+  it("says unknown for a lane it can't read, or for an answer that isn't the health check's", () => {
+    expect(
+      toLaneHealths({ lanes: { "rest-no-auth": "fine", "mcp-no-auth": 1 } }, ["rest-no-auth", "mcp-no-auth"]),
+    ).toEqual({ "rest-no-auth": "unknown", "mcp-no-auth": "unknown" });
+    for (const body of [null, "ok", { lanes: null }, { lanes: "ok" }]) {
+      expect(toLaneHealths(body, ["rest-no-auth"])).toEqual({ "rest-no-auth": "unknown" });
+    }
   });
 });

@@ -1270,3 +1270,11 @@ at another hour before blaming a change, and log every hop under one request id:
      answer sent every request to a function. **Fix:** the docs say "per copy", and Vercel's CDN keeps a `200` for a
      minute (`s-maxage=60`), so repeat requests stop at the edge, before any function; a `503` is never kept, so an
      outage isn't hidden behind a kept answer. **Check:** `tests/unit/app/api/health/route.test.ts`.
+127. **Part 2a, checked on the live site.** *Deploying* (`41a54a6`). With Apify's token, all four checks passed:
+     Open-Meteo in 459 ms, our MCP server in 3,968 ms (cold, as in bug story 18), Apify's REST door in 112 ms and its
+     MCP server in 499 ms; every lane `ok`. A second request came from Vercel's CDN in 0.37 s (`x-vercel-cache: HIT`,
+     the same `checkedAt`). Vercel keeps `s-maxage` for itself: a browser sees `public, max-age=0`. **Check:** `curl`
+     on `/api/health`, twice.
+128. **The page's first ask for the dots was a floating promise.** *Checking our work* (lint). The hook called its
+     check and left the promise it returned unread, which our lint refuses, though the check handles its own failure.
+     **Fix:** `void`, as the chat window's own calls that nothing waits on. **Check:** `npm run lint`.

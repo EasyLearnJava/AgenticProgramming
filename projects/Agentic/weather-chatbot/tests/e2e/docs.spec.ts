@@ -5,6 +5,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+// The chat page asks /api/health for its status dots: answered here, so no test calls Open-Meteo or Apify.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/health", (route) => route.fulfill({ json: { status: "ok", lanes: {} } }));
+});
+
 test("lists the steps, and opens one from the menu", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Documentation" }).click();

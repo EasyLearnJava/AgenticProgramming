@@ -1,7 +1,7 @@
 /*
  * lib/utils.ts: every shared helper function: general-purpose, pure, and safe in the browser as well as on the server.
  */
-import type { WireRequest } from "@/lib/types";
+import type { LaneHealth, WireRequest } from "@/lib/types";
 
 const MS_PER_SECOND = 1000;
 const FAHRENHEIT_PER_CELSIUS = 1.8;
@@ -196,6 +196,24 @@ export function timeoutSignal(ms: number, parentSignal?: AbortSignal): AbortSign
 
 /** The parts of a chat message that say whether its words have come: their kind, and a text part's text. */
 type MessageParts = { role: string; parts: readonly { type: string; text?: string }[] };
+
+// What /api/health can say of a lane.
+const READABLE_HEALTHS: readonly string[] = ["ok", "down", "off"];
+
+/**
+ * Each lane's health, read from /api/health's answer (a 503's too, which says which lane is down): ok, down or off as
+ * it says; unknown for a lane it doesn't say, or an answer that isn't the health check's.
+ */
+export function toLaneHealths<Id extends string>(body: unknown, laneIds: readonly Id[]): Record<Id, LaneHealth> {
+  const lanes = typeof body === "object" && body !== null && "lanes" in body ? body.lanes : undefined;
+  const said = typeof lanes === "object" && lanes !== null ? (lanes as Record<string, unknown>) : {};
+  return Object.fromEntries(
+    laneIds.map((laneId) => {
+      const health = said[laneId];
+      return [laneId, typeof health === "string" && READABLE_HEALTHS.includes(health) ? health : "unknown"];
+    }),
+  ) as Record<Id, LaneHealth>;
+}
 
 /**
  * Whether the page is still waiting for an answer's words: from Send until the first words come, through the tool calls

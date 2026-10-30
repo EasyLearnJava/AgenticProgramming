@@ -1222,7 +1222,8 @@ each adds one thing to the one before.
    30 October 2026 (`docs/step-9.md`): every line to Axiom, in one batch at each request's end; Sentry for every
    failure logged at `error`, with nothing private; the source maps uploaded during Production's builds. Part 2a,
    the same day: `/api/health`, four checks that run nothing that costs, each lane's status from the checks it
-   depends on, one result a minute.*
+   depends on, one result a minute. Part 2b: the lane picker's status dots, asked when the page opens and every 5
+   minutes.*
 10. [ ] **Evals, failure tests and the load test:** the golden questions on all four lanes (with the comparison
     report), the `CHAOS` cases and Playwright on previews in CI; the no-auth lanes' cache fallback and the amber "slow,
     retrying" chip (moved from step 5), which the `CHAOS` cases exercise; the daily contract check for `mcp-auth`; the load

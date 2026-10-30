@@ -11,6 +11,12 @@ export type LaneId = "rest-no-auth" | "rest-auth" | "mcp-no-auth" | "mcp-auth";
 /** The lanes built so far: all four, since step 7. An auth lane also needs its token to run. */
 export type LiveLaneId = Extract<LaneId, "rest-no-auth" | "mcp-no-auth" | "rest-auth" | "mcp-auth">;
 
+/**
+ * A lane's health, as the lane picker shows it (step 9): being checked, working, not answering, switched off (no
+ * token), or unknown (the health check's answer couldn't be read).
+ */
+export type LaneHealth = "checking" | "ok" | "down" | "off" | "unknown";
+
 /** What our code uses of an MCP client: listing the tools, calling one, and closing. */
 export type McpClient = Pick<MCPClient, "listTools" | "callTool" | "close">;
 

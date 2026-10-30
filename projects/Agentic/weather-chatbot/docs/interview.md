@@ -22,7 +22,8 @@ with its fix.
 - **Observability that keeps the question private.** The lines go to Axiom in one batch at each request's end, kept
   alive past the answer by `waitUntil`; errors go to Sentry, whose version 11 collects bodies, headers and AI prompts
   unless told not to, so each is turned off, and its trace headers stay off our calls to other services. And
-  `/api/health` checks each lane's ways out without running anything that costs, for the status dots and a monitor.
+  `/api/health` checks each lane's ways out without running anything that costs; each lane shows it as a dot, and a
+  monitor can watch it.
 - **Time budgets on every hop.** 50 s for an answer (the function stops at 60), 10 s for the model's first chunk, 8 s
   for a tool, 20 s for an Actor run (25 on MCP, which may connect first), 6 s to connect to our MCP server (3 s until
   a cold start needed more: bug story 18) and 5 s to
@@ -43,11 +44,11 @@ with its fix.
   with a browser test that fails on any report; input limits checked with Zod; read-only tools, Markdown without raw
   HTML or images, so a tool's output can't carry the chat away; and a bot check on the chat, built with a kill switch,
   and switched off for now (bug story 17).
-- **Tests that can fail.** 282 unit tests and 54 browser tests (with accessibility, a phone's width, and the policy's
+- **Tests that can fail.** 284 unit tests and 58 browser tests (with accessibility, a phone's width, and the policy's
   reports), golden questions asked of the live site, and CI on every push. Since step 7, new tests are checked by
   breaking the code they guard ("mutation checks"): each must fail without its fix.
 - **Process.** An independent reviewer reads every change before its commit (all but one emergency switch, read just
-  after); every deploy is checked on the live site; every problem goes in the issues log (126 entries), and the real
+  after); every deploy is checked on the live site; every problem goes in the issues log (128 entries), and the real
   bugs become stories.
 
 ## The stories to tell
@@ -129,8 +130,9 @@ Each is a bug story in **Issues and fixes**; here is the short version, in the o
 | Stop, heard by the function | at once during the answer's text; about 7 s after a hang-up early in the answer (one live check each) |
 | BotID's outage | about 25 minutes, ended by a one-line switch |
 | A cold start, with Sentry | on a laptop, about 2.4 s more on the first request (3.1 s with Sentry, 0.7 s without); on Vercel, a cold MCP connection took 4.2 s inside the chat with it, 1.1 to 1.8 s before step 9 |
+| The health check, live | four checks, each lane `ok`; our MCP server's cold connection 4.0 s; the CDN's kept answer 0.37 s |
 | Gemini's slow hour | steps of 3 to 27 s, against about 1 s or less; the same code an hour later answered in 2.4 to 3.9 s |
-| Tests | 282 unit, 54 browser, golden questions on the live site |
+| Tests | 284 unit, 58 browser, golden questions on the live site |
 
 ## Questions you may get
 
