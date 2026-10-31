@@ -109,10 +109,15 @@ lanes, how it's kept safe, and its monitoring.
 ### The backup tag
 
 `weather-chatbot-typescript-backup` pointed at `c7165ac`, the TypeScript version's last commit, which `main`'s history
-keeps; it was annotated, and the repository has no published release. Deleted, here and on GitHub;
-`git tag -a weather-chatbot-typescript-backup c7165ac -m "Backup of the TypeScript weather chatbot (Nimbus) before
-the Python rewrite; delete once the rewrite is complete."` would make it again. The TypeScript version's pages stay,
-each `*_deprecated`, until you say otherwise.
+keeps; it was annotated, and the repository has no published release. Deleted, here and on GitHub; this would
+make it again, as it was:
+
+```bash
+git tag -a weather-chatbot-typescript-backup c7165ac -m "Backup of the TypeScript weather chatbot (Nimbus) \
+before the Python rewrite; delete once the rewrite is complete."
+```
+
+The TypeScript version's pages stay, each `*_deprecated`, until you say otherwise.
 
 ## Run it
 
@@ -178,6 +183,16 @@ percentile; the summary; a request that can't be made; and a small load against 
 that fails counted as failed. The mutation check breaks 6 more rules (its first 177 lines are left out above). The
 follow-up from the review (issue 79) added a seventh: run again, 592 unit tests passed and the mutation check caught
 184 of 184; the browser suite wasn't, as nothing it tests changed, and this computer was short of memory.
+
+## Deploy it
+
+The push, b92f574, was live on Vercel, and CI's checks had passed, within about three minutes; so were its two
+follow-ups: 4efa330, from the review, whose browser suite failed in CI on a test racing its own question (issue 80),
+and 3e447a1, its fix, whose CI passed whole. Checked on the live site on 31 October 2026, on 3e447a1: the chat page
+names its build; the menu links Technical details and Waiting on you; both, and this chapter, open with their own
+words; and `/api/health` says every lane working. The golden questions and the load test, under Run it, ran against
+the live site's 4785bc7, before this step's push: this step changes the tools that ask, not the app that answers.
+Then the backup tag was deleted, here and on GitHub; its commit, `c7165ac`, is still in `main`'s history.
 
 ## Things to take care of, and pitfalls
 
