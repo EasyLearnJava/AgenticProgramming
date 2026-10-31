@@ -193,6 +193,19 @@ unknown one get our sentence; a chip names its lane; the page has its picker and
 picker takes a question through our server, and the compare view passes axe and fits a phone. The mutation check
 breaks 7 more rules (its first 121 lines are left out above; each says caught).
 
+## Deploy it
+
+The push, 4d58b59, was live on Vercel, and CI's checks had passed, within about two minutes. Checked on the live
+site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026, after a warm-up:
+
+- "Will it rain in Paris tomorrow?" on MCP · no auth: both chips said "MCP · no auth ·
+  weather-chatbot-hazel.vercel.app", the lane's calls to this site's own MCP server: the place in 0.1 s, from the
+  cache, and the forecast in 0.2 s; a chip showed the `tools/call`, then the server's GET. The answer: "In Paris,
+  France, tomorrow (Sunday, November 1, 2026), the forecast calls for overcast skies with a 0% chance of rain."
+- A question on REST · with auth got 400 and "That lane isn't open yet."
+- In Edge, the picker showed the two open lanes, REST · no auth chosen; the compare view showed REST's GET and MCP's
+  `tools/call` to this site's own server; axe found no violation with it open, and the console held no error.
+
 ## Things to take care of, and pitfalls
 
 - **Never call an address a request names:** a serverless app calling itself must choose the address itself.

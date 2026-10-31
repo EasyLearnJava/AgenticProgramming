@@ -13,11 +13,12 @@ from typing import Any
 import httpx2
 import pytest
 from langchain_core.messages import ToolMessage
-from pydantic import ValidationError
+from langchain_core.tools import ToolException
+from pydantic import BaseModel, ValidationError
 from structlog.testing import capture_logs
 
 from nimbus.errors import WEATHER_UNREACHABLE
-from nimbus.lanes import REST_NO_AUTH
+from nimbus.lanes import MCP_NO_AUTH, REST_NO_AUTH
 from nimbus.open_meteo import OpenMeteoClient
 from nimbus.tools import (
     GEOCODE_LOCATION,
@@ -214,3 +215,23 @@ def test_a_place_name_with_spaces_around_it_is_searched_without_them() -> None:
     recordings = OpenMeteoRecordings()
     invoke(recordings, {"query": "  Paris  "})
     assert recordings.requests[0].url.params["name"] == "Paris"
+
+
+def test_a_tool_error_a_lane_s_run_raises_is_logged_by_its_class_never_its_text() -> None:
+    # The MCP lane raises one for a call its server refused (step 9): the model reads the text; the log, the class.
+    async def refuse(_params: BaseModel) -> ToolRun:
+        raise ToolException("Error executing tool geocode_location: the server's own words")
+
+    async def go() -> ToolMessage:
+        tool = to_langchain_tool(GEOCODE_LOCATION, refuse, MCP_NO_AUTH)
+        call = {"type": "tool_call", "id": "call-0-0", "name": "geocode_location", "args": {"query": "Paris"}}
+        message = await tool.ainvoke(call)
+        assert isinstance(message, ToolMessage)
+        return message
+
+    with capture_logs() as lines:
+        message = asyncio.run(go())
+    assert message.status == "error"
+    [line] = [line for line in lines if line["event"] == "tool.call"]
+    assert (line["lane"], line["status"], line["errorClass"]) == ("mcp-no-auth", "failed", "ToolException")
+    assert "own words" not in str(line)

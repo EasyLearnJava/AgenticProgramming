@@ -434,6 +434,11 @@ def to_langchain_tool(tool: WeatherTool, run: Callable[[BaseModel], Awaitable[To
             failed = {"status": "failed", "ms": ms, "errorClass": type(error).__name__}
             log.info("tool.call", tool=tool.name, lane=lane.id, **failed)
             raise ToolException(error.user_message) from error
+        except ToolException as error:
+            # A call the lane's server refused, as a tool error (step 9): logged by its class, never its text.
+            ms = to_ms(time.perf_counter() - started)
+            log.info("tool.call", tool=tool.name, lane=lane.id, status="failed", ms=ms, errorClass=type(error).__name__)
+            raise
         ms = to_ms(time.perf_counter() - started)
         log.info("tool.call", tool=tool.name, lane=lane.id, status="ok", ms=ms)
         upstream = tool_run.upstream_request
