@@ -20,7 +20,9 @@ log only. It handles:
     └── UpstreamError           UPSTREAM_ERROR         502  a model provider failed
         ├── UpstreamTimeoutError    UPSTREAM_TIMEOUT       504
         └── UpstreamRateLimitError  UPSTREAM_RATE_LIMITED  503
+            └── UpstreamDailyQuotaError  UPSTREAM_DAILY_QUOTA  503  the key's quota for the day is used up
 """
+import re
 from collections.abc import Iterator
 
 from langchain_core.exceptions import ModelRateLimitError, ModelTimeoutError
@@ -101,6 +103,14 @@ class UpstreamRateLimitError(UpstreamError):
     retryable = True
 
 
+class UpstreamDailyQuotaError(UpstreamRateLimitError):
+    """A rate limit that lasts the rest of the day: Gemini's free tier allows so many calls a day, until midnight
+    Pacific time."""
+
+    code = "UPSTREAM_DAILY_QUOTA"
+    public_message = "The AI service's quota for today is used up. Try again after midnight Pacific time."
+
+
 # -------------------------------------------------
 # Provider Errors
 # -------------------------------------------------
@@ -109,10 +119,15 @@ class UpstreamRateLimitError(UpstreamError):
 # this module needs none of them installed
 TIMEOUT_NAME_ENDINGS = ("Timeout", "TimeoutError", "TimeoutException")
 
+# Google's 429 for a quota that lasts the day says so: "Embed content requests per day limit exceeded on Free Tier",
+# and quota IDs such as "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+DAILY_QUOTA = re.compile(r"per ?day", re.IGNORECASE)
+
 
 def upstream_error(service: str, error: Exception) -> UpstreamError:
-    """The UpstreamError for a provider's exception: a timeout, a rate limit, or any other failure. The provider's
-    own error is often wrapped (LangChain's Gemini embeddings wrap Google's), so the whole chain of causes is read."""
+    """The UpstreamError for a provider's exception: a timeout, a rate limit (the day's quota, if the provider says
+    so), or any other failure. The provider's own error is often wrapped (LangChain's Gemini embeddings wrap
+    Google's), so the whole chain of causes is read."""
     detail = f"{type(error).__name__}: {error}"
     causes = list(_causes(error))
     for cause in causes:
@@ -121,6 +136,8 @@ def upstream_error(service: str, error: Exception) -> UpstreamError:
                 or type(cause).__name__.endswith(TIMEOUT_NAME_ENDINGS)):
             return UpstreamTimeoutError(service, detail)
         if isinstance(cause, ModelRateLimitError) or status == 429:
+            if any(DAILY_QUOTA.search(str(each)) for each in causes):
+                return UpstreamDailyQuotaError(service, detail)
             return UpstreamRateLimitError(service, detail)
     # A server error (5xx) may pass; a refused request (a bad key, a bad model name) won't until it's fixed
     retryable = any(getattr(cause, "is_retryable", False) or 500 <= (_http_status(cause) or 0) < 600

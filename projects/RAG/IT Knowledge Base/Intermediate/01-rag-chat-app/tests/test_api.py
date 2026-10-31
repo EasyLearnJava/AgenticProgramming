@@ -21,7 +21,7 @@ from support import change, stand_in_engine
 from src.api.app import create_app
 from src.api.middleware import TraceMiddleware
 from src.config.settings import PROJECT_DIR
-from src.exceptions import UpstreamError, UpstreamRateLimitError
+from src.exceptions import UpstreamDailyQuotaError, UpstreamError, UpstreamRateLimitError
 from src.observability.tracing import trace_context
 
 TRACE_ID = re.compile(r"[0-9a-f]{16}")
@@ -166,6 +166,16 @@ def test_a_busy_provider_gets_a_503_and_a_warning_without_a_traceback(client, en
     record = logs.find("Request failed: UPSTREAM_RATE_LIMITED")
     assert (record.levelname, record.exc_info) == ("WARNING", None)
     assert record.error == "llm: GoogleRateLimitError: 429 RESOURCE_EXHAUSTED"     # the detail: in the log only
+
+
+def test_a_quota_used_up_for_the_day_says_when_to_try_again(client, engine, monkeypatch):
+    fail_with(engine, monkeypatch, UpstreamDailyQuotaError("embeddings", "429 ... requests per day limit exceeded"))
+    response = client.post("/api/v1/query", json={"question": "My VPN won't connect"})
+    assert response.status_code == 503
+    assert response.json() == {"error": {
+        "code": "UPSTREAM_DAILY_QUOTA",
+        "message": "The AI service's quota for today is used up. Try again after midnight Pacific time.",
+        "trace_id": response.headers["x-trace-id"], "retryable": True}}
 
 
 def test_a_failing_provider_gets_a_502_and_an_error_with_its_traceback(client, engine, monkeypatch, logs):

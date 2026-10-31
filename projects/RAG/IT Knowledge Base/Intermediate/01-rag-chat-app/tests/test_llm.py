@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import SecretStr
 
 from src.config.settings import load_settings
-from src.exceptions import UpstreamError, UpstreamRateLimitError, UpstreamTimeoutError
+from src.exceptions import UpstreamDailyQuotaError, UpstreamError, UpstreamRateLimitError, UpstreamTimeoutError
 from src.llm.llm_client import LLMClient, LLMResponse, create_chat_model
 
 MESSAGES = [HumanMessage("My VPN won't connect")]
@@ -81,12 +81,16 @@ def test_the_real_gemini_class_runs_end_to_end_with_googles_client_faked():
 @pytest.mark.parametrize("error, expected, retryable", [
     (errors.ClientError(429, {"error": {"code": 429, "message": "Quota.", "status": "RESOURCE_EXHAUSTED"}}),
      UpstreamRateLimitError, True),
+    (errors.ClientError(429, {"error": {"code": 429, "message": "Quota.", "status": "RESOURCE_EXHAUSTED", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure",
+         "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}),
+     UpstreamDailyQuotaError, True),
     (httpx.ReadTimeout("The read operation timed out"), UpstreamTimeoutError, True),
     (errors.ServerError(503, {"error": {"code": 503, "message": "Overloaded.", "status": "UNAVAILABLE"}}),
      UpstreamError, True),
     (errors.ClientError(400, {"error": {"code": 400, "message": "API key not valid.", "status": "INVALID_ARGUMENT"}}),
      UpstreamError, False),
-], ids=["rate limit", "timeout", "server error", "bad key"])
+], ids=["rate limit", "the day's quota", "timeout", "server error", "bad key"])
 def test_each_provider_failure_becomes_the_right_upstream_error(error, expected, retryable, logs):
     llm = gemini_client(FakeGenaiClient(generate=error))
     for call in (lambda: llm.generate(MESSAGES), lambda: asyncio.run(llm.agenerate(MESSAGES))):

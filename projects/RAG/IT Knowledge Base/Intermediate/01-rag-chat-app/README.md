@@ -153,7 +153,7 @@ where it started.
 │   │   ├── errors.py                 # every failure → the one error shape, logged once
 │   │   └── middleware.py             # TraceMiddleware: trace ID, request log line, headers, last-resort 500
 │   └── utils/helpers.py              # elapsed_ms(), truncate(), print_result()
-├── tests/                            # 185 tests: one file per layer, plus the API and main.py
+├── tests/                            # 188 tests: one file per layer, plus the API and main.py
 ├── requirements.txt                  # the packages, each pinned to an exact version
 ├── requirements-dev.txt              # requirements.txt plus pytest and httpx2, for the tests
 ├── pytest.ini                        # lets the tests import main and src, and finds them in tests/
@@ -532,6 +532,7 @@ before the app is shared.
 | `NOT_READY` | 503 | the engine isn't built, or the store lost chunks | yes | `WARNING` |
 | `VECTOR_STORE_ERROR` | 503 | Qdrant failed | no | `ERROR`, with the traceback |
 | `UPSTREAM_RATE_LIMITED` | 503 | Gemini said 429, after every attempt | yes | `WARNING` |
+| `UPSTREAM_DAILY_QUOTA` | 503 | Gemini said 429 for a quota per day: the key's calls for today are used up | yes, after midnight Pacific time | `WARNING` |
 | `UPSTREAM_TIMEOUT` | 504 | a call to Gemini timed out, after every attempt | yes | `WARNING` |
 | `UPSTREAM_ERROR` | 502 | Gemini refused the call (a bad key, say) or failed (5xx), or answered with no text | 5xx: yes; else no | `WARNING`, or `ERROR` with the traceback |
 | `REQUEST_TIMEOUT` | 504 | the whole question took over `api.request_timeout_seconds` | yes | `WARNING` |
@@ -576,7 +577,7 @@ with its raw name and fields.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 183 passed, 2 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 186 passed, 2 deselected  (add -v for one line per test)
 ```
 
 The plain tests need no key and make no calls: they use stand-ins for Gemini, and Google's own client faked at the
@@ -592,9 +593,9 @@ client sends with, is stopped from sending anything. They check each layer on it
   good and named by `/api/v1/info`; the page's files, the health checks and trace reads aren't kept; the store keeps
   the newest traces, at most 300 lines each, with the key masked and no tracebacks; and the request's line is written
   before its last bytes go out, so a trace read right after the answer holds it
-- **The errors**: each provider failure (429, timeout, 5xx, a bad key) becomes the right error, for embeddings and
-  for the chat model; each API failure answers in the one shape, with its status, code and trace ID, logged at the
-  right level; a slow model is cancelled at the deadline
+- **The errors**: each provider failure (429, the day's quota used up, timeout, 5xx, a bad key) becomes the right
+  error, for embeddings and for the chat model; each API failure answers in the one shape, with its status, code and
+  trace ID, logged at the right level; a slow model is cancelled at the deadline
 - **The start**: a bad setting (an encoding Python doesn't know among them), a missing key, a log file that can't
   be opened and a failed build each stop it with one line and exit code 1, never a traceback; Ctrl+C during a
   question returns 130, and a span it stops says `cancelled`; `ask` logs to the console only; the server runs with
@@ -750,9 +751,9 @@ added.
 or `Indexing failed: ...`
 **Fix**: The build runs `python main.py index`, which embeds the chunks, so it needs the key too: add
 `GOOGLE_API_KEY` under **Settings** > **Environment Variables**, then redeploy. After `Indexing failed:
-UPSTREAM_RATE_LIMITED`, read the rest of the line: wait a minute and redeploy, or, when it says `Embed content
-requests per day limit exceeded on Free Tier`, redeploy after midnight Pacific time, when the day's quota comes back.
-Until a build succeeds, Vercel goes on serving the deployment before it.
+UPSTREAM_RATE_LIMITED`, wait a minute and redeploy; after `Indexing failed: UPSTREAM_DAILY_QUOTA`, redeploy after
+midnight Pacific time, when the day's quota comes back. Until a build succeeds, Vercel goes on serving the deployment
+before it.
 
 **Issue**: On Vercel, each start's log shows `WARNING [...] main: No saved vectors on Vercel (<the path>): each instance embeds the chunks as it starts, and instances starting together can use up Gemini's quota. vercel.json has the build save them with python main.py index`, then `embeddings.load_vectors ok ... used=False reason="there's no file: python main.py index makes it"` and `embeddings.embed_documents`
 **Fix**: The deployment has no saved vectors, so each copy embeds the chunks, as before the build step. Check that
@@ -785,11 +786,14 @@ it should list the Gemini API (the Generative Language API), not Gemini for Goog
 Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `ERROR [...] main: Start-up failed: UPSTREAM_RATE_LIMITED: embeddings: GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. ...`, or the page shows `The AI service is busy (rate limited). Try again in a minute.`
-**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute and 1,000 a day; starting
+**Fix**: Your key has used its quota for the minute. On the free tier, that's 100 embedded texts a minute; starting
 the app embeds 28 (none when it loads the saved vectors: see Or: Embed the Chunks Once), and each question 1 more.
-Wait a minute, then try again. When the line says `Embed content requests per day limit exceeded on Free Tier`, the
-day's are used up: they come back at midnight Pacific time, and the line says how long that is (`retry in ...`).
-The page says `Try again in a minute` either way.
+Wait a minute, then try again.
+
+**Issue**: `ERROR [...] main: Start-up failed: UPSTREAM_DAILY_QUOTA: embeddings: ... Embed content requests per day limit exceeded on Free Tier ...`, or the page shows `The AI service's quota for today is used up. Try again after midnight Pacific time.`
+**Fix**: Your key has used its quota for the day: on the free tier, 1,000 embedded texts (Gemini's chat model has a
+daily limit too). It comes back at midnight Pacific time; the line says how long that is (`retry in ...`). Saved
+vectors keep the starts from spending it (see Or: Embed the Chunks Once).
 
 **Issue**: `Can't start: the log file can't be opened (Permission denied): <the full path>`
 **Fix**: `logging.file` in `config.yaml` leads to a folder, or to a place you can't write. Point it at a file in a

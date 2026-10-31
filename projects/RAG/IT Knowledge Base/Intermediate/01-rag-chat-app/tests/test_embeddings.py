@@ -19,7 +19,13 @@ from pydantic import SecretStr
 from src.config.settings import load_settings
 from src.embeddings.embedder import Embedder, create_embedding_model
 from src.embeddings.vector_file import VectorFile
-from src.exceptions import UpstreamError, UpstreamRateLimitError, UpstreamTimeoutError, VectorFileError
+from src.exceptions import (
+    UpstreamDailyQuotaError,
+    UpstreamError,
+    UpstreamRateLimitError,
+    UpstreamTimeoutError,
+    VectorFileError,
+)
 
 TEXTS = [f"Text {number} about vpn" for number in range(25)]
 VECTORS = [[0.1 + 0.2, 1 / 3, -2.5e-08], [1.0, 0.0, 0.5]]      # 0.30000000000000004 and the like must come back exact
@@ -94,10 +100,14 @@ def test_the_real_gemini_class_runs_end_to_end_with_googles_client_faked():
 
 @pytest.mark.parametrize("error, expected, retryable", [
     (google_error(429, "RESOURCE_EXHAUSTED"), UpstreamRateLimitError, True),
+    (errors.ClientError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": (
+        "You exceeded your current quota. Quota exceeded for metric: embed_content_free_tier_requests, limit: 1000, "
+        "description: Embed content requests per day limit exceeded on Free Tier. Please retry in 7h14m21s.")}}),
+     UpstreamDailyQuotaError, True),
     (httpx.ReadTimeout("The read operation timed out"), UpstreamTimeoutError, True),
     (google_error(503, "UNAVAILABLE"), UpstreamError, True),
     (google_error(400, "INVALID_ARGUMENT"), UpstreamError, False),
-], ids=["rate limit", "timeout", "server error", "bad key"])
+], ids=["rate limit", "the day's quota", "timeout", "server error", "bad key"])
 def test_each_provider_failure_becomes_the_right_upstream_error(error, expected, retryable, logs):
     embedder = gemini_embedder(FakeGenaiClient(embed=error))
     with pytest.raises(UpstreamError) as caught:
