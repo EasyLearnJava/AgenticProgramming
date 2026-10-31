@@ -610,8 +610,8 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/cache.py",
-        "async with asyncio.timeout(self._timeout_seconds):\n                return await self.store.get(",
-        "async with asyncio.timeout(None):\n                return await self.store.get(",
+        "async with asyncio.timeout(self._timeout_seconds):\n                return await self._store.get(",
+        "async with asyncio.timeout(None):\n                return await self._store.get(",
         "a slow read of the cache is given up",
     ),
     Mutation(
@@ -941,12 +941,6 @@ MUTATIONS = (
         "on Vercel, a request's lines go once it has answered",
     ),
     Mutation(
-        "nimbus/cache.py",
-        "on_error=_raise))",
-        "on_error=print))",
-        "the cache's own error is our warning",
-    ),
-    Mutation(
         "nimbus/__init__.py",
         'os.environ.setdefault("VERCEL_TELEMETRY_DISABLED", "1")',
         "",
@@ -984,7 +978,7 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/health.py",
-        "        write = log.error if isinstance(failure, NEEDS_A_LOOK) else log.warning",
+        "        write = log.error if isinstance(failure, NEEDS_A_LOOK) and is_new else log.warning",
         "        write = log.warning",
         "a token Apify refuses is an error",
     ),
@@ -1017,6 +1011,18 @@ MUTATIONS = (
         'data-lane-status="{{ lane.id }}" ',
         "",
         "each open lane shows its status",
+    ),
+    Mutation(
+        "nimbus/middleware.py",
+        "sending = send_monitoring(self.log_shipper)",
+        "sending = send_monitoring(self.log_shipper if error_class is None else None)",
+        "a request that raises still sends its lines",
+    ),
+    Mutation(
+        "nimbus/health.py",
+        "        is_new = failing.get(name) != error_class",
+        "        is_new = True",
+        "a check that keeps failing reaches Sentry once on each copy",
     ),
 )
 

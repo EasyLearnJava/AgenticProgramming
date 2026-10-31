@@ -9,20 +9,15 @@ import hashlib
 import os
 import time
 
-import httpx2
 import pytest
-from pydantic import SecretStr
 from structlog.testing import capture_logs
 from vercel.cache import AsyncRuntimeCache
-from vercel.cache.cache_build import AsyncBuildCache
 from vercel.internal.telemetry.tracker import get_client
 
 from nimbus.cache import WeatherCache, make_weather_cache, to_cache_key
-from nimbus.config import Settings
 from tests.fakes import FakeCacheStore
 
 ADDRESS = "https://geocoding-api.open-meteo.com/v1/search?name=Paris&count=5&language=en&format=json"
-CACHE_ENDPOINT = "https://cache.vercel.test/v1/"
 
 
 def run_on(cache: WeatherCache, operation: str) -> object:
@@ -76,7 +71,7 @@ def test_a_cache_slower_than_its_time_is_given_up_as_a_miss(operation: str) -> N
 def test_vercel_s_runtime_cache_takes_our_keys_as_they_are() -> None:
     # Off Vercel, the package keeps values in this process's memory, which another of its caches reads by the same key.
     async def keep_then_read() -> object:
-        await make_weather_cache(Settings(_env_file=None)).set(ADDRESS, {"results": []}, 600)
+        await make_weather_cache().set(ADDRESS, {"results": []}, 600)
         return await AsyncRuntimeCache(key_hash_function=str).get(to_cache_key(ADDRESS))
 
     assert asyncio.run(keep_then_read()) == {"results": []}
@@ -88,29 +83,3 @@ def test_the_vercel_package_s_telemetry_is_off() -> None:
     assert os.environ["VERCEL_TELEMETRY_DISABLED"] == "1"
     client = get_client()
     assert client is None or not client._enabled
-
-
-@pytest.mark.parametrize("operation", ["get", "set"])
-def test_where_vercel_gives_its_cache_s_address_the_cache_s_own_error_is_our_warning(
-    operation: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Issue 60: the package's store printed an error and gave a miss; ours raises it, to our one warning. The
-    # package calls Vercel's cache through httpx2.
-    real_client = httpx2.AsyncClient
-    failing = httpx2.MockTransport(lambda _request: httpx2.Response(500))
-    monkeypatch.setattr(httpx2, "AsyncClient", lambda **_options: real_client(transport=failing))
-    headers = SecretStr('{"authorization": "Bearer test-cache-token"}')
-    settings = Settings(_env_file=None, runtime_cache_endpoint=CACHE_ENDPOINT, runtime_cache_headers=headers)
-    cache = make_weather_cache(settings)
-    assert isinstance(cache.store, AsyncBuildCache)
-    with capture_logs() as lines:
-        assert run_on(cache, operation) is None
-    assert [(line["event"], line["operation"], line["errorClass"]) for line in lines] == [
-        ("cache.failed", operation, "RuntimeError")
-    ]
-
-
-@pytest.mark.parametrize("headers", ["not json", "[1, 2]"])
-def test_headers_that_aren_t_a_json_object_leave_the_package_s_own_store(headers: str) -> None:
-    settings = Settings(_env_file=None, runtime_cache_endpoint=CACHE_ENDPOINT, runtime_cache_headers=SecretStr(headers))
-    assert isinstance(make_weather_cache(settings).store, AsyncRuntimeCache)

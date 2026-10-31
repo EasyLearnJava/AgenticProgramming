@@ -7,37 +7,20 @@ never. The events are kept by a transport of the tests' own: none leaves.
 
 import json
 from collections.abc import Iterator
-from typing import Any
 
 import pytest
 import sentry_sdk
 import structlog
 from pydantic import SecretStr
-from sentry_sdk.envelope import Envelope
-from sentry_sdk.transport import Transport
 
 from nimbus.config import Settings
 from nimbus.logger import configure_logging
 from nimbus.sentry import start_sentry, to_sentry_options
 from nimbus.utils import to_ref
+from tests.fakes import KeptEvents
 
 DSN = "https://public@o0.ingest.sentry.test/0"
 REQUEST_ID = "cle1::abcde-1793469547772-79161db8a672"
-
-
-class KeptEvents(Transport):
-    """Sentry's transport, kept here: each event the SDK would send."""
-
-    def __init__(self) -> None:
-        """Nothing kept yet."""
-        super().__init__()
-        self.events: list[dict[str, Any]] = []
-
-    def capture_envelope(self, envelope: Envelope) -> None:
-        """Keeps the envelope's event, if it holds one."""
-        event = envelope.get_event()
-        if event is not None:
-            self.events.append(dict(event))
 
 
 @pytest.fixture

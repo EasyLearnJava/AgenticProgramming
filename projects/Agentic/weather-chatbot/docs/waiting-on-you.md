@@ -25,8 +25,8 @@ bypass secret in the deployment yet, so begin with the first part.
 ## 2. Apify: a monthly usage limit (step 10)
 
 The lanes with auth cap their runs at 2 an answer and 25 a day, each run's charge at $0.01; a limit on Apify's side
-caps the account itself, whatever happens to ours. In Apify's Console, **Settings → Usage & billing**: set a monthly
-usage limit, a few dollars at most.
+caps the account itself, whatever happens to ours. In Apify's Console, **Billing → Limits**: set a monthly usage
+limit, a few dollars at most.
 
 ## 3. Vercel's environment variables
 
@@ -36,10 +36,8 @@ In the project's **Settings → Environment Variables**, for Production, then a 
 |---|---|---|
 | Add `VERCEL_TELEMETRY_DISABLED` = `1` | The app turns the vercel package's telemetry off before any of its modules import it (issues 58 and 69); a variable is in place even if Vercel's runtime imports the package first | 7 |
 | Delete `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` | They uploaded the TypeScript app's source maps; Python has none, so nothing reads them | 12 |
-| Check `AXIOM_TOKEN` (Sensitive), `AXIOM_DATASET` = `weather-chatbot` and `SENTRY_DSN` are set | Without both of Axiom's, the lines stay in Vercel's logs only; without Sentry's DSN, Sentry stays off. The token must be an API token that can only ingest into the dataset | 12 |
 
-Step 12's live check reads the app's own start line, which says whether Axiom and Sentry are on: Deploy it, in
-[step 12's chapter](step-12.md), says what it found.
+Axiom's and Sentry's own variables are set already: the live app's start line said so (step 12's Deploy it).
 
 ## 4. Monitoring: a dashboard, alerts and an uptime monitor (step 12)
 
@@ -47,8 +45,8 @@ They live in your Axiom, Sentry and uptime accounts. Step 12's chapter has each 
 "Dashboards and alerts, ready to set up".
 
 1. **Axiom:** a dashboard named `Nimbus`, one chart per query; then the monitors, each emailing you.
-2. **Sentry:** its default alert, a high-priority issue by email, is already on; add an issue alert for
-   `exception.type` equals `AuthError`, at most once a day: Apify refused the token.
+2. **Sentry:** its default alert, a high-priority issue by email, is already on; add an issue alert on the tag
+   `errorClass` equals `AuthError`, at most once a day: Apify refused the token.
 3. **An uptime monitor**, on a free plan (UptimeRobot or Better Stack):
    `https://weather-chatbot-hazel.vercel.app/api/health` every 5 minutes, alerting on anything but `200`.
 

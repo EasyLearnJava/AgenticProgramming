@@ -83,10 +83,12 @@ def to_failure(error: Exception) -> UpstreamError:
     return UpstreamTimeoutError() if isinstance(error, TimeoutError) else UpstreamUnavailableError()
 
 
-async def run_check(name: CheckName, check: Check) -> CheckResult:
+async def run_check(name: CheckName, check: Check, failing: dict[CheckName, str]) -> CheckResult:
     """
-    One check, within its 8 s: how it went, and one health.check line; a failure at its class's level, so a token
-    Apify refuses (AuthError) is an error, which reaches Sentry, before anyone picks a lane with auth.
+    One check, within its 8 s: how it went, and one health.check line. A failure that needs a look, a token Apify
+    refuses (AuthError), say, is an error, which reaches Sentry before anyone picks a lane with auth; but only when it's
+    new on this copy of the app (failing keeps each check's failure, until it passes): a check that keeps failing would
+    send an event every run, and use up Sentry's free quota. Then it's a warning, still a line.
     """
     if check is None:
         return CheckResult("off")
@@ -97,9 +99,13 @@ async def run_check(name: CheckName, check: Check) -> CheckResult:
     except Exception as error:
         failure = to_failure(error)
         ms = to_ms(time.perf_counter() - started)
-        write = log.error if isinstance(failure, NEEDS_A_LOOK) else log.warning
-        write("health.check", check=name, status="down", ms=ms, errorClass=type(failure).__name__)
-        return CheckResult("down", ms, type(failure).__name__)
+        error_class = type(failure).__name__
+        is_new = failing.get(name) != error_class
+        failing[name] = error_class
+        write = log.error if isinstance(failure, NEEDS_A_LOOK) and is_new else log.warning
+        write("health.check", check=name, status="down", ms=ms, errorClass=error_class)
+        return CheckResult("down", ms, error_class)
+    failing.pop(name, None)
     ms = to_ms(time.perf_counter() - started)
     log.info("health.check", check=name, status="ok", ms=ms)
     return CheckResult("ok", ms)
@@ -113,11 +119,12 @@ def to_lane_status(lane: LaneId, checks: Mapping[CheckName, CheckResult]) -> Sta
     return "down" if "down" in statuses else "ok"
 
 
-async def check_lanes(checks: Mapping[CheckName, Check]) -> HealthReport:
+async def check_lanes(checks: Mapping[CheckName, Check], failing: dict[CheckName, str]) -> HealthReport:
     """Runs every check at once, each within its time, and says what works; one health.done line."""
     started = time.perf_counter()
     names = list(checks)
-    results = dict(zip(names, await asyncio.gather(*(run_check(name, checks[name]) for name in names)), strict=True))
+    runs = (run_check(name, checks[name], failing) for name in names)
+    results = dict(zip(names, await asyncio.gather(*runs), strict=True))
     lanes = {lane: to_lane_status(lane, results) for lane in CHECKS_BY_LANE}
     status: Literal["ok", "down"] = "down" if "down" in lanes.values() else "ok"
     log.info("health.done", status=status, ms=to_ms(time.perf_counter() - started), lanes=lanes)
@@ -182,7 +189,8 @@ async def to_report(request: Request) -> HealthReport:
     run = runs.get(mcp_url or "")
     now = time.monotonic()
     if run is None or now - run.started >= HEALTH_RUN_SECONDS or run.task.get_loop() is not asyncio.get_running_loop():
-        run = runs[mcp_url or ""] = HealthRun(now, asyncio.create_task(check_lanes(make_checks(request, mcp_url))))
+        checking = check_lanes(make_checks(request, mcp_url), state.health_failures)
+        run = runs[mcp_url or ""] = HealthRun(now, asyncio.create_task(checking))
     # Shielded: a request that goes away doesn't stop the run the others wait for.
     return await asyncio.shield(run.task)
 

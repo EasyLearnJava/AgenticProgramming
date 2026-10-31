@@ -23,6 +23,7 @@ from nimbus.app import create_app
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
 from nimbus.constants import HEALTH_CACHE_CONTROL
+from nimbus.errors import AuthError
 from nimbus.health import Check, CheckName, check_lanes, make_checks, run_check
 from tests.fakes import ApifyRecordings, FakeCacheStore, OpenMeteoRecordings, make_apify_mcp_stand_in
 
@@ -138,7 +139,7 @@ def test_with_apify_s_token_its_mcp_server_is_checked_against_our_pin(
 
     async def go() -> str:
         async with stand_in.router.lifespan_context(stand_in):
-            return (await run_check("apify-mcp", make_checks(request, None)["apify-mcp"])).status
+            return (await run_check("apify-mcp", make_checks(request, None)["apify-mcp"], {})).status
 
     assert asyncio.run(go()) == expected
 
@@ -154,7 +155,7 @@ def test_each_check_has_its_time_and_no_more(monkeypatch: pytest.MonkeyPatch) ->
 
     checks: dict[CheckName, Check] = {"open-meteo": fine, "our-mcp": slow, "apify-rest": None, "apify-mcp": None}
     with capture_logs() as lines:
-        report = asyncio.run(check_lanes(checks))
+        report = asyncio.run(check_lanes(checks, {}))
     assert report.checks["our-mcp"].error_class == "UpstreamTimeoutError"
     assert dict(report.lanes) == {
         "rest-no-auth": "ok",
@@ -183,3 +184,28 @@ def test_answers_head_as_uptime_monitors_send_it(settings: Settings, open_meteo:
         answer = client.head("/api/health")
     assert answer.status_code == 200
     assert answer.content == b""
+
+
+def test_a_check_that_keeps_failing_reaches_sentry_once_on_each_copy() -> None:
+    # The review of step 12: a refused token at error each run, every 5 minutes an uptime monitor asks, would use up
+    # Sentry's free quota in days. It's an error when it's new on this copy, then a warning, until the check passes.
+    async def refused() -> None:
+        raise AuthError
+
+    async def fine() -> None:
+        return None
+
+    failing: dict[CheckName, str] = {}
+    checks: dict[CheckName, Check] = {"open-meteo": fine, "our-mcp": fine, "apify-rest": refused, "apify-mcp": None}
+
+    def levels() -> list[str]:
+        """The apify-rest check's line's level, run once."""
+        with capture_logs() as lines:
+            asyncio.run(check_lanes(checks, failing))
+        return [line["log_level"] for line in lines if line.get("check") == "apify-rest"]
+
+    assert levels() + levels() == ["error", "warning"]
+    checks["apify-rest"] = fine
+    assert levels() == ["info"]
+    checks["apify-rest"] = refused
+    assert levels() == ["error"]

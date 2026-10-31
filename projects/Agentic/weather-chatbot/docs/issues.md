@@ -430,9 +430,6 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 
 ## Step 12 · Monitoring: Axiom, Sentry, the Health Check and the Status Dots
 
-Issue 60's To do is done: the Runtime Cache's store is built with an `on_error` that raises, so a cache that fails is
-one `cache.failed` warning, with the request's id; a test makes Vercel's cache answer 500, for a read and a write.
-
 69. **The vercel package's telemetry was off only by the order of imports.** *Building step 12.* The package reads
     `VERCEL_TELEMETRY_DISABLED` once, when it's first imported; `cache.py` set it just before its own import, and
     `middleware.py` now imports the package too, for `wait_until`. It held only because `chat.py` happens to import
@@ -447,3 +444,28 @@ one `cache.failed` warning, with the request's id; a test makes Vercel's cache a
     our MCP server, the shared `client` fixture's app tried `testserver` through a real HTTP client: a DNS lookup, and
     5 s, in a test that only read headers. **Fix:** the fixture's MCP client calls the app in the same process.
     **Check:** the suite's slowest test, timed: under a second.
+72. **Issue 60's fix never reached Vercel.** *Step 12's live check.* Step 12 built the Runtime Cache's store from
+    `RUNTIME_CACHE_ENDPOINT` and `RUNTIME_CACHE_HEADERS`, with an `on_error` that raises, so the cache's own errors
+    would be our warning; the live start line said `cacheStore: AsyncRuntimeCache`: the function's environment has
+    neither.
+    On Vercel, the runtime gives each request its cache, through the request's context, with the package's own
+    `on_error`; those variables are for Vercel's builds (the package's class for them is `BuildCache`). **Fix:**
+    undone, rather than kept as code that never runs; issue 60 stays open, on To do. **Check:** the live start line;
+    the live cache's hits, which come through the runtime's cache.
+73. **A request that raised never sent what it left for monitoring.** *The review.* The middleware's send, step ⑤,
+    came after its `try`/`finally`; Starlette answers a request that raises with its 500, then raises again, so the
+    error left the middleware before ⑤: its lines waited for the next request on that copy, and Sentry's event,
+    caught, was never flushed. **Fix:** ⑤ is in the `finally`, after the request's line, still after the response
+    has gone. **Check:** a test whose route raises: its batch goes to Axiom, its `http.request` line with the error's
+    class, and Sentry is flushed; the mutation check's rule.
+74. **A refused token could use up Sentry's free quota.** *The review.* Each health run would send Sentry two events,
+    for Apify's two checks, and a 503 is never kept, so every ask runs the checks: an uptime monitor every 5 minutes
+    alone, 576 a day, against the free plan's few thousand a month. **Fix:** a check's failure is an error only when
+    it's new on that copy of the app, until the check passes; then a warning, still a line. **Check:** a test runs a
+    refused check twice, then a pass, then a refusal: error, warning, info, error; the mutation check's rule.
+75. **A browser test failed on a connection left open.** *Building step 12.* The browser tests' run failed once in
+    four, on Windows, in a test about chips, on Python's warning, which our tests make an error, about a socket left
+    open on the server that runs in the tests' own process. Likeliest: since step 12 every page asks for each lane's
+    health when it opens, and a test done before the answer came closed the page on a request still being answered.
+    **Fix:** the browser tests answer that ask in the browser, every lane working; the test of the real dots removes
+    that answer and asks the app. **Check:** the browser suite, run whole twice since: no warning.

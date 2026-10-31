@@ -56,7 +56,7 @@ async def run(name: str, arguments: str, *, again: bool = False, mcp_url: str | 
     if auth:
         return await run_on_rest_with_auth(name, params)
     async with httpx2.AsyncClient() as http:
-        context = ToolContext(OpenMeteoClient(http, cache=make_weather_cache(Settings())))
+        context = ToolContext(OpenMeteoClient(http, cache=make_weather_cache()))
         tool_run = await tool.run(params, context)
         print(tool_run.request.to_text())
         print(f"→ {tool_run.summary}")
@@ -94,7 +94,7 @@ async def run_on_rest_with_auth(name: str, params: BaseModel) -> int:
         print("--auth runs get_forecast, with APIFY_TOKEN set in your environment or .env.local")
         return 2
     async with httpx2.AsyncClient() as http, make_apify_http_client() as apify_http:
-        context = ToolContext(OpenMeteoClient(http, cache=make_weather_cache(Settings())))
+        context = ToolContext(OpenMeteoClient(http, cache=make_weather_cache()))
         deadline = asyncio.get_running_loop().time() + AUTH_ANSWER_TIMEOUT_SECONDS
         run_actor = partial(run_actor_rest, apify_http, token)
         runs = rest_runs(context)

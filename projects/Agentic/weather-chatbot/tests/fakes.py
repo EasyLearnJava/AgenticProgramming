@@ -32,6 +32,8 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp_types import CallToolResult, TextContent
 from pydantic import BaseModel, Field
+from sentry_sdk.envelope import Envelope
+from sentry_sdk.transport import Transport
 from starlette.applications import Starlette
 
 ANSWER = (
@@ -338,3 +340,18 @@ def make_apify_mcp_stand_in(
     server.add_tool(get_dataset_items, name="get-dataset-items")
     security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
     return server.streamable_http_app(streamable_http_path="/", transport_security=security)
+
+
+class KeptEvents(Transport):
+    """Sentry's transport, kept here: each event the SDK would send (step 12)."""
+
+    def __init__(self) -> None:
+        """Nothing kept yet."""
+        super().__init__()
+        self.events: list[dict[str, Any]] = []
+
+    def capture_envelope(self, envelope: Envelope) -> None:
+        """Keeps the envelope's event, if it holds one."""
+        event = envelope.get_event()
+        if event is not None:
+            self.events.append(dict(event))

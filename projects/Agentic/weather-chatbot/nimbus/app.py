@@ -48,20 +48,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # The model that answers, made once: None on a deployment without its key, where the chat says it isn't set up;
     # and LangSmith's client, when it may trace, which hides every run's inputs and outputs.
     # One line says how this copy of the app starts: the model, whether it's set up, whether LangSmith may trace,
-    # whether Axiom and Sentry are on, and the cache's store: AsyncBuildCache, ours, else the package's own.
+    # and whether Axiom and Sentry are on.
     app.state.chat_model = make_chat_model(settings)
     app.state.tracer = make_tracer(settings)
     # How each answer's weather tools reach Open-Meteo: a new HTTP client for each, and one cache for Open-Meteo's
     # answers (step 7); the tests give their own.
     app.state.make_http_client = make_http_client
-    app.state.weather_cache = make_weather_cache(settings)
+    app.state.weather_cache = make_weather_cache()
     # And on the MCP lane (step 9), where its tools find our MCP server, and a new HTTP client for each answer's calls.
     app.state.to_mcp_url = to_self_mcp_url
     app.state.make_mcp_http_client = make_mcp_http_client
     # And on the lanes with auth (step 10), a new HTTP client for each answer's calls to Apify.
     app.state.make_apify_http_client = make_apify_http_client
-    # And the health check's runs (step 12), one through each address, each answering it for a minute.
+    # And the health check's runs (step 12), one through each address, each answering it for a minute; and each check
+    # that's failing on this copy, so it reaches Sentry once.
     app.state.health_runs = {}
+    app.state.health_failures = {}
     structlog.get_logger().info(
         "app.started",
         model=settings.gemini_model,
@@ -69,7 +71,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tracing=app.state.tracer is not None,
         axiom=log_shipper is not None,
         sentry=sentry_on,
-        cacheStore=type(app.state.weather_cache.store).__name__,
     )
     # ③ The routes: the pages, the chat and the health check; and our MCP server's, with the same tools (step 8).
     app.include_router(pages.router)

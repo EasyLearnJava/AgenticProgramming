@@ -86,13 +86,14 @@ class RequestContextMiddleware:
                     log.info("http.request", **fields)
                 else:
                     log.error("http.request", **fields, errorClass=error_class)
-        # ⑤ Then what it leaves for monitoring (step 12): on Vercel, which keeps the function alive for it once the
-        # request has answered (wait_until); on a computer, before the request's call ends.
-        sending = send_monitoring(self.log_shipper)
-        if self.is_vercel:
-            wait_until(sending)
-        else:
-            await sending
+                # ⑤ Then what it leaves for monitoring (step 12), however it ended, a request that raised too: on
+                # Vercel, which keeps the function alive for it once the request has answered (wait_until); on a
+                # computer, before the request's call ends.
+                sending = send_monitoring(self.log_shipper)
+                if self.is_vercel:
+                    wait_until(sending)
+                else:
+                    await sending
 
 
 class SecurityHeadersMiddleware:

@@ -11,7 +11,7 @@ import re
 
 from axe_playwright_python.sync_playwright import Axe
 from langchain_core.messages import AIMessage, HumanMessage
-from playwright.sync_api import ConsoleMessage, Locator, Page, Route, expect
+from playwright.sync_api import BrowserContext, ConsoleMessage, Locator, Page, Route, expect
 
 from nimbus.constants import QUESTION_MAX_CHARS
 from nimbus.errors import CUT_OFF, QUESTION_TOO_LONG, RATE_LIMITED, STOPPED, UNREACHABLE
@@ -318,8 +318,10 @@ def lane_status(page: Page, lane: str) -> Locator:
     return page.locator(f'[data-lane-status="{lane}"]')
 
 
-def test_each_lane_s_health_shows_beside_it_once_the_page_has_asked(page: Page) -> None:
-    # Here, Open-Meteo is played back and our MCP server is this one: the lanes with no auth work.
+def test_each_lane_s_health_shows_beside_it_once_the_page_has_asked(page: Page, context: BrowserContext) -> None:
+    # Here, Open-Meteo is played back and our MCP server is this one: the lanes with no auth work. The app answers the
+    # page itself, and the test waits for the answer.
+    context.unroute("**/api/health")
     page.goto("/")
     for lane in ("rest-no-auth", "mcp-no-auth"):
         expect(lane_status(page, lane)).to_have_attribute("data-state", "ok")

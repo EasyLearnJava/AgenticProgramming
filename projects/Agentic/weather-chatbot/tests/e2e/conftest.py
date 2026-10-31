@@ -4,6 +4,7 @@ whole session. pytest-playwright opens its pages from base_url. Run them with `u
 `--browser-channel msedge` to use the Edge already on your computer.
 """
 
+import json
 import socket
 import threading
 import time
@@ -12,6 +13,7 @@ from collections.abc import Iterator
 import httpx2
 import pytest
 import uvicorn
+from playwright.sync_api import BrowserContext
 
 from nimbus.app import create_app
 from nimbus.cache import WeatherCache
@@ -84,8 +86,6 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
         axiom_token=None,
         axiom_dataset=None,
         sentry_dsn=None,
-        runtime_cache_endpoint=None,
-        runtime_cache_headers=None,
     )
     app = create_app(settings)
     # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour; and the cache.
@@ -104,3 +104,21 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
     yield f"http://127.0.0.1:{port}"
     server.should_exit = True
     thread.join()
+
+
+# What the page hears when it asks for each lane's health (step 12): every lane that's open working.
+WORKING = {
+    "status": "ok",
+    "lanes": {"rest-no-auth": "ok", "rest-with-auth": "off", "mcp-no-auth": "ok", "mcp-with-auth": "off"},
+}
+
+
+@pytest.fixture(autouse=True)
+def health_answered_in_the_browser(context: BrowserContext) -> None:
+    """
+    The page's ask for each lane's health, answered in the browser: the app's own answer runs four checks, and a test
+    that's done first would close the page on a request still being answered, which the server, in this same process,
+    then leaves half-read (issue 75). The tests of the dots ask the app itself, or answer it their own way.
+    """
+    body = json.dumps(WORKING)
+    context.route("**/api/health", lambda route: route.fulfill(status=200, content_type="application/json", body=body))

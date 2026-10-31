@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx2
 import pytest
+import sentry_sdk
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from starlette.applications import Starlette
@@ -27,6 +28,8 @@ from nimbus.config import Settings
 from nimbus.constants import CONTENT_SECURITY_POLICY, PROJECT_ROOT, SECURITY_HEADERS
 from nimbus.logger import configure_logging
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
+from nimbus.sentry import to_sentry_options
+from tests.fakes import KeptEvents
 
 VERCEL_ID = "cle1::v9h4q-1793390239541-fa4d33a7af21"
 
@@ -196,3 +199,33 @@ def test_on_vercel_a_request_s_lines_are_sent_once_it_has_answered(
     [sending] = waiting
     asyncio.run(sending)
     assert len(sent) == 1
+
+
+def fail_at_once(_request: Request) -> Response:
+    """A route that fails before it answers."""
+    raise RuntimeError("boom")
+
+
+def test_a_request_that_raises_still_sends_its_lines_and_its_error(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The review of step 12: the send came after the request's finally, which a raising request leaves by its error.
+    sent: list[httpx2.Request] = []
+    flushed: list[float] = []
+    shipper = shipper_into(sent)
+    configure_logging(settings, shipper)
+    monkeypatch.setattr(sentry_sdk, "flush", flushed.append)
+    dsn = SecretStr("https://public@o0.ingest.sentry.test/0")
+    sentry_sdk.init(**to_sentry_options(settings.model_copy(update={"sentry_dsn": dsn})), transport=KeptEvents())
+    try:
+        app = Starlette(routes=[Route("/fail", fail_at_once)])
+        app.add_middleware(RequestContextMiddleware, log_shipper=shipper, is_vercel=False)
+        with TestClient(app, raise_server_exceptions=False) as test_client:
+            assert test_client.get("/fail").status_code == 500
+    finally:
+        sentry_sdk.get_client().close()
+        sentry_sdk.get_global_scope().set_client(None)
+    [batch] = sent
+    [line] = [json.loads(line) for line in batch.content.decode().splitlines() if '"http.request"' in line]
+    assert (line["status"], line["errorClass"]) == (500, "RuntimeError")
+    assert flushed == [2]
