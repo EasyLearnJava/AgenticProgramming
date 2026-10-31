@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
+from typing import Any
 
 from nimbus.constants import LIBRARY_LOG_MAX_FRAMES, NEW_REQUEST_ID_CHARS, REQUEST_ID_PATTERN
 
@@ -101,3 +102,12 @@ def to_frames(trace: TracebackType | None) -> list[str]:
     """
     frames = traceback.StackSummary.extract(traceback.walk_tb(trace), lookup_lines=False)[-LIBRARY_LOG_MAX_FRAMES:]
     return [_to_frame_line(frame) for frame in frames]
+
+
+def hide_error_text(data: dict[str, Any]) -> dict[str, Any]:
+    """
+    LangSmith's anonymizer (issue 68): a failed run's error says only that it failed, since its text, the exception's
+    own words and its traceback, can quote a tool's input or the question; anything else it's given, a run's metadata
+    with its lane, goes on as it is.
+    """
+    return {**data, "error": "hidden"} if "error" in data else data

@@ -417,3 +417,13 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     `mcp-session-id` Apify's server gave our session, opened with our token, which may honour its id alone. **Fix:**
     chips mask `mcp-session-id` too, as the TypeScript version did. **Check:** the MCP door's unit test; the
     mutation check's "a chip masks a session's id".
+
+## Step 11 · Security: Rate Limits, Prompt Injection, Privacy
+
+68. **LangSmith got a failed run's error text.** *The review.* The app's LangSmith client hid each run's inputs and
+    outputs, but not its error, which LangChain writes as the exception and its traceback: a tool input our check
+    refuses fails its run with pydantic's words, which quote the input, a place's name among it, and a model's error
+    can quote the question. **Fix:** the client's anonymizer, `hide_error_text()`, makes a failed run's error
+    "hidden"; LangSmith gives it nothing else, since inputs and outputs are emptied first, but each run's metadata,
+    which passes as it is. **Check:** a test traces a refused input through the app's own client, its runs kept
+    instead of sent: no payload holds the question's word or the conversation's; the mutation check's two rules.

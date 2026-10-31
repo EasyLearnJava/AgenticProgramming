@@ -3,19 +3,24 @@ tests/unit/test_privacy.py: what never leaves the app, or never lands in its log
 conversation, each with a word of its own, go through three lanes: REST · no auth, MCP · no auth through our own server,
 and REST · with auth through Apify. No log line holds either word, nor the place asked; no request to Open-Meteo, to
 our MCP server or to Apify holds either word; Apify gets the point, rounded, and no token in a chip or a log line.
+And LangSmith, when tracing is on, gets neither word, even of a run that failed (issue 68).
 """
 
 import json
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 import httpx2
 import pytest
+import requests
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from langchain_core.tracers.langchain import wait_for_all_tracers
+from langsmith import Client
 from pydantic import SecretStr
 from structlog.testing import capture_logs
 
+from nimbus import model
 from nimbus.app import create_app
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
@@ -101,3 +106,50 @@ def test_apify_gets_the_point_rounded_and_the_token_only_in_its_header(
     assert run.headers["authorization"] == f"Bearer {TOKEN}"
     assert TOKEN not in str(run.url)
     assert TOKEN not in text
+
+
+class KeepingClient(Client):
+    """LangSmith's client as the app makes it, but with every run sent at once, and kept here instead: none leaves."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        """The app's own client, sending each run as it ends, to an address that isn't LangSmith's."""
+        super().__init__(**kwargs, api_url="http://langsmith.test", auto_batch_tracing=False)
+        self.kept_runs: list[dict[str, Any]] = []
+
+    def request_with_retries(
+        self, /, method: str, pathname: str, *, request_kwargs: Mapping[str, Any] | None = None, **kwargs: Any
+    ) -> requests.Response:
+        """Keeps each run the client would send, made or ended, and answers as LangSmith would, with nothing."""
+        data = (request_kwargs or {}).get("data")
+        if data is not None:
+            self.kept_runs.append(json.loads(data))
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"{}"
+        return response
+
+
+def test_langsmith_gets_neither_word_even_of_a_run_that_failed(
+    settings: Settings, chat_model: FakeModel, open_meteo: OpenMeteoRecordings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A tool input our check refuses fails its run, and the run's error, pydantic's words, quotes the input.
+    monkeypatch.setattr(model, "Client", KeepingClient)
+    tracing = {
+        "langsmith_tracing": True,
+        "langsmith_api_key": SecretStr("lsv2-stand-in"),
+        "langsmith_hide_inputs": True,
+        "langsmith_hide_outputs": True,
+    }
+    app = make_app(settings.model_copy(update=tracing), chat_model, open_meteo, ApifyRecordings(), [])
+    chat_model.tool_steps = [[{"name": "geocode_location", "args": {"query": f"Paris {QUESTION_WORD} " + "x" * 120}}]]
+    ask(app, "rest-no-auth")
+    wait_for_all_tracers()
+    runs = app.state.tracer.client.kept_runs
+    assert {run["error"] for run in runs if run.get("error")} == {"hidden"}
+    for run in runs:
+        # A run's serialized model is the stand-in's own repr, which holds the tool calls it was given to make; the
+        # real model's holds its settings.
+        run.pop("serialized", None)
+        sent = json.dumps(run)
+        assert QUESTION_WORD not in sent
+        assert HISTORY_WORD not in sent

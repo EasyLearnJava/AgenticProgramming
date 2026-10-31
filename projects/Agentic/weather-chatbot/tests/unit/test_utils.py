@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 
 from nimbus.utils import (
+    hide_error_text,
     new_request_id,
     new_turn_id,
     to_frames,
@@ -135,3 +136,9 @@ def test_only_an_exception_s_innermost_8_frames_are_kept() -> None:
     frames = to_frames(caught.tb)
     assert len(frames) == 8
     assert all(frame.endswith(" recurse") for frame in frames)
+
+
+def test_a_failed_run_s_error_reaches_langsmith_as_hidden_and_its_metadata_as_it_is() -> None:
+    error = "ToolException('1 validation error: input_value=\\'Paris\\'')\nTraceback (most recent call last): ..."
+    assert hide_error_text({"error": error}) == {"error": "hidden"}
+    assert hide_error_text({"lane": "rest-no-auth"}) == {"lane": "rest-no-auth"}

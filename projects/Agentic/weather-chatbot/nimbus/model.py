@@ -11,6 +11,7 @@ from langsmith import Client
 
 from nimbus.config import Settings
 from nimbus.constants import MAX_OUTPUT_TOKENS, MODEL_MAX_ATTEMPTS, MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_THINKING
+from nimbus.utils import hide_error_text
 
 
 def make_chat_model(settings: Settings) -> BaseChatModel | None:
@@ -52,9 +53,15 @@ def make_tracer(settings: Settings) -> Tracer | None:
     """
     LangSmith's client and project for the model's runs, when tracing is allowed; else None. The client hides every
     run's inputs and outputs itself, whatever LangSmith's own variables say: its default client hides only for the
-    exact string "true", while the app's settings take any true value (issue 34).
+    exact string "true", while the app's settings take any true value (issue 34). It hides a failed run's error text
+    too, which can quote what was sent (issue 68).
     """
     if not is_tracing_allowed(settings) or settings.langsmith_api_key is None:
         return None
-    client = Client(api_key=settings.langsmith_api_key.get_secret_value(), hide_inputs=True, hide_outputs=True)
+    client = Client(
+        api_key=settings.langsmith_api_key.get_secret_value(),
+        hide_inputs=True,
+        hide_outputs=True,
+        anonymizer=hide_error_text,
+    )
     return Tracer(client=client, project=settings.langsmith_project)

@@ -43,7 +43,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/mcp_lane.py": ("test_mcp_lane.py", "test_chat.py"),
     "nimbus/mcp_server.py": ("test_mcp_server.py", "test_privacy.py"),
     "nimbus/middleware.py": ("test_middleware.py",),
-    "nimbus/model.py": ("test_model.py",),
+    "nimbus/model.py": ("test_model.py", "test_privacy.py"),
     "nimbus/open_meteo.py": ("test_open_meteo.py", "test_tools.py"),
     "nimbus/pages.py": ("test_pages.py", "test_docs.py"),
     "nimbus/prompts.py": ("test_prompts.py", "test_chat.py"),
@@ -225,8 +225,8 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/model.py",
-        "hide_inputs=True, hide_outputs=True",
-        "hide_inputs=None, hide_outputs=None",
+        "hide_inputs=True,\n        hide_outputs=True,",
+        "hide_inputs=None,\n        hide_outputs=None,",
         "the tracer hides inputs and outputs, whatever LangSmith's variables say",
     ),
     Mutation(
@@ -856,6 +856,13 @@ MUTATIONS = (
         "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.",
         "",
         "the page says where questions go",
+    ),
+    Mutation("nimbus/model.py", "        anonymizer=hide_error_text,\n", "", "LangSmith never gets an error's text"),
+    Mutation(
+        "nimbus/utils.py",
+        'return {**data, "error": "hidden"} if "error" in data else data',
+        "return data",
+        "a failed run's error is hidden",
     ),
 )
 

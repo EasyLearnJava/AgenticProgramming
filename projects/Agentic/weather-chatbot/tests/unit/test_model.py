@@ -13,6 +13,7 @@ from nimbus import model as model_module
 from nimbus.app import create_app
 from nimbus.config import Settings
 from nimbus.model import is_tracing_allowed, make_chat_model, make_tracer
+from nimbus.utils import hide_error_text
 
 KEY = "test-key-not-a-real-one"
 PROJECT = "nimbus-tests"
@@ -92,7 +93,12 @@ def test_the_tracer_hides_every_run_s_inputs_and_outputs_whatever_its_variables_
     tracer = make_tracer(langsmith())
     assert tracer is not None
     assert isinstance(tracer.client, RecordingClient)
-    assert tracer.client.kwargs == {"api_key": KEY, "hide_inputs": True, "hide_outputs": True}
+    assert tracer.client.kwargs == {
+        "api_key": KEY,
+        "hide_inputs": True,
+        "hide_outputs": True,
+        "anonymizer": hide_error_text,
+    }
     assert tracer.project == PROJECT
 
 

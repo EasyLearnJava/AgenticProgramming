@@ -10,7 +10,7 @@ What's still open in the Python rebuild, and why. The TypeScript version's list 
 | Delete `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` | They uploaded the TypeScript app's source maps; Python has none to upload, so nothing reads them now. `SENTRY_DSN` stays, for step 12 | Vercel, Settings, Environment Variables |
 | Add `VERCEL_TELEMETRY_DISABLED` = `1` to the project's variables | Step 7 turns the vercel package's telemetry off in its code, before importing it (issue 58); a variable in Vercel's settings is in place even if Vercel's runtime imports the package first | Vercel, Settings, Environment Variables |
 | Set a monthly usage limit in Apify's billing | The lanes with auth cap their runs at 2 an answer and 25 a day; a limit on Apify's side caps the account itself, whatever happens to ours | Apify, Billing |
-| The firewall's rules, as step 11 lays them out: Protection Bypass for Automation on, and a redeploy; then a Bypass rule for the `x-vercel-protection-bypass` header with that secret; then a rate limit of 20 a minute per IP on `/api/` | Step 11: without it, one script can use up Gemini's free quota and Apify's credit for everyone | Vercel, the project's Firewall |
+| The firewall's rules, as step 11 lays them out: Protection Bypass for Automation on, and a redeploy; then a Bypass rule for the `x-vercel-protection-bypass` header with that secret; then a rate limit of 20 a minute per IP on `/api/` | Step 11: without it, one script can use up Gemini's free quota and Apify's credit for everyone. Step 11's live check found no bypass secret in the deployment yet, so begin by turning Protection Bypass for Automation on | Vercel, the project's Firewall |
 
 ## Done
 
