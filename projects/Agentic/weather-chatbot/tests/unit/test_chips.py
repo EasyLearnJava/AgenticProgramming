@@ -93,3 +93,16 @@ def test_a_chip_answered_from_the_cache_says_so_before_its_time() -> None:
     chip = started()
     chip.end(ToolEnded("call-0-0", "geocode_location", "{}", replace(RECORD, from_cache=True), False))
     assert chip.lane_line == "REST · no auth · geocoding-api.open-meteo.com · from the cache · 0.3 s"
+
+
+def test_a_chip_on_mcp_no_auth_names_its_lane_and_shows_both_requests() -> None:
+    call = WireRequest(method="POST", url="http://127.0.0.1:8000/api/mcp", headers={}, body="{}")
+    record = ToolCallRecord("mcp-no-auth", call, 312, "Paris", upstream_request=REQUEST)
+    chip = started()
+    chip.end(ToolEnded("call-0-0", "geocode_location", "{}", record, False))
+    assert chip.lane_line == "MCP · no auth · 127.0.0.1:8000 · 0.3 s"
+    assert (chip.wire_label, chip.upstream_label) == ("On the wire", "Then, from our MCP server")
+    cached = started()
+    cached.end(ToolEnded("call-0-0", "geocode_location", "{}", replace(record, from_cache=True), False))
+    assert cached.wire_label == "On the wire"
+    assert cached.upstream_label == "Then, from our MCP server, when it was first fetched"

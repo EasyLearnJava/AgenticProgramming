@@ -6,6 +6,8 @@
   come, and a chip's mark when Stop ends its call; they're held here, on the conversation's data-* attributes. The
   script also fills the hidden fields: the browser's locale and time zone, for the units and the visitor's today; and
   the conversation so far (step 6), which goes back with each question, within the limits held here; New chat clears it.
+  The lane picker (step 9) chooses how the tools are reached: its radios belong to the form (form="chat-form"), so the
+  lane goes with each question; the compare view shows one forecast call through each lane.
 #}
 {% extends "base.html" %}
 {% from "chat_parts.html" import bot_meta, error_message %}
@@ -45,6 +47,33 @@
     </ol>
     <template id="chat-error-template">{{ error_message("") }}</template>
     <div class="chat-input-area">
+      <fieldset class="lane-picker">
+        <legend class="lane-picker-legend">Lane: how the tools are reached</legend>
+        <div class="lane-grid">
+          {%- for lane in lanes %}
+          <label class="lane{{ '' if lane.is_open else ' lane-closed' }}">
+            <input type="radio" name="lane" value="{{ lane.id }}" form="chat-form"
+              {%- if lane.id == default_lane %} checked{% endif %}{% if not lane.is_open %} disabled{% endif %}>
+            <span class="lane-label">{{ lane.label }}</span>
+            <span class="lane-note">{{ "live" if lane.is_open else "step " ~ lane.step }}</span>
+          </label>
+          {%- endfor %}
+        </div>
+      </fieldset>
+      <details class="compare">
+        <summary>Compare the lanes: one forecast call through each</summary>
+        <div class="compare-grid">
+          {%- for cell in compare %}
+          <section class="compare-cell" aria-labelledby="compare-{{ cell.lane.id }}">
+            <h2 id="compare-{{ cell.lane.id }}" class="compare-title">{{ cell.lane.label }}</h2>
+            {%- if cell.request %}
+            <pre>{{ cell.request }}</pre>
+            {%- endif %}
+            <p class="compare-note">{{ cell.note }}</p>
+          </section>
+          {%- endfor %}
+        </div>
+      </details>
       <form id="chat-form" class="chat-input" method="post" action="/api/chat" hx-post="/api/chat"
         hx-target="#messages" hx-swap="beforeend" hx-sync="this:drop" aria-label="Ask about the weather">
         <label class="visually-hidden" for="question">Your question</label>

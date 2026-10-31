@@ -5,6 +5,7 @@ app's own 404 page, and a missing API, JSON.
 """
 
 import json
+import re
 from html.parser import HTMLParser
 
 import pytest
@@ -190,3 +191,17 @@ def test_on_vercel_leaves_the_stylesheet_to_the_cdn_and_still_serves_the_docs_pi
     with TestClient(create_app(Settings(_env_file=None, is_vercel=True))) as vercel_client:
         assert vercel_client.get("/static/app.css").status_code == 404
         assert vercel_client.get("/docs/images/system-design_deprecated.png").status_code == 200
+
+
+def test_the_chat_page_offers_the_lanes_and_compares_one_call_through_each(client: TestClient) -> None:
+    page = client.get("/").text
+    radios = re.findall(r'<input type="radio" name="lane" value="([a-z-]+)" form="chat-form"([^>]*)>', page)
+    assert [(lane, "checked" in rest, "disabled" in rest) for lane, rest in radios] == [
+        ("rest-no-auth", True, False),
+        ("rest-with-auth", False, True),
+        ("mcp-no-auth", False, False),
+        ("mcp-with-auth", False, True),
+    ]
+    assert "GET https://api.open-meteo.com/v1/forecast?latitude=48.85&amp;longitude=2.35" in page
+    assert "POST http://testserver:80/api/mcp" in page
+    assert page.count("Opens in step 10.") == 2

@@ -35,6 +35,7 @@ from nimbus.answer import (
     ToolEnded,
     ToolStarted,
     render_answer,
+    rest_tools,
     stream_answer,
     stream_weather_answer,
 )
@@ -53,7 +54,7 @@ def collect(
 
     async def run() -> list[AnswerEvent]:
         http = httpx2.AsyncClient(transport=httpx2.MockTransport(recordings or OpenMeteoRecordings()))
-        events = stream_weather_answer(model, [HumanMessage("Hi")], stats or AnswerStats(), None, http)
+        events = stream_weather_answer(model, [HumanMessage("Hi")], stats or AnswerStats(), None, rest_tools(http))
         return [event async for event in events]
 
     return asyncio.run(run())

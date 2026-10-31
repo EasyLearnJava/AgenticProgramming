@@ -18,6 +18,7 @@ from nimbus.cache import make_weather_cache
 from nimbus.config import Settings, get_settings
 from nimbus.constants import DOCS_IMAGES_DIR, STATIC_DIR
 from nimbus.logger import configure_logging
+from nimbus.mcp_lane import make_mcp_http_client, to_self_mcp_url
 from nimbus.mcp_server import make_mcp_server, to_routes
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from nimbus.model import make_chat_model, make_tracer
@@ -47,6 +48,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # answers (step 7); the tests give their own.
     app.state.make_http_client = make_http_client
     app.state.weather_cache = make_weather_cache()
+    # And on the MCP lane (step 9), where its tools find our MCP server, and a new HTTP client for each answer's calls.
+    app.state.to_mcp_url = to_self_mcp_url
+    app.state.make_mcp_http_client = make_mcp_http_client
     structlog.get_logger().info(
         "app.started",
         model=settings.gemini_model,

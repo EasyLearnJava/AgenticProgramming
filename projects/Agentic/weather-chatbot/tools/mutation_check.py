@@ -37,6 +37,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/errors.py": ("test_errors.py", "test_chat.py"),
     "nimbus/health.py": ("test_health.py",),
     "nimbus/logger.py": ("test_logger.py",),
+    "nimbus/mcp_lane.py": ("test_mcp_lane.py", "test_chat.py"),
     "nimbus/mcp_server.py": ("test_mcp_server.py",),
     "nimbus/middleware.py": ("test_middleware.py",),
     "nimbus/model.py": ("test_model.py",),
@@ -143,8 +144,8 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/chat.py",
-        'log.info("chat.request", questionChars=len(chat_request.question), **extra)',
-        'log.info("chat.request", questionChars=len(chat_request.question), question=chat_request.question, **extra)',
+        "questionChars=len(chat_request.question), lane=chat_request.lane, **extra)",
+        "questionChars=len(chat_request.question), lane=chat_request.lane, question=chat_request.question, **extra)",
         "a question is never logged",
     ),
     Mutation(
@@ -684,6 +685,48 @@ MUTATIONS = (
         "enable_dns_rebinding_protection=not settings.is_vercel,",
         "enable_dns_rebinding_protection=False,",
         "on a computer, the MCP server checks the Host",
+    ),
+    Mutation(
+        "nimbus/mcp_lane.py",
+        "host = next((name for name in asked if name in own), settings.vercel_url)",
+        "host = next((name for name in asked if name), settings.vercel_url)",
+        "the MCP lane never calls a host a request names",
+    ),
+    Mutation(
+        "nimbus/mcp_lane.py",
+        "if not {tool.name for tool in WEATHER_TOOLS} <= offered:",
+        "if False:",
+        "the MCP lane checks our four tools are offered",
+    ),
+    Mutation(
+        "nimbus/mcp_lane.py",
+        "MASKED_HEADERS.get(name.lower(), value)",
+        "value",
+        "a chip masks the bypass secret",
+    ),
+    Mutation(
+        "nimbus/mcp_lane.py",
+        "        raise known()",
+        "        raise McpLaneError()",
+        "an MCP tool's failure is the same error as on REST",
+    ),
+    Mutation(
+        "nimbus/mcp_lane.py",
+        "inner = unwrap(group)\n        raise inner from inner.__cause__",
+        "raise",
+        "an error out of the MCP lane is never wrapped",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        'lane: OpenLaneId = "rest-no-auth"',
+        'lane: str = "rest-no-auth"',
+        "a lane that isn't open is refused",
+    ),
+    Mutation(
+        "nimbus/chips.py",
+        "lane = get_lane(self.record.lane).label",
+        'lane = "REST · no auth"',
+        "a chip names its lane",
     ),
 )
 

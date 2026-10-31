@@ -10,6 +10,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+from functools import partial
 from typing import Annotated, Any, Final, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -19,7 +20,6 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from nimbus.constants import (
     DEFAULT_PLACE_COUNT,
-    LANE_ID,
     MAX_FORECAST_DAYS,
     MAX_HOURLY_DAYS,
     MAX_PLACE_COUNT,
@@ -27,6 +27,7 @@ from nimbus.constants import (
     TOOL_TIMEOUT_SECONDS,
 )
 from nimbus.errors import UpstreamError, UpstreamTimeoutError
+from nimbus.lanes import REST_NO_AUTH, Lane
 from nimbus.open_meteo import OpenMeteoClient, Place, WireRequest
 from nimbus.utils import to_ms
 from nimbus.weather import is_ambiguous_place, to_condition
@@ -52,14 +53,15 @@ class ToolContext:
 @dataclass(frozen=True)
 class ToolRun:
     """
-    One run of a tool: what the model reads, the request behind it, the one-line summary for its chip, and whether the
-    cache gave Open-Meteo's answer (step 7).
+    One run of a tool: what the model reads, the request behind it, the one-line summary for its chip, whether the
+    cache gave Open-Meteo's answer (step 7), and, on the MCP lane, the request our MCP server sent Open-Meteo (step 9).
     """
 
     output: BaseModel
     request: WireRequest
     summary: str
     from_cache: bool = False
+    upstream_request: WireRequest | None = None
 
 
 @dataclass(frozen=True)
@@ -388,8 +390,8 @@ WEATHER_TOOLS: Final = (GEOCODE_LOCATION, GET_CURRENT_WEATHER, GET_FORECAST, GET
 @dataclass(frozen=True)
 class ToolCallRecord:
     """
-    What the page gets of a tool call besides what the model read: the lane, the request, its time and summary, and
-    whether the cache gave the answer.
+    What the page gets of a tool call besides what the model read: the lane, the request, its time and summary,
+    whether the cache gave the answer, and, on the MCP lane, the request our MCP server sent Open-Meteo.
     """
 
     lane: str
@@ -397,6 +399,7 @@ class ToolCallRecord:
     ms: int
     summary: str
     from_cache: bool = False
+    upstream_request: WireRequest | None = None
 
 
 async def run_in_time(tool: WeatherTool, params: BaseModel, context: ToolContext) -> ToolRun:
@@ -411,7 +414,7 @@ async def run_in_time(tool: WeatherTool, params: BaseModel, context: ToolContext
         raise UpstreamTimeoutError from error
 
 
-def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool:
+def to_langchain_tool(tool: WeatherTool, run: Callable[[BaseModel], Awaitable[ToolRun]], lane: Lane) -> StructuredTool:
     """
     One of our tools as a LangChain tool on REST · no auth. The model reads the weather (the tool message's content);
     the page also gets the request and the time (its artifact). Open-Meteo's failure, or a call past its 8 s, reaches
@@ -425,15 +428,16 @@ def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool
         params = tool.input_model.model_validate(kwargs)
         started = time.perf_counter()
         try:
-            tool_run = await run_in_time(tool, params, context)
+            tool_run = await run(params)
         except UpstreamError as error:
             ms = to_ms(time.perf_counter() - started)
             failed = {"status": "failed", "ms": ms, "errorClass": type(error).__name__}
-            log.info("tool.call", tool=tool.name, lane=LANE_ID, **failed)
+            log.info("tool.call", tool=tool.name, lane=lane.id, **failed)
             raise ToolException(error.user_message) from error
         ms = to_ms(time.perf_counter() - started)
-        log.info("tool.call", tool=tool.name, lane=LANE_ID, status="ok", ms=ms)
-        record = ToolCallRecord(LANE_ID, tool_run.request, ms, tool_run.summary, tool_run.from_cache)
+        log.info("tool.call", tool=tool.name, lane=lane.id, status="ok", ms=ms)
+        upstream = tool_run.upstream_request
+        record = ToolCallRecord(lane.id, tool_run.request, ms, tool_run.summary, tool_run.from_cache, upstream)
         return tool_run.output.model_dump_json(), record
 
     return StructuredTool.from_function(
@@ -448,4 +452,6 @@ def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool
 
 def make_tools(context: ToolContext) -> list[StructuredTool]:
     """The four weather tools, as LangChain tools on REST · no auth, all with the same context."""
-    return [to_langchain_tool(tool, context) for tool in WEATHER_TOOLS]
+    return [
+        to_langchain_tool(tool, partial(run_in_time, tool, context=context), REST_NO_AUTH) for tool in WEATHER_TOOLS
+    ]

@@ -13,7 +13,9 @@ import re
 from collections.abc import Iterator, MutableMapping
 from typing import Any
 
+import httpx2
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from markupsafe import escape
@@ -31,6 +33,7 @@ from nimbus.errors import (
     EMPTY_QUESTION,
     HISTORY_TOO_LONG,
     HISTORY_UNREADABLE,
+    LANE_CLOSED,
     MODEL_FAILED,
     NOT_SET_UP,
     QUESTION_TOO_LONG,
@@ -137,9 +140,11 @@ def test_a_question_of_the_longest_length_is_answered(client: TestClient) -> Non
         (b"", FORM, 400, EMPTY_QUESTION, "question_empty"),
         (b"question=" + b"a" * (QUESTION_MAX_CHARS + 1), FORM, 400, QUESTION_TOO_LONG, "question_too_long"),
         (b"question=a&question=b", FORM, 400, UNREADABLE, "form_unreadable"),
-        (b"question=a&lane=x", FORM, 400, UNREADABLE, "form_unreadable"),
-        (b"lane=x", FORM, 400, UNREADABLE, "form_unreadable"),
+        (b"question=a&color=x", FORM, 400, UNREADABLE, "form_unreadable"),
+        (b"color=x", FORM, 400, UNREADABLE, "form_unreadable"),
         (b"question=%FF", FORM, 400, UNREADABLE, "form_unreadable"),
+        (b"question=a&lane=rest-with-auth", FORM, 400, LANE_CLOSED, "lane_closed"),
+        (b"question=a&lane=x", FORM, 400, LANE_CLOSED, "lane_closed"),
         (b'{"question": "a"}', {"content-type": "application/json"}, 415, UNREADABLE, "not_a_form"),
         (b"question=a", {}, 415, UNREADABLE, "not_a_form"),
         (b"question=" + b"a" * CHAT_BODY_MAX_BYTES, FORM, 413, BODY_TOO_LARGE, "body_too_large"),
@@ -153,6 +158,8 @@ def test_a_question_of_the_longest_length_is_answered(client: TestClient) -> Non
         "a-field-we-dont-know",
         "only-a-field-we-dont-know",
         "not-utf-8",
+        "a-lane-not-open-yet",
+        "a-lane-we-dont-know",
         "json",
         "no-content-type",
         "body-too-large",
@@ -630,3 +637,24 @@ def test_the_same_question_again_is_answered_from_the_cache_and_its_chips_say_so
     assert "from the cache" not in first
     assert again.count(" · from the cache · ") == first.count("REST · no auth · ") > 0
     assert again.count("On the wire, when it was first fetched") == first.count("On the wire") > 0
+
+
+def test_a_question_on_mcp_no_auth_reaches_its_tools_through_our_mcp_server(
+    client: TestClient, chat_model: FakeModel, open_meteo: OpenMeteoRecordings
+) -> None:
+    # The lane calls the app's own MCP server, in this process, at the address it would find on a computer (step 9).
+    app = client.app
+    assert isinstance(app, FastAPI)
+    app.state.to_mcp_url = lambda _request, _settings: "http://127.0.0.1:8000/api/mcp"
+    app.state.make_mcp_http_client = lambda: httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app))
+    chat_model.tool_steps = PARIS_STEPS
+    with capture_logs() as lines:
+        answer = client.post("/api/chat", data={"question": "Will it rain in Paris tomorrow?", "lane": "mcp-no-auth"})
+    assert answer.status_code == 200
+    assert answer.text.count("MCP · no auth · 127.0.0.1:8000 · ") == answer.text.count("tool-chip-lane") > 0
+    assert "tools/call" in answer.text
+    assert "Then, from our MCP server" in answer.text
+    assert len(open_meteo.requests) == 2
+    [request] = [line for line in lines if line["event"] == "chat.request"]
+    assert request["lane"] == "mcp-no-auth"
+    assert {line["lane"] for line in lines if line["event"] == "tool.call"} == {"mcp-no-auth"}

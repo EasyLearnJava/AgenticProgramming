@@ -378,3 +378,19 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     sends the app only our own names. **Check:** unit tests: on a computer, another host gets 421, and the app's own
     names get through; on Vercel, the host isn't checked; the mutation check's "on a computer, the MCP server checks
     the Host".
+
+## Step 9 · The MCP · No Auth Lane
+
+63. **langchain-mcp-adapters' latest imports the SDK's version 1.** *Adding it, as the plan named it.* uv resolved
+    langchain-mcp-adapters 0.3.1 beside mcp 2.3.0, since its metadata doesn't cap the SDK's version, but importing it
+    failed: it imports `RequestContext` from `mcp.shared.context` and `mcp.server.fastmcp`, which the SDK's version 2
+    removed. **Fix:** the package is gone; the lane makes its LangChain tools itself, from our own definitions, each
+    call a `tools/call` through the SDK's own `Client`. **Check:** the lane's unit tests and a whole answer through it.
+64. **An error out of the SDK's client came out wrapped in a group.** *A unit test of a server lacking a tool.* The
+    SDK's `Client` runs in an anyio task group, which wraps whatever leaves its block in an exception group: the
+    lane's McpLaneError, and in an answer any error the answer raises inside the lane, such as AnswerTimeoutError.
+    The chat matches its own errors by class, so a wrapped one would have shown "Something went wrong". **Fix:**
+    `open_mcp_lane()` gives a group of one back as the error inside, its cause kept; from a group of more, from the
+    review, the cancellation or closing it holds, so the answer still ends as it must, else McpLaneError. **Check:**
+    unit tests: an error the answer raises comes out as itself; `unwrap()`'s three cases; the mutation check's "an
+    error out of the MCP lane is never wrapped".

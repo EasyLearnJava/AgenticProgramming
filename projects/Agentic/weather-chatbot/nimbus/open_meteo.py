@@ -61,13 +61,14 @@ IMPERIAL_PARAMS: Final = {"temperature_unit": "fahrenheit", "wind_speed_unit": "
 
 
 class WireRequest(BaseModel):
-    """A request as it went out, for a tool call's chip: its method, its address and its headers."""
+    """A request as it went out, for a tool call's chip: its method, its address, its headers, and its body if any."""
 
     model_config = ConfigDict(frozen=True)
 
     method: str
     url: str
     headers: dict[str, str]
+    body: str | None = None
 
     @property
     def host(self) -> str:
@@ -80,8 +81,9 @@ class WireRequest(BaseModel):
         return urlsplit(self.url).path
 
     def to_text(self) -> str:
-        """The request as it was written: its first line, then a line for each header."""
-        return "\n".join([f"{self.method} {self.url}", *(f"{name}: {value}" for name, value in self.headers.items())])
+        """The request as it was written: its first line, a line for each header, then its body, if it has one."""
+        lines = [f"{self.method} {self.url}", *(f"{name}: {value}" for name, value in self.headers.items())]
+        return "\n".join(lines if self.body is None else [*lines, "", self.body])
 
 
 # ① What Open-Meteo answers, checked, in our names. A field we don't read is left out.
@@ -356,6 +358,17 @@ def _is_worth_retrying(error: BaseException) -> bool:
     return isinstance(error, (UpstreamTimeoutError, UpstreamUnavailableError))
 
 
+def to_forecast_request(
+    latitude: float, longitude: float, *, days: int, include_hourly: bool, units: Units
+) -> WireRequest:
+    """A forecast's request: the point, its days, the first 3 days' hours if they're asked for, the units."""
+    params = {**_to_point(latitude, longitude), "daily": DAILY_FIELDS}
+    if include_hourly:
+        params["hourly"] = HOURLY_FIELDS
+    params |= {"timezone": "auto", "forecast_days": str(days), **_to_units(units)}
+    return _to_get_request(OPEN_METEO_FORECAST_URL, params)
+
+
 @dataclass(frozen=True)
 class UpstreamAnswer[T]:
     """One answer from Open-Meteo, in our names; the request that fetched it; and whether the cache gave it (step 7)."""
@@ -400,11 +413,7 @@ class OpenMeteoClient:
         self, latitude: float, longitude: float, *, days: int, include_hourly: bool, units: Units
     ) -> UpstreamAnswer[ForecastData]:
         """A point's forecast: its days, and the first 3 days' hours if they're asked for."""
-        params = {**_to_point(latitude, longitude), "daily": DAILY_FIELDS}
-        if include_hourly:
-            params["hourly"] = HOURLY_FIELDS
-        params |= {"timezone": "auto", "forecast_days": str(days), **_to_units(units)}
-        request = _to_get_request(OPEN_METEO_FORECAST_URL, params)
+        request = to_forecast_request(latitude, longitude, days=days, include_hourly=include_hourly, units=units)
         answer, from_cache = await self._get(request, _ForecastAnswer, self._keep_forecast)
         return UpstreamAnswer(_to_forecast(answer, include_hourly), request, from_cache)
 

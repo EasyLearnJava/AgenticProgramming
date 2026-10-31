@@ -21,6 +21,7 @@ from nimbus.constants import (
     HISTORY_ANSWER_MAX_CHARS,
     HISTORY_MAX_CHARS,
     HISTORY_MAX_MESSAGES,
+    MCP_PATH,
     QUESTION_MAX_CHARS,
     TEMPLATES_DIR,
 )
@@ -35,6 +36,10 @@ from nimbus.docs import (
     title_of,
 )
 from nimbus.errors import CUT_OFF, STOPPED, UNREACHABLE
+from nimbus.lanes import LANES, MCP_NO_AUTH, REST_NO_AUTH, Lane
+from nimbus.mcp_lane import to_tools_call
+from nimbus.open_meteo import to_forecast_request
+from nimbus.tools import ForecastInput
 
 HTTP_NOT_FOUND = 404
 API_PREFIX = "/api/"
@@ -117,7 +122,8 @@ def _render_doc(request: Request) -> HTMLResponse:
 def chat_page(request: Request) -> HTMLResponse:
     """
     The chat: its card, its welcome and its form, with the sentences the page shows by itself (chat.js), a chip's mark
-    and word when Stop ends its call, and the limits of the conversation it sends back.
+    and word when Stop ends its call, and the limits of the conversation it sends back; and the lane picker and the
+    compare view (step 9).
     """
     context = {
         "question_max_chars": QUESTION_MAX_CHARS,
@@ -129,8 +135,46 @@ def chat_page(request: Request) -> HTMLResponse:
         "history_max_messages": HISTORY_MAX_MESSAGES,
         "history_max_chars": HISTORY_MAX_CHARS,
         "answer_max_chars": HISTORY_ANSWER_MAX_CHARS,
+        "lanes": LANES,
+        "default_lane": REST_NO_AUTH.id,
+        "compare": to_compare_cells(request),
     }
     return _render(request, "chat.html", context)
+
+
+@dataclass(frozen=True)
+class CompareCell:
+    """One lane in the compare view (step 9): the lane, the request its forecast call sends, if it's open, a note."""
+
+    lane: Lane
+    request: str | None
+    note: str
+
+
+# The compare view's call: Paris's forecast, 2 days, in metric units, as the model would ask for it.
+COMPARE_CALL = ForecastInput(latitude=48.85, longitude=2.35, days=2, include_hourly=False, units="metric")
+COMPARE_NOTES = {
+    REST_NO_AUTH.id: "One request: from the chat's own function to Open-Meteo.",
+    MCP_NO_AUTH.id: (
+        "A JSON-RPC message to our own MCP server, which then sends Open-Meteo the request beside it. The SDK's "
+        "client adds its own headers and the protocol's _meta: a chip shows them as they're sent."
+    ),
+}
+
+
+def to_compare_cells(request: Request) -> list[CompareCell]:
+    """The compare view: the same forecast call through each lane, each open lane's request made by its own code."""
+    state = request.app.state
+    arguments = COMPARE_CALL.model_dump(mode="json")
+    mcp_url = state.to_mcp_url(request, state.settings) or MCP_PATH
+    requests = {
+        REST_NO_AUTH.id: to_forecast_request(**arguments).to_text(),
+        MCP_NO_AUTH.id: to_tools_call(mcp_url, "get_forecast", arguments).to_text(),
+    }
+    return [
+        CompareCell(lane, requests.get(lane.id), COMPARE_NOTES.get(lane.id, f"Opens in step {lane.step}."))
+        for lane in LANES
+    ]
 
 
 @router.get("/docs", response_class=HTMLResponse)

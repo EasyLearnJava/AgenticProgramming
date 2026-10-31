@@ -10,8 +10,15 @@ from dataclasses import dataclass
 from typing import Any, Final, Literal
 
 from nimbus.answer import ToolEnded, ToolStarted
-from nimbus.constants import LANE_LABEL
-from nimbus.errors import TOOL_MISUSED, WEATHER_BUSY, WEATHER_TOO_SLOW, WEATHER_UNEXPECTED, WEATHER_UNREACHABLE
+from nimbus.errors import (
+    MCP_UNREACHABLE,
+    TOOL_MISUSED,
+    WEATHER_BUSY,
+    WEATHER_TOO_SLOW,
+    WEATHER_UNEXPECTED,
+    WEATHER_UNREACHABLE,
+)
+from nimbus.lanes import get_lane
 from nimbus.tools import ToolCallRecord
 
 type ChipStatus = Literal["running", "done", "failed", "stopped"]
@@ -20,7 +27,9 @@ MARKS: Final[dict[ChipStatus, str]] = {"running": "…", "done": "✓", "failed"
 WORDS: Final[dict[ChipStatus, str]] = {"running": "Running", "done": "Done", "failed": "Failed", "stopped": "Stopped"}
 # The sentences a failed call may show: ours. Any other text a tool's failure holds (LangChain's own, when the model's
 # input didn't fit) shows as TOOL_MISUSED.
-TOOL_SENTENCES: Final = frozenset({WEATHER_TOO_SLOW, WEATHER_UNREACHABLE, WEATHER_BUSY, WEATHER_UNEXPECTED})
+TOOL_SENTENCES: Final = frozenset(
+    {WEATHER_TOO_SLOW, WEATHER_UNREACHABLE, WEATHER_BUSY, WEATHER_UNEXPECTED, MCP_UNREACHABLE}
+)
 SHORTEST_SHOWN_MS: Final = 50
 MS_PER_SECOND: Final = 1000
 
@@ -112,8 +121,25 @@ class ToolChip:
 
     @property
     def lane_line(self) -> str | None:
-        """Once done: "REST · no auth · api.open-meteo.com · 0.3 s", and "from the cache" before the time if it was."""
+        """
+        Once done: its lane, the host it called and its time, "REST · no auth · api.open-meteo.com · 0.3 s"; and "from
+        the cache" before the time if it was.
+        """
         if self.record is None:
             return None
+        lane = get_lane(self.record.lane).label
         cache = " · from the cache" if self.record.from_cache else ""
-        return f"{LANE_LABEL} · {self.record.request.host}{cache} · {to_duration_text(self.record.ms)}"
+        return f"{lane} · {self.record.request.host}{cache} · {to_duration_text(self.record.ms)}"
+
+    @property
+    def wire_label(self) -> str:
+        """Over the request the call sent: on REST, if the cache answered, the one that first fetched it (step 7)."""
+        record = self.record
+        first = record is not None and record.from_cache and record.upstream_request is None
+        return "On the wire, when it was first fetched" if first else "On the wire"
+
+    @property
+    def upstream_label(self) -> str:
+        """Over the request our MCP server sent Open-Meteo, on the MCP lane: the first time's, if the cache answered."""
+        cached = self.record is not None and self.record.from_cache
+        return "Then, from our MCP server, when it was first fetched" if cached else "Then, from our MCP server"

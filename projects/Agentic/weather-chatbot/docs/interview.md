@@ -340,3 +340,24 @@ request and the cache's part; and `isError` when it failed.
 **5. What must a public MCP server guard against?**
 Big bodies, batches of calls in one request, streams held open, and pages elsewhere using a visitor's browser;
 on a computer, DNS rebinding; then, in step 11, too many calls from one client.
+
+## Step 9 · The MCP · No Auth Lane
+
+**1. What does an MCP lane cost next to calling the API itself?**
+A connection and a tool list before the first call, then a hop to the MCP server for each call, before the server
+calls the API. In return, any MCP server's tools can be reached the same way.
+
+**2. How does a serverless app call itself safely?**
+At an address it knows is its own: one of the names its platform gives it, else its deployment's URL; never the Host a
+request sends, which the client controls.
+
+**3. How do you show the request a library sends?**
+Hook its HTTP client: every request goes through the hook as it's sent, and a secret is masked before it's shown.
+
+**4. Why can an error come out of a task group wrapped?**
+anyio and asyncio task groups gather the errors of their tasks into an exception group; an error raised inside the
+group's block leaves it wrapped. Give a group of one back as the error inside.
+
+**5. How do you keep two lanes the same?**
+One definition for both, the same names, descriptions and inputs; the same errors, by name; and tests that the two
+agree.

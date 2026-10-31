@@ -12,7 +12,7 @@ import json
 import time
 import zoneinfo
 from collections.abc import AsyncGenerator, Mapping
-from contextlib import aclosing, suppress
+from contextlib import AbstractAsyncContextManager, aclosing, suppress
 from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Annotated, Literal, Self
@@ -21,12 +21,21 @@ from urllib.parse import parse_qsl
 import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
+from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, field_validator, model_validator
 from starlette.requests import ClientDisconnect
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 
-from nimbus.answer import AnswerEvent, AnswerStats, ToolEnded, ToolStarted, render_answer, stream_weather_answer
+from nimbus.answer import (
+    AnswerEvent,
+    AnswerStats,
+    ToolEnded,
+    ToolStarted,
+    render_answer,
+    rest_tools,
+    stream_weather_answer,
+)
 from nimbus.chips import ToolChip
 from nimbus.config import Settings
 from nimbus.constants import (
@@ -50,6 +59,7 @@ from nimbus.errors import (
     EMPTY_QUESTION,
     HISTORY_TOO_LONG,
     HISTORY_UNREADABLE,
+    LANE_CLOSED,
     QUESTION_TOO_LONG,
     UNREADABLE,
     ConfigError,
@@ -57,6 +67,8 @@ from nimbus.errors import (
     NimbusError,
     to_user_message,
 )
+from nimbus.lanes import MCP_NO_AUTH, Lane, OpenLaneId, get_lane
+from nimbus.mcp_lane import open_mcp_lane
 from nimbus.pages import templates
 from nimbus.prompts import to_messages
 from nimbus.utils import new_turn_id, to_ms, to_ref, to_sse_message
@@ -90,6 +102,7 @@ class ChatRequest(BaseModel):
     locale: str = DEFAULT_LOCALE
     time_zone: str = DEFAULT_TIME_ZONE
     history: tuple[HistoryMessage, ...] = ()
+    lane: OpenLaneId = "rest-no-auth"
 
     @field_validator("history", mode="before")
     @classmethod
@@ -180,6 +193,9 @@ def to_input_error(error: ValidationError) -> InputError:
         if any("history_too_long" in problem["msg"] or problem["type"] == "string_too_long" for problem in history):
             return InputError("history_too_long", HISTORY_TOO_LONG)
         return InputError("history_unreadable", HISTORY_UNREADABLE)
+    # ② The lane: one that isn't open yet, or none we know (step 9).
+    if any(problem["loc"] and problem["loc"][0] == "lane" for problem in errors):
+        return InputError("lane_closed", LANE_CLOSED)
     problems = {(str(problem["loc"][0]) if problem["loc"] else "", problem["type"]) for problem in errors}
     if any(field != "question" for field, _ in problems):
         return InputError("form_unreadable", UNREADABLE)
@@ -331,6 +347,18 @@ def refusal(error: NimbusError) -> HTMLResponse:
     )
 
 
+def open_lane_tools(request: Request, lane: Lane) -> AbstractAsyncContextManager[list[StructuredTool]]:
+    """
+    The lane's four tools, for one answer (step 9): on REST · no auth, calling Open-Meteo through a new HTTP client;
+    on MCP · no auth, calling our own MCP server on this same deployment, which calls Open-Meteo.
+    """
+    state = request.app.state
+    if lane == MCP_NO_AUTH:
+        url = state.to_mcp_url(request, state.settings)
+        return open_mcp_lane(url, state.make_mcp_http_client(), state.settings.vercel_automation_bypass_secret)
+    return rest_tools(state.make_http_client(), state.weather_cache)
+
+
 @router.post("/api/chat")
 async def chat(request: Request) -> Response:
     """
@@ -354,7 +382,7 @@ async def chat(request: Request) -> Response:
     extra: dict[str, object] = {"defaulted": defaulted} if defaulted else {}
     if chat_request.history:
         extra["historyMessages"] = len(chat_request.history)
-    log.info("chat.request", questionChars=len(chat_request.question), **extra)
+    log.info("chat.request", questionChars=len(chat_request.question), lane=chat_request.lane, **extra)
     # ② The model, made when the app started; a deployment without its key can't answer at all.
     model = request.app.state.chat_model
     if model is None:
@@ -367,8 +395,9 @@ async def chat(request: Request) -> Response:
     history = [(message.role, message.text) for message in chat_request.history]
     now = datetime.now(UTC)
     messages = to_messages(chat_request.question, now, chat_request.locale, chat_request.time_zone, history)
-    state = request.app.state
-    answer = stream_weather_answer(model, messages, stats, state.tracer, state.make_http_client(), state.weather_cache)
+    lane = get_lane(chat_request.lane)
+    tools = open_lane_tools(request, lane)
+    answer = stream_weather_answer(model, messages, stats, request.app.state.tracer, tools, lane)
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.
     turn = stream_turn(answer, chat_request.question, request.state.request_id, stats, settings.gemini_model)

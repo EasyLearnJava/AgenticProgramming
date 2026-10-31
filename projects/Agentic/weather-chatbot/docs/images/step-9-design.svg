@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 9 · The MCP · no auth lane</title>
+  <desc id="d">The page's lane picker sends the lane with the question; the chat checks it against the open lanes. On REST · no auth, the tools call Open-Meteo. On MCP · no auth, the answer connects to our own MCP server on this same deployment, at an address of its own, lists the tools within 6 s and checks our four are there; each call is a tools/call within 8 s, and the server calls Open-Meteo. The chips show the lane, the JSON-RPC request as sent, and the server's request to Open-Meteo; the compare view shows one forecast call through each lane.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 9 · The MCP · no auth lane</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">Two doors to the same four tools: the question takes the lane chosen</text>
+
+  <!-- Row 1: the picker, the check -->
+  <rect x="40" y="100" width="420" height="104" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">The page: the lane picker</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">REST or MCP, without auth or with it: two open,</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">two closed until step 10; the radios belong to</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">the form, so the lane goes with each question</text>
+  <line x1="460" y1="152" x2="498" y2="152" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="100" width="420" height="104" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="516" y="126" font-size="15" font-weight="700" fill="#7c2d12">chat.py: the lane, checked</text>
+  <text x="516" y="148" font-size="13" fill="#1f2937">one of the open lanes, else our sentence:</text>
+  <text x="516" y="167" font-size="13" fill="#1f2937">"That lane isn't open yet."</text>
+  <text x="516" y="186" font-size="13" fill="#1f2937">then that lane's tools, for this answer</text>
+  <line x1="610" y1="204" x2="250" y2="248" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="710" y1="204" x2="710" y2="248" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: the two lanes -->
+  <rect x="40" y="250" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="276" font-size="15" font-weight="700" fill="#053b30">REST · no auth (step 4)</text>
+  <text x="56" y="298" font-size="13" fill="#1f2937">the tools call Open-Meteo themselves</text>
+  <text x="56" y="317" font-size="13" fill="#1f2937">one request a call, through the cache</text>
+  <text x="56" y="336" font-size="13" fill="#1f2937">the chip: On the wire, the GET</text>
+  <text x="56" y="355" font-size="13" fill="#1f2937">8 s a call, its tries included</text>
+  <rect x="500" y="250" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="516" y="276" font-size="15" font-weight="700" fill="#053b30">MCP · no auth (step 9): mcp_lane.py</text>
+  <text x="516" y="298" font-size="13" fill="#1f2937">one connection to /api/mcp: 6 s to list the tools</text>
+  <text x="516" y="317" font-size="13" fill="#1f2937">our four required; each call a tools/call, 8 s</text>
+  <text x="516" y="336" font-size="13" fill="#1f2937">the server (step 8) calls Open-Meteo</text>
+  <text x="516" y="355" font-size="13" fill="#1f2937">the chip: the JSON-RPC request, then the GET</text>
+
+  <!-- Where the lane finds the server -->
+  <rect x="40" y="394" width="880" height="84" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="420" font-size="15" font-weight="700" fill="#7c2d12">Where the lane finds our server: never where a request says</text>
+  <text x="56" y="442" font-size="13" fill="#1f2937">On Vercel, the address the question came to, if it's one of the deployment's own names; else the deployment's URL.</text>
+  <text x="56" y="461" font-size="13" fill="#1f2937">On a computer, the address the app listens on. A bypass secret, if Vercel gives one, goes with each call, masked.</text>
+
+  <!-- Why -->
+  <rect x="40" y="498" width="880" height="84" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="524" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#053b30">Our own wrapper: </tspan>langchain-mcp-adapters' latest imports the SDK's version 1 (issue 63). The SDK's</text>
+  <text x="56" y="544" font-size="13" fill="#1f2937">client runs in a task group, which wraps whatever leaves it: the lane unwraps a group of one, so the chat</text>
+  <text x="56" y="564" font-size="13" fill="#1f2937">still knows its own errors (issue 64). The compare view shows one forecast call through each lane.</text>
+
+  <!-- The tests -->
+  <rect x="40" y="602" width="880" height="44" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="629" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>the lane on the app's own server, in this process; six addresses, forged ones among them</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">Same tools, same inputs, same errors: only the door changes, and the chips show it.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">MCP costs a connection and a hop a call; any MCP server's tools can be reached the same way.</text>
+</svg>

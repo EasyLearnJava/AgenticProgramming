@@ -280,3 +280,27 @@ def test_the_same_question_again_is_answered_from_the_cache(page: Page, open_met
     expect(page.locator(".message-bot[aria-busy]")).to_have_count(0)
     expect(chips(page).locator(".tool-chip-lane")).to_have_text([re.compile(" · from the cache · ")] * 2)
     assert len(open_meteo.requests) == asked
+
+
+def test_the_lane_picker_takes_a_question_through_our_mcp_server(page: Page) -> None:
+    page.goto("/")
+    page.get_by_role("radio", name="MCP · no auth").check()
+    box = page.get_by_label("Your question")
+    box.fill(QUESTION)
+    box.press("Enter")
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
+    expect(chips(page).locator(".tool-chip-lane")).to_have_text([re.compile(r"^MCP · no auth · 127\.0\.0\.1:")] * 2)
+    chips(page).first.locator("summary").click()
+    expect(chips(page).first.get_by_text("Then, from our MCP server")).to_be_visible()
+
+
+def test_the_compare_view_shows_one_forecast_call_through_each_lane_and_passes_axe(page: Page) -> None:
+    page.goto("/")
+    page.get_by_text("Compare the lanes").click()
+    cells = page.locator(".compare-cell")
+    expect(cells).to_have_count(4)
+    expect(cells.nth(0)).to_contain_text("GET https://api.open-meteo.com/v1/forecast?")
+    expect(cells.nth(2)).to_contain_text('"method": "tools/call"')
+    assert page.evaluate("document.documentElement.scrollWidth - window.innerWidth") <= 0
+    results = Axe().run(page)
+    assert results.violations_count == 0, results.generate_report()

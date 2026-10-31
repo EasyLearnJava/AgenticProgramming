@@ -34,6 +34,9 @@ TOOL_MISUSED = "The assistant called a weather tool the wrong way."
 # ⑥ What the chat says when the conversation the page sends back breaks a rule (step 6).
 HISTORY_UNREADABLE = "The chat couldn't read the conversation so far. Please start a new chat."
 HISTORY_TOO_LONG = "This conversation is too long to go on. Please start a new chat."
+# ⑦ The lanes (step 9): one the form names that isn't open; our own MCP server, which the MCP lane couldn't reach.
+LANE_CLOSED = "That lane isn't open yet. Please choose REST · no auth or MCP · no auth."
+MCP_UNREACHABLE = "Our MCP server couldn't be reached. Please try again, or choose REST · no auth."
 
 
 class NimbusError(Exception):
@@ -122,6 +125,14 @@ class ContractError(UpstreamError):
     def __init__(self) -> None:
         """The error, with its sentence."""
         super().__init__("upstream_contract", WEATHER_UNEXPECTED, HTTPStatus.BAD_GATEWAY)
+
+
+class McpLaneError(UpstreamError):
+    """The MCP lane couldn't reach our MCP server, or the server didn't offer our four tools (step 9) (502)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("mcp_unreachable", MCP_UNREACHABLE, HTTPStatus.BAD_GATEWAY)
 
 
 def to_user_message(error: BaseException) -> str:

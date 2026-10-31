@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage
 
 from nimbus import agent, tools
 from nimbus.agent import make_agent
-from nimbus.answer import AnswerEvent, AnswerStats, ToolEnded, ToolStarted, stream_weather_answer
+from nimbus.answer import AnswerEvent, AnswerStats, ToolEnded, ToolStarted, rest_tools, stream_weather_answer
 from nimbus.errors import WEATHER_TOO_SLOW, AnswerTimeoutError
 from tests.fakes import ANSWER, PARIS_STEPS, FakeModel, OpenMeteoRecordings
 
@@ -26,7 +26,7 @@ def collect(model: FakeModel, recordings: OpenMeteoRecordings | None = None) -> 
 
     async def run() -> list[AnswerEvent]:
         http = httpx2.AsyncClient(transport=httpx2.MockTransport(recordings or OpenMeteoRecordings()))
-        events = stream_weather_answer(model, [HumanMessage("Hi")], AnswerStats(), None, http)
+        events = stream_weather_answer(model, [HumanMessage("Hi")], AnswerStats(), None, rest_tools(http))
         return [event async for event in events]
 
     return asyncio.run(run())

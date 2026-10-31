@@ -7,6 +7,7 @@ REST · no auth: the weather for the model, the request and its time for the pag
 import asyncio
 import json
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 import httpx2
@@ -16,6 +17,7 @@ from pydantic import ValidationError
 from structlog.testing import capture_logs
 
 from nimbus.errors import WEATHER_UNREACHABLE
+from nimbus.lanes import REST_NO_AUTH
 from nimbus.open_meteo import OpenMeteoClient
 from nimbus.tools import (
     GEOCODE_LOCATION,
@@ -27,6 +29,7 @@ from nimbus.tools import (
     ToolContext,
     ToolRun,
     WeatherTool,
+    run_in_time,
     to_langchain_tool,
 )
 from tests.fakes import OpenMeteoRecordings
@@ -163,7 +166,9 @@ def invoke(recordings: OpenMeteoRecordings, args: dict[str, Any]) -> ToolMessage
 
     async def go() -> ToolMessage:
         async with httpx2.AsyncClient(transport=httpx2.MockTransport(recordings)) as http:
-            tool = to_langchain_tool(GEOCODE_LOCATION, ToolContext(OpenMeteoClient(http, sleep=no_sleep)))
+            context = ToolContext(OpenMeteoClient(http, sleep=no_sleep))
+            run = partial(run_in_time, GEOCODE_LOCATION, context=context)
+            tool = to_langchain_tool(GEOCODE_LOCATION, run, REST_NO_AUTH)
             call = {"type": "tool_call", "id": "call-0-0", "name": "geocode_location", "args": args}
             message = await tool.ainvoke(call)
             assert isinstance(message, ToolMessage)

@@ -112,6 +112,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "over REST: the official SDK's MCPServer, with no session and JSON answers; and a client to call it."
         ),
     ),
+    DocPage(
+        slug="step-9",
+        path="/docs/step-9",
+        label="Step 9: The MCP · No Auth Lane",
+        summary=(
+            "A lane picker, and the agent's tools reached through our own MCP server on this same deployment, at an "
+            "address of its own; the chips show both hops, and a compare view one forecast call through each lane."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

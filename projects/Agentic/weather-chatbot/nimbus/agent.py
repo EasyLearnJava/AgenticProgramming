@@ -8,7 +8,7 @@ answer ends in words, never on a failure; each call's first words must come with
 import asyncio
 from collections.abc import AsyncGenerator, Sequence
 from contextlib import aclosing
-from typing import Any, Final, cast
+from typing import Any, cast
 
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
@@ -20,15 +20,16 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Send
 
-from nimbus.constants import AGENT_NAME, AGENT_RECURSION_LIMIT, LANE_ID, MAX_MODEL_CALLS, MODEL_FIRST_CHUNK_SECONDS
+from nimbus.constants import AGENT_NAME, AGENT_RECURSION_LIMIT, MAX_MODEL_CALLS, MODEL_FIRST_CHUNK_SECONDS
+from nimbus.lanes import Lane
 
-# Each run's settings: LangGraph's recursion limit, a backstop the graph never reaches, and, for LangSmith, the lane as
-# a tag. The run is named after the graph: "nimbus".
-AGENT_CONFIG: Final[RunnableConfig] = {
-    "recursion_limit": AGENT_RECURSION_LIMIT,
-    "tags": [LANE_ID],
-    "metadata": {"lane": LANE_ID},
-}
+
+def to_agent_config(lane: Lane) -> RunnableConfig:
+    """
+    A run's settings: LangGraph's recursion limit, a backstop the graph never reaches, and, for LangSmith, the lane the
+    question took, as a tag. The run is named after the graph: "nimbus".
+    """
+    return {"recursion_limit": AGENT_RECURSION_LIMIT, "tags": [lane.id], "metadata": {"lane": lane.id}}
 
 
 class AgentState(MessagesState, total=False):

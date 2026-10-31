@@ -1,8 +1,8 @@
 """
 nimbus/config.py: the app's settings, and the only module that reads the environment. Pydantic checks each value when
-the app starts. Vercel sets the build's own (VERCEL, VERCEL_ENV, the commit, the deployment), which are read from the
-real environment only; you set the rest, in Vercel's project settings, or in .env.local on your computer, which git
-never sees.
+the app starts. Vercel sets the build's own (VERCEL, VERCEL_ENV, the commit, the deployment, its names, and the secret
+that gets an automated call past its protection, if that's on), which are read from the real environment only; you set
+the rest, in Vercel's project settings, or in .env.local on your computer, which git never sees.
 """
 
 from functools import lru_cache
@@ -16,7 +16,18 @@ from nimbus.constants import GEMINI_MODEL
 
 SHORT_COMMIT_CHARS = 7
 # The settings Vercel itself sets on its machines.
-VERCEL_FIELDS = frozenset({"is_vercel", "vercel_env", "vercel_git_commit_sha", "vercel_deployment_id"})
+VERCEL_FIELDS = frozenset(
+    {
+        "is_vercel",
+        "vercel_env",
+        "vercel_git_commit_sha",
+        "vercel_deployment_id",
+        "vercel_url",
+        "vercel_branch_url",
+        "vercel_project_production_url",
+        "vercel_automation_bypass_secret",
+    }
+)
 
 
 class WithoutVercelFields(PydanticBaseSettingsSource):
@@ -50,6 +61,12 @@ class Settings(BaseSettings):
     vercel_env: Literal["production", "preview", "development"] | None = None
     vercel_git_commit_sha: str | None = None
     vercel_deployment_id: str | None = None
+    # And (step 9) the deployment's own names, which the MCP lane may call: its URL, its branch's, the project's
+    # production domain; and the secret that gets an automated call past Vercel's protection, if that's turned on.
+    vercel_url: str | None = None
+    vercel_branch_url: str | None = None
+    vercel_project_production_url: str | None = None
+    vercel_automation_bypass_secret: SecretStr | None = None
     # ② Set by you, if you want more or fewer log lines.
     log_level: Literal["debug", "info", "warning", "error"] = "info"
     # ③ Set by you (step 3): the key for Gemini, a Secret variable in Vercel, and which Gemini model answers. Without a

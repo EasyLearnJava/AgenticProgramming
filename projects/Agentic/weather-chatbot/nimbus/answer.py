@@ -5,8 +5,8 @@ turned into one of our errors. And the finished answer's Markdown, made into HTM
 """
 
 import asyncio
-from collections.abc import AsyncGenerator, Iterator, Sequence
-from contextlib import aclosing
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator, Sequence
+from contextlib import AbstractAsyncContextManager, aclosing, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -21,6 +21,7 @@ from langchain_core.exceptions import (
 from langchain_core.exceptions import ModelTimeoutError as LangChainModelTimeoutError
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
+from langchain_core.tools import StructuredTool
 from langgraph.graph.state import CompiledStateGraph
 from langsmith import tracing_context
 from markdown_it import MarkdownIt
@@ -29,10 +30,11 @@ from markdown_it.token import Token
 from markdown_it.utils import EnvType, OptionsDict
 from markupsafe import Markup
 
-from nimbus.agent import AGENT_CONFIG, make_agent
+from nimbus.agent import make_agent, to_agent_config
 from nimbus.cache import WeatherCache
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.errors import AnswerTimeoutError, ConfigError, ModelBusyError, ModelFailedError, NimbusError
+from nimbus.lanes import REST_NO_AUTH, Lane
 from nimbus.model import Tracer
 from nimbus.open_meteo import OpenMeteoClient
 from nimbus.tools import ToolCallRecord, ToolContext, make_tools
@@ -122,6 +124,7 @@ async def stream_answer(
     messages: Sequence[BaseMessage],
     stats: AnswerStats,
     tracer: Tracer | None,
+    lane: Lane = REST_NO_AUTH,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The agent's run, as events: each tool call as it starts and ends, each piece of the words as the model writes it;
@@ -137,7 +140,8 @@ async def stream_answer(
         with tracing_context(enabled=tracer is not None, client=client, project_name=project):
             # The run's stream is closed however this one ends, so no call to Gemini or Open-Meteo outlives the answer.
             # Two kinds of item: "messages", the model's chunks as it writes; "updates", each node's result as it ends.
-            run = agent.astream({"messages": list(messages)}, AGENT_CONFIG, stream_mode=["messages", "updates"])
+            config = to_agent_config(lane)
+            run = agent.astream({"messages": list(messages)}, config, stream_mode=["messages", "updates"])
             stream = cast("AsyncGenerator[tuple[str, Any]]", run)
             async with aclosing(stream) as items:
                 while True:
@@ -180,21 +184,33 @@ def make_http_client() -> httpx2.AsyncClient:
     return httpx2.AsyncClient()
 
 
+@asynccontextmanager
+async def rest_tools(
+    http_client: httpx2.AsyncClient, weather_cache: WeatherCache | None = None
+) -> AsyncIterator[list[StructuredTool]]:
+    """
+    REST · no auth's four tools, which call Open-Meteo through the HTTP client given, open for as long as the answer
+    is, and closed with it; and keep its answers in the cache given (step 7).
+    """
+    async with http_client as http:
+        yield make_tools(ToolContext(OpenMeteoClient(http, cache=weather_cache)))
+
+
 async def stream_weather_answer(
     model: BaseChatModel,
     messages: Sequence[BaseMessage],
     stats: AnswerStats,
     tracer: Tracer | None,
-    http_client: httpx2.AsyncClient,
-    weather_cache: WeatherCache | None = None,
+    tools: AbstractAsyncContextManager[list[StructuredTool]],
+    lane: Lane = REST_NO_AUTH,
 ) -> AsyncGenerator[AnswerEvent]:
     """
-    The answer, by the agent with the four weather tools, which call Open-Meteo through the HTTP client given, open for
-    as long as the answer is, and closed with it; and keep its answers in the cache given (step 7).
+    The answer, by the agent with the four weather tools of the question's lane (step 9), open for as long as the
+    answer is, and closed with it, however it ends. A lane that can't open fails the answer with its own error.
     """
-    async with http_client as http:
-        agent = make_agent(model, make_tools(ToolContext(OpenMeteoClient(http, cache=weather_cache))))
-        async with aclosing(stream_answer(agent, messages, stats, tracer)) as events:
+    async with tools as weather_tools:
+        agent = make_agent(model, weather_tools)
+        async with aclosing(stream_answer(agent, messages, stats, tracer, lane)) as events:
             async for event in events:
                 yield event
 

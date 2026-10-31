@@ -19,8 +19,8 @@ What's still open in the Python rebuild, and why. The TypeScript version's list 
 
 ## Next
 
-- **Step 9:** the MCP · no auth lane: the agent reaches its tools through our MCP server, with
-  `langchain-mcp-adapters`; and the compare view.
+- **Step 10:** the lanes with auth: Apify's Actor over REST and over Apify's MCP server, each falling back to its
+  twin with no auth.
 - **Step 12, the cache's own errors as our warning:** on Vercel, the package's store prints them and gives a miss
   (issue 60); built with an `on_error` that raises, each would be one `cache.failed` line, with the request's id.
 - **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build

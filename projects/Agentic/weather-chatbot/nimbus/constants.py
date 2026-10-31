@@ -113,13 +113,11 @@ MAX_FORECAST_DAYS: Final = 16
 MAX_HOURLY_DAYS: Final = 3
 COORDINATE_DECIMALS: Final = 2
 
-# ⑩ The agent (step 5): a LangGraph graph of our own, on the REST · no auth lane, its tools calling Open-Meteo from
-# the chat's own function. At most 5 calls to the model in an answer, the fifth with its tools turned off, so every
-# answer ends in words; each call's first words within 10 s; each tool call within 8 s, its tries included; the whole
-# answer within 30 s (⑦). LangGraph's recursion limit stays as a backstop: it counts each node's run, a model call or
-# a round of tools, so twice the calls.
-LANE_ID: Final = "rest-no-auth"
-LANE_LABEL: Final = "REST · no auth"
+# ⑩ The agent (step 5): a LangGraph graph of our own, its tools on the lane the question takes (nimbus/lanes.py). At
+# most 5 calls to the model in an answer, the fifth with its tools turned off, so every answer ends in words; each
+# call's first words within 10 s; each tool call within 8 s, its tries included; the whole answer within 30 s (⑦).
+# LangGraph's recursion limit stays as a backstop: it counts each node's run, a model call or a round of tools, so
+# twice the calls.
 AGENT_NAME: Final = "nimbus"
 MAX_MODEL_CALLS: Final = 5
 MODEL_FIRST_CHUNK_SECONDS: Final = 10
@@ -153,3 +151,9 @@ MCP_PATH: Final = "/api/mcp"
 MCP_SERVER_NAME: Final = "nimbus-weather"
 MCP_BODY_MAX_BYTES: Final = 8 * 1024
 MCP_LOCAL_HOSTS: Final = ("127.0.0.1", "localhost", "[::1]", "127.0.0.1:*", "localhost:*", "[::1]:*")
+
+# ⑭ The MCP · no auth lane (step 9): the agent's tools call our own MCP server, on this same deployment. Connecting to
+# it and listing its tools take at most 6 s together; each call, 8 s, as on REST (⑩). If Vercel's protection guards
+# the deployment's own address, the secret that gets an automated call past it goes in this header.
+MCP_CONNECT_SECONDS: Final = 6
+BYPASS_HEADER: Final = "x-vercel-protection-bypass"

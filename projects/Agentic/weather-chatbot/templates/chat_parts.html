@@ -17,7 +17,8 @@
 {#
   A tool call's chip: a <details>, so it opens with the keyboard and without script. Its mark (…, ✓, ✗ or ■) has its
   word for a screen reader; once done, its lane, host and time, and whether the cache answered; opened, the request
-  as it went out, the first time if the cache answered, then input and output.
+  as it went out, the first time if the cache answered, and on the MCP lane the one our server sent Open-Meteo; then
+  input and output.
 #}
 {% macro tool_chip(turn_id, chip) -%}
 <li class="tool-chip tool-chip-{{ chip.status }}" id="tool-{{ turn_id }}-{{ chip.index }}">
@@ -41,12 +42,12 @@
       <p class="tool-chip-error">{{ chip.error }}</p>
       {%- endif %}
       {%- if chip.record %}
-      {%- if chip.record.from_cache %}
-      <p class="tool-chip-label">On the wire, when it was first fetched</p>
-      {%- else %}
-      <p class="tool-chip-label">On the wire</p>
-      {%- endif %}
+      <p class="tool-chip-label">{{ chip.wire_label }}</p>
       <pre>{{ chip.record.request.to_text() }}</pre>
+      {%- if chip.record.upstream_request %}
+      <p class="tool-chip-label">{{ chip.upstream_label }}</p>
+      <pre>{{ chip.record.upstream_request.to_text() }}</pre>
+      {%- endif %}
       {%- endif %}
       <p class="tool-chip-label">Input</p>
       <pre>{{ chip.input_json }}</pre>
