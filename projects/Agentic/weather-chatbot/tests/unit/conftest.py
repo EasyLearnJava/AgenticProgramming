@@ -1,17 +1,18 @@
 """
 tests/unit/conftest.py: what the unit tests share: no setting from the shell's environment or a .env file, settings of
-their own, a stand-in for Gemini, and a client that calls the app in memory, without a server.
+their own, stand-ins for Gemini and Open-Meteo, and a client that calls the app in memory, without a server.
 """
 
 from collections.abc import Iterator
 
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import AliasChoices
 
 from nimbus.app import create_app
 from nimbus.config import Settings
-from tests.fakes import FakeModel
+from tests.fakes import FakeModel, OpenMeteoRecordings
 
 
 @pytest.fixture(autouse=True)
@@ -41,9 +42,16 @@ def chat_model() -> FakeModel:
 
 
 @pytest.fixture
-def client(settings: Settings, chat_model: FakeModel) -> Iterator[TestClient]:
-    """A client for the app built with those settings, which answers with the stand-in model."""
+def open_meteo() -> OpenMeteoRecordings:
+    """The stand-in for Open-Meteo the weather tools call: its recorded answers, with no pause."""
+    return OpenMeteoRecordings()
+
+
+@pytest.fixture
+def client(settings: Settings, chat_model: FakeModel, open_meteo: OpenMeteoRecordings) -> Iterator[TestClient]:
+    """A client for the app built with those settings, which answers with the stand-ins: no call leaves the test."""
     app = create_app(settings)
     app.state.chat_model = chat_model
+    app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
     with TestClient(app) as test_client:
         yield test_client

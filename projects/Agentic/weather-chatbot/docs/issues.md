@@ -263,3 +263,59 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     a query string slow on some texts: one that needed a `?` after each address searched again from every "http", 10,000
     in a row taking seconds; each address is now matched whole, in any case, then cut. **Check:** unit tests for each,
     one of them timed; nine mutation rules; on the live site, a question's lines after the fix's deploy.
+
+## Step 4 · The Weather Tools, and an Agent That Calls Them
+
+44. **tenacity 9.2.1 can't be installed with google-genai.** *Building it* (`uv add`). The plan named tenacity 9.2.1,
+    the newest release before the step's cutoff; uv refused it: google-genai, which langchain-google-genai needs,
+    wants tenacity below 9.2.0. **Fix:** tenacity 9.1.4, the newest that fits. **Check:** `uv add` resolves;
+    `uv.lock` holds 9.1.4.
+45. **One tool call that failed would have failed the whole answer.** *Reading LangGraph's tool node* before writing the
+    tools, then a prototype: its default error handler re-raises every error but a bad input, so a slow Open-Meteo
+    would have ended the answer with "The assistant didn't answer." **Fix:** a tool turns Open-Meteo's failure, one
+    of ours, into a `ToolException` with its sentence, and the LangChain tool has `handle_tool_error=True`: the agent
+    gives the model a tool message marked as an error, which it can answer with; the chip shows the sentence. Any other
+    error still fails the answer. **Check:** unit tests of a failed call, through the tool, the agent and the route;
+    the mutation check's "Open-Meteo's failure reaches the model as our sentence".
+46. **A test of the agent called the stand-in model without streaming.** *The prototype.* With
+    `stream_mode="updates"` alone, LangChain calls the model whole, and the stand-in, which only streamed, raised
+    `NotImplementedError`. The app streams `messages` too, so Gemini is always streamed, but a stand-in shouldn't
+    depend on it. **Fix:** the stand-in builds its whole answer from its own stream (`agenerate_from_stream`).
+    **Check:** the prototype's limit runs with each mode.
+47. **The recorded forecast held hours no one asked for.** *A unit test.* Open-Meteo's recorded Paris answer has its
+    hours, and a forecast asked for without them gave them to the model all the same. Open-Meteo itself sends hours
+    only when asked, but the client trusted the answer. **Fix:** the client keeps the hours only when they were asked
+    for. **Check:** the tool's test; the mutation check's "hours only when they're asked for".
+48. **Gemini doesn't take `additionalProperties`.** *Checking the declarations Gemini gets,* before the deploy:
+    langchain-google-genai dropped it from each tool's schema, logging a warning, four for each call to the model,
+    which the app would have written as warning lines (issue 43). **Fix:** the schema the model sees leaves it out
+    (`json_schema_extra`); a field a tool doesn't have is still refused. **Check:** a unit test of the schema; the
+    mutation check's "the schema the model sees has no additionalProperties".
+49. **A test's closed stdout broke the next tests' log lines.** *The unit tests, all run together.* structlog's logger
+    was set up with `sys.stdout` as it was then: a test that set logging up inside pytest's capture left the next
+    tests writing to a stream that had closed, "I/O operation on closed file". **Fix:** the logger is given no
+    file, so structlog prints to the stdout of the moment. **Check:** all the unit tests, in any order.
+50. **The prebuilt agent's own limit is 9,999 steps.** *Reading `create_agent()`:* it sets `recursion_limit` to 9,999,
+    so a model that kept asking for tools would run until the answer's 30 s ran out. **Fix:** each run's config sets
+    10, which LangGraph counts as 5 calls to the model and 4 rounds of tools; a sixth call fails the answer. Step 5's
+    own graph gives the last call no tools instead. **Check:** unit tests of 5 calls (an answer) and 6 (a failure);
+    the mutation check's "an answer makes 5 calls to the model at most".
+51. **Code only the tests used.** *The review.* The app kept `open_meteo_transport` in its state, always `None` in
+    production, and passed it on to the answer only so the tests could put Open-Meteo's recorded answers in its place:
+    a path through the code that production never took. **Fix:** `make_http_client()` makes the HTTP client for each
+    answer; the app keeps the factory in its state and calls it, and the tests give it one of their own, as they give
+    it the stand-in model. **Check:** a unit test that the app, as built, has the real factory; every test goes the way
+    production does.
+52. **Two browser tests depended on timing.** *The review.* A recorded Open-Meteo call took 0.3 s, and Playwright's
+    checks come every half second at worst: on a slow machine, the test of a running chip could miss the first call
+    altogether, and Stop could come after both had ended. **Fix:** those two tests play Open-Meteo back at 1.5 s a
+    call. **Check:** the browser tests.
+53. **Words written before a tool call ran into the answer's.** *The review.* Gemini may write "Let me check." and
+    then ask for a tool; the answer's words, after the tool's result, followed with no break: "Let me check.Tomorrow,
+    ...". **Fix:** words that follow a tool call, after earlier words, start a new paragraph. **Check:** a unit test
+    with a stand-in that writes before its tool calls; the mutation check's "words written before a tool call end
+    their paragraph".
+54. **A Retry-After of other digits would have read as an answer we can't read.** *The review.* `isdigit()` is true
+    for "²", which `float()` refuses, so a 429 with that header would have failed as `ContractError`, not as busy.
+    **Fix:** ASCII digits only (`isascii()` and `isdecimal()`). **Check:** a unit test with the byte httpx2 reads as
+    "²"; the mutation check's "a Retry-After is read from ASCII digits only".

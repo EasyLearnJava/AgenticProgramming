@@ -1,0 +1,14 @@
+{#
+  templates/chat_tool.html: a tool call's event: a new chip, added to the end of the turn's list as the model asks for
+  the tool; or the chip again, in place of the one with its id, once the call ends.
+#}
+{% from "chat_parts.html" import tool_chip %}
+{% if is_new %}
+<hx-partial hx-target="#tools-{{ turn_id }}" hx-swap="beforeend">
+{{ tool_chip(turn_id, chip) }}
+</hx-partial>
+{% else %}
+<hx-partial hx-target="#tool-{{ turn_id }}-{{ chip.index }}" hx-swap="outerHTML">
+{{ tool_chip(turn_id, chip) }}
+</hx-partial>
+{% endif %}

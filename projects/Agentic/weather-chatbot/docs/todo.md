@@ -18,8 +18,8 @@ What's still open in the Python rebuild, and why. The TypeScript version's list 
 
 ## Next
 
-- **Step 4:** the four weather tools and a prebuilt LangGraph agent: the REST · no auth lane, a chip for each tool
-  call with the request it sent, and LangSmith's trace of each tool call.
+- **Step 5:** the agent as a LangGraph graph of our own: a step limit, a last call to the model with no tools, so
+  every answer ends in words, and a time limit on each step.
 - **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build
   label can name another project's commit (issue 21); an `ignoreCommand` in `vercel.json` would end the build when
   this folder hasn't changed.

@@ -1,14 +1,16 @@
 """
-tests/unit/test_answer.py: the answer: the model's words as it writes them, its tokens counted, every failure turned
-into one of our errors, a cap on its time; and the finished answer's Markdown, made into HTML with no raw HTML, no
-picture, and no link that could run code.
+tests/unit/test_answer.py: the answer: the agent's run as events, each tool call as it starts and ends and the model's
+words as it writes them; the tokens of every call to the model counted; a failed tool call read by the model as our
+sentence; at most 5 calls to the model; every failure turned into one of our errors; a cap on its time; and the
+finished answer's Markdown, made into HTML with no raw HTML, no picture, and no link that could run code.
 """
 
 import asyncio
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import cast
+from typing import Any, cast
 
+import httpx2
 import pytest
 from langchain_core.exceptions import (
     ModelAPIError,
@@ -20,28 +22,51 @@ from langchain_core.exceptions import (
     ModelRateLimitError,
 )
 from langchain_core.exceptions import ModelTimeoutError as LangChainModelTimeoutError
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_google_genai.chat_models import GoogleInvalidRequestError
+from langgraph.errors import GraphRecursionError
 from langsmith import Client
 
 from nimbus import answer
-from nimbus.answer import LINK_REL, AnswerStats, render_answer, stream_answer
-from nimbus.errors import AnswerTimeoutError, ConfigError, ModelBusyError, ModelFailedError
+from nimbus.agent import make_agent
+from nimbus.answer import (
+    LINK_REL,
+    AnswerEvent,
+    AnswerStats,
+    ToolEnded,
+    ToolStarted,
+    render_answer,
+    stream_answer,
+    stream_weather_answer,
+)
+from nimbus.errors import WEATHER_UNREACHABLE, AnswerTimeoutError, ConfigError, ModelBusyError, ModelFailedError
 from nimbus.model import Tracer
-from tests.fakes import ANSWER, TOKENS_IN, TOKENS_OUT, FakeModel
+from nimbus.tools import ToolCallRecord
+from tests.fakes import ANSWER, PARIS_STEPS, TOKENS_IN, TOKENS_OUT, FakeModel, OpenMeteoRecordings
+
+GEOCODE_PARIS: list[dict[str, Any]] = [{"name": "geocode_location", "args": {"query": "Paris"}}]
 
 
-def collect(model: FakeModel, stats: AnswerStats | None = None) -> list[str]:
-    """Every piece of the model's answer, as the chat gets them."""
+def collect(
+    model: FakeModel, stats: AnswerStats | None = None, recordings: OpenMeteoRecordings | None = None
+) -> list[AnswerEvent]:
+    """Every event of an answer, as the chat gets them, with Open-Meteo played back."""
 
-    async def run() -> list[str]:
-        return [piece async for piece in stream_answer(model, [HumanMessage("Hi")], stats or AnswerStats(), None)]
+    async def run() -> list[AnswerEvent]:
+        http = httpx2.AsyncClient(transport=httpx2.MockTransport(recordings or OpenMeteoRecordings()))
+        events = stream_weather_answer(model, [HumanMessage("Hi")], stats or AnswerStats(), None, http)
+        return [event async for event in events]
 
     return asyncio.run(run())
 
 
+def words(events: list[AnswerEvent]) -> list[str]:
+    """An answer's pieces of words, without its tool calls."""
+    return [event for event in events if isinstance(event, str)]
+
+
 def test_streams_the_model_s_words_as_it_writes_them() -> None:
-    pieces = collect(FakeModel())
+    pieces = words(collect(FakeModel()))
     assert "".join(pieces) == ANSWER
     assert len(pieces) == len(ANSWER.split())
 
@@ -51,6 +76,70 @@ def test_adds_up_the_tokens_each_chunk_reports() -> None:
     stats = AnswerStats()
     collect(FakeModel(), stats)
     assert (stats.tokens_in, stats.tokens_out) == (TOKENS_IN, TOKENS_OUT)
+
+
+def test_the_tokens_add_up_over_every_call_to_the_model() -> None:
+    # Three calls: the place, its forecast, the words. Each sends the whole conversation so far, its tokens in too.
+    stats = AnswerStats()
+    collect(FakeModel(tool_steps=PARIS_STEPS), stats)
+    assert (stats.tokens_in, stats.tokens_out) == (3 * TOKENS_IN, 1 + 1 + TOKENS_OUT)
+
+
+def test_the_model_gets_the_four_weather_tools() -> None:
+    model = FakeModel()
+    collect(model)
+    assert model.bound_tools == ["geocode_location", "get_current_weather", "get_forecast", "get_air_quality"]
+
+
+def test_each_tool_call_starts_then_ends_with_its_record_before_the_words() -> None:
+    model = FakeModel(tool_steps=PARIS_STEPS)
+    events = collect(model)
+    calls = [event for event in events if not isinstance(event, str)]
+    assert [(type(event).__name__, event.call_id, event.name) for event in calls] == [
+        ("ToolStarted", "call-0-0", "geocode_location"),
+        ("ToolEnded", "call-0-0", "geocode_location"),
+        ("ToolStarted", "call-1-0", "get_forecast"),
+        ("ToolEnded", "call-1-0", "get_forecast"),
+    ]
+    assert isinstance(calls[0], ToolStarted)
+    assert calls[0].args == {"query": "Paris"}
+    ended = calls[1]
+    assert isinstance(ended, ToolEnded)
+    assert not ended.failed
+    assert isinstance(ended.record, ToolCallRecord)
+    assert ended.record.request.host == "geocoding-api.open-meteo.com"
+    assert "".join(words(events)) == ANSWER
+
+
+def test_words_written_before_a_tool_call_end_their_paragraph() -> None:
+    # Gemini may write a few words, then ask for a tool: the answer's words, later, start a paragraph of their own.
+    events = collect(FakeModel(tool_steps=PARIS_STEPS, step_words="Let me check."))
+    assert "".join(words(events)) == f"Let me check.\n\nLet me check.\n\n{ANSWER}"
+
+
+def test_the_model_reads_the_weather_only_never_the_request() -> None:
+    model = FakeModel(tool_steps=PARIS_STEPS)
+    collect(model)
+    [result] = [message for message in model.seen[1] if isinstance(message, ToolMessage)]
+    assert '"name":"Paris"' in str(result.content)
+    assert "open-meteo.com" not in str(result.content)
+
+
+def test_a_failed_tool_call_ends_failed_and_the_model_reads_our_sentence() -> None:
+    model = FakeModel(tool_steps=PARIS_STEPS)
+    events = collect(model, recordings=OpenMeteoRecordings(failing=frozenset({"/v1/forecast"})))
+    [failed] = [event for event in events if isinstance(event, ToolEnded) and event.name == "get_forecast"]
+    assert (failed.failed, failed.content, failed.record) == (True, WEATHER_UNREACHABLE, None)
+    results = [message for message in model.seen[2] if isinstance(message, ToolMessage)]
+    assert results[-1].content == WEATHER_UNREACHABLE
+
+
+def test_five_calls_to_the_model_may_answer_and_a_sixth_fails_the_answer() -> None:
+    # LangGraph counts each node's run: 5 calls to the model and 4 rounds of tools fit in its limit of 10.
+    assert "".join(words(collect(FakeModel(tool_steps=[GEOCODE_PARIS] * 4)))) == ANSWER
+    with pytest.raises(ModelFailedError) as caught:
+        collect(FakeModel(tool_steps=[GEOCODE_PARIS] * 5))
+    assert isinstance(caught.value.__cause__, GraphRecursionError)
 
 
 @pytest.mark.parametrize(
@@ -85,11 +174,11 @@ def test_an_answer_stops_at_its_time_limit(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_a_deadline_that_passes_while_the_page_takes_its_time_is_still_ours(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Only the model's own waits are timed: the deadline never lands in the page's code, as a cancel (issue 38).
+    # Only the agent's own waits are timed: the deadline never lands in the page's code, as a cancel (issue 38).
     monkeypatch.setattr(answer, "ANSWER_TIMEOUT_SECONDS", 0.05)
 
     async def run() -> None:
-        async for _piece in stream_answer(FakeModel(), [HumanMessage("Hi")], AnswerStats(), None):
+        async for _event in stream_answer(make_agent(FakeModel(), []), [HumanMessage("Hi")], AnswerStats(), None):
             await asyncio.sleep(0.03)
 
     with pytest.raises(AnswerTimeoutError):
@@ -101,9 +190,9 @@ def test_closing_the_answer_closes_the_model_s_stream() -> None:
     model = FakeModel(delay=0.01)
 
     async def run() -> None:
-        pieces = stream_answer(model, [HumanMessage("Hi")], AnswerStats(), None)
-        await anext(pieces)
-        await pieces.aclose()
+        events = stream_answer(make_agent(model, []), [HumanMessage("Hi")], AnswerStats(), None)
+        await anext(events)
+        await events.aclose()
 
     asyncio.run(run())
     assert model.closed
@@ -121,7 +210,7 @@ def traced_with(monkeypatch: pytest.MonkeyPatch, tracer: Tracer | None) -> list[
     monkeypatch.setattr(answer, "tracing_context", recording_context)
 
     async def run() -> None:
-        async for _piece in stream_answer(FakeModel(), [HumanMessage("Hi")], AnswerStats(), tracer):
+        async for _event in stream_answer(make_agent(FakeModel(), []), [HumanMessage("Hi")], AnswerStats(), tracer):
             pass
 
     asyncio.run(run())
@@ -141,11 +230,11 @@ def test_without_a_tracer_tracing_is_off_whatever_the_environment_says(monkeypat
     assert traced_with(monkeypatch, None) == [{"enabled": False, "client": None, "project_name": None}]
 
 
-def test_the_limits_are_1024_tokens_and_30_seconds() -> None:
+def test_the_limits_are_1024_tokens_a_call_5_calls_and_30_seconds() -> None:
     # In numbers: a test that took them from the constants would follow any change to them.
-    from nimbus.constants import ANSWER_TIMEOUT_SECONDS, MAX_OUTPUT_TOKENS
+    from nimbus.constants import AGENT_RECURSION_LIMIT, ANSWER_TIMEOUT_SECONDS, MAX_MODEL_CALLS, MAX_OUTPUT_TOKENS
 
-    assert (MAX_OUTPUT_TOKENS, ANSWER_TIMEOUT_SECONDS) == (1024, 30)
+    assert (MAX_OUTPUT_TOKENS, MAX_MODEL_CALLS, AGENT_RECURSION_LIMIT, ANSWER_TIMEOUT_SECONDS) == (1024, 5, 10, 30)
 
 
 def test_markdown_becomes_html() -> None:

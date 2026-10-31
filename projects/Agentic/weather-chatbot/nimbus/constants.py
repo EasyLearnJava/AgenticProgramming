@@ -91,3 +91,32 @@ MODEL_THINKING: Final = "minimal"
 # exception, its class and its innermost 8 frames.
 LIBRARY_LOG_LEVEL: Final = logging.WARNING
 LIBRARY_LOG_MAX_FRAMES: Final = 8
+
+# ⑨ The weather (step 4): Open-Meteo's three APIs, asked with no key. A try waits at most 3 s; a slow or failed one
+# gets one more, after a random wait of at most half a second; a 429 is tried again only when its Retry-After asks for
+# at most 1.5 s.
+OPEN_METEO_GEOCODING_URL: Final = "https://geocoding-api.open-meteo.com/v1/search"
+OPEN_METEO_FORECAST_URL: Final = "https://api.open-meteo.com/v1/forecast"
+OPEN_METEO_AIR_QUALITY_URL: Final = "https://air-quality-api.open-meteo.com/v1/air-quality"
+OPEN_METEO_TRY_SECONDS: Final = 3
+OPEN_METEO_ATTEMPTS: Final = 2
+RETRY_WAIT_MAX_SECONDS: Final = 0.5
+RETRY_AFTER_MAX_SECONDS: Final = 1.5
+# What the tools take: a place's name of at most 100 characters; at most 10 places, 5 if the model doesn't say; a
+# forecast of 1 to 16 days, with each hour of the first 3 if asked. A point is rounded to 2 decimals, about 1 km, so no
+# request names an exact address.
+MAX_QUERY_CHARS: Final = 100
+DEFAULT_PLACE_COUNT: Final = 5
+MAX_PLACE_COUNT: Final = 10
+MAX_FORECAST_DAYS: Final = 16
+MAX_HOURLY_DAYS: Final = 3
+COORDINATE_DECIMALS: Final = 2
+
+# ⑩ The agent (step 4): LangChain's prebuilt agent, on the REST · no auth lane, its tools calling Open-Meteo from the
+# chat's own function. At most 5 calls to the model in an answer: LangGraph counts each node's run, a model call or a
+# round of tools, so the recursion limit is twice that.
+LANE_ID: Final = "rest-no-auth"
+LANE_LABEL: Final = "REST · no auth"
+AGENT_NAME: Final = "nimbus"
+MAX_MODEL_CALLS: Final = 5
+AGENT_RECURSION_LIMIT: Final = 2 * MAX_MODEL_CALLS

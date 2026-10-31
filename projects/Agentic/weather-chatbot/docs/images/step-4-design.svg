@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 4 · The agent and its tools</title>
+  <desc id="d">The chat route opens one HTTP client for the answer and builds LangChain's prebuilt agent with Gemini and the four weather tools. The agent calls the model; when the model asks for tools, it runs each call on its own, and calls the model again with the results, at most five calls in all. Each tool asks Open-Meteo's APIs, with no key, a point rounded to about 1 km, 3 seconds a try and one more. The model reads only the weather; the request and its time go to the page as the call's record. The page shows a chip for each call, running, then done, failed or stopped, which opens to the request as it went out, the input and the output; then the words, and the finished answer.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 4 · The agent and its tools</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">One question, two rounds of tools, then the words</text>
+
+  <!-- Row 1: the route, the agent -->
+  <rect x="40" y="100" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">chat.py · answer.py: one answer</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">the checks, the model, the 13 rules (prompts.py)</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">one HTTP client, open as long as the answer</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">the four tools and the agent, made for it: 1.5 ms</text>
+  <text x="56" y="205" font-size="13" fill="#1f2937">30 s in all; each event to the page as it comes</text>
+  <line x1="460" y1="162" x2="498" y2="162" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="100" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="516" y="126" font-size="15" font-weight="700" fill="#053b30">agent.py: create_agent()</text>
+  <text x="516" y="148" font-size="13" fill="#1f2937">"model": Gemini, with the four tools</text>
+  <text x="516" y="167" font-size="13" fill="#1f2937">"tools": each call a task of its own, at once</text>
+  <text x="516" y="186" font-size="13" fill="#1f2937">then "model" again, with the results; words end it</text>
+  <text x="516" y="205" font-size="13" fill="#1f2937">at most 5 calls to the model: a sixth fails it</text>
+  <line x1="710" y1="224" x2="710" y2="248" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: Open-Meteo, the tools -->
+  <rect x="40" y="250" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="276" font-size="15" font-weight="700" fill="#053b30">open_meteo.py → Open-Meteo, no key</text>
+  <text x="56" y="298" font-size="13" fill="#1f2937">geocoding · forecast · air quality: three APIs</text>
+  <text x="56" y="317" font-size="13" fill="#1f2937">a point rounded to about 1 km; timezone=auto</text>
+  <text x="56" y="336" font-size="13" fill="#1f2937">3 s a try, one more (tenacity); a 4xx never twice</text>
+  <text x="56" y="355" font-size="13" fill="#1f2937">upstream.http: host and path, never the query</text>
+  <line x1="498" y1="312" x2="462" y2="312" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="250" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="276" font-size="15" font-weight="700" fill="#053b30">tools.py · weather.py: the four tools</text>
+  <text x="516" y="298" font-size="13" fill="#1f2937">geocode_location · get_current_weather</text>
+  <text x="516" y="317" font-size="13" fill="#1f2937">get_forecast · get_air_quality: inputs checked</text>
+  <text x="516" y="336" font-size="13" fill="#1f2937">weather codes in words; the ambiguity rule</text>
+  <text x="516" y="355" font-size="13" fill="#1f2937">a failure: our sentence, as a tool error</text>
+  <line x1="710" y1="374" x2="710" y2="398" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 3: what the model reads, what the page gets -->
+  <rect x="40" y="400" width="420" height="124" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="426" font-size="15" font-weight="700" fill="#7c2d12">content_and_artifact</text>
+  <text x="56" y="448" font-size="13" fill="#1f2937">content: the weather, as JSON: the model reads it</text>
+  <text x="56" y="467" font-size="13" fill="#1f2937">artifact: the lane, the request, its time, a summary</text>
+  <text x="56" y="486" font-size="13" fill="#1f2937">for the page only: never in the model's context</text>
+  <text x="56" y="505" font-size="13" fill="#1f2937">tool.call: the tool and its time, never its input</text>
+  <line x1="462" y1="462" x2="498" y2="462" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  <rect x="500" y="400" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="426" font-size="15" font-weight="700" fill="#053b30">The page: a chip for each call</text>
+  <text x="516" y="448" font-size="13" fill="#1f2937">… running, then ✓ done, ✗ failed or ■ stopped</text>
+  <text x="516" y="467" font-size="13" fill="#1f2937">REST · no auth · api.open-meteo.com · 0.3 s</text>
+  <text x="516" y="486" font-size="13" fill="#1f2937">opened: On the wire, Input, Output</text>
+  <text x="516" y="505" font-size="13" fill="#1f2937">then the words, and the end with every chip</text>
+
+  <!-- The stream -->
+  <rect x="40" y="544" width="880" height="64" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="570" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">The stream: </tspan>stream_mode messages gives the model's words as it writes them; updates gives each</text>
+  <text x="56" y="590" font-size="13" fill="#1f2937">node's result: the model's tool calls (a chip starts), and each tool's message as its call ends (the chip ends).</text>
+
+  <!-- In the tests -->
+  <rect x="40" y="620" width="880" height="36" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="643" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>a scripted stand-in model; Open-Meteo played back from its recorded answers</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="668" width="880" height="52" rx="12" fill="#053b30"/>
+  <text x="60" y="692" font-size="14" font-weight="700" fill="#ffffff">The model asks; the app runs: each tool written once, its failure our sentence, its request on a chip.</text>
+  <text x="60" y="710" font-size="13" fill="#defcf6">Step 5 replaces the prebuilt agent with a graph of our own, whose last call to the model has no tools.</text>
+</svg>

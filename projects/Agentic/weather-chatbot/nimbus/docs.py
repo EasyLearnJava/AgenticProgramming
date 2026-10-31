@@ -65,6 +65,16 @@ CHAPTERS: tuple[DocPage, ...] = (
             "Markdown made safe HTML, and LangSmith tracing only with inputs and outputs hidden."
         ),
     ),
+    DocPage(
+        slug="step-4",
+        path="/docs/step-4",
+        label="Step 4: The Weather Tools, and an Agent That Calls Them",
+        summary=(
+            "Four weather tools call Open-Meteo from the chat's own function, the REST · no auth lane; LangChain's "
+            "prebuilt agent runs them for Gemini; each call shows as a chip that opens to its request; the model reads "
+            "the weather only, and answers by the TypeScript version's 13 rules."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

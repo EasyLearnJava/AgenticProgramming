@@ -285,6 +285,82 @@ body {
   font-size: 0.875em;
 }
 
+/* The tool calls behind an answer, above it: a chip each, which opens. The list is hidden until a call comes. */
+.tool-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool-chips:empty {
+  display: none;
+}
+
+.tool-chip {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--user-text);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.tool-chip summary {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.tool-chip-mark {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.tool-chip-running .tool-chip-mark,
+.tool-chip-stopped .tool-chip-mark,
+.tool-chip-lane,
+.tool-chip-label {
+  color: var(--muted);
+}
+
+.tool-chip-failed .tool-chip-mark,
+.tool-chip-error {
+  color: var(--error-text);
+}
+
+.tool-chip-name {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.tool-chip-body {
+  padding: 0 10px 10px;
+}
+
+.tool-chip-body p {
+  margin: 8px 0 4px;
+}
+
+.tool-chip-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* The request, the input and the output: their long lines wrap, so a chip never pushes the page sideways. */
+.tool-chip pre {
+  margin: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--code-bg);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* A note at an answer's end: Stopped, cut off, or an error's sentence and its ref. */
 .message-note {
   font-size: 0.875rem;

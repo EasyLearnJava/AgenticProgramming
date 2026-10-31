@@ -1,8 +1,9 @@
 """
-tests/e2e/test_chat.py: the chat in a real browser: an answer streams in a piece at a time, and Stop ends it where it
-is; Enter while an answer streams sends nothing more; a question too long, a chat that can't be reached, another
-service's error page and an answer cut off each get our own sentence; and with an answer on it, the page logs no
-error, passes axe's checks, and fits a phone.
+tests/e2e/test_chat.py: the chat in a real browser: each tool call shows as a chip, running then done, which opens to
+its request; an answer streams in a piece at a time, and Stop ends it where it is, a call still running marked
+stopped; Enter while an answer streams sends nothing more; a question too long, a chat that can't be reached, another
+service's error page and an answer cut off each get our own sentence; and with an answer and an open chip on it, the
+page logs no error, passes axe's checks, and fits a phone.
 """
 
 import re
@@ -12,7 +13,7 @@ from playwright.sync_api import ConsoleMessage, Locator, Page, Route, expect
 
 from nimbus.constants import QUESTION_MAX_CHARS
 from nimbus.errors import CUT_OFF, QUESTION_TOO_LONG, STOPPED, UNREACHABLE
-from tests.fakes import ANSWER
+from tests.fakes import ANSWER, OpenMeteoRecordings
 
 QUESTION = "Will it rain in Paris tomorrow?"
 HAS_TEXT = re.compile(r"\S")
@@ -156,3 +157,59 @@ def test_a_long_question_and_its_answer_fit_a_phone(page: Page) -> None:
     ask(page, "x" * 300)
     expect(last_answer(page)).to_have_text(ANSWER_TEXT)
     assert page.evaluate("document.documentElement.scrollWidth - window.innerWidth") <= 0
+
+
+def chips(page: Page) -> Locator:
+    """The tool calls' chips of Nimbus's newest answer."""
+    return page.locator(".message-bot").last.locator(".tool-chip")
+
+
+def test_each_tool_call_shows_as_a_chip_running_then_done(page: Page, slow_open_meteo: OpenMeteoRecordings) -> None:
+    ask(page)
+    running = page.locator(".tool-chip-running")
+    expect(running).to_have_count(1)
+    expect(running.locator(".tool-chip-mark")).to_have_text("…")
+    expect(running.locator(".tool-chip-name")).to_have_text("geocode_location")
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
+    expect(chips(page)).to_have_count(2)
+    expect(page.locator(".tool-chip-done")).to_have_count(2)
+    expect(chips(page).first.locator(".tool-chip-lane")).to_have_text(
+        re.compile(r"^REST · no auth · geocoding-api\.open-meteo\.com · \d\.\d s$")
+    )
+
+
+def test_a_chip_opens_to_the_request_as_it_went_out_its_input_and_output(page: Page) -> None:
+    ask(page)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
+    forecast = chips(page).nth(1)
+    forecast.locator("summary").click()
+    expect(forecast.get_by_text("On the wire")).to_be_visible()
+    wire = forecast.locator("pre").first
+    expect(wire).to_have_text(
+        re.compile(r"^GET https://api\.open-meteo\.com/v1/forecast\?latitude=48\.85&longitude=2\.35")
+    )
+    expect(forecast.locator("pre").nth(1)).to_have_text(re.compile(r'"days": 2'))
+    expect(forecast.locator("pre").nth(2)).to_have_text(re.compile(r'"local_now"'))
+
+
+def test_stop_marks_a_call_still_running_stopped(page: Page, slow_open_meteo: OpenMeteoRecordings) -> None:
+    ask(page)
+    expect(page.locator(".tool-chip-running")).to_have_count(1)
+    page.get_by_role("button", name="Stop").click()
+    stopped = page.locator(".tool-chip-stopped")
+    expect(stopped).to_have_count(1)
+    expect(stopped.locator(".tool-chip-mark")).to_have_text("■")
+    expect(stopped.locator(".tool-chip-word")).to_have_text("Stopped:")
+    expect(page.locator(".message-bot").last.locator(".message-note")).to_have_text(STOPPED)
+
+
+def test_an_open_chip_passes_axe_and_fits_a_phone(page: Page) -> None:
+    page.set_viewport_size({"width": 360, "height": 800})
+    ask(page)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
+    for index in range(2):
+        chips(page).nth(index).locator("summary").click()
+    expect(chips(page).nth(1).get_by_text("On the wire")).to_be_visible()
+    assert page.evaluate("document.documentElement.scrollWidth - window.innerWidth") <= 0
+    results = Axe().run(page)
+    assert results.violations_count == 0, results.generate_report()

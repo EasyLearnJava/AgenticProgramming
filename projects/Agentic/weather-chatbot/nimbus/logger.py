@@ -6,7 +6,6 @@ so the Axiom queries written for it keep working. Other libraries' lines come th
 """
 
 import logging
-import sys
 from collections.abc import MutableMapping
 from typing import Any
 
@@ -68,7 +67,9 @@ def configure_logging(settings: Settings) -> None:
             structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.getLevelNamesMapping()[settings.log_level.upper()]),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
+        # stdout as it is when a line is written: given no file, structlog prints to the stdout of that moment, so a
+        # line never goes to a stream a test has since closed.
+        logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=False,
     )
     # ③ Every other library's lines: their info lines named each request they sent, a query string included, and on

@@ -1,7 +1,7 @@
 {#
   templates/chat_parts.html: the chat's messages, as macros the page and each event of an answer share (nimbus/chat.py):
   your question, Nimbus's answer (being written and busy, its words as plain text; finished, its Markdown made HTML;
-  or failed), and a message that's only an error.
+  or failed), with a chip above it for each tool call (nimbus/chips.py), and a message that's only an error.
 #}
 {% macro bot_meta() -%}
 <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
@@ -14,10 +14,56 @@
 </li>
 {%- endmacro %}
 
-{% macro bot_message(turn_id, answer="", busy=False, failed=False, note="") -%}
+{#
+  A tool call's chip: a <details>, so it opens with the keyboard and without script. Its mark (…, ✓, ✗ or ■) has its
+  word for a screen reader; once done, its lane, host and time; opened, the request as it went out, input and output.
+#}
+{% macro tool_chip(turn_id, chip) -%}
+<li class="tool-chip tool-chip-{{ chip.status }}" id="tool-{{ turn_id }}-{{ chip.index }}">
+  <details>
+    <summary>
+      <span class="tool-chip-mark" aria-hidden="true">{{ chip.mark }}</span>
+      <span class="tool-chip-word visually-hidden">{{ chip.word }}:</span>
+      <code class="tool-chip-name">{{ chip.name }}</code>
+      {%- if chip.input_summary %}
+      <span class="tool-chip-input">{{ chip.input_summary }}</span>
+      {%- endif %}
+      {%- if chip.lane_line %}
+      <span class="tool-chip-lane">{{ chip.lane_line }}</span>
+      {%- endif %}
+    </summary>
+    <div class="tool-chip-body">
+      {%- if chip.record %}
+      <p class="tool-chip-result">→ {{ chip.record.summary }}</p>
+      {%- endif %}
+      {%- if chip.error %}
+      <p class="tool-chip-error">{{ chip.error }}</p>
+      {%- endif %}
+      {%- if chip.record %}
+      <p class="tool-chip-label">On the wire</p>
+      <pre>{{ chip.record.request.to_text() }}</pre>
+      {%- endif %}
+      <p class="tool-chip-label">Input</p>
+      <pre>{{ chip.input_json }}</pre>
+      {%- if chip.output_json %}
+      <p class="tool-chip-label">Output</p>
+      <pre>{{ chip.output_json }}</pre>
+      {%- endif %}
+    </div>
+  </details>
+</li>
+{%- endmacro %}
+
+{#
+  The tool calls' list is empty, with nothing in it at all, until a call comes, so :empty hides it.
+#}
+{% macro bot_message(turn_id, answer="", busy=False, failed=False, note="", chips=()) -%}
 <li class="message message-bot{% if failed %} message-error{% endif %}" id="turn-{{ turn_id }}"
   {%- if busy %} aria-busy="true"{% endif %}>
   {{ bot_meta() }}
+  <ul class="tool-chips" id="tools-{{ turn_id }}" aria-label="Tool calls">
+    {%- for chip in chips %}{{ tool_chip(turn_id, chip) }}{% endfor -%}
+  </ul>
   <div class="bubble bubble-bot">
     <div class="answer{% if busy %} answer-streaming{% endif %}" id="answer-{{ turn_id }}">{{ answer }}</div>
     {%- if note %}

@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from nimbus.chips import MARKS, WORDS
 from nimbus.config import Settings
 from nimbus.constants import QUESTION_MAX_CHARS, TEMPLATES_DIR
 from nimbus.docs import (
@@ -108,12 +109,17 @@ def _render_doc(request: Request) -> HTMLResponse:
 # ③ The chat and the lists of pages.
 @router.get("/", response_class=HTMLResponse)
 def chat_page(request: Request) -> HTMLResponse:
-    """The chat: its card, its welcome and its form, with the sentences the page shows by itself (chat.js)."""
+    """
+    The chat: its card, its welcome and its form, with the sentences the page shows by itself (chat.js), and a chip's
+    mark and word when Stop ends its call.
+    """
     context = {
         "question_max_chars": QUESTION_MAX_CHARS,
         "stopped": STOPPED,
         "cut_off": CUT_OFF,
         "unreachable": UNREACHABLE,
+        "chip_stopped_mark": MARKS["stopped"],
+        "chip_stopped_word": f"{WORDS['stopped']}:",
     }
     return _render(request, "chat.html", context)
 

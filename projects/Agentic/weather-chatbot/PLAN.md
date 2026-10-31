@@ -17,7 +17,7 @@ working, and each with a chapter written while it's built. The first version's p
 | Markdown | markdown-it-py, raw HTML off: the answers and the docs |
 | Agent | LangGraph (from step 4) |
 | Model | Gemini, through `langchain-google-genai` (from step 3) |
-| Tools | LangChain tools with Pydantic inputs; `httpx2` for the calls out, `tenacity` for retries |
+| Tools | LangChain tools with Pydantic inputs; `httpx2` for the calls out, `tenacity` for retries (9.1.4: google-genai wants it below 9.2) |
 | MCP | The official `mcp` SDK (FastMCP) for our server; `langchain-mcp-adapters` for the MCP lanes |
 | Settings | pydantic-settings: one module reads the environment |
 | State between requests | No database: each chat stays in the browser, sent back with every question (step 6); Open-Meteo's answers in Vercel's Runtime Cache, through the `vercel` package (step 7) |

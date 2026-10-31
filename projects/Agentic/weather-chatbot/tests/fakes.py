@@ -1,46 +1,75 @@
 """
-tests/fakes.py: a stand-in for Gemini, for the unit and browser tests: a LangChain chat model that streams a known
-answer a word at a time, after a pause each, reports each chunk's share of the tokens as Gemini does (a delta, not a
-running total), says whether its stream was closed, and can fail on cue. The tests never call the real model: it needs
-a key, and it costs quota.
+tests/fakes.py: stand-ins for Gemini and Open-Meteo, for the unit and browser tests, which never call either: Gemini
+needs a key and costs quota, and Open-Meteo's weather changes by the hour.
+
+- FakeModel: a LangChain chat model that calls the tools it's told to, a round at a time, then streams a known answer a
+  word at a time, after a pause each. It reports each chunk's share of the tokens, as Gemini does (a delta, not a
+  running total), says whether its stream was closed, and can fail on cue.
+- OpenMeteoRecordings: an httpx2 handler that answers each request with Open-Meteo's recorded answer for what it asks
+  (tests/fixtures/open_meteo/), after a pause; or with a 503, for the paths it's told to fail.
 """
 
 import asyncio
+import json
 import re
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Sequence
+from functools import cache
+from pathlib import Path
 from typing import Any
 
+import httpx2
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
+from langchain_core.language_models.chat_models import agenerate_from_stream
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.messages.ai import UsageMetadata
-from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_core.messages.tool import tool_call_chunk
+from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from pydantic import Field
 
 ANSWER = (
-    "Hi, I'm Nimbus. I can't check the **weather** yet: live forecasts come in a later step. Ask me how weather "
-    "works, or what a forecast term means, and I'll explain it in plain words."
+    "Tomorrow, Friday 30 October, Paris, France will be **mainly clear**, from 6 to 15 °C, with no rain expected "
+    "(Paris time)."
 )
 # A word, with the space before it.
 PIECE = re.compile(r"\s*\S+")
-# The tokens in: the prompt, all in the first chunk. The tokens out: one a word, a chunk at a time.
+# The tokens in: the prompt, all in a call's first chunk. The tokens out: one a word, and one a tool call.
 TOKENS_IN = 412
 TOKENS_OUT = len(PIECE.findall(ANSWER))
+# The Paris question's two rounds of tools, as Gemini makes them: the place, then its forecast.
+PARIS_STEPS: list[list[dict[str, Any]]] = [
+    [{"name": "geocode_location", "args": {"query": "Paris"}}],
+    [
+        {
+            "name": "get_forecast",
+            "args": {"latitude": 48.85341, "longitude": 2.3488, "days": 2, "include_hourly": False, "units": "metric"},
+        },
+    ],
+]
+FIXTURES = Path(__file__).parent / "fixtures" / "open_meteo"
 
 
 class FakeModel(BaseChatModel):
-    """A chat model that streams its answer a word at a time; it keeps every list of messages it was given."""
+    """A chat model that calls its scripted tools, then streams its answer; it keeps every list of messages it got."""
 
     answer: str = ANSWER
+    tool_steps: list[list[dict[str, Any]]] = Field(default_factory=list)
+    step_words: str = ""
     delay: float = 0.0
     fail_after_first_word: BaseException | None = None
     seen: list[list[BaseMessage]] = Field(default_factory=list)
+    bound_tools: list[str] = Field(default_factory=list)
     closed: bool = False
 
     @property
     def _llm_type(self) -> str:
         """The model's kind, for LangChain."""
         return "nimbus-fake"
+
+    def bind_tools(self, tools: Sequence[Any], **_kwargs: Any) -> "FakeModel":
+        """Keeps the tools' names, as Gemini would get them; the script decides the calls."""
+        self.bound_tools = [tool.name for tool in tools]
+        return self
 
     def _generate(
         self,
@@ -49,9 +78,8 @@ class FakeModel(BaseChatModel):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        """The whole answer at once (the app only streams)."""
-        self.seen.append(messages)
-        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self.answer))])
+        """Not used: the app runs the model asynchronously."""
+        raise NotImplementedError
 
     def _stream(
         self,
@@ -60,8 +88,18 @@ class FakeModel(BaseChatModel):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
-        """Not used: the app streams with astream()."""
+        """Not used: the app runs the model asynchronously."""
         raise NotImplementedError
+
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """The whole of one call, from its stream, when no one is streaming it."""
+        return await agenerate_from_stream(self._astream(messages, stop, run_manager, **kwargs))
 
     async def _astream(
         self,
@@ -70,9 +108,32 @@ class FakeModel(BaseChatModel):
         run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
-        """The answer, a word at a time, each after the pause, with its share of the tokens; marks itself closed."""
+        """
+        This call's part: the next round of tool calls, if the script has one, after any words written first, as
+        Gemini sometimes writes them; else the answer a word at a time, each after the pause, each with its share of the
+        tokens. It marks itself closed however it ends.
+        """
         self.seen.append(messages)
+        step = sum(1 for message in messages if isinstance(message, AIMessage))
         try:
+            if step < len(self.tool_steps):
+                await asyncio.sleep(self.delay)
+                if self.step_words:
+                    yield ChatGenerationChunk(message=AIMessageChunk(content=self.step_words))
+                calls = self.tool_steps[step]
+                chunks = [
+                    tool_call_chunk(
+                        name=call["name"], args=json.dumps(call["args"]), id=f"call-{step}-{index}", index=index
+                    )
+                    for index, call in enumerate(calls)
+                ]
+                usage = UsageMetadata(
+                    input_tokens=TOKENS_IN, output_tokens=len(calls), total_tokens=TOKENS_IN + len(calls)
+                )
+                yield ChatGenerationChunk(
+                    message=AIMessageChunk(content="", tool_call_chunks=chunks, usage_metadata=usage)
+                )
+                return
             for index, piece in enumerate(PIECE.findall(self.answer)):
                 await asyncio.sleep(self.delay)
                 tokens_in = TOKENS_IN if index == 0 else 0
@@ -82,3 +143,45 @@ class FakeModel(BaseChatModel):
                     raise self.fail_after_first_word
         finally:
             self.closed = True
+
+
+@cache
+def _read_answer(name: str) -> str:
+    """One of Open-Meteo's recorded answers, as its file holds it."""
+    return (FIXTURES / f"{name}.json").read_text(encoding="utf-8")
+
+
+def open_meteo_answer(name: str) -> Any:
+    """One of Open-Meteo's recorded answers, read afresh each time, so a test can change its copy."""
+    return json.loads(_read_answer(name))
+
+
+class OpenMeteoRecordings:
+    """Open-Meteo, played back: each request gets the recorded answer for what it asks, after the pause."""
+
+    def __init__(self, delay: float = 0.0, failing: frozenset[str] = frozenset()) -> None:
+        """The pause before each answer, and the paths that answer 503 instead ("/v1/forecast", say)."""
+        self.delay = delay
+        self.failing = failing
+        self.requests: list[httpx2.Request] = []
+
+    async def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        """The recorded answer for the request, or a 503 for a failing path."""
+        self.requests.append(request)
+        await asyncio.sleep(self.delay)
+        if request.url.path in self.failing:
+            return httpx2.Response(503)
+        return httpx2.Response(200, json=open_meteo_answer(self._to_name(request)))
+
+    @staticmethod
+    def _to_name(request: httpx2.Request) -> str:
+        """Which recorded answer a request gets: the place it names, the weather now, the air, or a forecast."""
+        path, params = request.url.path, request.url.params
+        if path == "/v1/search":
+            name = "geocode-" + params.get("name", "").lower().replace(", ", "-").replace(" ", "-")
+            return name if (FIXTURES / f"{name}.json").exists() else "geocode-hogwarts"
+        if path == "/v1/air-quality":
+            return "air-delhi"
+        if "current" in params:
+            return "current-tokyo"
+        return "forecast-dallas-imperial" if params.get("temperature_unit") == "fahrenheit" else "forecast-paris"

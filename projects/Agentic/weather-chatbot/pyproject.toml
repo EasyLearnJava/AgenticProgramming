@@ -7,12 +7,16 @@ description = "Nimbus, a weather chatbot: FastAPI, LangGraph and Jinja2, built s
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi==0.143.2",
+    "httpx2==2.13.1",
     "jinja2==3.1.6",
+    "langchain==1.4.6",
     "langchain-core==1.6.12",
     "langchain-google-genai==4.4.2",
+    "langgraph==1.2.16",
     "markdown-it-py==4.2.0",
     "pydantic-settings==2.16.0",
     "structlog==26.1.0",
+    "tenacity==9.1.4",
     "tzdata==2026.5",
 ]
 
@@ -20,7 +24,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "axe-playwright-python==0.1.8",
-    "httpx2==2.13.1",
     "mypy==2.4.0",
     "pytest==9.1.1",
     "pytest-playwright==0.10.0",

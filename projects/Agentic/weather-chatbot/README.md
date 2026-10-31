@@ -8,8 +8,8 @@ met, and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
 
 **In one line:** your browser → Vercel → the FastAPI app: the security headers, the request's id, the router → a page
 from a Jinja2 template, JSON, or a question's answer, streamed as server-sent events of HTML that htmx puts into the
-page → back to you, with its log lines. Gemini writes the answer, through LangChain (step 3); from step 4, an agent
-calls the weather tools.
+page → back to you, with its log lines. Gemini writes the answer, through LangChain (step 3), from what the
+weather tools found: an agent calls them, and they call Open-Meteo (step 4).
 
 ## What you'll build
 
@@ -37,12 +37,12 @@ mutation check; and CI and deploys to Vercel on every push.
 | File or folder | What it holds |
 |---|---|
 | `main.py` | The entry point: `app = create_app()`, which Vercel and Uvicorn both look for |
-| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `model.py`, `prompts.py`, `answer.py`, `errors.py`, `utils.py` |
+| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `model.py`, `prompts.py`, `agent.py`, `answer.py`, `tools.py`, `open_meteo.py`, `weather.py`, `chips.py`, `errors.py`, `utils.py` |
 | `templates/` | The Jinja2 templates: the shell with the menu, the chat and the HTML of its answer's events, a list of pages, a page, the 404 page |
 | `public/static/` | The stylesheet, the icon, htmx 4 and its stream extension, and our `chat.js`, served by Vercel's CDN |
 | `docs/` | The chapters (`step-N.md`), the system design, the issues log, the interview guide, the to-do list, the TypeScript version's pages (`*_deprecated.md`), and their pictures (`images/`) |
-| `tests/unit/`, `tests/e2e/` | The tests: the app called in memory, and the app in a real browser |
-| `tools/mutation_check.py` | Breaks each of the app's rules on purpose, and checks a test fails |
+| `tests/unit/`, `tests/e2e/`, `tests/fixtures/` | The tests: the app called in memory, and the app in a real browser; Open-Meteo's recorded answers |
+| `tools/mutation_check.py`, `tools/run_tool.py` | Breaks each of the app's rules on purpose, and checks a test fails; runs one weather tool on its own |
 | `pyproject.toml`, `uv.lock`, `.python-version` | The packages, pinned to exact versions; the tools' settings; Python 3.13 |
 | `vercel.json` | The CDN's files' security headers; the tests and tools left out of the function Vercel builds |
 | `PLAN.md` | The roadmap, the chapter template, the code standards and the rules |
@@ -59,8 +59,9 @@ Each step's chapter explains it, in order:
 | 1 | [The Project, Its Pages and Its First Deploy](docs/step-1.md) | Done |
 | 2 | [The Chat Streams Its Answer](docs/step-2.md) | Done |
 | 3 | [Gemini Answers, Streamed](docs/step-3.md) | Done |
-| 4 | The weather tools and a prebuilt agent | Next |
-| 5 to 13 | See [PLAN.md](PLAN.md) | To come |
+| 4 | [The Weather Tools, and an Agent That Calls Them](docs/step-4.md) | Done |
+| 5 | The agent as a graph of our own | Next |
+| 6 to 13 | See [PLAN.md](PLAN.md) | To come |
 
 ## Run it
 
@@ -68,8 +69,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [47348] using StatReload
-INFO:     Started server process [37120]
+INFO:     Started reloader process [28008] using StatReload
+INFO:     Started server process [38936]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -79,8 +80,8 @@ and never its query string; this one is for `/docs?q=private`:
 
 ```json
 {"method": "GET", "path": "/docs", "status": 200, "ms": 8, "event": "http.request", "level": "info",
- "ts": "2026-10-31T07:58:06.359585Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "4fbc260e221542c1"}
+ "ts": "2026-10-31T09:16:15.011594Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "cc72b5f0a782411f"}
 ```
 
 ## Test it
@@ -89,20 +90,20 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-64 files already formatted
+75 files already formatted
 $ uv run mypy
-Success: no issues found in 39 source files
+Success: no issues found in 49 source files
 $ uv run pytest
-269 passed in 4.15s
+357 passed in 8.95s
 $ uv run pytest tests/e2e --browser-channel msedge
-113 passed in 77.27s (0:01:17)
+121 passed in 90.67s (0:01:30)
 $ uv run python tools/mutation_check.py
 ...
-70 of 70 caught
+96 of 96 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
-23 pages and in the chat (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints
+24 pages and in the chat (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints
 its platform line and each test's dot, and the mutation check a line per rule (each chapter lists its own).
 
 ## When things go wrong
@@ -126,17 +127,19 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 - Watch an answer stream: `curl -N --data-urlencode "question=Hi" http://127.0.0.1:8000/api/chat` prints each event
   as it comes (with your own `GOOGLE_API_KEY` in `.env.local`; without one, the chat says it isn't set up).
 - Ask something off-topic: Gemini says, in one sentence, what it can do.
+- Run a weather tool on its own, against Open-Meteo, with no key:
+  `uv run python -m tools.run_tool get_air_quality '{"latitude": 28.61, "longitude": 77.21}'` (in bash).
 
 ## Documentation
 
-The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter
-per step ([step 1](docs/step-1.md), [step 2](docs/step-2.md), [step 3](docs/step-3.md)), the **System design**
-([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes** ([`docs/issues.md`](docs/issues.md)), the
-**Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do** ([`docs/todo.md`](docs/todo.md)). The
-TypeScript version's pages are kept under **Deprecated**: its steps, System design, Technical details, Issues and
-fixes, Interview guide and To do, each named `*_deprecated` ([README_deprecated.md](README_deprecated.md) links them
-all).
+The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
+step ([step 1](docs/step-1.md), [step 2](docs/step-2.md), [step 3](docs/step-3.md), [step 4](docs/step-4.md)), the
+**System design** ([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes**
+([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do**
+([`docs/todo.md`](docs/todo.md)). The TypeScript version's pages are kept under **Deprecated**: its steps, System
+design, Technical details, Issues and fixes, Interview guide and To do, each named `*_deprecated`
+([README_deprecated.md](README_deprecated.md) links them all).
 
 ## Next
 
-[Step 3's chapter](docs/step-3.md), then step 4: the weather tools, and a prebuilt agent.
+[Step 4's chapter](docs/step-4.md), then step 5: the agent as a LangGraph graph of our own.

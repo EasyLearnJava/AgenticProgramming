@@ -210,3 +210,50 @@ Python writes another library's info lines nowhere until something sets its logg
 Vercel, httpx's line for each request it sent, and google-genai's, came out as plain text. So the app sets the root
 logger up itself, with its own handler and level: warnings and errors only, each as one of our JSON lines, with any
 query string cut off.
+
+## Step 4 · The Weather Tools, and an Agent That Calls Them
+
+**1. What does a model actually do when it "calls a tool"?**
+It doesn't run anything: it answers with a request, the tool's name and its input as JSON, fitted to the schema it was
+given. The app runs the tool, sends the result back as a tool message, and calls the model again; the loop ends when
+the model answers in words.
+
+**2. Why `content_and_artifact`?**
+What the model reads and what the app keeps are different things. The model needs the weather; the page needs the
+request and its time. The artifact rides along on the tool message but never reaches the model, so it doesn't cost
+tokens or confuse the answer.
+
+**3. Why does a failed tool call go back to the model, not fail the answer?**
+The model can still answer: say the forecast didn't come, give the weather now, or suggest trying again. The tool
+raises a `ToolException` with our sentence, and the agent turns it into a tool message marked as an error; any other
+error still fails the answer.
+
+**4. Why is the ambiguity rule in code rather than in the prompt?**
+A rule in code decides the same way every time, and a test can hold it to six real names. The prompt only says what to
+do with the result: when `is_ambiguous` is true, fetch no weather and ask which place.
+
+**5. Which failures are worth a retry?**
+A timeout, a connection that failed, a 5xx: the next try may well succeed. A 429 only when it asks for a short wait,
+and never a 4xx or an answer you can't read, which would come back the same. One retry, with a random wait, so many
+clients don't retry in step.
+
+**6. How do you stream an agent's progress to the page?**
+With LangGraph's stream modes: `messages` gives the model's chunks as it writes, `updates` each node's result as it
+ends. The model's update names the tool calls; each tool's update carries its result. Each becomes an event the page
+puts in place.
+
+**7. How do you test an agent without a model or the network?**
+A stand-in chat model that asks for the tools the test scripts, then streams a known answer; and the HTTP client's
+transport swapped for one that plays back recorded answers. Nothing leaves the test, and every run is the same.
+
+**8. Why round coordinates?**
+Two decimals is about 1 km, enough for the weather; a more exact point could be someone's address, and it would end up
+in requests, chips and traces.
+
+**9. Why build the agent for each answer?**
+It takes 1.5 ms, and its tools hold the answer's own HTTP client, open as long as the answer and closed with it. One
+agent for the app would share one client across event loops and answers.
+
+**10. What does the prebuilt agent leave to you?**
+Its limits: its own step limit is 9,999, and it gives the last call to the model the tools like any other, so an answer
+can end on a failure rather than in words. Step 5 builds our own graph for that.

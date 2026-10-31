@@ -1,8 +1,8 @@
 {#
-  templates/chat_end.html: an answer's last event: the whole answer, no longer busy, in place of the one being written;
-  or, when it failed, the answer so far, with our own sentence and its ref.
+  templates/chat_end.html: an answer's last event: the whole answer, no longer busy, in place of the one being written,
+  with each tool call's chip as it ended; or, when it failed, the answer so far, with our own sentence and its ref.
 #}
 {% from "chat_parts.html" import bot_message %}
 <hx-partial hx-target="#turn-{{ turn_id }}" hx-swap="outerHTML">
-{{ bot_message(turn_id, answer=answer, failed=failed, note=note) }}
+{{ bot_message(turn_id, answer=answer, failed=failed, note=note, chips=chips) }}
 </hx-partial>

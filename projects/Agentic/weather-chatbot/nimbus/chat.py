@@ -1,9 +1,10 @@
 """
 nimbus/chat.py: POST /api/chat: the chat's one route. The page's form posts a question, with the browser's locale and
 time zone; the answer comes back as server-sent events, each holding HTML that htmx puts into the page: the question
-and Nimbus's answer, empty and busy; each piece of the answer as the model writes it; then the finished answer, its
-Markdown made HTML. A request that breaks a rule gets our own sentence, as HTML, before any work is done. The answer is
-Gemini's (nimbus/model.py, nimbus/answer.py), told its rules by nimbus/prompts.py.
+and Nimbus's answer, empty and busy; a chip for each tool call, as the model asks for it and as it ends; each piece of
+the answer as the model writes it; then the finished answer, its Markdown made HTML. A request that breaks a rule gets
+our own sentence, as HTML, before any work is done. The answer is the agent's (nimbus/agent.py, nimbus/answer.py):
+Gemini, with the four weather tools (nimbus/tools.py), told its rules by nimbus/prompts.py.
 """
 
 import asyncio
@@ -24,7 +25,8 @@ from starlette.requests import ClientDisconnect
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 
-from nimbus.answer import AnswerStats, render_answer, stream_answer
+from nimbus.answer import AnswerEvent, AnswerStats, ToolEnded, ToolStarted, render_answer, stream_weather_answer
+from nimbus.chips import ToolChip
 from nimbus.config import Settings
 from nimbus.constants import (
     CHAT_BODY_MAX_BYTES,
@@ -190,37 +192,62 @@ def render_part(template: str, context: Mapping[str, object]) -> str:
     return templates.get_template(template).render(context).strip()
 
 
+def to_tool_event(turn_id: str, chip: ToolChip, is_new: bool) -> str:
+    """A tool call's event: its chip, new at the end of the turn's list, or in place of the one it was."""
+    return to_sse_message(render_part("chat_tool.html", {"turn_id": turn_id, "chip": chip, "is_new": is_new}))
+
+
 async def stream_turn(
-    answer: AsyncGenerator[str], question: str, request_id: str, stats: AnswerStats, model_name: str
+    answer: AsyncGenerator[AnswerEvent], question: str, request_id: str, stats: AnswerStats, model_name: str
 ) -> AsyncGenerator[str]:
-    """A turn of the chat, as server-sent events: the two messages, each piece of the answer, then the answer's end."""
+    """
+    A turn of the chat, as server-sent events: the two messages; each tool call's chip as it starts and as it ends;
+    each piece of the answer; then the answer's end, with every chip as it ended.
+    """
     log = structlog.get_logger()
     turn_id = new_turn_id()
     started = time.perf_counter()
     pieces: list[str] = []
+    chips: dict[str, ToolChip] = {}
 
     def ending() -> dict[str, object]:
-        """What every line about the answer's end holds: its length, its time, its tokens, and the model."""
+        """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
         return {
             "answerChars": len("".join(pieces)),
             "ms": to_ms(time.perf_counter() - started),
+            "toolCalls": len(chips),
             "tokensIn": stats.tokens_in,
             "tokensOut": stats.tokens_out,
             "model": model_name,
         }
 
+    def final_chips() -> list[ToolChip]:
+        """Every chip as the answer ended: a call still running then is marked stopped."""
+        for chip in chips.values():
+            chip.stop()
+        return list(chips.values())
+
     try:
         # ① The question, and Nimbus's answer, still empty and marked busy, added to the conversation.
         yield to_sse_message(render_part("chat_turn.html", {"question": question, "turn_id": turn_id}))
-        # ② Each piece of the answer, added to it as the model writes it; the model's stream is closed however the
-        # turn ends.
-        async with aclosing(answer) as words:
-            async for piece in words:
-                pieces.append(piece)
-                yield to_sse_message(render_part("chat_piece.html", {"turn_id": turn_id, "text": piece}))
+        # ② Each tool call's chip, added as the model asks for the tool, then put in place of itself as the call ends;
+        # each piece of the answer, added to it as the model writes it. The agent's stream is closed however the turn
+        # ends.
+        async with aclosing(answer) as events:
+            async for event in events:
+                if isinstance(event, ToolStarted):
+                    chip = chips[event.call_id] = ToolChip.start(len(chips), event)
+                    yield to_tool_event(turn_id, chip, is_new=True)
+                elif isinstance(event, ToolEnded):
+                    if (ended := chips.get(event.call_id)) is not None:
+                        ended.end(event)
+                        yield to_tool_event(turn_id, ended, is_new=False)
+                else:
+                    pieces.append(event)
+                    yield to_sse_message(render_part("chat_piece.html", {"turn_id": turn_id, "text": event}))
         # ③ The finished answer, its Markdown made HTML, no longer busy, in place of the one being written.
-        html = render_answer("".join(pieces))
-        yield to_sse_message(render_part("chat_end.html", {"turn_id": turn_id, "answer": html}))
+        done: dict[str, object] = {"turn_id": turn_id, "answer": render_answer("".join(pieces)), "chips": final_chips()}
+        yield to_sse_message(render_part("chat_end.html", done))
         log.info("chat.done", **ending())
     except (asyncio.CancelledError, GeneratorExit):
         # ④ Stop, or the page went away: nothing more can be sent.
@@ -233,8 +260,14 @@ async def stream_turn(
         causes = {"causeClass": type(cause).__name__} if cause is not None else {}
         log.error("chat.failed", errorClass=type(error).__name__, **causes, **ending())
         note = f"{to_user_message(error)} (ref {to_ref(request_id)})"
-        context = {"turn_id": turn_id, "answer": render_answer("".join(pieces)), "failed": True, "note": note}
-        yield to_sse_message(render_part("chat_end.html", context))
+        failed: dict[str, object] = {
+            "turn_id": turn_id,
+            "answer": render_answer("".join(pieces)),
+            "failed": True,
+            "note": note,
+            "chips": final_chips(),
+        }
+        yield to_sse_message(render_part("chat_end.html", failed))
 
 
 def refusal(error: NimbusError) -> HTMLResponse:
@@ -274,11 +307,12 @@ async def chat(request: Request) -> Response:
         ms = to_ms(time.perf_counter() - started)
         log.error("chat.failed", errorClass=ConfigError.__name__, answerChars=0, ms=ms)
         return refusal(ConfigError())
-    # ③ The answer: the system prompt and the question, to the model; LangSmith traces it only through the app's own
-    # tracer, whose client hides its inputs and outputs, when tracing is allowed at all.
+    # ③ The answer: the system prompt and the question, to the agent, with the weather tools; LangSmith traces it
+    # only through the app's own tracer, whose client hides its inputs and outputs, when tracing is allowed at all.
     stats = AnswerStats()
     messages = to_messages(chat_request.question, datetime.now(UTC), chat_request.locale, chat_request.time_zone)
-    answer = stream_answer(model, messages, stats, request.app.state.tracer)
+    state = request.app.state
+    answer = stream_weather_answer(model, messages, stats, state.tracer, state.make_http_client())
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.
     turn = stream_turn(answer, chat_request.question, request.state.request_id, stats, settings.gemini_model)

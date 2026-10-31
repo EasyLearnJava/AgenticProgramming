@@ -24,12 +24,25 @@
     messages.lastElementChild?.scrollIntoView({ block: "nearest" });
   }
 
-  /** Ends an answer that never got its end with a note (Stopped, or cut off), and marks it no longer busy. */
+  /** Marks each tool call still running in a message as stopped: the answer ended before the call did. */
+  function stopChips(message) {
+    for (const chip of message.querySelectorAll(".tool-chip-running")) {
+      chip.classList.replace("tool-chip-running", "tool-chip-stopped");
+      chip.querySelector(".tool-chip-mark").textContent = messages.dataset.chipStoppedMark;
+      chip.querySelector(".tool-chip-word").textContent = messages.dataset.chipStoppedWord;
+    }
+  }
+
+  /**
+   * Ends an answer that never got its end with a note (Stopped, or cut off), its running tool calls marked stopped,
+   * and marks it no longer busy.
+   */
   function endWithNote(message, sentence) {
     const note = document.createElement("p");
     note.className = "message-note";
     note.textContent = sentence;
     message.querySelector(".bubble").append(note);
+    stopChips(message);
     message.removeAttribute("aria-busy");
   }
 

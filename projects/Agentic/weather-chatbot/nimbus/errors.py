@@ -24,6 +24,13 @@ NOT_SET_UP = "The assistant isn't set up on this deployment yet."
 MODEL_BUSY = "The assistant is busy right now. Please try again in a minute."
 ANSWER_TOO_SLOW = "The assistant took too long to answer. Please try again."
 MODEL_FAILED = "The assistant didn't answer. Please try again."
+# ⑤ What a weather tool's call says when Open-Meteo can't answer (step 4): the model reads it as the tool's result, and
+# the call's chip shows it. And what a chip says when the model called a tool with an input that doesn't fit.
+WEATHER_TOO_SLOW = "The weather service took too long to answer. Please try again."
+WEATHER_UNREACHABLE = "The weather service can't be reached right now. Please try again in a minute."
+WEATHER_BUSY = "The weather service is busy. Please try again in a minute."
+WEATHER_UNEXPECTED = "The weather service answered in a way we didn't expect. Please try again later."
+TOOL_MISUSED = "The assistant called a weather tool the wrong way."
 
 
 class NimbusError(Exception):
@@ -75,6 +82,43 @@ class ModelFailedError(NimbusError):
     def __init__(self) -> None:
         """The error, with its sentence."""
         super().__init__("model_failed", MODEL_FAILED, HTTPStatus.BAD_GATEWAY)
+
+
+class UpstreamError(NimbusError):
+    """Open-Meteo couldn't give a tool its answer (step 4): the tool's call fails with the error's sentence."""
+
+
+class UpstreamTimeoutError(UpstreamError):
+    """Open-Meteo didn't answer in time, on either try (504)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("upstream_timeout", WEATHER_TOO_SLOW, HTTPStatus.GATEWAY_TIMEOUT)
+
+
+class UpstreamUnavailableError(UpstreamError):
+    """Open-Meteo couldn't be reached, or answered with a 5xx, on either try (503)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("upstream_unavailable", WEATHER_UNREACHABLE, HTTPStatus.SERVICE_UNAVAILABLE)
+
+
+class UpstreamRateLimitedError(UpstreamError):
+    """Open-Meteo answered 429, with the wait its Retry-After asked for in seconds, if it gave one (429)."""
+
+    def __init__(self, retry_after_seconds: float | None = None) -> None:
+        """The error, with its sentence and the wait asked for."""
+        super().__init__("upstream_rate_limited", WEATHER_BUSY, HTTPStatus.TOO_MANY_REQUESTS)
+        self.retry_after_seconds = retry_after_seconds
+
+
+class ContractError(UpstreamError):
+    """Open-Meteo's answer wasn't one we can read: another status, no JSON, or not the fields we asked for (502)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("upstream_contract", WEATHER_UNEXPECTED, HTTPStatus.BAD_GATEWAY)
 
 
 def to_user_message(error: BaseException) -> str:
