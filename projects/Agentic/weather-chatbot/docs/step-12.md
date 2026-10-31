@@ -296,9 +296,10 @@ lines in Axiom beside the deployment's two start lines, which no longer name a c
     which its error leaves by. It's in the `finally` now, after the request's line.
 74. A token Apify refuses would have sent Sentry two events a health run, with no CDN to keep a 503: an uptime monitor
     alone could use up Sentry's free quota in days. A failure is an error once on each copy, then a warning.
-75. A browser test failed on Python's warning about a connection left open on the tests' own server, once in four
-    runs: likeliest, the page's new ask for each lane's health, closed with the page before its answer came. The
-    browser tests answer that ask in the browser; the test of the real dots asks the app.
+75. A browser test failed on a socket left open on the tests' own server: on Windows, uvicorn's default event loop
+    mishandles a connection a browser resets before it's accepted, which a page closed during its ask for each lane's
+    health makes. The tests' server runs on a selector loop (from step 13), and the tests answer that ask in the
+    browser.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 

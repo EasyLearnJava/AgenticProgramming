@@ -1,0 +1,188 @@
+"""
+tests/unit/test_evals.py: the golden questions (step 13): read and checked; an answer read from the stream as the app
+sends it, its tools and its words; each rule of the grading; the questions asked one at a time, a pause between two;
+the report; LangSmith's examples, and the run kept there with nothing asked twice; --langsmith without its key.
+"""
+
+import asyncio
+from collections.abc import Callable
+from typing import Any
+
+import httpx2
+import pytest
+
+from nimbus.app import create_app
+from nimbus.cache import WeatherCache
+from nimbus.config import Settings
+from tests.fakes import ANSWER, PARIS_STEPS, FakeCacheStore, FakeModel, OpenMeteoRecordings
+from tools.evals import (
+    DATASET,
+    Answer,
+    Expect,
+    Golden,
+    Graded,
+    ask,
+    grade,
+    keep_in_langsmith,
+    read_goldens,
+    run,
+    run_goldens,
+    to_examples,
+    to_report,
+)
+
+PARIS = Golden(id="rain", question="Will it rain in Paris tomorrow?", expect=Expect())
+
+
+def answered(tools: list[str], text: str = "", *, failed: bool = False) -> Answer:
+    """An answer that called those tools and said those words."""
+    return Answer(tools, text, failed, "cle1::abcde-1793469547772-79161db8a672")
+
+
+def test_the_golden_questions_each_expect_something_and_each_has_its_own_id() -> None:
+    goldens = read_goldens()
+    assert len(goldens) == 13
+    assert len({golden.id for golden in goldens}) == len(goldens)
+    for golden in goldens:
+        expect = golden.expect
+        assert expect.tools or expect.no_tools or expect.says or expect.never_says
+
+
+def test_an_answer_is_read_from_the_stream_as_the_app_sends_it(
+    settings: Settings, chat_model: FakeModel, open_meteo: OpenMeteoRecordings
+) -> None:
+    app = create_app(settings)
+    chat_model.tool_steps = PARIS_STEPS
+    app.state.chat_model = chat_model
+    app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
+    app.state.weather_cache = WeatherCache(FakeCacheStore())
+
+    async def go() -> Answer:
+        async with (
+            app.router.lifespan_context(app),
+            httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app)) as http,
+        ):
+            return await ask(http, "http://testserver", PARIS)
+
+    answer = asyncio.run(go())
+    assert answer.tools == ["geocode_location", "get_forecast"]
+    assert answer.text == ANSWER.replace("**", "")
+    assert answer.failed is False
+    assert answer.request_id
+
+
+@pytest.mark.parametrize(
+    ("expect", "answer", "misses"),
+    [
+        # The tools in order, among others: right.
+        (
+            Expect(tools=["geocode_location", "get_forecast"]),
+            answered(["geocode_location", "get_current_weather", "get_forecast"]),
+            [],
+        ),
+        (
+            Expect(tools=["geocode_location", "get_forecast"]),
+            answered(["get_forecast", "geocode_location"]),
+            ["called ['get_forecast', 'geocode_location'], not ['geocode_location', 'get_forecast'] in that order"],
+        ),
+        (Expect(no_tools=["get_forecast"]), answered(["get_forecast"]), ["called get_forecast"]),
+        # Words, in any case.
+        (Expect(says=["paris"]), answered([], "In Paris, rain."), []),
+        (Expect(says=[r"°C"]), answered([], "It's 50 °F."), ["doesn't say /°C/"]),
+        (Expect(never_says=[r"\bFrance\b"]), answered([], "France won."), ["says /\\bFrance\\b/"]),
+        (Expect(), answered([], failed=True), ["the answer failed"]),
+    ],
+)
+def test_each_rule_of_the_grading(expect: Expect, answer: Answer, misses: list[str]) -> None:
+    assert grade(Golden(id="g", question="q", expect=expect), answer) == misses
+
+
+def test_the_questions_are_asked_one_at_a_time_a_pause_between_two() -> None:
+    asked: list[str] = []
+    pauses: list[None] = []
+
+    async def asking(golden: Golden) -> Answer:
+        asked.append(golden.id)
+        return answered(["get_forecast"])
+
+    async def pause() -> None:
+        pauses.append(None)
+
+    goldens = [Golden(id=f"g{n}", question="q", expect=Expect(tools=["get_forecast"])) for n in range(3)]
+    graded = asyncio.run(run_goldens(goldens, asking, pause))
+    assert asked == ["g0", "g1", "g2"]
+    assert len(pauses) == 2
+    assert [item.misses for item in graded] == [[], [], []]
+
+
+def test_the_report_says_each_question_s_misses_then_how_many_passed() -> None:
+    passing = Graded(PARIS, answered(["geocode_location", "get_forecast"]), [])
+    failing = Graded(Golden(id="far", question="q", expect=Expect()), answered([]), ["doesn't say /16 days/"])
+    assert to_report([passing, failing]) == [
+        "pass  rain: geocode_location, get_forecast",
+        "FAIL  far: -",
+        "      doesn't say /16 days/",
+        "1 of 2 passed",
+    ]
+
+
+def test_langsmith_s_examples_are_what_s_asked_and_what_s_expected() -> None:
+    [example] = to_examples([Golden(id="metric", question="q", locale="en-GB", expect=Expect(says=["°C"]))])
+    assert example["inputs"] == {
+        "question": "q",
+        "locale": "en-GB",
+        "time_zone": "America/Chicago",
+        "lane": "rest-no-auth",
+    }
+    assert example["outputs"] == {"tools": [], "no_tools": [], "says": ["°C"], "never_says": []}
+    assert example["metadata"] == {"id": "metric"}
+
+
+class LangSmithStandIn:
+    """LangSmith's client, kept here: whether the dataset is there, and what's made."""
+
+    def __init__(self, *, has_it: bool) -> None:
+        """A LangSmith with the dataset, or without it."""
+        self.has_it = has_it
+        self.made: list[tuple[str, Any]] = []
+
+    def has_dataset(self, *, dataset_name: str) -> bool:
+        """Whether the dataset is there."""
+        return self.has_it
+
+    def create_dataset(self, dataset_name: str, *, description: str) -> None:
+        """Makes the dataset."""
+        self.made.append(("dataset", dataset_name))
+
+    def create_examples(self, *, dataset_name: str, examples: list[dict[str, Any]]) -> None:
+        """Adds the examples."""
+        self.made.append(("examples", len(examples)))
+
+
+@pytest.mark.parametrize(("has_it", "made"), [(False, [("dataset", DATASET), ("examples", 1)]), (True, [])])
+def test_the_run_is_kept_in_langsmith_as_an_experiment_with_nothing_asked_twice(
+    has_it: bool, made: list[tuple[str, Any]]
+) -> None:
+    kept: dict[str, Any] = {}
+
+    def evaluate(target: Callable[..., Any], **options: Any) -> None:
+        """LangSmith's evaluate, here: the target's answer for the question, and its grade."""
+        outputs = target({"question": PARIS.question, "locale": "en-US"})
+        kept.update(options, outputs=outputs, grade=options["evaluators"][0](outputs))
+
+    client = LangSmithStandIn(has_it=has_it)
+    graded = [Graded(PARIS, answered(["get_forecast"], "Rain."), ["doesn't say /Paris/"])]
+    keep_in_langsmith(client, graded, "4785bc7", evaluate)
+    assert client.made == made
+    assert (kept["data"], kept["experiment_prefix"], kept["client"]) == (DATASET, "nimbus-4785bc7", client)
+    assert kept["outputs"] == {"tools": ["get_forecast"], "text": "Rain.", "misses": ["doesn't say /Paris/"]}
+    assert kept["grade"] == {"key": "passed", "score": 0, "comment": "doesn't say /Paris/"}
+
+
+def test_langsmith_without_its_key_is_refused_before_any_question_is_asked(capsys: pytest.CaptureFixture[str]) -> None:
+    def never() -> httpx2.AsyncClient:
+        raise AssertionError("no question should be asked")
+
+    result = asyncio.run(run("http://testserver", Settings(_env_file=None), langsmith=True, make_client=never))
+    assert result == 2
+    assert "LANGSMITH_API_KEY" in capsys.readouterr().out

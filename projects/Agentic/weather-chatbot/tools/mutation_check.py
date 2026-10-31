@@ -53,6 +53,8 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/tools.py": ("test_tools.py", "test_answer.py", "test_agent.py"),
     "nimbus/utils.py": ("test_utils.py", "test_logger.py", "test_middleware.py"),
     "nimbus/weather.py": ("test_weather.py", "test_tools.py"),
+    "tools/evals.py": ("test_evals.py",),
+    "tools/load_test.py": ("test_load_test.py",),
     "templates/chat.html": ("test_pages.py", "test_chat.py"),
 }
 
@@ -1023,6 +1025,43 @@ MUTATIONS = (
         "        is_new = failing.get(name) != error_class",
         "        is_new = True",
         "a check that keeps failing reaches Sentry once on each copy",
+    ),
+    # Step 13: the evals and the load test.
+    Mutation(
+        "tools/evals.py",
+        "    if not all(tool in called for tool in golden.expect.tools):",
+        "    if False:",
+        "a golden answer calls its tools in order",
+    ),
+    Mutation(
+        "tools/evals.py",
+        'misses += [f"says /{words}/" for words in golden.expect.never_says if re.search(words, answer.text, re.I)]',
+        "misses += []",
+        "a golden answer never says what it mustn't",
+    ),
+    Mutation(
+        "tools/evals.py",
+        "    if langsmith and settings.langsmith_api_key is None:",
+        "    if False:",
+        "--langsmith without its key asks nothing",
+    ),
+    Mutation(
+        "tools/evals.py",
+        '    inline = re.sub(r"</?(?:strong|em|a|code|span)\\b[^>]*>", "", fragment)',
+        "    inline = fragment",
+        "an inline tag goes where it was",
+    ),
+    Mutation(
+        "tools/load_test.py",
+        "math.ceil(share * len(ordered)) - 1",
+        "int(share * len(ordered))",
+        "a percentile is the nearest rank",
+    ),
+    Mutation(
+        "tools/load_test.py",
+        'return sent.status_code == 200 and "tool-chip-done" in body and "message-error" not in body',
+        "return sent.status_code == 200",
+        "a question works only when its answer ended well",
     ),
 )
 

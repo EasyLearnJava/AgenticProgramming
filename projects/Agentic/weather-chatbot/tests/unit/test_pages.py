@@ -153,6 +153,7 @@ def test_the_menu_lists_the_chat_the_documentation_then_the_pages_every_step_add
         "/",
         "/docs",
         "/system-design",
+        "/technical-details",
         "/issues",
         "/interview",
         "/todo",

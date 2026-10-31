@@ -50,6 +50,12 @@ They live in your Axiom, Sentry and uptime accounts. Step 12's chapter has each 
 3. **An uptime monitor**, on a free plan (UptimeRobot or Better Stack):
    `https://weather-chatbot-hazel.vercel.app/api/health` every 5 minutes, alerting on anything but `200`.
 
-## 5. When step 13 comes
+## 5. The golden questions in LangSmith, and a rollback, practised (step 13)
 
-Step 13's chapter adds what its evals and its load test need from you, here.
+1. **The evals in LangSmith.** Put `LANGSMITH_API_KEY`, the same key as Vercel's, in `.env.local` on your computer,
+   then, from the project's folder:
+   `uv run python -m tools.evals https://weather-chatbot-hazel.vercel.app --langsmith`. The golden questions become
+   the dataset `nimbus-golden`, and the run an experiment named for the build; each later run adds one beside it.
+   Without the key, the tool says so before it asks anything.
+2. **A rollback, once.** In Vercel, roll production back to the deployment before the current one, as step 13's
+   chapter says; check the site; then undo the rollback, so new pushes go live again.

@@ -463,9 +463,30 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     alone, 576 a day, against the free plan's few thousand a month. **Fix:** a check's failure is an error only when
     it's new on that copy of the app, until the check passes; then a warning, still a line. **Check:** a test runs a
     refused check twice, then a pass, then a refusal: error, warning, info, error; the mutation check's rule.
-75. **A browser test failed on a connection left open.** *Building step 12.* The browser tests' run failed once in
-    four, on Windows, in a test about chips, on Python's warning, which our tests make an error, about a socket left
-    open on the server that runs in the tests' own process. Likeliest: since step 12 every page asks for each lane's
-    health when it opens, and a test done before the answer came closed the page on a request still being answered.
-    **Fix:** the browser tests answer that ask in the browser, every lane working; the test of the real dots removes
-    that answer and asks the app. **Check:** the browser suite, run whole twice since: no warning.
+75. **A browser test failed on a socket left open.** *Building step 12; its cause found by the review.* The browser
+    tests' run failed once in four, on Windows, on Python's warning, which our tests make an error, about a socket left
+    open on the server that runs in the tests' own process. Uvicorn, run without reload, uses Windows' default event
+    loop, the proactor: when a browser resets a connection before it's accepted, the accept fails (WinError 64), the
+    loop leaves that socket open, and it can close the listening socket, so every later test fails to connect. Since
+    step 12, a page closed while its ask for each lane's health is being answered resets one. **Fix:** the tests'
+    server runs on a selector loop, which takes such a connection in its stride; and the browser tests answer the
+    page's ask in the browser, which is faster too; the test of the real dots asks the app. Vercel runs Linux, without
+    uvicorn, and a computer's `--reload` run already uses the selector loop. **Check:** the review's probe: on the
+    default loop, 7 to 9 such requests made the server stop accepting; on a selector loop, 40 made no warning; and the
+    browser suite, whole, since.
+
+## Step 13 · Evals and Release: Golden Questions, a Load Test, Rollback
+
+76. **Importing LangSmith's `evaluate` warns on Python 3.13.** *Building step 13.* Its evaluation module reads
+    `ast.Str`, which Python 3.13 deprecates, and our tests turn every warning into an error, so the test of the
+    LangSmith run failed when it patched `langsmith.evaluate`, whose lookup imports the module. **Fix:**
+    `keep_in_langsmith()` takes the `evaluate` it runs, LangSmith's unless one is given; the tests give their own.
+    **Check:** the test of the run kept in LangSmith, LangSmith played back.
+77. **The load test's own test found its health check down.** *Building step 13.* Our MCP server's Host check refuses
+    `testserver`, the in-process client's name, so the MCP lanes' check failed and the health check said 503.
+    **Fix:** the test calls our MCP server by a local name, as the privacy tests do (issue 62). **Check:** the test,
+    every request working.
+78. **An answer's words were read with a space before a comma.** *Building step 13.* The evals read an answer's words
+    by making each tag a space, so a bold word's tags left "clear ," for "clear,". **Fix:** an inline tag (bold, a
+    link, code) goes where it was; any other is a space. **Check:** the test that reads the app's own stream: the
+    words exactly as the model wrote them, without the bold.

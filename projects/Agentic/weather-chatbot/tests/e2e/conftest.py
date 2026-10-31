@@ -4,6 +4,7 @@ whole session. pytest-playwright opens its pages from base_url. Run them with `u
 `--browser-channel msedge` to use the Edge already on your computer.
 """
 
+import asyncio
 import json
 import socket
 import threading
@@ -94,7 +95,11 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
     app.state.weather_cache = WeatherCache(cache_store)
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)
-    thread = threading.Thread(target=server.run, daemon=True)
+    # On a selector loop: on Windows, the default loop, the proactor, can lose its listening socket when a browser
+    # resets a connection before it's accepted, and every later test then fails to connect (issue 75).
+    thread = threading.Thread(
+        target=lambda: asyncio.run(server.serve(), loop_factory=asyncio.SelectorEventLoop), daemon=True
+    )
     thread.start()
     deadline = time.monotonic() + STARTUP_SECONDS
     while not server.started:

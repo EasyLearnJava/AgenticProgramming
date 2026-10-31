@@ -148,9 +148,19 @@ CHAPTERS: tuple[DocPage, ...] = (
             "errors our warning; a health check of each lane, and a dot beside each in the picker."
         ),
     ),
+    DocPage(
+        slug="step-13",
+        path="/docs/step-13",
+        label="Step 13: Evals and Release: Golden Questions, a Load Test, Rollback",
+        summary=(
+            "Golden questions asked of the live site and graded by rules, kept in LangSmith; a small load test; how to "
+            "roll back; the Technical details page; the TypeScript backup tag deleted."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),
+    DocPage(slug="technical-details", path="/technical-details", label="Technical details"),
     DocPage(slug="issues", path="/issues", label="Issues and fixes"),
     DocPage(slug="interview", path="/interview", label="Interview guide"),
     DocPage(slug="todo", path="/todo", label="To do"),

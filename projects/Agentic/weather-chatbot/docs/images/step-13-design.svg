@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 13 · Evals and release</title>
+  <desc id="d">Thirteen golden questions are asked of the live site as the page asks them, one at a time; each answer is graded by rules on the tools it called and the words it says or never says; with LangSmith's key, the questions become a dataset and each run an experiment named for the build. A small load test times the page, the health check and a few questions. Rolling back uses Vercel's Instant Rollback, then a revert in git. The Technical details page follows one question through the code, and the backup tag is deleted, its commit kept in the history.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 13 · Evals and release</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">Grade what the answers do, time what the site does, and know how to go back</text>
+
+  <!-- Row 1: the evals -->
+  <rect x="40" y="100" width="270" height="130" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">13 golden questions</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">a place, now, forecast, air</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">several matches, none, too far</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">units, off-topic, the rules</text>
+  <text x="56" y="205" font-size="13" fill="#1f2937">a storm: never "you're safe"</text>
+  <line x1="310" y1="165" x2="343" y2="165" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="345" y="100" width="300" height="130" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="361" y="126" font-size="15" font-weight="700" fill="#053b30">Asked of the live site, graded</text>
+  <text x="361" y="148" font-size="13" fill="#1f2937">as the page asks, one at a time, 8 s apart</text>
+  <text x="361" y="167" font-size="13" fill="#1f2937">the tools its chips name, in order</text>
+  <text x="361" y="186" font-size="13" fill="#1f2937">words it must say, or never say</text>
+  <text x="361" y="205" font-size="13" fill="#1f2937">a rule, not a model: the same every run</text>
+  <line x1="645" y1="165" x2="678" y2="165" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="680" y="100" width="240" height="130" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="696" y="126" font-size="15" font-weight="700" fill="#7c2d12">LangSmith, with its key</text>
+  <text x="696" y="148" font-size="13" fill="#1f2937">the dataset nimbus-golden</text>
+  <text x="696" y="167" font-size="13" fill="#1f2937">each run an experiment,</text>
+  <text x="696" y="186" font-size="13" fill="#1f2937">named for the build</text>
+  <text x="696" y="205" font-size="13" fill="#1f2937">nothing asked twice</text>
+
+  <!-- Row 2: the load test -->
+  <rect x="40" y="250" width="880" height="100" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="276" font-size="15" font-weight="700" fill="#053b30">A small load test: 40 pages, 40 health checks, 3 questions, 8 at once</text>
+  <text x="56" y="300" font-size="13" fill="#1f2937">each timed to its last byte; for each kind, how many, how many failed, p50, p95, slowest</text>
+  <text x="56" y="319" font-size="13" fill="#1f2937">cold starts show in the slowest; Gemini's quota, not Vercel, is where a free app stops</text>
+
+  <!-- Row 3: rollback -->
+  <rect x="40" y="370" width="430" height="130" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="396" font-size="15" font-weight="700" fill="#7c2d12">Rolling back</text>
+  <text x="56" y="418" font-size="13" fill="#1f2937">Vercel: Instant Rollback, in seconds,</text>
+  <text x="56" y="437" font-size="13" fill="#1f2937">nothing rebuilt; new pushes wait</text>
+  <text x="56" y="456" font-size="13" fill="#1f2937">git: revert, push; CI and the deploy run</text>
+  <text x="56" y="475" font-size="13" fill="#1f2937">a tag a step: py-step-01 to py-step-13</text>
+  <rect x="490" y="370" width="430" height="130" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="506" y="396" font-size="15" font-weight="700" fill="#053b30">And the rebuild, finished</text>
+  <text x="506" y="418" font-size="13" fill="#1f2937">Technical details: one question through the code,</text>
+  <text x="506" y="437" font-size="13" fill="#1f2937">with the seven lines it left in Axiom</text>
+  <text x="506" y="456" font-size="13" fill="#1f2937">the backup tag deleted: its commit, c7165ac,</text>
+  <text x="506" y="475" font-size="13" fill="#1f2937">stays in main's history</text>
+
+  <!-- The tests -->
+  <rect x="40" y="520" width="880" height="70" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="546" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>the app's own stream read, in this process; each rule; LangSmith played back;</text>
+  <text x="56" y="566" font-size="13" fill="#1f2937">a small load against the app in this process, a question that fails counted as failed</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">Grade what an answer does, not how it's worded; practise going back before you need to.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">Keeping the evals in LangSmith, and a rollback once: Waiting on you.</text>
+</svg>

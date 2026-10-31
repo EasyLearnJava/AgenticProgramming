@@ -225,6 +225,12 @@ def system_design_page(request: Request) -> HTMLResponse:
     return _render_doc(request)
 
 
+@router.get("/technical-details", response_class=HTMLResponse)
+def technical_details_page(request: Request) -> HTMLResponse:
+    """One question, followed through the code, with the lines it left (step 13)."""
+    return _render_doc(request)
+
+
 @router.get("/issues", response_class=HTMLResponse)
 def issues_page(request: Request) -> HTMLResponse:
     """The issues log: every problem met while building, how it was found, and how it was fixed."""

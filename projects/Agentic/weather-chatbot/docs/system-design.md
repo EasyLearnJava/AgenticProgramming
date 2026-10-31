@@ -1,6 +1,6 @@
 # System Design
 
-How Nimbus is built after step 12, drawn the way the TypeScript version's
+How Nimbus is built after step 13, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
@@ -12,8 +12,8 @@ browser. Step 7 keeps Open-Meteo's answers in Vercel's Runtime Cache. Step 8 off
 client, from our own MCP server. Step 9 lets a question reach them through that server: the MCP · no auth lane.
 Step 10 opens the lanes with auth: the forecast through Apify's Actor, falling back to the twin with no auth. Step 11
 adds security: the firewall's rules, a rule against prompt injection, and privacy checks. Step 12 adds monitoring:
-the lines to Axiom, the errors to Sentry, a health check of each lane, and the status dots. Each step adds its parts to
-this page.
+the lines to Axiom, the errors to Sentry, a health check of each lane, and the status dots. Step 13 adds golden
+questions, graded against the live site, a load test and a way back. Each step added its parts to this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 
 ![How Nimbus is built after step 12](images/system-design.svg)
@@ -138,16 +138,17 @@ tools, and through them Open-Meteo.
   it costing, for an uptime monitor and the lane picker's status dots.
 - **Evaluation** (09): Ruff, mypy in strict mode, unit tests, and browser tests on every page and of the chat, with
   axe's accessibility checks, which CI runs on every push that touches the project; and a mutation check, which breaks
-  each rule on purpose to show a test catches it, run before each commit.
+  each rule on purpose to show a test catches it, run before each commit. From step 13, thirteen golden questions,
+  asked of the live site and graded by rules on the tools called and the words said, kept in LangSmith with its key;
+  and a small load test of the page, the health check and a few questions.
 - **Reliability and scale** (09): Vercel Functions start as many copies of the app as the traffic needs, each request,
   an answer's stream included, stopping at 300 s at most, Vercel's default (`vercel.json` sets no limit); the static
   files don't need the app at all.
 - **Release and recovery** (09): every push to `main` deploys to production, side by side with CI, so a failing CI
   doesn't hold the deployment back. Any push means any: one that changes only another project in the repository
   deploys Nimbus again too, and the menu's build label then names that commit. Each step is tagged (`py-step-01`,
-  `py-step-02`, and so on), Vercel can roll back to an earlier deployment, and the TypeScript version's code is kept
-  in the tag
-  `weather-chatbot-typescript-backup`.
+  `py-step-02`, and so on), Vercel can roll back to an earlier deployment in seconds (step 13 writes it out), and the
+  TypeScript version's code is kept in the history, at `c7165ac`.
 
 ## Compared with the reference
 
@@ -169,7 +170,7 @@ tools, and through them Open-Meteo.
 | Session store | The browser: the page keeps the conversation and sends it back with each question, checked as untrusted input; New chat clears it | |
 | Secure storage | Vercel's environment variables, read only by `config.py`; the Gemini key a Sensitive one, a `SecretStr` in the app, never logged | |
 | 09 · Observability: traces, p95 latency, tokens, cost, alerts | JSON lines with the request's id and its build, in Vercel's logs: one per request, each tool call and each request to Open-Meteo, and how each answer ended, with its tool calls and tokens; LangSmith's trace of each agent run, its inputs and outputs hidden ; from step 12, the lines in Axiom, the errors in Sentry, and `/api/health`, each lane checked | The dashboards and alerts are written out, for you to set up (Waiting on you) |
-| 09 · Evaluation: golden set, safety tests, feedback | Unit, browser and accessibility tests in CI; a mutation check before each commit | |
+| 09 · Evaluation: golden set, safety tests, feedback | Unit, browser and accessibility tests in CI; a mutation check before each commit; 13 golden questions graded against the live site, safety among them, kept in LangSmith with its key | No feedback from visitors: the page has no thumbs |
 | 09 · Reliability and scale: autoscaling, caps, queues, breakers | Vercel Functions, as many copies as the traffic needs; the CDN for the files; the chat's size limits | |
 | 09 · Release and recovery: load tests, canary, rollback, backups | Every push to `main` deploys, side by side with CI; a tag per step; Vercel can roll back | CI doesn't gate the deployment, so a failure shows after it's live. No backups: Nimbus stores no data |
 
@@ -232,5 +233,5 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 
 ## What comes next
 
-Step 13 is evals and release: golden questions as LangSmith datasets, a load test, rollback, the Technical details
-page, and the TypeScript backup deleted; the plan, `PLAN.md`, has them all.
+The rebuild is complete: thirteen steps, each live and checked. What's yours to set is on
+[Waiting on you](waiting-on-you.md); what could come next, on [To do](todo.md).

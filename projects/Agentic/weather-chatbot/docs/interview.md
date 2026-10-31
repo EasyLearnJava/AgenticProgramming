@@ -424,3 +424,24 @@ monitor needs only the status; cached briefly; never anything that costs.
 **5. Why can a status dot be a minute or two old?**
 A run's report answers its address for a minute on each copy, and the CDN keeps a 200 for another; the dot is a
 hint, so the lane can still be picked.
+
+## Step 13 · Evals and Release: Golden Questions, a Load Test, Rollback
+
+**1. How do you evaluate a chat's answers without another model?**
+By its behaviour: the tools it called, in order, and words its answer must or mustn't hold. Each rule is the same on
+every run, and a failure says which rule.
+
+**2. Why run evals against the live site?**
+The prompt, the model, the tools and the network are tested together, as a visitor meets them; a test with a stand-in
+model checks the code, not the answers.
+
+**3. What does a small load test tell you, and what doesn't it?**
+Each kind's p50, p95 and slowest, cold starts among them, and whether anything fails at a few at once; not where the
+app stops, which a free model's quota decides long before Vercel does.
+
+**4. How do you roll back on Vercel?**
+Instant Rollback points the domain at an earlier deployment in seconds, rebuilding nothing; then fix forward with a
+revert, and put a new deployment live.
+
+**5. Why keep golden questions in LangSmith?**
+Each run is an experiment beside the last, named for its build, so a regression shows by question and by commit.

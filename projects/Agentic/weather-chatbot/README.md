@@ -68,7 +68,7 @@ Each step's chapter explains it, in order:
 | 10 | [The Lanes With Auth, Through Apify](docs/step-10.md) | Done |
 | 11 | [Security: Rate Limits, Prompt Injection, Privacy](docs/step-11.md) | Done |
 | 12 | [Monitoring: Axiom, Sentry, the Health Check and the Status Dots](docs/step-12.md) | Done |
-| 13 | Evals and release: golden questions, a load test, rollback; see [PLAN.md](PLAN.md) | Next |
+| 13 | [Evals and Release: Golden Questions, a Load Test, Rollback](docs/step-13.md) | Done |
 
 ## Run it
 
@@ -76,8 +76,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [47844] using StatReload
-INFO:     Started server process [45480]
+INFO:     Started reloader process [28048] using StatReload
+INFO:     Started server process [20832]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -86,9 +86,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 16, "event": "http.request", "level": "info",
- "ts": "2026-10-31T20:01:44.101254Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "7db35fe3aa724ddf"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 20, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T20:41:38.327075Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "68d37b4d321f41f1"}
 ```
 
 ## Test it
@@ -97,16 +97,16 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-104 files already formatted
+110 files already formatted
 $ uv run mypy
-Success: no issues found in 69 source files
+Success: no issues found in 73 source files
 $ uv run pytest
-562 passed in 12.61s
+591 passed in 16.25s
 $ uv run pytest tests/e2e --browser-channel msedge
-167 passed in 129.51s (0:02:09)
+175 passed in 143.31s (0:02:23)
 $ uv run python tools/mutation_check.py
 ...
-177 of 177 caught
+183 of 183 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
@@ -140,8 +140,9 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 12](docs/step-12.md)), the
-**System design** ([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes**
+step ([step 1](docs/step-1.md) to [step 13](docs/step-13.md)), the
+**System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
+([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)), **To do**
 ([`docs/todo.md`](docs/todo.md)), and **Waiting on you** ([`docs/waiting-on-you.md`](docs/waiting-on-you.md)), every
 setting only you can change. The TypeScript version's pages are kept under **Deprecated**: its steps, System
@@ -150,5 +151,5 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 
 ## Next
 
-[Step 12's chapter](docs/step-12.md), then step 13: evals and release. What's waiting on you is on
-[its own page](docs/waiting-on-you.md).
+The rebuild is complete: thirteen steps, each live and checked. What's waiting on you is on
+[its own page](docs/waiting-on-you.md); what could come next, on [To do](docs/todo.md).
