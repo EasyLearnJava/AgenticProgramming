@@ -19,7 +19,7 @@ What's still open in the Python rebuild, and why. The TypeScript version's list 
 ## Next
 
 - **Step 3:** Gemini's answer, through LangChain, streamed the same way: the system prompt, the model's input rules,
-  and time limits on the call.
+  and time limits on the call; and a cap on each answer, since on Vercel, Stop never reaches the function (issue 32).
 - **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build
   label can name another project's commit (issue 21); an `ignoreCommand` in `vercel.json` would end the build when
   this folder hasn't changed.

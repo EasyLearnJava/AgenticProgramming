@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" width="960" height="760" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
   <title id="t">Step 2 · How a question's answer streams</title>
-  <desc id="d">The chat page's form posts the question to /api/chat with htmx. The chat route reads and checks the form: a broken rule gets our own sentence, with its status. Otherwise the answer streams back as server-sent events of HTML: first the question and Nimbus's empty, busy answer, which htmx adds to the conversation; then a piece per word, each added to that answer; then the finished answer in its place. Stop aborts the request, and the server, hearing the browser go, ends the stream and logs it as aborted; a failure shows the answer so far, our own sentence and its ref. Each step writes a log line.</desc>
+  <desc id="d">The chat page's form posts the question to /api/chat with htmx. The chat route reads and checks the form: a broken rule gets our own sentence, with its status. Otherwise the answer streams back as server-sent events of HTML: first the question and Nimbus's empty, busy answer, which htmx adds to the conversation; then a piece per word, each added to that answer; then the finished answer in its place. Stop aborts the request; where the server tells the app the browser has gone, as Uvicorn does, the app ends the stream and logs it as aborted, while on Vercel the answer ends on the page only; a failure shows the answer so far, our own sentence and its ref. Each step writes a log line.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
@@ -56,8 +56,8 @@
   <rect x="40" y="486" width="430" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
   <text x="56" y="512" font-size="15" font-weight="700" fill="#053b30">④ Stop</text>
   <text x="56" y="534" font-size="13" fill="#1f2937">chat.js: htmx:abort, and the browser drops the stream</text>
-  <text x="56" y="553" font-size="13" fill="#1f2937">the server hears it go and cancels the stream</text>
-  <text x="56" y="572" font-size="13" fill="#1f2937">chat.aborted, never an error · the page: "Stopped."</text>
+  <text x="56" y="553" font-size="13" fill="#1f2937">Uvicorn tells the app, which cancels it: chat.aborted</text>
+  <text x="56" y="572" font-size="13" fill="#1f2937">Vercel doesn't: the answer ends on the page only</text>
   <rect x="490" y="486" width="430" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
   <text x="506" y="512" font-size="15" font-weight="700" fill="#053b30">⑤ A failure</text>
   <text x="506" y="534" font-size="13" fill="#1f2937">the answer so far, then our own sentence and its</text>

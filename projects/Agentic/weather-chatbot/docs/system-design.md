@@ -42,8 +42,9 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
   - **the chat** (`chat.py`): `POST /api/chat`. First the form's checks: the type, at most 32 KiB, each field once,
     the question 1 to 2,000 characters, no field we don't know; a broken rule gets our own sentence and its status.
     Then the answer, as server-sent events (`stream_turn()`, in an `EventStream`): your question and the answer, empty;
-    each word from `answer.py`; then the finished answer. Stop ends it, logged as `chat.aborted`; a failure shows the
-    answer so far, our own sentence and its ref;
+    each word from `answer.py`; then the finished answer. Stop ends it on the page; on Vercel the function writes the
+    rest to no one, since Vercel's Python runtime never says the browser has gone; a failure shows the answer so far,
+    our own sentence and its ref;
   - **the pages** (`pages.py`): the chat's page, the lists of pages and the 404 page, each a Jinja2 template, which
     escapes every value but two marked safe: a doc's Markdown, rendered with raw HTML off, and a menu label, escaped
     first, with the one `<wbr>` we add;
@@ -94,7 +95,7 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
 | 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, and a request id it sets itself; the security headers on every response, the CDN's files included | The weather is public, so there's no sign-in. Rate limits come with the firewall's rules (step 11) |
 | 01 · Input guardrails: injection, PII, scope | In part: the form's checks: its type, at most 32 KiB, each field once, the question 1 to 2,000 characters, no field we don't know | The model's input rules come in step 3 |
 | 03 · Semantic cache: safe answers, by similarity | None | The answer is fixed for now |
-| 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; the chat's turn, which streams the answer, and which Stop ends | The agent comes in steps 4 and 5 |
+| 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; the chat's turn, which streams the answer, and which Stop ends on the page (on Vercel, the function writes it to the end) | The agent comes in steps 4 and 5 |
 | 01 · Output guardrails: safety, privacy, grounding | In part: Jinja2 escapes every value but the two marked safe, a doc's Markdown, rendered with no raw HTML, and a menu label's `<wbr>`; the page puts in only our own HTML, and our script only text; the policy runs only our own files | The model's answers come in step 3 |
 | Answer: citations or a safe refusal | The fixed answer, a word at a time; our own sentence for each thing that can go wrong, a failure's with its ref | Citations come with the tools (step 4) |
 | 05 · Retrieval (RAG) and its index | None | The weather will come live from tools, not from documents |
@@ -119,25 +120,31 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
 
 ## One request, end to end
 
-A real request on the live site, on 30 October 2026, the day step 1 went live (commit 369e149): `GET /api/health`.
+A real question on the live site, on 31 October 2026 (commit d55f1ed): "Will it rain in Paris tomorrow?", posted
+to `/api/chat` as the page's form posts it.
 
 | Where | What happened |
 |---|---|
-| Vercel's edge, `cle1` (Cleveland) | Took the HTTPS request, gave it the id `cle1::nmzgg-1793403045507-1e71e313788a`, and sent it to the function in `iad1` |
-| `SecurityHeadersMiddleware` | Passed the request on, with its own `send`, which adds the headers to the response's start as it passes |
-| `RequestContextMiddleware` | Took Vercel's id as the request's id, and bound it to the log context |
-| `health.py`, `health()` | Answered `{"status":"ok","checkedAt":"2026-10-30T23:30:45.561Z","commit":"369e149","environment":"production"}`, marked `no-store` |
-| `RequestContextMiddleware` | Added `x-request-id` to the response's start |
-| `SecurityHeadersMiddleware` | Added the five security headers to it, and sent the response on |
-| `RequestContextMiddleware` | Once the whole response had gone, wrote the request's one line: `200`, in 1 ms |
-| Vercel's edge | Sent the response back, with `x-vercel-id: cle1::iad1::nmzgg-1793403045507-1e71e313788a`: the same id, with the function's region |
+| Vercel's edge, `cle1` (Cleveland) | Took the HTTPS request, gave it the id `cle1::lzdsv-1793423643867-12f0ae2ae59c`, and sent it to the function in `iad1` |
+| `SecurityHeadersMiddleware`, `RequestContextMiddleware` | Wrapped the response's `send`, and took Vercel's id as the request's id, in the log context and the request's state |
+| `chat.py`, `chat()` and `read_chat_request()` | Checked the form: its type, its length, its one field, the question's 31 characters; logged `chat.request` |
+| `chat()`, then `EventStream` | Made the turn's first event, then sent it and the rest as they came: 50 events, the first 0.13 s after the question was sent, the last after 3.04 s |
+| `stream_turn()` | Logged `chat.done`: the answer's 244 characters, in 2,917 ms |
+| `RequestContextMiddleware` | Once the whole response had gone, wrote the request's line: `200`, in 2,919 ms |
+| Vercel's edge | Passed each event on as it came, with the security headers and the request's id |
 
-Searched for the id, Vercel's logs found the request's line:
+Searched for the id, Vercel's logs found its three lines, the question's text in none of them:
 
 ```json
-{"method": "GET", "path": "/api/health", "status": 200, "ms": 1, "event": "http.request", "level": "info",
- "ts": "2026-10-30T23:30:45.562565Z", "env": "production", "commit": "369e149",
- "deploymentId": "dpl_85W8gAmSCsmU34mV5AG4dvfKjoKY", "requestId": "cle1::nmzgg-1793403045507-1e71e313788a"}
+{"questionChars": 31, "event": "chat.request", "level": "info", "ts": "2026-10-31T05:14:03.897637Z",
+ "env": "production", "commit": "d55f1ed", "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod",
+ "requestId": "cle1::lzdsv-1793423643867-12f0ae2ae59c"}
+{"answerChars": 244, "ms": 2917, "event": "chat.done", "level": "info", "ts": "2026-10-31T05:14:06.814874Z",
+ "env": "production", "commit": "d55f1ed", "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod",
+ "requestId": "cle1::lzdsv-1793423643867-12f0ae2ae59c"}
+{"method": "POST", "path": "/api/chat", "status": 200, "ms": 2919, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T05:14:06.815432Z", "env": "production", "commit": "d55f1ed",
+ "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod", "requestId": "cle1::lzdsv-1793423643867-12f0ae2ae59c"}
 ```
 
 [Step 1's chapter](step-1.md) explains each of these parts in its code, and [step 2's](step-2.md) the chat's.

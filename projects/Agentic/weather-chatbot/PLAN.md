@@ -38,7 +38,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 |---|---|---|
 | 1 | The project: uv, FastAPI, Ruff, mypy, pytest, CI, the first deploy; the page shell in Jinja2; the docs, the deprecated ones included, and the System design page; security headers; JSON logs with a request id | Switch the Framework Preset to FastAPI (done); delete the three `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` variables |
 | 2 | The chat streams a fixed answer over server-sent events with htmx; Stop; the question's checks and our own error sentences | |
-| 3 | Gemini through LangChain, streamed; the system prompt; the input rules | |
+| 3 | Gemini through LangChain, streamed; the system prompt; the input rules; a cap on each answer's length and time, since on Vercel, Stop never reaches the function | |
 | 4 | The four weather tools and a prebuilt agent: the REST · no auth lane; tool chips with the wire view; LangSmith | The LangSmith variables (done) |
 | 5 | The agent as our own LangGraph graph: step limit, last step without tools, time limits | |
 | 6 | Chat memory: the conversation kept in the browser and sent back with each question, as untrusted input: only the visitor's and Nimbus's text, checked and capped, never a tool result (the tools run again); New chat | |

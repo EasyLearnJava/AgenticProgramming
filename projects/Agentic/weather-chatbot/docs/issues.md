@@ -182,3 +182,12 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     for the chunked body; `isascii()` and `isdecimal()`; a field we don't know is checked first; `chat.aborted` and a
     499; the focus goes to the box. **Check:** a unit test for each, the browser test for the focus, and three
     mutation rules.
+32. **On Vercel, Stop never reaches the app.** *Deploying* (the live check). The check closed the connection after the
+    answer's third event, as a browser does on Stop; Vercel's logs then showed `chat.done` for the whole answer, 244
+    characters in 2,910 ms, and no `chat.aborted`. On Vercel, the app hears nothing when the browser goes: no send
+    fails, and no disconnect reaches Starlette; Vercel documents cancelling a request on a disconnect for Node.js
+    functions only. The function writes the rest of the answer to no one. **Fix:** no simple one: a separate stop
+    request could reach another copy of the function, which shares no memory with the one answering, so it would need
+    shared state. The chapter, the design picture and the System design say Stop ends the answer on the page only
+    there, and step 3 caps each model answer's length and time, so an answer no one reads can't run on. **Check:** the
+    live check's Stop, and that request's lines in Vercel's logs.

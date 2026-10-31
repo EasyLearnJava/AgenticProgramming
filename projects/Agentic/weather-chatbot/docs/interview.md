@@ -112,7 +112,8 @@ never cached, and nothing between the app and the browser waits for the end, sin
 The page's script triggers `htmx:abort`; htmx aborts its `fetch`, and the browser drops the connection. The server
 tells the app with an `http.disconnect` message, and Starlette, listening for it, cancels the stream, so
 `asyncio.CancelledError` lands in the generator; it logs `chat.aborted` and stops. On the page, the answer that never
-got its end gets "Stopped.".
+got its end gets "Stopped.". On Vercel, the Python runtime gives the app no such sign, so the function writes the rest
+of the answer to no one: Stop there ends it on the page only.
 
 **5. What if the server speaks ASGI 2.4?**
 ASGI 2.4 adds a second sign that the browser has gone: a send to a closed connection raises `OSError`. Relying on it,

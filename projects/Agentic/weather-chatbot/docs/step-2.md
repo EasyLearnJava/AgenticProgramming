@@ -2,19 +2,21 @@
 
 Step 2 makes the chat answer. The form posts your question to `POST /api/chat`, and the answer comes back as
 server-sent events, each holding HTML that htmx puts into the page: first your question and Nimbus's answer, empty;
-then the answer, a word at a time; then the finished answer. Stop ends it where it is, on the page and on the server.
+then the answer, a word at a time; then the finished answer. Stop ends it where it is, on the page, and on the server
+when the server tells the app the browser has gone: Uvicorn does, Vercel doesn't.
 A request that breaks a rule, and a failure, each get our own sentence, and nothing else ever reaches the page. The
 answer is a fixed one for now, the same for every question: Gemini comes in step 3.
 
 **In one line:** the form → htmx posts the question → `chat()` checks it → `stream_turn()` sends events of HTML →
-htmx puts each one in place → the answer, a word at a time; Stop → the server hears the browser go → `chat.aborted`.
+htmx puts each one in place → the answer, a word at a time; Stop → the answer ends on the page (on your computer,
+Uvicorn tells the app too: `chat.aborted`; on Vercel, nothing tells it).
 
 ## What you'll build
 
 - `POST /api/chat`: a question in; its answer out, as server-sent events of HTML, never cached.
 - The checks on what the form sends, each broken rule with its own sentence and status: 400, 413 or 415.
 - The chat's form, with htmx 4 and its stream extension: the answer arrives a word at a time.
-- Stop, which ends an answer where it is, on the page and on the server.
+- Stop, which ends an answer where it is: on the page, and on the server when the server says the browser has gone.
 - Our own sentence for everything that can go wrong: a failure (with a ref that finds its log lines), an answer cut
   off, a chat that can't be reached, and another service's error page, which is never shown.
 - A log line for each answer: its question's length, never its text, and how it ended.
@@ -134,8 +136,9 @@ When you press Stop, or close the page (④), the stream ends early. The server 
 `http.disconnect` message, and under ASGI 2.3, which Uvicorn speaks, Starlette listens for it while it streams, and
 cancels the stream: `asyncio.CancelledError` lands in the generator, which logs `chat.aborted`. ASGI 2.4 adds a second
 sign: a send to a closed connection raises `OSError`; relying on it, Starlette stops listening, and turns the failed
-send into `ClientDisconnect`. A failure (⑤) logs `chat.failed` with the error's class, never its text, and sends the
-answer so far with our own sentence and the request's ref.
+send into `ClientDisconnect`. On Vercel, neither comes: the function writes the rest of the answer to no one (Deploy
+it). A failure (⑤) logs `chat.failed` with the error's class, never its text, and sends the answer so far with our
+own sentence and the request's ref.
 
 The route makes the turn's first event itself (②), before the response starts: a generator closed before it has
 started runs none of its code, so without it, a browser that left before the first event would leave no line saying
@@ -330,6 +333,43 @@ sentence; and with an answer on it, the page logs no error, passes axe's checks 
 breaks 22 more rules (its first 16 lines, step 1's rules, are left out above; each says caught); two weren't caught at
 first (issue 24).
 
+## Deploy it
+
+The push, d55f1ed, was live on Vercel within a minute, while CI ran its checks, which passed in about two minutes.
+Checked on the live site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026:
+
+- The CDN served the three new files, `htmx.min.js` (36,716 bytes), `hx-sse.min.js` (6,225) and `chat.js` (3,985),
+  byte for byte the repository's, with `vercel.json`'s security headers and no `x-request-id`: the app never saw them.
+- A question's answer streamed through Vercel's edge as it was written: all 50 events, the first 0.13 s after the
+  question was sent and the last after 3.04 s. Nothing between the app and the browser held them back.
+- An empty question got 400, and JSON 415, each with our sentence and `x-nimbus-error: 1`.
+- In Edge, the answer came in a few words at a time, Stop ended one with "Stopped.", axe found no violation, and the
+  console held no error: the policy refused nothing htmx or our script does.
+- Each of the 23 pages answered 200 with the security headers and "Build d55f1ed · production", and none scrolled
+  sideways at 1,280 or 360 pixels.
+
+**Stop, on Vercel, ends the answer on the page only.** The check closed the connection after the third event, as a
+browser does on Stop, and Vercel's logs, searched for the request's id, show the function writing the whole answer
+all the same, to no one:
+
+```json
+{"questionChars": 31, "event": "chat.request", "level": "info", "ts": "2026-10-31T05:14:07.209227Z",
+ "env": "production", "commit": "d55f1ed", "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod",
+ "requestId": "cle1::j6gk6-1793423647184-6ef4f9312c2f"}
+{"answerChars": 244, "ms": 2910, "event": "chat.done", "level": "info", "ts": "2026-10-31T05:14:10.119738Z",
+ "env": "production", "commit": "d55f1ed", "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod",
+ "requestId": "cle1::j6gk6-1793423647184-6ef4f9312c2f"}
+{"method": "POST", "path": "/api/chat", "status": 200, "ms": 2911, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T05:14:10.120286Z", "env": "production", "commit": "d55f1ed",
+ "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod", "requestId": "cle1::j6gk6-1793423647184-6ef4f9312c2f"}
+```
+
+On Vercel, the app hears nothing when the browser goes: no send fails, and no disconnect reaches Starlette. Vercel's
+documentation offers cancelling a request on a disconnect for Node.js functions only. On your computer,
+Uvicorn tells the app, and the answer stops on the server too (the unit tests play both). For a fixed answer, the cost
+is three seconds of the function's time; from step 3, a model's answer written to no one costs its tokens too, so
+step 3 caps each answer's length and time (issue 32).
+
 ## Things to take care of, and pitfalls
 
 - **htmx 2 can't stream a `POST`.** Its stream extension opens an `EventSource`, which only sends `GET`; the question
@@ -356,6 +396,8 @@ first (issue 24).
   numbers (issue 24).
 - **`round()` rounds a half to even:** 1.2345 × 1000 comes out as exactly 1234.5, which rounds to 1234 (issue 25).
 - **FastAPI's `Form()` needs the `python-multipart` package;** `urllib.parse.parse_qsl()` reads a form without it.
+- **On Vercel, a Python function never hears that the browser has gone:** Stop ends the answer on the page, while
+  the function writes the rest to no one; cap whatever an answer costs (issue 32).
 - **The box's `maxlength` counts UTF-16 units, Python's `len()` code points:** an emoji is 2 in the browser and 1 on
   the server, so the server's check is the one that counts.
 
@@ -372,6 +414,7 @@ first (issue 24).
 29. A question could vanish from the box with nothing shown: the box is cleared on the answer's first event.
 30. Wrong explanations, and a raw line separator, in this chapter: corrected, and a test checks every page.
 31. Smaller review findings.
+32. On Vercel, Stop never reaches the app: the function writes the whole answer; step 3 caps each answer.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 
@@ -398,7 +441,8 @@ never cached, and nothing between the app and the browser waits for the end, sin
 The page's script triggers `htmx:abort`; htmx aborts its `fetch`, and the browser drops the connection. The server
 tells the app with an `http.disconnect` message, and Starlette, listening for it, cancels the stream, so
 `asyncio.CancelledError` lands in the generator; it logs `chat.aborted` and stops. On the page, the answer that never
-got its end gets "Stopped.".
+got its end gets "Stopped.". On Vercel, the Python runtime gives the app no such sign, so the function writes the rest
+of the answer to no one: Stop there ends it on the page only.
 
 **5. What if the server speaks ASGI 2.4?**
 ASGI 2.4 adds a second sign that the browser has gone: a send to a closed connection raises `OSError`. Relying on it,
