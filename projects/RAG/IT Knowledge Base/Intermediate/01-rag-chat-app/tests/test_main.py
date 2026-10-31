@@ -2,14 +2,17 @@
 Tests for main.py: the command line; stopping with one clear line and exit code 1, never a traceback, when the
 settings, the key or the build fails; answering in the terminal, each answer with the trace ID its log lines carry
 in the log file; serving with uvicorn under the app's logging; its app, started the way a host such as Vercel starts
-it; index, which saves the vectors a later start loads (and exits 1 when it fails, so Vercel's build stops), and
-vercel.json, whose build runs it unless nothing in this folder changed; and main.py as the only file that runs anything.
+it, and started anyway when a model provider fails, building at a later question; index, which saves the vectors a
+later start loads (and exits 1 when it fails, or with --best-effort only warns when a provider fails, so Vercel's
+deployment goes ahead), and vercel.json, whose build runs it unless it can tell nothing in this folder changed, run in
+real git repos; and main.py as the only file that runs anything.
 """
 import ast
 import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -22,9 +25,10 @@ from support import stand_in_engine, write_config
 
 import main
 from src.config.settings import PROJECT_DIR, load_settings
-from src.exceptions import UpstreamError, UpstreamRateLimitError
+from src.exceptions import UpstreamDailyQuotaError, UpstreamError, UpstreamRateLimitError
 from src.observability.trace_store import TraceStore
 from src.observability.tracing import trace_context
+from src.pipeline import rag_engine
 
 
 @pytest.fixture
@@ -53,6 +57,7 @@ def test_the_default_command_is_serve_and_options_come_first():
     args = main.parse_args(["--log-level", "DEBUG", "ask", "printer", "not", "found"])
     assert (args.command, args.question, args.log_level) == ("ask", ["printer", "not", "found"], "DEBUG")
     assert main.parse_args(["--log-level", "DEBUG", "index"]).command == "index"
+    assert main.parse_args(["index", "--best-effort"]).best_effort and not main.parse_args(["index"]).best_effort
 
 
 # --- Stopping clearly ---
@@ -207,6 +212,46 @@ def test_the_app_builds_its_engine_when_the_host_starts_it(host_app):
     assert host_app.state.trace_store.get(host_app.state.engine.build_trace_id) is not None    # the build's trace
 
 
+def test_when_a_provider_fails_at_the_hosts_start_it_serves_anyway_and_builds_at_a_later_question(
+        host_app, config, monkeypatch, capsys):
+    engine = stand_in_engine(load_settings(config))
+    embed = engine.embedder.embed_documents
+
+    def used_up(texts):
+        raise UpstreamDailyQuotaError("embeddings", "429 RESOURCE_EXHAUSTED: Embed content requests per day")
+
+    monkeypatch.setattr(engine.embedder, "embed_documents", used_up)
+    monkeypatch.setattr(main, "create_engine", lambda settings, api_key: engine)
+    question = {"question": "My VPN keeps timing out"}
+    with TestClient(host_app) as client:                       # the start doesn't fail: the page can say why
+        assert (client.get("/").status_code, client.get("/health/live").status_code) == (200, 200)
+        assert client.get("/health/ready").json()["error"]["code"] == "NOT_READY"
+        refused = client.post("/api/v1/query", json=question)
+        assert (refused.status_code, refused.json()["error"]["message"]) == (
+            503, "The AI service's quota for today is used up. Try again after midnight Pacific time.")
+        assert client.get("/api/v1/info").json()["error"]["code"] == "UPSTREAM_DAILY_QUOTA"
+        monkeypatch.setattr(engine.embedder, "embed_documents", embed)       # the quota is back
+        assert client.post("/api/v1/query", json=question).status_code == 503  # within the minute: not asked again
+        monkeypatch.setattr(rag_engine, "REBUILD_SECONDS", 0.0)              # the minute is over
+        assert client.post("/api/v1/query", json=question).json()["answer"] == ANSWER
+        assert client.get("/health/ready").json() == {"status": "ready", "chunks": 28}
+    printed = capsys.readouterr().err
+    assert "main: Start-up couldn't build the knowledge base: UPSTREAM_DAILY_QUOTA" in printed
+    assert "Traceback" not in printed
+
+
+def test_ask_still_stops_when_a_provider_fails_at_the_start(config, monkeypatch, restore_logging, capsys):
+    engine = stand_in_engine(load_settings(config))
+
+    def used_up(texts):
+        raise UpstreamDailyQuotaError("embeddings", "429 RESOURCE_EXHAUSTED: Embed content requests per day")
+
+    monkeypatch.setattr(engine.embedder, "embed_documents", used_up)
+    monkeypatch.setattr(main, "create_engine", lambda settings, api_key: engine)
+    assert main.main(["--config", str(config), "ask", "vpn"]) == 1     # a terminal has no later question
+    assert "main: Start-up failed: UPSTREAM_DAILY_QUOTA" in capsys.readouterr().err
+
+
 def test_without_a_key_the_hosts_start_fails_with_the_message(host_app, monkeypatch, capsys):
     monkeypatch.setenv("GOOGLE_API_KEY", "")
     with pytest.raises(main.StartUpError), TestClient(host_app):
@@ -278,14 +323,77 @@ def test_on_vercel_a_start_with_no_saved_vectors_warns(config, stand_ins, restor
     assert "No saved vectors" not in capsys.readouterr().err
 
 
-def test_vercels_build_runs_index_unless_nothing_here_changed():
-    # vercel.json, in the folder Vercel deploys: its build command runs after the packages are installed. Its ignore
-    # command runs before, in this folder: exit 0 (this folder is as it was at the last successful deployment) skips
-    # the build; anything else builds, a redeploy of that same commit too
+def test_vercels_build_runs_index_and_a_providers_failure_doesnt_stop_the_deployment():
+    # vercel.json, in the folder Vercel deploys: its build command runs after the packages are installed
     settings = json.loads((PROJECT_DIR / "vercel.json").read_text(encoding="utf-8"))
-    assert settings["buildCommand"] == "python main.py index"
-    assert settings["ignoreCommand"] == ('[ "$VERCEL_GIT_PREVIOUS_SHA" != "$VERCEL_GIT_COMMIT_SHA" ] && '
-                                         'git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" HEAD -- .')
+    assert settings["buildCommand"] == "python main.py index --best-effort"
+
+
+SHELL = shutil.which("sh") or shutil.which("bash")
+# The last deployment's commit, as Vercel gave it after more commits than its clone holds: git calls it a bad object
+NOT_CLONED = "ef143e7efc3d6e0376a97cb68fe596d3649abd7b"
+
+
+@pytest.mark.skipif(SHELL is None, reason="runs vercel.json's ignore command, which needs a POSIX shell, as Vercel's "
+                                          "build has (on Windows: Git Bash's sh)")
+@pytest.mark.parametrize("previous, changed_here, expected", [
+    ("parent", False, 0),          # nothing in this folder changed since the last deployment: the build is skipped
+    ("parent", True, 1),           # it changed: build
+    ("not cloned", False, 1),      # Vercel's clone doesn't hold the last deployment's commit, so it can't tell: build
+    ("same", False, 1),            # a redeploy of the deployment's own commit: build
+    ("none", False, 1),            # no deployment yet: build
+], ids=["unchanged", "changed", "commit not in the clone", "redeploy", "first deploy"])
+def test_vercels_ignore_command_skips_a_build_only_when_it_can_tell_nothing_here_changed(tmp_path, previous,
+                                                                                         changed_here, expected):
+    # The ignore command runs before the build, in this folder: exit 0 skips the build, anything else builds. Here it
+    # runs in a real git repo: an app folder, and another project's file beside it
+    ignore = json.loads((PROJECT_DIR / "vercel.json").read_text(encoding="utf-8"))["ignoreCommand"]
+    repo = tmp_path / "repo"
+    (repo / "app").mkdir(parents=True)
+
+    def git(*args: str) -> str:
+        return subprocess.run(["git", "-c", "user.name=test", "-c", "user.email=test@example.com", *args], cwd=repo,
+                              check=True, capture_output=True, text=True).stdout.strip()
+
+    git("init", "-q")
+    (repo / "app" / "main.py").write_text("v1", encoding="utf-8")
+    (repo / "other.txt").write_text("v1", encoding="utf-8")
+    git("add", ".")
+    git("commit", "-qm", "the last deployment")
+    deployed = git("rev-parse", "HEAD")
+    (repo / ("app/main.py" if changed_here else "other.txt")).write_text("v2", encoding="utf-8")
+    git("commit", "-qam", "the push")
+    pushed = git("rev-parse", "HEAD")
+    env = {**os.environ, "VERCEL_GIT_COMMIT_SHA": pushed,
+           "VERCEL_GIT_PREVIOUS_SHA": {"parent": deployed, "not cloned": NOT_CLONED, "same": pushed,
+                                       "none": ""}[previous]}
+    result = subprocess.run([SHELL, "-c", ignore], cwd=repo / "app", env=env, capture_output=True, text=True)
+    assert result.returncode == expected, result.stderr
+    assert result.stderr == ""                                 # git's "bad object" isn't printed: it simply builds
+
+
+def test_with_best_effort_a_providers_failure_only_warns_so_the_deployment_goes_ahead(config, monkeypatch,
+                                                                                      restore_logging, capsys,
+                                                                                      tmp_path):
+    engine = stand_in_engine(load_settings(config))
+
+    def used_up(texts):
+        raise UpstreamDailyQuotaError("embeddings", "429 RESOURCE_EXHAUSTED: Embed content requests per day")
+
+    monkeypatch.setattr(engine.embedder, "embed_documents", used_up)
+    monkeypatch.setattr(main, "create_engine", lambda settings, api_key: engine)
+    assert main.main(["--config", str(config), "index", "--best-effort"]) == 0
+    printed = capsys.readouterr().err
+    assert "main: No vectors saved: UPSTREAM_DAILY_QUOTA: embeddings: 429" in printed and "Traceback" not in printed
+    assert not (tmp_path / "data" / "vectors.json").exists()  # nothing saved: each start embeds instead
+    assert main.main(["--config", str(config), "index"]) == 1  # without it, the build stops
+    # Any other failure still stops the deployment: here, the knowledge base file isn't there
+    (tmp_path / "broken").mkdir()
+    broken = write_config(tmp_path / "broken", ingestion={"path": str(tmp_path / "missing.csv")},
+                          embeddings={"dimensions": SIZE})
+    monkeypatch.setattr(main, "create_engine", lambda settings, api_key: stand_in_engine(settings))
+    assert main.main(["--config", str(broken), "index", "--best-effort"]) == 1
+    assert "main: Indexing failed: INGESTION_ERROR" in capsys.readouterr().err
 
 
 def test_only_main_runs_anything():

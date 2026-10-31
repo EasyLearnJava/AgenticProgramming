@@ -16,8 +16,12 @@ own); then it serves the chat page and the API, or answers questions in the term
      nothing; the same start-up runs when the host starts the app (its lifespan), and if it fails, the host's start
      fails, with the reason in the host's log. On Vercel, which sets VERCEL, the log goes to the console only
   6. index: the chunks embedded once, and their vectors saved in embeddings.vector_file for each start-up to load
-     instead. Vercel's build runs it (vercel.json): if it fails, it exits 1, and the deployment stops there. A start
-     on Vercel with no saved vectors logs a warning: each instance would embed the chunks
+     instead. If it fails, it exits 1; with --best-effort (Vercel's build, vercel.json), a model provider's failure
+     (the day's quota used up, say) only warns, and the deployment goes ahead without saved vectors. A start on
+     Vercel with no saved vectors logs a warning: each instance embeds the chunks
+  7. A server whose start can't build because a model provider failed starts anyway: the page and the health checks
+     answer, and each question tries the build again (at most once a minute), getting the provider's error until it
+     works ("The AI service's quota for today is used up", say). Any other failure still stops the start
 
 Usage:
     python main.py                               # serve the chat page and the API at http://127.0.0.1:8000
@@ -25,6 +29,7 @@ Usage:
     python main.py ask "printer not found"       # answer your own question
     python main.py --log-level DEBUG ask "vpn"   # also log the question, the answer and each chunk found
     python main.py index                         # embed the chunks once and save their vectors, for each start-up
+    python main.py index --best-effort           # the same; a provider's failure only warns (Vercel's build)
     uvicorn main:app                             # serve main.py's app, started the way Vercel starts it
 """
 import argparse
@@ -41,7 +46,7 @@ from pydantic import SecretStr
 
 from src.api.app import attach, create_app
 from src.config.settings import CONFIG_FILE, Settings, load_api_key, load_settings
-from src.exceptions import AppError, ConfigError
+from src.exceptions import AppError, ConfigError, UpstreamError
 from src.observability.logging_setup import setup_logging
 from src.observability.trace_store import TraceStore
 from src.observability.tracing import trace_context
@@ -71,8 +76,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ask_parser = commands.add_parser("ask", help="answer questions in the terminal")
     ask_parser.add_argument("question", nargs="*",
                             help="your question; with none, the sample questions in the settings file")
-    commands.add_parser("index", help="embed the chunks and save their vectors in embeddings.vector_file, for each "
-                                      "start-up to load instead (Vercel's build runs it)")
+    index_parser = commands.add_parser("index", help="embed the chunks and save their vectors in "
+                                                     "embeddings.vector_file, for each start-up to load instead")
+    index_parser.add_argument("--best-effort", action="store_true",
+                              help="if a model provider fails (the day's quota used up, say), warn and exit 0: the "
+                                   "deployment goes ahead without saved vectors (Vercel's build uses it)")
     return parser.parse_args(argv)
 
 
@@ -85,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):          # a character the console can't show is escaped, not a crash
             stream.reconfigure(errors="backslashreplace")
     if args.command == "index":
-        return index(args.config, log_level=args.log_level)
+        return index(args.config, log_level=args.log_level, best_effort=args.best_effort)
 
     # Steps 1 to 3: the settings and the key, logging, and the engine's build; start_up() says why if one fails
     try:
@@ -109,11 +117,12 @@ def start_up(config: Path, *, log_level: str | None = None,
     """
     Steps 1 to 3, the same for python main.py and for a host: prepare() (the settings and the key; logging, and the
     trace store when serving), then the engine, built under a trace ID of its own. Returns the settings, the built
-    engine and the trace store (None: traces aren't kept).
+    engine and the trace store (None: traces aren't kept). When serving and a model provider fails the build, the
+    engine comes back unbuilt, its failure noted, so a later question builds it (engine.ensure_built()).
 
     Raises:
-        StartUpError: the settings, the key, the log file or the build failed; why is already printed (when logging
-            isn't set up yet) or logged (under the build's trace ID)
+        StartUpError: the settings, the key, the log file or the build failed (a provider's failure only when not
+            serving); why is already printed (when logging isn't set up yet) or logged (under the build's trace ID)
         KeyboardInterrupt: Ctrl+C stopped the build (logged)
     """
     settings, api_key, trace_store = prepare(config, log_level=log_level, serving=serving)
@@ -130,6 +139,16 @@ def start_up(config: Path, *, log_level: str | None = None,
         try:
             engine = create_engine(settings, api_key)
             engine.build()
+        except UpstreamError as err:                # only build() calls a provider: engine is set
+            if not serving:
+                logger.error("Start-up failed: %s: %s", err.code, err)
+                raise StartUpError(f"{err.code}: {err}") from None
+            # A provider that fails now may answer later (the day's quota comes back at midnight Pacific): the server
+            # starts anyway, so the page can say why, and each question tries the build again
+            logger.error("Start-up couldn't build the knowledge base: %s: %s. Serving anyway: each question tries "
+                         "again, at most once a minute, and until then gets this error", err.code, err)
+            engine.build_failed(err)
+            return settings, engine, trace_store
         except AppError as err:
             logger.error("Start-up failed: %s: %s", err.code, err)
             raise StartUpError(f"{err.code}: {err}") from None
@@ -200,10 +219,10 @@ def ask(engine: RAGEngine, questions: list[str]) -> int:
     return 0
 
 
-def index(config: Path, *, log_level: str | None = None) -> int:
+def index(config: Path, *, log_level: str | None = None, best_effort: bool = False) -> int:
     """python main.py index: Steps 1 and 2, then the chunks embedded and their vectors saved in embeddings.vector_file,
     under a trace ID of its own. Returns the exit code: 0; 1 if something failed (on Vercel, the deployment then
-    stops); 130 if Ctrl+C stopped it."""
+    stops), except a model provider's failure with best_effort, which only warns; 130 if Ctrl+C stopped it."""
     try:
         settings, api_key, _ = prepare(config, log_level=log_level, serving=False)
     except StartUpError:
@@ -213,6 +232,14 @@ def index(config: Path, *, log_level: str | None = None) -> int:
     with trace_context():
         try:
             saved = create_engine(settings, api_key).index()
+        except UpstreamError as err:
+            if not best_effort:
+                logger.error("Indexing failed: %s: %s", err.code, err)
+                return 1
+            logger.warning("No vectors saved: %s: %s. The deployment goes ahead without them: each instance embeds "
+                           "the chunks as it starts, or at a later question if the provider still refuses. Deploy "
+                           "again once it answers, to save them", err.code, err)
+            return 0
         except AppError as err:
             logger.error("Indexing failed: %s: %s", err.code, err)
             return 1
@@ -236,7 +263,9 @@ def serve(app: FastAPI, host: str, port: int) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """The start-up, when a host starts the app: the same steps as python main.py's, with config.yaml. A failure
-    stops the host's start, so the app never answers without its engine; why is already in the host's log."""
+    stops the host's start, so the app never answers without its engine; why is already in the host's log. A model
+    provider's failure doesn't: the app starts without the knowledge base, says why to each question, and builds it
+    at a later one."""
     settings, engine, trace_store = start_up(CONFIG_FILE)
     attach(app, settings, engine, trace_store)
     yield

@@ -13,6 +13,8 @@ question. It handles:
   5. A span for the build, the indexing and each question, around the spans of the parts inside it; the question,
      the prompt and the answer at DEBUG, so a trace shows what the model was given and what it said
   6. Readiness: built, and the store still holds every chunk
+  7. A build that failed (a model provider's error, at a server's start) tried again by ensure_built(), at most once
+     every REBUILD_SECONDS: in between, the failure is raised again at once
 
     question -> retriever (embed, search) -> chunks ──┐
     question ─────────────────────────────────────────┴─> prompt -> LLM client -> answer + sources
@@ -24,8 +26,11 @@ Usage:
     engine.index()                                ->  28: read, chunk, embed, save the vectors (python main.py index)
     engine.query(question)                        ->  QueryResult: the answer and its sources (two calls)
     await engine.aquery(question)                 ->  the same, for async code such as the API's routes
+    engine.ensure_built()                         ->  builds again when the server's start couldn't (the API's routes)
 """
 import logging
+import threading
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -35,7 +40,7 @@ from langchain_core.documents import Document
 from src.chunking.chunker import Chunker
 from src.embeddings.embedder import Embedder
 from src.embeddings.vector_file import VectorFile
-from src.exceptions import ConfigError, NotReadyError
+from src.exceptions import AppError, ConfigError, NotReadyError
 from src.llm.llm_client import LLMClient, LLMResponse
 from src.observability.tracing import NO_TRACE, current_trace_id, span
 from src.prompts.prompt_templates import ANSWER_PROMPT, PROMPT_VERSION, format_context
@@ -44,6 +49,10 @@ from src.utils.helpers import truncate
 from src.vectordb.vector_store import BaseVectorStore
 
 logger = logging.getLogger(__name__)
+
+# A failed build is tried again at most this often (ensure_built()): each question in between gets the failure at once,
+# so a provider that's down isn't asked again by every question
+REBUILD_SECONDS = 60.0
 
 
 @dataclass(frozen=True)
@@ -86,6 +95,9 @@ class RAGEngine:
         self.chunks: list[Document] = []
         self.built_at: datetime | None = None
         self.build_trace_id: str | None = None      # the build's trace: the page shows how the knowledge base was built
+        self._build_lock = threading.Lock()         # one build at a time: a server answers questions in threads
+        self._build_error: AppError | None = None   # the last build's failure, while nothing is built
+        self._build_failed_at = 0.0
 
     def build(self) -> None:
         """Load and split the articles; take the chunks' vectors from the vector file when it holds exactly theirs, or
@@ -103,6 +115,33 @@ class RAGEngine:
             self.build_trace_id = None if current_trace_id() == NO_TRACE else current_trace_id()
             fields.update(documents=len(documents), chunks=len(chunks),
                           vectors_from="file" if saved is not None else "model")
+
+    def build_failed(self, error: AppError) -> None:
+        """Note that a build failed (a server's start, say), so ensure_built() tries again later, not at once."""
+        self._build_error, self._build_failed_at = error, time.monotonic()
+
+    def ensure_built(self) -> None:
+        """
+        For a server whose start couldn't build (a model provider failed): build now, at most once every
+        REBUILD_SECONDS and one build at a time; in between, the last failure is raised again at once. An engine
+        never built, with no failure noted, raises NotReadyError, as query() does. Raises AppError.
+        """
+        if self.built_at is not None:
+            return
+        with self._build_lock:
+            if self.built_at is not None:           # another question's build finished while this one waited
+                return
+            if self._build_error is None:
+                self._require_built()
+                return
+            if time.monotonic() - self._build_failed_at < REBUILD_SECONDS:
+                raise self._build_error.with_traceback(None)
+            try:
+                self.build()
+            except AppError as err:
+                self.build_failed(err)
+                raise
+            self._build_error = None
 
     def index(self) -> int:
         """Load and split the articles, embed the chunks, and save their vectors in the vector file, for each later

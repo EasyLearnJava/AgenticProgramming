@@ -8,7 +8,9 @@ What the server answers at each address. The routes get the engine, the settings
   2. Two health checks: alive (the process answers) and ready (the engine is built and holds every chunk)
   3. The engine's info for the page: what it holds, the question's limit, the sample questions, the build's trace
   4. One question: answered within api.request_timeout_seconds, or a 504
-  5. One request's trace: each of its log lines, for the page's boxes (its pipeline, times, calls and logs)
+  5. A server whose start couldn't build (a model provider failed): the info and each question build first, at most
+     once a minute (engine.ensure_built()); until that works, they answer with the provider's error
+  6. One request's trace: each of its log lines, for the page's boxes (its pipeline, times, calls and logs)
 
     GET  /                      ->  the chat page (static/index.html; its script and styles are under /static/)
     GET  /health/live           ->  {"status": "alive"}
@@ -96,6 +98,7 @@ async def ready(engine: EngineDep) -> ReadyResponse:
 async def info(engine: EngineDep, settings: SettingsDep, trace_store: TraceStoreDep) -> InfoResponse:
     """What the engine holds and how it's set up, and what the page needs: the question's limit, the samples, and
     whether it can show traces."""
+    await asyncio.to_thread(engine.ensure_built)
     return InfoResponse(name=settings.app.name, **engine.stats(), traces=trace_store is not None,
                         request_timeout_seconds=settings.api.request_timeout_seconds,
                         max_question_length=MAX_QUESTION_LENGTH, sample_questions=settings.app.sample_questions)
@@ -108,6 +111,7 @@ async def query(body: QueryRequest, engine: EngineDep, settings: SettingsDep) ->
     try:
         # A deadline for the whole question, whatever each call's own timeout and retries add up to
         async with asyncio.timeout(timeout):
+            await asyncio.to_thread(engine.ensure_built)
             result = await engine.aquery(body.question)
     except TimeoutError:
         raise RequestTimeoutError(f"No answer within api.request_timeout_seconds ({timeout} s)") from None

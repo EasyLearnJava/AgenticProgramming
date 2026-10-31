@@ -120,7 +120,7 @@ where it started.
 01-rag-chat-app/
 ├── main.py                           # the one way in: python main.py (serve), ask or index; app, for Vercel
 ├── config.yaml                       # every setting except the key: one section per layer
-├── vercel.json                       # Vercel's build: python main.py index, skipped if nothing here changed
+├── vercel.json                       # Vercel's build: python main.py index --best-effort, skipped if nothing here changed
 ├── .env.example                      # copy to .env and put your Gemini key in it; .env never goes into git
 ├── data/
 │   ├── sample_it_kb.csv              # the knowledge base: 10 IT support articles
@@ -311,12 +311,12 @@ In GitHub Codespaces, step by step:
 
 Vercel doesn't run `python main.py`: it imports `main.py` and serves its `app`. Importing builds nothing; when Vercel
 starts the app, the app's start-up (FastAPI's lifespan) runs the same steps `python main.py` does: the settings, the
-key, logging, then the build. Before that, once per deployment, Vercel's build runs `python main.py index`, as
-`vercel.json` says, so the chunks are embedded there and not at each start.
+key, logging, then the build. Before that, once per deployment, Vercel's build runs
+`python main.py index --best-effort`, as `vercel.json` says, so the chunks are embedded there and not at each start.
 
 1. On Vercel, click **Add New...**, then **Project**, and import your copy of this repo from GitHub.
 2. Set **Root Directory** to `projects/RAG/IT Knowledge Base/Intermediate/01-rag-chat-app`. Vercel finds `main.py`
-   and `vercel.json` there, installs `requirements.txt`, then runs `python main.py index`.
+   and `vercel.json` there, installs `requirements.txt`, then runs `python main.py index --best-effort`.
 3. Under **Environment Variables**, add `GOOGLE_API_KEY`, with your key. The build uses it to embed the chunks, and
    the app to answer. It's all the deployment needs: `config.yaml` and the data file go with the code.
 4. Click **Deploy**. When it's done, open the address it gives you: the chat page.
@@ -332,13 +332,23 @@ What's different there:
 - **So the build embeds the chunks once.** `python main.py index`, in the build, saves their vectors in
   `data/vectors.json`, which goes into the deployment; each copy loads them at start, with no call to Gemini. In the
   build's log, `embeddings.save_vectors ok`; in the deployment's, at each start, `embeddings.load_vectors ok` with
-  `used=True`; a start that finds no file logs a warning (see Troubleshooting). Should the build fail (no key, or
-  Gemini refuses), the deployment stops there, and Vercel goes on serving the one before.
+  `used=True`; a start that finds no file logs a warning (see Troubleshooting). Should Gemini refuse (the day's
+  quota used up, say), the build only warns, `No vectors saved: ...`, and the deployment goes ahead without them:
+  each copy then embeds the chunks at its start. Any other failure (no key, a bad setting) stops the deployment
+  there, and Vercel goes on serving the one before.
+- **If Gemini refuses at a start, the app starts anyway.** A start that can't embed the chunks (the day's quota used
+  up, say) doesn't fail: the page and `/health/live` answer, `/health/ready` says `NOT_READY`, and the info and each
+  question try the build again, at most once a minute, answering with Gemini's error until it works:
+  `The AI service's quota for today is used up. Try again after midnight Pacific time.` Once the quota is back, the
+  next question builds the index and is answered. A failed start would make Vercel answer every request, the page
+  and the health checks included, with `500 FUNCTION_INVOCATION_FAILED`, and say nothing about why.
 - **A push that changes nothing here builds nothing.** Vercel builds a project at every push to its repo, even one
   that only changes another project in it, and each build here embeds the 28 chunks. So `vercel.json`'s
   `ignoreCommand` compares this folder at the pushed commit with the commit of the last deployment that succeeded
   (`git diff`), and when nothing in it changed, skips the build: the deployment shows as Canceled, and the one before
-  goes on serving. Redeploying the deployment that's serving always builds, so a changed key reaches it.
+  goes on serving. Redeploying the deployment that's serving always builds, so a changed key reaches it. When it
+  can't tell, it builds: Vercel clones only the latest commits, so after enough pushes the last deployment's commit
+  isn't in the clone (git says `bad object`), and the command then exits 1, which means build, not an error.
 - **Traces live in one instance's memory.** The page reads each request's trace right after its answer; should that
   read reach another instance, the page says `The trace isn't available: ...` instead of the boxes.
 - **Unless you protect it, the address is public**: anyone who has it can ask questions on your key, and read a
@@ -380,7 +390,8 @@ a connection error, a 429, or a 500, 502, 503 or 504; `max_attempts: 1` turns re
 |---|---|---|
 | `serve` | the default command | builds the engine, then serves the page and the API |
 | `ask [QUESTION]` | | builds the engine, then answers your question, or the sample questions |
-| `index` | | embeds the chunks and saves their vectors in `embeddings.vector_file`, for each start to load (Vercel's build runs it) |
+| `index` | | embeds the chunks and saves their vectors in `embeddings.vector_file`, for each start to load |
+| `index --best-effort` | | the same, but a model provider's failure only warns and exits 0, so a deployment goes ahead (Vercel's build) |
 | `--config FILE` | `config.yaml`, next to `main.py` | another settings file, e.g. one per environment |
 | `--log-level LEVEL` | `logging.level` | `DEBUG`, `INFO`, `WARNING` or `ERROR` for this run |
 
@@ -577,7 +588,7 @@ with its raw name and fields.
 ## 🧪 Testing
 
 ```bash
-python -m pytest -m "not live"       # 186 passed, 2 deselected  (add -v for one line per test)
+python -m pytest -m "not live"       # 195 passed, 2 deselected  (add -v for one line per test)
 ```
 
 The plain tests need no key and make no calls: they use stand-ins for Gemini, and Google's own client faked at the
@@ -602,15 +613,20 @@ client sends with, is stopped from sending anything. They check each layer on it
   the app's logging
 - **The app a host serves**: `main.py` has the top-level `app` Vercel looks for, and importing it builds nothing;
   starting it builds the engine, as `python main.py` does; without a key, the host's start fails with the one line;
-  on Vercel, the log goes to the console only
+  when Gemini refuses at its start (the day's quota used up), it starts anyway: the page and the live check answer,
+  ready says `NOT_READY`, each question gets the quota's message, then, once the quota is back and the minute is
+  over, is answered (`ask` still stops); a failed build is tried again at most once a minute; on Vercel, the log goes
+  to the console only
 - **The saved vectors**: `index` embeds the chunks once and saves their vectors, and the next start loads them with
   no call to the model and gives the same answers; they load back exact, each found by its text in any order (rows
   reordered or an article removed: still used), but only when every chunk has one from the same model and size (an
   edited or added text, another model or size: a warning says why, and the chunks are embedded); a missing file
   isn't a warning, except on Vercel, a broken one is; the file is written whole or not at all; a failed `index`
-  exits 1 (Ctrl+C: 130), so Vercel's build stops; `vercel.json`'s build command runs `index`, and its ignore
-  command skips a push that changed nothing here. Each test's vector file is in its own temporary folder, never
-  `data/vectors.json`
+  exits 1 (Ctrl+C: 130), but with `--best-effort` a provider's failure only warns, so the deployment goes ahead
+  (anything else still exits 1); `vercel.json`'s build command runs `index --best-effort`, and its ignore command,
+  run in real git repos, skips a build only when it can tell nothing here changed (a changed folder, a redeploy, a
+  first deploy and a last deployment's commit missing from the clone all build). Each test's vector file is in its
+  own temporary folder, never `data/vectors.json`
 
 The 2 deselected tests are live tests, marked `live`: they build the real engine and ask the real Gemini, once
 through the engine and once through the API, so they need your key in `.env`; with no key, `tests/conftest.py`
@@ -749,11 +765,22 @@ added.
 
 **Issue**: On Vercel, the deployment fails at the build, whose log shows `Can't start: GOOGLE_API_KEY is not set...`
 or `Indexing failed: ...`
-**Fix**: The build runs `python main.py index`, which embeds the chunks, so it needs the key too: add
-`GOOGLE_API_KEY` under **Settings** > **Environment Variables**, then redeploy. After `Indexing failed:
-UPSTREAM_RATE_LIMITED`, wait a minute and redeploy; after `Indexing failed: UPSTREAM_DAILY_QUOTA`, redeploy after
-midnight Pacific time, when the day's quota comes back. Until a build succeeds, Vercel goes on serving the deployment
-before it.
+**Fix**: The build runs `python main.py index --best-effort`, which embeds the chunks, so it needs the key too: add
+`GOOGLE_API_KEY` under **Settings** > **Environment Variables**, then redeploy. `Indexing failed:` names anything else
+that stops it, such as the knowledge base file. Gemini refusing doesn't fail the build: see the next issue. Until a
+build succeeds, Vercel goes on serving the deployment before it.
+
+**Issue**: On Vercel, the build's log shows `WARNING [...] main: No vectors saved: UPSTREAM_DAILY_QUOTA: ...` (or
+`UPSTREAM_RATE_LIMITED`, `UPSTREAM_TIMEOUT`)
+**Fix**: Gemini refused, so the deployment went ahead without saved vectors: each start embeds the chunks, or, while
+Gemini still refuses, starts anyway (see the next issue). Once Gemini answers again (in a minute for a rate limit;
+after midnight Pacific time for the day's quota), redeploy the deployment that's serving: its build saves the vectors.
+
+**Issue**: `ERROR [...] main: Start-up couldn't build the knowledge base: UPSTREAM_DAILY_QUOTA: ... Serving anyway: each question tries again, at most once a minute, and until then gets this error`, and the page says `The AI service's quota for today is used up. Try again after midnight Pacific time.`
+**Fix**: The start couldn't embed the chunks, so the server runs without the knowledge base: `/health/ready` says
+`NOT_READY`, and the info and each question try the build again, at most once a minute. After midnight Pacific time,
+the next question builds it and is answered. A deployment whose build saved the vectors needs no call to Gemini to
+start, so redeploy once the quota is back.
 
 **Issue**: On Vercel, each start's log shows `WARNING [...] main: No saved vectors on Vercel (<the path>): each instance embeds the chunks as it starts, and instances starting together can use up Gemini's quota. vercel.json has the build save them with python main.py index`, then `embeddings.load_vectors ok ... used=False reason="there's no file: python main.py index makes it"` and `embeddings.embed_documents`
 **Fix**: The deployment has no saved vectors, so each copy embeds the chunks, as before the build step. Check that

@@ -22,6 +22,7 @@ from src.api.app import create_app
 from src.config.settings import PROJECT_DIR, load_api_key, load_settings
 from src.exceptions import ConfigError, NotReadyError, UpstreamRateLimitError
 from src.observability.tracing import trace_context
+from src.pipeline import rag_engine
 from src.pipeline.factory import create_engine
 from src.pipeline.rag_engine import QueryResult
 
@@ -33,6 +34,22 @@ def test_nothing_is_read_or_called_before_build(settings):
     assert stand_in.calls == [] and engine.stats()["documents"] == 0
     with pytest.raises(NotReadyError, match="build\\(\\) must run first"):
         engine.query("My VPN won't connect")
+
+
+def test_a_failed_build_is_tried_again_at_most_once_a_minute(settings, monkeypatch):
+    stand_in = KeywordEmbeddings()
+    engine = stand_in_engine(settings, embedding_model=stand_in)
+    with pytest.raises(NotReadyError):
+        engine.ensure_built()                     # never built, and no failure noted: not ready, as query() says
+    engine.build_failed(UpstreamRateLimitError("embeddings", "429 RESOURCE_EXHAUSTED"))
+    with pytest.raises(UpstreamRateLimitError):
+        engine.ensure_built()                     # within the minute: the failure again, and nothing asked
+    assert stand_in.calls == []
+    monkeypatch.setattr(rag_engine, "REBUILD_SECONDS", 0.0)
+    engine.ensure_built()                         # the minute is over: built, the chunks embedded
+    assert stand_in.calls == [("documents", 28)] and engine.check_ready() == 28
+    engine.ensure_built()                         # built: nothing more
+    assert stand_in.calls == [("documents", 28)]
 
 
 def test_build_embeds_the_28_chunks_in_one_call_and_stores_them(settings):
