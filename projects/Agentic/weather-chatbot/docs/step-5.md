@@ -140,6 +140,26 @@ a call whose first words come late, which ends the answer as too slow. Every ear
 graph. The mutation check breaks 4 more rules (its first 96 lines are left out above; each says caught), and now runs
 each rule against its module's own test files, two at a time, in copies of the project: 3 minutes in all.
 
+## Deploy it
+
+The push, 9195641, was live on Vercel within a minute, while CI ran its checks, which passed in about two minutes.
+Checked on the live site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026, after a warm-up, with the
+same checks as step 4's, now on our own graph:
+
+- "Will it rain in Paris tomorrow?", with `en-US` and `America/Chicago`: the `geocode_location` chip 1.77 s after the
+  question was sent, done at 2.19 s; the `get_forecast` chip at 2.92 s, imperial, done at 3.01 s; the words from 3.94 s
+  to 4.08 s: "In Paris, Île-de-France Region, France, tomorrow (Sunday, November 1, 2026), the forecast shows overcast
+  skies with a 0% chance of rain." Three calls to the model, the last one answering in words, as before.
+- An empty question got 400, and JSON 415, each with our sentence.
+- In Edge, "How's the air in Delhi right now?" ran `geocode_location` and `get_air_quality`, each done in 0.4 s; the
+  opened chip showed its request, the point rounded to 28.65, 77.23; axe found no violation, and the console held no
+  error.
+- Vercel's logs, searched for the Paris question's id, held its lines under commit 9195641: `chat.request`, then
+  `upstream.http` and `tool.call` for each tool, `chat.done` and `http.request`, as in step 4.
+
+Nothing changed for a visitor: the loop changed hands, and its limits, which a live question doesn't reach, are held
+by the unit tests.
+
 ## Things to take care of, and pitfalls
 
 - **A step limit that fails the answer isn't a step limit:** turn the tools off for the last call instead, and the
