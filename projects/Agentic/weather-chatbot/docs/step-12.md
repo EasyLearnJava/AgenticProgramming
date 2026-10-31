@@ -246,6 +246,27 @@ still sent; a check that keeps failing, at error once; Apify's MCP server agains
 dots: working, not answering, and status unknown. The mutation check breaks 26 more rules (its first 151 lines are left
 out above).
 
+## Deploy it
+
+The push, 01a4ba2, was live on Vercel, and CI's checks had passed, within about three minutes. Checked on the live
+site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026:
+
+- `/api/health` answered `200` in 0.59 s, each check passing: Open-Meteo in 430 ms, our MCP server in 190 ms, Apify's
+  account in 93 ms, Apify's MCP server in 240 ms; all four lanes working. Asked again at once, Vercel's CDN answered,
+  in 0.09 s (`x-vercel-cache: HIT`), with the same report; it keeps `s-maxage` to itself, so a browser sees
+  `public, max-age=0`.
+- In a browser, the four dots said *working*.
+- A question on REST · no auth answered. Axiom had its seven lines, `chat.request` to `http.request`, each at its own
+  time: sent once the answer had ended, so `wait_until` kept the function alive for them. Axiom had the deployment's
+  other lines too, the health checks' among them, and Vercel's logs had no `axiom.failed`.
+- The start line said `"axiom": true, "sentry": true, "tracing": true`: Axiom's and Sentry's variables are set, and
+  LangSmith traces. It said `"cacheStore": "AsyncRuntimeCache"` too: the Runtime Cache's store wasn't the one issue
+  60's fix built (issue 72).
+
+The follow-up, 4785bc7, with issue 72's undoing and the review's fixes, was live within three minutes, CI passing, and
+checked the same way: every check passing, a second ask from the CDN, the four dots *working*, and a question's seven
+lines in Axiom beside the deployment's two start lines, which no longer name a cache store.
+
 ## Things to take care of, and pitfalls
 
 - **A function that answers may be frozen:** hand what must still be sent to the platform's `wait_until`, with a time
