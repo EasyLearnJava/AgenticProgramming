@@ -29,12 +29,12 @@ The projects come in five levels:
   replaceable; every setting in `config.yaml`; errors that answer in one shape; and logs in which one trace ID follows
   each request through every layer, shown on the page under each answer. 01 is built.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
-  and reports it. 01 is built; 02 to 12 are planned, each with a README giving its plan, and
+  and reports it. 01 and 02 are built; 03 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
 - **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
   [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
 
-Each Basic folder, Intermediate/01 and Advanced/01 is a project of its own: it holds the app as built so far plus one new piece, runs
+Each Basic folder, Intermediate/01 and each built Advanced folder is a project of its own: it holds the app as built so far plus one new piece, runs
 on its own, and has its own tests. Projects 01 to 05 are the ingestion half (also called indexing): they get the
 knowledge base ready to be searched (read, label, chunk, embed, store), once per run, with no question anywhere. 06
 and 07 are the query half, which runs for each question: the user's question comes in at 06, and 07 onward answer it.
@@ -78,7 +78,8 @@ Models and Embeddings in RAGs.
 | Project | What it adds to the basic one | Run it |
 |---|---|---|
 | `01-read-the-knowledge-base` | Every row checked; sensitive data (PII, PCI, secrets) redacted; duplicates removed; logging and command-line options; a report of every row skipped, removed, redacted or flagged, and why. `data/sample_it_kb_messy.csv` has a row for each case | `python knowledge_base_loader.py` |
-| `02` to `12` | Planned: each folder's README gives its plan (validated schemas, token-sized chunks, retries and caching, hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
+| `02-documents-and-metadata` | Each article checked against a schema (Pydantic); typed labels with one spelling per value (`kb_settings.toml`); an ID that survives re-sorting; provenance in every Document; and only the articles added or changed since the last run passed on, removed ones listed. `data/sample_it_kb_labels.csv` has a row for each label problem, `data/sample_it_kb_next.csv` is the next export | `python knowledge_base_loader.py` |
+| `03` to `12` | Planned: each folder's README gives its plan (token-sized chunks, retries and caching, hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
 
 ## What you need
 

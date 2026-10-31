@@ -1,0 +1,3 @@
+# Written by each run (python knowledge_base_loader.py): the last run's articles, to compare the next run with
+data/manifest.json
+data/manifest.json.*.tmp

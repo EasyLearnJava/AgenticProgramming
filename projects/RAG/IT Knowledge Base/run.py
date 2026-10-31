@@ -38,6 +38,7 @@ COMMANDS = {
     "Basic/10-chat-page": ["-m", "uvicorn", "main:app"],
     "Intermediate/01-rag-chat-app": ["main.py"],
     "Advanced/01-read-the-knowledge-base": ["knowledge_base_loader.py"],
+    "Advanced/02-documents-and-metadata": ["knowledge_base_loader.py"],
 }
 
 

@@ -1,0 +1,63 @@
+# The knowledge base export, described: which column holds each field, which fields become the Document's text and
+# which its labels, what an article's ID is made from, and one spelling for each label value. A new export with
+# renamed columns, or a new spelling, needs a change here, not in the code. The loader checks this file at start and
+# stops, naming the setting, on a typo.
+
+# The Document's text (page_content), in this order: what gets searched and read
+text_fields = ["title", "problem", "resolution", "notes"]
+
+# The Document's labels (metadata): shown with an answer, and used to filter. The title is in both.
+label_fields = ["title", "system", "category", "priority", "tags", "visibility", "team"]
+
+# What an article's ID is made from when the export has no id column. Change the title or the system and it's a new
+# article (the old one is listed as removed); change anything else and it's the same article, changed.
+id_fields = ["title", "system"]
+
+# Each field (left) is read from the export's column (right). title, problem and resolution must be in the file; the
+# others may be missing from it. A column of the file that isn't named here isn't read, and the log says so.
+[columns]
+id = "id"                    # the article's key in the source system
+title = "title"
+problem = "problem"
+resolution = "resolution"
+notes = "notes"
+system = "system"
+category = "category"
+priority = "priority"        # Low, Medium, High or Critical: the article.py schema allows nothing else
+tags = "tags"                # separated by ;
+visibility = "visibility"    # who may see the article: public, internal or restricted
+team = "team"                # the team that owns it
+
+# One spelling for each value: each spelling on the right becomes the one on the left. Upper and lower case, spaces,
+# hyphens and underscores never count, so "Wi-Fi" and "wifi" find "WiFi" with no entry. A system or category that
+# isn't here is kept as written, and flagged; a priority that isn't here fails the schema.
+[spellings.priority]
+Low = ["P4"]
+Medium = ["Med", "Normal", "P3"]
+High = ["P2"]
+Critical = ["Crit", "P1"]
+
+[spellings.system]
+"Active Directory" = ["AD"]
+Database = ["DB"]
+Email = ["E-mail", "Mail"]
+"HR Portal" = []
+Laptop = ["Notebook"]
+MFA = ["2FA", "Multi-Factor Authentication"]
+"Microsoft Teams" = ["Teams", "MS Teams"]
+Payments = []
+Printer = ["Printers"]
+Salesforce = ["SFDC"]
+VPN = []
+WiFi = ["Wireless", "WLAN"]
+
+[spellings.category]
+Collaboration = []
+Communication = []
+Hardware = []
+"Identity Management" = ["Identity", "IAM"]
+Infrastructure = []
+Network = ["Networking"]
+"Remote Access" = []
+"SaaS Access" = ["SaaS"]
+Security = []
