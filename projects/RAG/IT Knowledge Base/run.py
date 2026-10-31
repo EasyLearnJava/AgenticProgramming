@@ -42,6 +42,7 @@ COMMANDS = {
     "Advanced/03-chunking": ["pipeline.py"],
     "Advanced/04-embeddings": ["pipeline.py"],
     "Advanced/05-vector-store": ["pipeline.py"],
+    "Advanced/06-retriever": ["pipeline.py"],
 }
 
 
