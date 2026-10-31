@@ -130,6 +130,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "capped; the other tools, and any failure, by the twin with no auth, the chip saying why."
         ),
     ),
+    DocPage(
+        slug="step-11",
+        path="/docs/step-11",
+        label="Step 11: Security: Rate Limits, Prompt Injection, Privacy",
+        summary=(
+            "Vercel's firewall, a bypass for the app's own calls then a rate limit, its 429 in our words; a rule "
+            "against prompt injection; and privacy checks, tests of what never leaves the app, on every lane."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

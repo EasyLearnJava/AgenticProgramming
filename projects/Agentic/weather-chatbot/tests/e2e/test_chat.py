@@ -14,7 +14,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from playwright.sync_api import ConsoleMessage, Locator, Page, Route, expect
 
 from nimbus.constants import QUESTION_MAX_CHARS
-from nimbus.errors import CUT_OFF, QUESTION_TOO_LONG, STOPPED, UNREACHABLE
+from nimbus.errors import CUT_OFF, QUESTION_TOO_LONG, RATE_LIMITED, STOPPED, UNREACHABLE
 from tests.fakes import ANSWER, FakeModel, OpenMeteoRecordings
 
 QUESTION = "Will it rain in Paris tomorrow?"
@@ -304,3 +304,10 @@ def test_the_compare_view_shows_one_forecast_call_through_each_lane_and_passes_a
     assert page.evaluate("document.documentElement.scrollWidth - window.innerWidth") <= 0
     results = Axe().run(page)
     assert results.violations_count == 0, results.generate_report()
+
+
+def test_the_firewall_s_429_is_said_in_our_own_words(page: Page) -> None:
+    # Vercel's firewall answers one address that asks too often with its own 429 (step 11).
+    page.route("**/api/chat", lambda route: route.fulfill(status=429, content_type="text/plain", body="Too Many"))
+    ask(page)
+    expect(page.locator(".message-error .message-note")).to_have_text(RATE_LIMITED)

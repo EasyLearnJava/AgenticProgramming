@@ -131,14 +131,15 @@
     rememberConversation();
   });
 
-  // ⑥ A response that isn't ours, such as another service's error page, is never shown: our own sentence instead.
+  // ⑥ A response that isn't ours, such as another service's error page, is never shown: our own sentence instead;
+  // for the firewall's 429, when one address asks too often (step 11), the sentence that says so.
   form.addEventListener("htmx:before:swap", (event) => {
     const response = event.detail.ctx.response;
     const isStream = (response.headers.get("content-type") || "").startsWith("text/event-stream");
     const isOurs = isStream ? response.status === 200 : response.headers.has("x-nimbus-error");
     if (!isOurs) {
       event.preventDefault();
-      showError(messages.dataset.unreachable);
+      showError(response.status === 429 ? messages.dataset.rateLimited : messages.dataset.unreachable);
     }
   });
 

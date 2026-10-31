@@ -32,6 +32,7 @@
     </header>
     <ol id="messages" class="messages" aria-label="Conversation" aria-live="polite"
       data-stopped="{{ stopped }}" data-cut-off="{{ cut_off }}" data-unreachable="{{ unreachable }}"
+      data-rate-limited="{{ rate_limited }}"
       data-chip-stopped-mark="{{ chip_stopped_mark }}" data-chip-stopped-word="{{ chip_stopped_word }}"
       data-history-max-messages="{{ history_max_messages }}" data-history-max-chars="{{ history_max_chars }}"
       data-question-max-chars="{{ question_max_chars }}" data-answer-max-chars="{{ answer_max_chars }}">
@@ -86,6 +87,9 @@
         <button id="send" type="submit" class="send-button">Send</button>
         <button id="stop" type="button" class="stop-button">Stop</button>
       </form>
+      <p class="chat-privacy">
+        Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.
+      </p>
       <noscript><p class="chat-noscript">The chat needs JavaScript; the documentation doesn't.</p></noscript>
     </div>
   </section>

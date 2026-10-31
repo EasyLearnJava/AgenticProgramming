@@ -19,6 +19,8 @@ UNEXPECTED = "Something went wrong. Please try again."
 STOPPED = "Stopped."
 CUT_OFF = "The answer was cut off. Please try again."
 UNREACHABLE = "The chat couldn't be reached. Please try again."
+# The firewall's own 429, which isn't ours, when one address asks too often (step 11): the page says it in our words.
+RATE_LIMITED = "Too many questions from here just now. Please wait a minute, then try again."
 # ④ What it says when the model can't answer (step 3).
 NOT_SET_UP = "The assistant isn't set up on this deployment yet."
 MODEL_BUSY = "The assistant is busy right now. Please try again in a minute."

@@ -380,3 +380,25 @@ Its shape, field by field, and its meaning: the place you asked for, the days yo
 
 **5. Why open a connection in the task that will close it?**
 Libraries built on anyio enter a task group on connecting; leaving it from another task fails.
+
+## Step 11 · Security: Rate Limits, Prompt Injection, Privacy
+
+**1. Where do you rate-limit a serverless app?**
+At its edge, before a function starts: in a firewall every copy shares. An app's own memory is one copy's, and a
+request it refuses has already cost a function.
+
+**2. Why does an app that calls itself need a bypass?**
+Its calls come from its platform's addresses: under a limit per address, every user's calls through it would share one
+limit. A secret header lets the firewall skip them.
+
+**3. Where can prompt injection come from in a chat with tools?**
+The user's question, the earlier messages a client sends back, and the tools' results. Rules in the system prompt name
+each; read-only tools and answers without HTML keep what a fooled model can do small.
+
+**4. How do you test privacy?**
+Send data you can recognize through every way the app has, then search what it wrote and what it sent: the logs, the
+requests out.
+
+**5. What does a weather chat need to send to whom?**
+The model gets the question and the conversation; the weather API, the place; anything else, such as the logs or a
+tracing service, gets only the shape of what happened.

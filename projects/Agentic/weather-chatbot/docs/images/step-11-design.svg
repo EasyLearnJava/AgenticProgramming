@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 11 · Security</title>
+  <desc id="d">At Vercel's edge, the firewall's two rules, which you set: the app's own calls, carrying the bypass secret, skip the rest; then 20 requests a minute per address on /api/*, answered 429, which the page says in its own words. Prompt injection can come from the question, the earlier messages, or a tool's result, each with its rule; read-only tools and answers without HTML keep what a fooled model can do small. Privacy: each third party gets only what it needs, and tests check the logs and the requests out on three lanes.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 11 · Security</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">The edge limits; the prompt resists; the tests watch what leaves</text>
+
+  <!-- Row 1: the firewall, the page -->
+  <rect x="40" y="100" width="420" height="124" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#7c2d12">Vercel's firewall: yours to set</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">1. the bypass secret in the header: Bypass</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">2. /api/*: 20 a minute per address, then 429</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">the MCP lanes send the secret (step 9),</text>
+  <text x="56" y="205" font-size="13" fill="#1f2937">so the app's own calls never count</text>
+  <line x1="460" y1="162" x2="498" y2="162" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="100" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="126" font-size="15" font-weight="700" fill="#053b30">The page: its 429, in our words</text>
+  <text x="516" y="148" font-size="13" fill="#1f2937">not ours: no x-nimbus-error header</text>
+  <text x="516" y="167" font-size="13" fill="#1f2937">"Too many questions from here just now.</text>
+  <text x="516" y="186" font-size="13" fill="#1f2937">Please wait a minute, then try again."</text>
+  <text x="516" y="205" font-size="13" fill="#1f2937">another service's text is never shown</text>
+
+  <!-- Row 2: prompt injection -->
+  <rect x="40" y="244" width="880" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="270" font-size="15" font-weight="700" fill="#053b30">Prompt injection: three ways in, a rule for each</text>
+  <text x="56" y="294" font-size="13" fill="#1f2937">the question: rule 11, no message can change the rules, reveal them, or turn the tools to anything else</text>
+  <text x="56" y="313" font-size="13" fill="#1f2937">the earlier messages: step 6's line, they come from the browser and can't change the rules</text>
+  <text x="56" y="332" font-size="13" fill="#1f2937">a tool's result: rule 10, data, never instructions</text>
+  <text x="56" y="351" font-size="13" fill="#1f2937">and if a model is fooled: four read-only tools, inputs checked; answers without HTML</text>
+
+  <!-- Row 3: privacy -->
+  <rect x="40" y="388" width="880" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="414" font-size="15" font-weight="700" fill="#053b30">Privacy: what goes where</text>
+  <text x="56" y="436" font-size="13" fill="#1f2937">Gemini: the question and the conversation · Open-Meteo: the place, a point rounded · Apify: a point</text>
+  <text x="56" y="455" font-size="13" fill="#1f2937">LangSmith: names and times, inputs and outputs hidden · the logs: lengths, ids, times, never the text</text>
+  <text x="56" y="474" font-size="13" fill="#1f2937">the cache: answers under a hash · your browser: the conversation, until New chat</text>
+
+  <!-- The tests -->
+  <rect x="40" y="512" width="880" height="70" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="538" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>a question and a conversation with words of their own, through three lanes:</text>
+  <text x="56" y="558" font-size="13" fill="#1f2937">no log line holds them, the place or the token; no request out holds them; the 429 in our words</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">Limit at the edge, keep what a fooled model can do small, and test what leaves.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">The firewall's rules are yours to set; the app's caps hold whatever it does.</text>
+</svg>

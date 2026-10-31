@@ -1,6 +1,6 @@
 # System Design
 
-How Nimbus is built after step 10, drawn the way the TypeScript version's
+How Nimbus is built after step 11, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
@@ -10,11 +10,12 @@ fixed answer, through LangChain. Step 4 gave it four weather tools, which call O
 Step 5 made the agent that runs them a LangGraph graph of our own. Step 6 gave the chat a memory, kept in the
 browser. Step 7 keeps Open-Meteo's answers in Vercel's Runtime Cache. Step 8 offers the same four tools to any MCP
 client, from our own MCP server. Step 9 lets a question reach them through that server: the MCP · no auth lane.
-Step 10 opens the lanes with auth: the forecast through Apify's Actor, falling back to the twin with no auth. Each step
-adds its parts to this page.
+Step 10 opens the lanes with auth: the forecast through Apify's Actor, falling back to the twin with no auth. Step 11
+adds security: the firewall's rules, a rule against prompt injection, and privacy checks. Each step adds its parts to
+this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 
-![How Nimbus is built after step 10](images/system-design.svg)
+![How Nimbus is built after step 11](images/system-design.svg)
 
 ## The four bands
 
@@ -23,7 +24,9 @@ Below the diagram, each band is described, then each part of the reference is se
 1. **You**, in a browser, on a computer or a phone, open a page: the chat, the documentation, or this one; or ask the
    chat a question: a chip for each tool call behind its answer, then the answer, Gemini's, a word at a time. There's
    no sign-in.
-2. **Vercel's edge** (02) serves HTTPS and routes the request. It gives the request an id, `x-vercel-id`, which a
+2. **Vercel's edge** (02) serves HTTPS and routes the request. Its firewall, once you set its two rules (step 11),
+   lets the app's own calls through by the bypass secret, then limits `/api/*` to 20 requests a minute per address,
+   answering 429, which the page says in its own words. It gives the request an id, `x-vercel-id`, which a
    client can't forge: sent with a request, it's replaced by Vercel's own (checked on the live site). Five files never
    reach the app: **Vercel's CDN** serves the stylesheet, the icon, htmx, its stream extension and our `chat.js` from
    `public/` itself, with the security headers `vercel.json` gives them.
@@ -147,7 +150,7 @@ tools, and through them Open-Meteo.
 | The reference | Nimbus after step 4 | Why, or when |
 |---|---|---|
 | Shopper: web or mobile chat | You, in a browser, on a computer or a phone: Gemini answers from the weather tools' results, each call a chip | |
-| 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, and a request id it sets itself; the security headers on every response, the CDN's files included | The weather is public, so there's no sign-in. Rate limits come with the firewall's rules (step 11) |
+| 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, and a request id it sets itself; the security headers on every response, the CDN's files included | The weather is public, so there's no sign-in. The firewall's rules, set in Vercel (step 11): a bypass for the app's own calls, then 20 requests a minute per address on `/api/*` |
 | 01 · Input guardrails: injection, PII, scope | In part: the form's checks: its type, at most 32 KiB, each field once, the question 1 to 2,000 characters, a language tag and a known time zone, no field we don't know; each tool call's input checked against its schema | Rules against prompt injection come in step 11 |
 | 03 · Semantic cache: safe answers, by similarity | None | The weather changes by the hour, so a cached answer would go stale; Open-Meteo's answers are cached instead, each for its own time (step 7) |
 | 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; our own LangGraph graph: 5 calls to the model, the last with its tools off; 10 s for each call's first words, 8 s a tool call, 30 s an answer, which Stop ends on the page (on Vercel, the function goes on to the end) | |
@@ -225,5 +228,5 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 
 ## What comes next
 
-Step 11 is security: the firewall's rate limit, which you set in Vercel, prompt-injection rules, and privacy checks.
-Each step after it adds its parts to this page and its diagram; the plan, `PLAN.md`, has them all.
+Step 12 is monitoring: Axiom, Sentry and LangSmith; `/api/health` with each lane's check, and the status dots. Each
+step after it adds its parts to this page and its diagram; the plan, `PLAN.md`, has them all.

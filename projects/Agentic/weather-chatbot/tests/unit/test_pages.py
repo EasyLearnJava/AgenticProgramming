@@ -17,7 +17,7 @@ from nimbus.app import create_app
 from nimbus.config import Settings
 from nimbus.constants import QUESTION_MAX_CHARS
 from nimbus.docs import CHAPTERS, DEPRECATED_PAGES, DEPRECATED_STEPS, PAGES, DocPage, read_markdown, title_of
-from nimbus.errors import CUT_OFF, STOPPED, UNREACHABLE
+from nimbus.errors import CUT_OFF, RATE_LIMITED, STOPPED, UNREACHABLE
 from nimbus.pages import DEPRECATED_MENU_ITEMS, MENU_ITEMS, to_aria_current, to_menu_label
 
 DEPRECATED_NOTE = "Deprecated: this page describes the earlier TypeScript version of Nimbus."
@@ -91,8 +91,15 @@ def test_the_chat_page_holds_the_sentences_our_script_shows(client: TestClient) 
     assert messages["data-stopped"] == STOPPED
     assert messages["data-cut-off"] == CUT_OFF
     assert messages["data-unreachable"] == UNREACHABLE
+    assert messages["data-rate-limited"] == RATE_LIMITED
     assert messages["aria-live"] == "polite"
     assert "chat-error-template" in page.by_id
+
+
+def test_the_chat_page_says_where_questions_go(client: TestClient) -> None:
+    # Step 11: on Gemini's free tier, Google may use what it gets; the page says so, under the form.
+    note = "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal."
+    assert note in client.get("/").text
 
 
 def test_only_the_chat_page_loads_scripts(client: TestClient) -> None:

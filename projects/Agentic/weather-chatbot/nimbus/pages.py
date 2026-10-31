@@ -37,7 +37,7 @@ from nimbus.docs import (
     render_markdown,
     title_of,
 )
-from nimbus.errors import CUT_OFF, STOPPED, UNREACHABLE
+from nimbus.errors import CUT_OFF, RATE_LIMITED, STOPPED, UNREACHABLE
 from nimbus.lanes import LANES, MCP_NO_AUTH, MCP_WITH_AUTH, REST_NO_AUTH, REST_WITH_AUTH, Lane, is_open
 from nimbus.mcp_lane import to_tools_call
 from nimbus.open_meteo import to_forecast_request
@@ -132,6 +132,7 @@ def chat_page(request: Request) -> HTMLResponse:
         "stopped": STOPPED,
         "cut_off": CUT_OFF,
         "unreachable": UNREACHABLE,
+        "rate_limited": RATE_LIMITED,
         "chip_stopped_mark": MARKS["stopped"],
         "chip_stopped_word": f"{WORDS['stopped']}:",
         "history_max_messages": HISTORY_MAX_MESSAGES,

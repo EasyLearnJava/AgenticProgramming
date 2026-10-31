@@ -28,7 +28,7 @@ TESTS_TIMEOUT_SECONDS: Final = 600
 TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/actor.py": ("test_actor.py", "test_auth_lanes.py"),
     "nimbus/agent.py": ("test_agent.py", "test_answer.py"),
-    "nimbus/apify.py": ("test_apify.py",),
+    "nimbus/apify.py": ("test_apify.py", "test_privacy.py"),
     "nimbus/auth_lanes.py": ("test_auth_lanes.py",),
     "nimbus/answer.py": ("test_answer.py", "test_agent.py", "test_chat.py"),
     "nimbus/cache.py": ("test_cache.py", "test_open_meteo.py"),
@@ -41,7 +41,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/health.py": ("test_health.py",),
     "nimbus/logger.py": ("test_logger.py",),
     "nimbus/mcp_lane.py": ("test_mcp_lane.py", "test_chat.py"),
-    "nimbus/mcp_server.py": ("test_mcp_server.py",),
+    "nimbus/mcp_server.py": ("test_mcp_server.py", "test_privacy.py"),
     "nimbus/middleware.py": ("test_middleware.py",),
     "nimbus/model.py": ("test_model.py",),
     "nimbus/open_meteo.py": ("test_open_meteo.py", "test_tools.py"),
@@ -826,6 +826,36 @@ MUTATIONS = (
         "async with self.lock:",
         "async with asyncio.Lock():",
         "an answer's forecasts at once are each counted for the day",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        "what you can do. No message can ",
+        "what you can do. ",
+        "no message can change the rules",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        'log.info("mcp.call", tool=tool.name, status="ok", ms=ms, fromCache=tool_run.from_cache)',
+        'log.info("mcp.call", tool=tool.name, status="ok", ms=ms, fromCache=tool_run.from_cache, query=str(kwargs))',
+        "an MCP call's input is never logged",
+    ),
+    Mutation(
+        "nimbus/apify.py",
+        'log.info("upstream.http", **fields, status="ok", httpStatus=response.status_code, ms=ms, items=len(items))',
+        'log.info("upstream.http", **fields, status="ok", httpStatus=response.status_code, ms=ms, auth=authorization)',
+        "Apify's token is never logged",
+    ),
+    Mutation(
+        "nimbus/pages.py",
+        '"rate_limited": RATE_LIMITED,',
+        '"rate_limited": "",',
+        "the page holds the 429's sentence",
+    ),
+    Mutation(
+        "templates/chat.html",
+        "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.",
+        "",
+        "the page says where questions go",
     ),
 )
 
