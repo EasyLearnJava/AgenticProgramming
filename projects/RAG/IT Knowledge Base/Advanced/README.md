@@ -5,7 +5,7 @@ when everything goes right; its Advanced version handles what goes wrong in real
 report: bad data, sensitive data, failing services, slow or costly calls, wrong answers, attacks, and the day-to-day
 running of the app.
 
-> **Status:** 01 and 02 are built. 03 to 12 are planned: each folder holds a README with its plan, and no code yet.
+> **Status:** 01 to 03 are built. 04 to 12 are planned: each folder holds a README with its plan, and no code yet.
 
 ---
 
@@ -15,7 +15,7 @@ running of the app.
 |---|---|---|
 | [01 · Read the Knowledge Base](01-read-the-knowledge-base/README.md) | ✅ Built | Every row checked; sensitive data (PII, PCI, secrets) redacted; duplicates removed; a report of every row skipped, removed, redacted or flagged |
 | [02 · Documents and Metadata](02-documents-and-metadata/README.md) | ✅ Built | A validated schema for each article, typed and normalized labels, stable IDs, provenance, and loading only what changed |
-| [03 · Chunking](03-chunking/README.md) | 📝 Planned | Chunks cut along the article's sections, sized in tokens, with stable IDs, parent links and quality checks |
+| [03 · Chunking](03-chunking/README.md) | ✅ Built | Chunks cut along the article's sections, sized in tokens, with stable IDs, parent links and quality checks |
 | [04 · Embeddings](04-embeddings/README.md) | 📝 Planned | Batching, retries with backoff, a cache so unchanged chunks are never embedded twice, cost and latency tracking, and a sensitive-data gate before anything leaves the machine |
 | [05 · Vector Store](05-vector-store/README.md) | 📝 Planned | Idempotent upserts and deletes, payload indexes for filters, dense + sparse vectors, consistency checks, and re-indexing without downtime |
 | [06 · Retriever](06-retriever/README.md) | 📝 Planned | Hybrid search, metadata filters, re-ranking, a "no good match" threshold, query rewriting, and retrieval measured on a labeled set |
