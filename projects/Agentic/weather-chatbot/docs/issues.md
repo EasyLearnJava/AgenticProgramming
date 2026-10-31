@@ -249,3 +249,17 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     environment only. On Vercel the two are the same; on a computer with the variable only in `.env.local`, runs would
     have gone to LangSmith's default project. **Fix:** `make_tracer()` gives back the client and the project, and
     `tracing_context()` gets both, as `client` and `project_name`. **Check:** a unit test of each; two mutation rules.
+43. **The libraries' own lines reached Vercel's logs, as plain text.** *Deploying* (the live check). Each question
+    left two lines in Vercel's logs besides ours, without the request's id: google-genai's "AFC is enabled with max
+    remote calls: 10." and httpx's "HTTP Request: POST https://generativelanguage.googleapis.com/...?alt=sse". httpx
+    logs each request it sends, at info: from step 4, the calls to Open-Meteo would have put each place's coordinates
+    into the logs, against the rule that a query string is never logged. On a computer neither showed: Python writes
+    another library's info lines nowhere until something sets its logging up, and Vercel's runtime does. **Fix:**
+    `configure_logging()` sets the root logger up itself: one handler of ours, in place of any the platform put there,
+    at warning, so another library's info lines are never written, even from a logger it set to info. Its warnings and
+    errors become lines of ours, through structlog, with the build's fields, the request's id and the logger's name;
+    each web address's query string cut to `?...`; of an exception, only its class and its innermost 8 frames (file,
+    line and function), so a crash a platform logs this way can still be found. The review found the first pattern for
+    a query string slow on some texts: one that needed a `?` after each address searched again from every "http", 10,000
+    in a row taking seconds; each address is now matched whole, in any case, then cut. **Check:** unit tests for each,
+    one of them timed; nine mutation rules; on the live site, a question's lines after the fix's deploy.

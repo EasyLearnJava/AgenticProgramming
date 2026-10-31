@@ -74,7 +74,8 @@ a failure → our own sentence and its ref.
 | `pyproject.toml`, `uv.lock` | `langchain-core` 1.6.12, `langchain-google-genai` 4.4.2, `tzdata` 2026.5 |
 | `tests/fakes.py` | The stand-in model |
 | `tests/unit/test_answer.py`, `test_prompts.py`, `test_model.py` | New; the chat's unit and browser tests answer with the stand-in |
-| `tools/mutation_check.py` | 23 more rules |
+| `nimbus/logger.py`, `nimbus/utils.py` | Other libraries' lines: warnings and worse only, as ours (issue 43); `to_redacted_urls()` |
+| `tools/mutation_check.py` | 32 more rules |
 
 ## How it works
 
@@ -173,12 +174,12 @@ Start the app as before (`uv run uvicorn main:app --reload --no-access-log`). Wi
 ```text
 $ curl -N -i --data-urlencode "question=Will it rain in Paris tomorrow?" http://127.0.0.1:8000/api/chat
 HTTP/1.1 503 Service Unavailable
-date: Sat, 31 Oct 2026 07:17:22 GMT
+date: Sat, 31 Oct 2026 07:58:06 GMT
 server: uvicorn
 x-nimbus-error: 1
 content-length: 282
 content-type: text/html; charset=utf-8
-x-request-id: 6f23cc25294048e2
+x-request-id: 59c83fb4c4ca426c
 
 <li class="message message-bot message-error">
   <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
@@ -189,15 +190,15 @@ x-request-id: 6f23cc25294048e2
 
 ```json
 {"model": "gemini-3.5-flash-lite", "modelSetUp": false, "tracing": false, "event": "app.started", "level": "info",
- "ts": "2026-10-31T07:17:21.354605Z", "env": "local", "commit": null, "deploymentId": null}
-{"questionChars": 31, "event": "chat.request", "level": "info", "ts": "2026-10-31T07:17:22.689587Z", "env": "local",
- "commit": null, "deploymentId": null, "requestId": "6f23cc25294048e2"}
+ "ts": "2026-10-31T07:58:05.076329Z", "env": "local", "commit": null, "deploymentId": null}
+{"questionChars": 31, "event": "chat.request", "level": "info", "ts": "2026-10-31T07:58:06.388554Z", "env": "local",
+ "commit": null, "deploymentId": null, "requestId": "59c83fb4c4ca426c"}
 {"errorClass": "ConfigError", "answerChars": 0, "ms": 0, "event": "chat.failed", "level": "error",
- "ts": "2026-10-31T07:17:22.689644Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "6f23cc25294048e2"}
+ "ts": "2026-10-31T07:58:06.388618Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "59c83fb4c4ca426c"}
 {"method": "POST", "path": "/api/chat", "status": 503, "ms": 4, "event": "http.request", "level": "info",
- "ts": "2026-10-31T07:17:22.693021Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "6f23cc25294048e2"}
+ "ts": "2026-10-31T07:58:06.392102Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "59c83fb4c4ca426c"}
 ```
 
 With your own key in `.env.local`, restart, and the same request streams Gemini's answer, as on the live site
@@ -213,9 +214,9 @@ $ uv run ruff format --check .
 $ uv run mypy
 Success: no issues found in 39 source files
 $ uv run pytest
-254 passed in 3.67s
+269 passed in 4.15s
 $ uv run pytest tests/e2e --browser-channel msedge
-113 passed in 71.51s (0:01:11)
+113 passed in 77.27s (0:01:17)
 $ uv run python tools/mutation_check.py
 ...
 caught: an answer is at most 1,024 tokens
@@ -225,6 +226,15 @@ caught: the least thinking
 caught: the tracer hides inputs and outputs, whatever LangSmith's variables say
 caught: the tracer's project is the app's setting
 caught: the run is traced into the tracer's project
+caught: another library's info lines are never written
+caught: the root logger has only our handler
+caught: the handler's own level holds, whatever level a library sets
+caught: a library's line loses its query strings
+caught: of a library's exception, only its class
+caught: a library's exception keeps its frames
+caught: a web address loses its query string
+caught: a web address is found in any case
+caught: an exception's innermost frames are the ones kept
 caught: LangSmith traces only when it hides both inputs and outputs
 caught: a model's rate limit says the assistant is busy
 caught: a key the model refuses says the assistant isn't set up
@@ -241,7 +251,7 @@ caught: a time zone must be a known one
 caught: a locale the chat can't use takes the default
 caught: a deployment without a key says it isn't set up
 caught: the finished answer's Markdown is HTML
-61 of 61 caught
+70 of 70 caught
 ```
 
 The unit tests answer with `tests/fakes.py`'s stand-in, a LangChain chat model that streams a known answer a word at a
@@ -250,9 +260,61 @@ and the model; the system prompt and the question, as the model gets them; the l
 the default when they can't be used, logged; a deployment with no model; each kind of failure, mapped, the bad key's
 400 and a wrong model's 404 among them; the 30-second limit, even when the page is slow between pieces; the model's
 stream, closed with the answer; the tokens, added up; the Markdown's rules; the model's caps, in numbers; and the
-tracer, allowed only with both hidden, hiding both itself, into its project; and tracing off without it. The
-browser tests run the real chat with the stand-in, pausing 60 ms a word. The mutation check breaks 23 more rules (its
-first 38 lines are left out above; each says caught).
+tracer, allowed only with both hidden, hiding both itself, into its project; tracing off without it; and other
+libraries' lines, made ours. The browser tests run the real chat with the stand-in, pausing 60 ms a word. The mutation
+check breaks 32 more rules (its first 38 lines are left out above; each says caught).
+
+## Deploy it
+
+The push, 06327e5, was live on Vercel within 32 seconds, while CI ran its checks, which passed in about two minutes.
+Checked on the live site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026, once a health check and an
+empty question had warmed the function up:
+
+- The page had the two new fields, and the CDN served `chat.js` and `app.css` byte for byte the repository's, with
+  `vercel.json`'s security headers.
+- "What does the dew point tell me?", posted with `en-US` and `America/Chicago`, streamed Gemini's answer through
+  Vercel's edge: the turn's first event 0.15 s after the question was sent, the first words after 0.88 s, in 4
+  pieces, the last after 1.13 s. It gave its example in °F, the units rule 5 gives `en-US`: "When the dew point is
+  high, usually above 60°F, the air feels sticky and humid".
+- An empty question got 400, and JSON 415, each with our sentence and `x-nimbus-error: 1`.
+- In Edge, whose page sent `en-US` and `America/Chicago`, "Will it rain in Paris tomorrow?" got "I can't check the
+  weather yet, as live forecasts will come in a later version of this chat.": rule 1 held. The answer ended as HTML,
+  axe found no violation, and the console held no error.
+- Vercel's logs, searched for the first question's id, held its three lines, its tokens among them:
+
+```json
+{"questionChars": 32, "event": "chat.request", "level": "info", "ts": "2026-10-31T07:27:45.111247Z",
+ "env": "production", "commit": "06327e5", "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ",
+ "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
+{"answerChars": 290, "ms": 989, "tokensIn": 294, "tokensOut": 63, "model": "gemini-3.5-flash-lite",
+ "event": "chat.done", "level": "info", "ts": "2026-10-31T07:27:46.100500Z", "env": "production", "commit": "06327e5",
+ "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ", "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
+{"method": "POST", "path": "/api/chat", "status": 200, "ms": 990, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T07:27:46.100994Z", "env": "production", "commit": "06327e5",
+ "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ", "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
+```
+
+- Each copy of the app said, as it started, `"modelSetUp": true, "tracing": true`: Vercel holds the key, and
+  LangSmith's variables allow tracing, both sides hidden.
+- LangSmith's project, `weather-chatbot`, held the day's four runs, each a `ChatGoogleGenerativeAI` run with "No
+  inputs" and "No outputs": only its time (0.63 to 1.01 s), its tokens and the model's settings, such as
+  `max_output_tokens: 1024`.
+
+**The libraries wrote lines of their own.** Each question also left two lines in Vercel's logs that weren't ours,
+plain text, without the request's id (the second wrapped here):
+
+```text
+AFC is enabled with max remote calls: 10.
+HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent
+ ?alt=sse "HTTP/1.1 200 OK"
+```
+
+The first is google-genai's, the second httpx's, which logs each request it sends: from step 4, the calls to
+Open-Meteo would have put each place's coordinates into the logs, in their query strings. On a computer, neither ever
+showed: Python writes another library's info lines nowhere until something sets its logging up, which Vercel's
+runtime does. So the app now sets the standard logging up itself: another library's warnings and errors only, each
+written as a line of ours, with the build's fields and the request's id, any web address's query string cut off, and
+of an exception only its class and where it went (issue 43).
 
 ## Things to take care of, and pitfalls
 
@@ -274,6 +336,9 @@ first 38 lines are left out above; each says caught).
 - **LangSmith's client starts a thread that calls LangSmith:** a test that makes one reaches the network; record how
   it's made instead (issue 41).
 - **A model's error can quote what it was sent.** Log its class (`causeClass`), never its message.
+- **A platform can set Python's logging up for you:** on Vercel, other libraries' info lines reached the logs as
+  plain text; on a computer they never showed. Set the root logger up yourself, with a level and a handler of your own
+  (issue 43).
 - **The question goes to Google as typed.** It's never logged or traced by us; Google's own terms cover what it keeps.
 - **`chunk.text` is a property in LangChain 1.x;** in 0.3 it was a method.
 - **Pictures off still leaves a link:** `![x](url)` becomes `!` and a link to the picture's address, never the picture.
@@ -296,6 +361,7 @@ first 38 lines are left out above; each says caught).
     region.
 41. A test reached out to LangSmith: it records how the client is made instead.
 42. The LangSmith project was read but never used: the tracer traces into it.
+43. The libraries' own lines reached Vercel's logs, as plain text: only their warnings and errors now, as ours.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 
@@ -347,6 +413,12 @@ cue. The app takes its model from `app.state`, so a test puts the stand-in there
 The deadline cancels whichever code is running when it passes. Between two `yield`s, that's the code reading the
 generator, the page's sending here, not the generator: the answer would end as if the browser had gone. So one
 deadline is set, and only the generator's own waits are timed, with `asyncio.timeout_at()` around each `anext()`.
+
+**11. Why did Vercel's logs show lines your computer never did?**
+Python writes another library's info lines nowhere until something sets its logging up, and Vercel's runtime does: on
+Vercel, httpx's line for each request it sent, and google-genai's, came out as plain text. So the app sets the root
+logger up itself, with its own handler and level: warnings and errors only, each as one of our JSON lines, with any
+query string cut off.
 
 ## Things to try
 

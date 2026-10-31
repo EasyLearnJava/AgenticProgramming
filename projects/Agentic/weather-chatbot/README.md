@@ -68,8 +68,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [14320] using StatReload
-INFO:     Started server process [11352]
+INFO:     Started reloader process [47348] using StatReload
+INFO:     Started server process [37120]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -78,9 +78,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 9, "event": "http.request", "level": "info",
- "ts": "2026-10-31T07:17:22.657356Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "4a81e6e5d8f841e6"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 8, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T07:58:06.359585Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "4fbc260e221542c1"}
 ```
 
 ## Test it
@@ -93,12 +93,12 @@ $ uv run ruff format --check .
 $ uv run mypy
 Success: no issues found in 39 source files
 $ uv run pytest
-254 passed in 3.67s
+269 passed in 4.15s
 $ uv run pytest tests/e2e --browser-channel msedge
-113 passed in 71.51s (0:01:11)
+113 passed in 77.27s (0:01:17)
 $ uv run python tools/mutation_check.py
 ...
-61 of 61 caught
+70 of 70 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all

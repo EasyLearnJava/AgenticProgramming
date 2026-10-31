@@ -3,15 +3,25 @@ nimbus/utils.py: small helpers the app shares, with no state and no I/O, each te
 """
 
 import re
+import traceback
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
+from types import TracebackType
 
-from nimbus.constants import NEW_REQUEST_ID_CHARS, REQUEST_ID_PATTERN
+from nimbus.constants import LIBRARY_LOG_MAX_FRAMES, NEW_REQUEST_ID_CHARS, REQUEST_ID_PATTERN
 
 MS_PER_SECOND = 1000
 REF_CHARS = 8
 # Where a browser ends a line of a server-sent event: \r\n, \r or \n, and nowhere else.
 SSE_LINE_BREAK = re.compile(r"\r\n|\r|\n")
+# A web address, in any case, from its scheme to the next space, quote or angle bracket. Nothing is required after it,
+# so each search ends where the last one did: a pattern that needed a ? after the address searched again from every
+# "http" in the text (issue 43). Only a query string in such an address is cut; urllib3's debug lines ("GET /a?b
+# HTTP/1.1") aren't, and the level never writes them.
+WEB_ADDRESS = re.compile(r"https?://[^\s\"'<>]*", re.IGNORECASE)
+# The punctuation that ends a sentence rather than a query string ("...?id=1: timeout").
+SENTENCE_END = ".,:;!?)]"
 
 
 def new_request_id() -> str:
@@ -58,3 +68,36 @@ def to_sse_message(data: str) -> str:
     event. The browser joins the lines back with \\n.
     """
     return "".join(f"data: {line}\n" for line in SSE_LINE_BREAK.split(data)) + "\n"
+
+
+def _without_query(match: re.Match[str]) -> str:
+    """A web address with its query string cut to "?...": what comes after its #, and a sentence's end, are kept."""
+    address, hash_mark, fragment = match[0].partition("#")
+    path, question_mark, query = address.partition("?")
+    if not question_mark:
+        return match[0]
+    sentence_end = query[len(query.rstrip(SENTENCE_END)) :]
+    return f"{path}?...{sentence_end}{hash_mark}{fragment}"
+
+
+def to_redacted_urls(text: str) -> str:
+    """
+    The text with each web address's query string cut to "?...", for another library's log line: a query string can
+    hold what a visitor typed, or where they are ("forecast?latitude=48.85&..." → "forecast?...").
+    """
+    return WEB_ADDRESS.sub(_without_query, text)
+
+
+def _to_frame_line(frame: traceback.FrameSummary) -> str:
+    """One frame of an exception, as a log line gives it: "nimbus/chat.py:281 chat"."""
+    path = Path(frame.filename)
+    return f"{path.parent.name}/{path.name}:{frame.lineno} {frame.name}"
+
+
+def to_frames(trace: TracebackType | None) -> list[str]:
+    """
+    Where an exception went, for a log line: its innermost 8 frames, each as "nimbus/chat.py:281 chat", with none of
+    its values or messages, which can hold anything. No source file is read.
+    """
+    frames = traceback.StackSummary.extract(traceback.walk_tb(trace), lookup_lines=False)[-LIBRARY_LOG_MAX_FRAMES:]
+    return [_to_frame_line(frame) for frame in frames]

@@ -204,3 +204,9 @@ cue. The app takes its model from `app.state`, so a test puts the stand-in there
 The deadline cancels whichever code is running when it passes. Between two `yield`s, that's the code reading the
 generator, the page's sending here, not the generator: the answer would end as if the browser had gone. So one
 deadline is set, and only the generator's own waits are timed, with `asyncio.timeout_at()` around each `anext()`.
+
+**11. Why did Vercel's logs show lines your computer never did?**
+Python writes another library's info lines nowhere until something sets its logging up, and Vercel's runtime does: on
+Vercel, httpx's line for each request it sent, and google-genai's, came out as plain text. So the app sets the root
+logger up itself, with its own handler and level: warnings and errors only, each as one of our JSON lines, with any
+query string cut off.

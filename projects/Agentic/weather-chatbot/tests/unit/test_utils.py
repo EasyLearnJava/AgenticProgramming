@@ -1,10 +1,24 @@
-"""tests/unit/test_utils.py: the shared helpers: request ids, refs and turn ids, times, and server-sent events."""
+"""
+tests/unit/test_utils.py: the shared helpers: request ids, refs and turn ids, times, server-sent events, web
+addresses without their query strings, and an exception's frames.
+"""
 
+import time
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from nimbus.utils import new_request_id, new_turn_id, to_iso, to_ms, to_ref, to_request_id, to_sse_message
+from nimbus.utils import (
+    new_request_id,
+    new_turn_id,
+    to_frames,
+    to_iso,
+    to_ms,
+    to_redacted_urls,
+    to_ref,
+    to_request_id,
+    to_sse_message,
+)
 
 HEX = set("0123456789abcdef")
 
@@ -66,3 +80,58 @@ def test_a_server_sent_event_breaks_lines_only_where_the_browser_does() -> None:
     # The browser ends a line at \r\n, \r or \n, and nowhere else: Python's splitlines() would also break at \u2028.
     assert to_sse_message("a\r\nb\rc\nd") == "data: a\ndata: b\ndata: c\ndata: d\n\n"
     assert to_sse_message("keep\u2028this") == "data: keep\u2028this\n\n"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            'HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35 "HTTP/1.1 200 OK"',
+            'HTTP Request: GET https://api.open-meteo.com/v1/forecast?... "HTTP/1.1 200 OK"',
+        ),
+        ("for url 'http://example.test/a?b=1#top'", "for url 'http://example.test/a?...#top'"),
+        ("HTTPS://API.OPEN-METEO.COM/v1/forecast?latitude=48.85 x", "HTTPS://API.OPEN-METEO.COM/v1/forecast?... x"),
+        ("Failed: https://example.test/runs?id=1: timeout", "Failed: https://example.test/runs?...: timeout"),
+        ("a fragment's own ? stays: https://a.test/p#x?y", "a fragment's own ? stays: https://a.test/p#x?y"),
+        ("two: https://a.test/?x=1 and https://b.test/p?y=2", "two: https://a.test/?... and https://b.test/p?..."),
+        ("no query: https://a.test/path", "no query: https://a.test/path"),
+        ("a question? Not an address", "a question? Not an address"),
+    ],
+)
+def test_a_web_address_loses_its_query_string_and_nothing_else_changes(text: str, expected: str) -> None:
+    assert to_redacted_urls(text) == expected
+
+
+def test_cutting_query_strings_takes_linear_time() -> None:
+    # A pattern that needed a ? after each address searched the text again from every "http" in it, and one that
+    # searched the query lazily, every run of dots: 10,000 schemes in a row took seconds (issue 43).
+    started = time.perf_counter()
+    assert to_redacted_urls("https://a.test/?" + "." * 50_000 + "x") == "https://a.test/?..."
+    assert to_redacted_urls("https://" * 10_000) == "https://" * 10_000
+    assert time.perf_counter() - started < 0.5
+
+
+def test_an_exception_s_frames_are_files_lines_and_functions_innermost_last() -> None:
+    def fail() -> None:
+        raise ValueError("a private value")
+
+    with pytest.raises(ValueError, match="a private value") as caught:
+        fail()
+    frames = to_frames(caught.tb)
+    assert frames[-1].startswith("unit/test_utils.py:")
+    assert frames[-1].endswith(" fail")
+    assert frames[-2].endswith(" test_an_exception_s_frames_are_files_lines_and_functions_innermost_last")
+    assert all("private" not in frame for frame in frames)
+
+
+def test_only_an_exception_s_innermost_8_frames_are_kept() -> None:
+    def recurse(depth: int) -> None:
+        if depth == 0:
+            raise ValueError("the deepest call")
+        recurse(depth - 1)
+
+    with pytest.raises(ValueError, match="the deepest call") as caught:
+        recurse(20)
+    frames = to_frames(caught.tb)
+    assert len(frames) == 8
+    assert all(frame.endswith(" recurse") for frame in frames)

@@ -82,7 +82,8 @@ router. The only work done for a visitor is the chat's answer: one call to the m
   `chat.rejected` with the broken rule's code; an answer's end holds its tokens and the model. Every line carries the
   request id, the environment, the commit and the deployment, so one search for an id finds a request's lines. The
   field names are the TypeScript version's (`requestId`, `deploymentId`), so the queries written for it still match.
-  LangSmith traces each model run, with its timing and tokens, its inputs and outputs hidden.
+  Another library's warnings and errors become lines of ours too, any query string cut off; their info lines are
+  never written. LangSmith traces each model run, with its timing and tokens, its inputs and outputs hidden.
 - **Evaluation** (09): Ruff, mypy in strict mode, unit tests, and browser tests on every page and of the chat, with
   axe's accessibility checks, which CI runs on every push that touches the project; and a mutation check, which breaks
   each rule on purpose to show a test catches it, run before each commit.
@@ -128,34 +129,37 @@ router. The only work done for a visitor is the chat's answer: one call to the m
 
 ## One request, end to end
 
-A real question on the live site, on 31 October 2026 (commit d55f1ed): "Will it rain in Paris tomorrow?", posted
-to `/api/chat` as the page's form posts it.
+A real question on the live site, on 31 October 2026 (commit 06327e5): "What does the dew point tell me?", posted
+to `/api/chat` as the page's form posts it, with the locale `en-US` and the time zone `America/Chicago`.
 
 | Where | What happened |
 |---|---|
-| Vercel's edge, `cle1` (Cleveland) | Took the HTTPS request, gave it the id `cle1::lzdsv-1793423643867-12f0ae2ae59c`, and sent it to the function in `iad1` |
+| Vercel's edge, `cle1` (Cleveland) | Took the HTTPS request, gave it the id `cle1::dlspq-1793431665072-b0db15ba80dd`, and sent it to the function in `iad1` |
 | `SecurityHeadersMiddleware`, `RequestContextMiddleware` | Wrapped the response's `send`, and took Vercel's id as the request's id, in the log context and the request's state |
-| `chat.py`, `chat()` and `read_chat_request()` | Checked the form: its type, its length, its one field, the question's 31 characters; logged `chat.request` |
-| `chat()`, then `EventStream` | Made the turn's first event, then sent it and the rest as they came: 50 events, the first 0.13 s after the question was sent, the last after 3.04 s |
-| `stream_turn()` | Logged `chat.done`: the answer's 244 characters, in 2,917 ms |
-| `RequestContextMiddleware` | Once the whole response had gone, wrote the request's line: `200`, in 2,919 ms |
+| `chat.py`, `chat()` and `read_chat_request()` | Checked the form: its type, its length, its three fields, the question's 32 characters, the locale and the time zone; logged `chat.request` |
+| `prompts.py`, `to_messages()` | The system prompt: the rules, imperial units for `en-US`, and the visitor's today and tomorrow in Chicago; then the question |
+| `chat()`, then `EventStream` | Made the turn's first event, then sent it and the rest as they came: 6 events, the first 0.15 s after the question was sent |
+| `answer.py`, `stream_answer()` | Streamed Gemini's answer through LangChain, within the answer's 30 s: its first words 0.88 s after the question was sent, in 4 pieces, the last after 1.13 s; LangSmith got the run, its words hidden |
+| `stream_turn()` | Logged `chat.done`: the answer's 290 characters, in 989 ms, 294 tokens in and 63 out |
+| `RequestContextMiddleware` | Once the whole response had gone, wrote the request's line: `200`, in 990 ms |
 | Vercel's edge | Passed each event on as it came, with the security headers and the request's id |
 
 Searched for the id, Vercel's logs found its three lines, the question's text in none of them:
 
 ```json
-{"questionChars": 31, "event": "chat.request", "level": "info", "ts": "2026-10-31T05:14:03.897637Z",
- "env": "production", "commit": "d55f1ed", "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod",
- "requestId": "cle1::lzdsv-1793423643867-12f0ae2ae59c"}
-{"answerChars": 244, "ms": 2917, "event": "chat.done", "level": "info", "ts": "2026-10-31T05:14:06.814874Z",
- "env": "production", "commit": "d55f1ed", "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod",
- "requestId": "cle1::lzdsv-1793423643867-12f0ae2ae59c"}
-{"method": "POST", "path": "/api/chat", "status": 200, "ms": 2919, "event": "http.request", "level": "info",
- "ts": "2026-10-31T05:14:06.815432Z", "env": "production", "commit": "d55f1ed",
- "deploymentId": "dpl_8prm5Ay6L4X1SGizLAPNvnX6Fyod", "requestId": "cle1::lzdsv-1793423643867-12f0ae2ae59c"}
+{"questionChars": 32, "event": "chat.request", "level": "info", "ts": "2026-10-31T07:27:45.111247Z",
+ "env": "production", "commit": "06327e5", "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ",
+ "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
+{"answerChars": 290, "ms": 989, "tokensIn": 294, "tokensOut": 63, "model": "gemini-3.5-flash-lite",
+ "event": "chat.done", "level": "info", "ts": "2026-10-31T07:27:46.100500Z", "env": "production", "commit": "06327e5",
+ "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ", "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
+{"method": "POST", "path": "/api/chat", "status": 200, "ms": 990, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T07:27:46.100994Z", "env": "production", "commit": "06327e5",
+ "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ", "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
 ```
 
-[Step 1's chapter](step-1.md) explains each of these parts in its code, and [step 2's](step-2.md) the chat's.
+[Step 1's chapter](step-1.md) explains each of these parts in its code, [step 2's](step-2.md) the chat's, and
+[step 3's](step-3.md) the model's.
 
 ## What comes next
 

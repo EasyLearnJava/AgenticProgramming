@@ -4,6 +4,7 @@ on every response, the chat's limits, and the model's caps. One place for each v
 agree.
 """
 
+import logging
 import re
 from pathlib import Path
 from typing import Final
@@ -84,3 +85,9 @@ ANSWER_TIMEOUT_SECONDS: Final = 30
 MODEL_REQUEST_TIMEOUT_SECONDS: Final = 20
 MODEL_MAX_ATTEMPTS: Final = 2
 MODEL_THINKING: Final = "minimal"
+
+# ⑧ Other libraries' own log lines (httpx's, google-genai's, LangSmith's): only their warnings and worse are written,
+# as lines of ours. Their info lines name each request they send, a query string included (issue 43). Of an
+# exception, its class and its innermost 8 frames.
+LIBRARY_LOG_LEVEL: Final = logging.WARNING
+LIBRARY_LOG_MAX_FRAMES: Final = 8
