@@ -3,7 +3,8 @@
   and adds each event of the answer's stream to the conversation (hx-post, hx-target, hx-swap); a second question is
   dropped while an answer streams (hx-sync). Without htmx, the form still posts (method, action), so a question never
   goes into the address. public/static/chat.js does what htmx doesn't: Stop, and our own sentences when no answer can
-  come; they're held here, on the conversation's data-* attributes. Step 4 brings the weather.
+  come; they're held here, on the conversation's data-* attributes. The script also fills the two hidden fields: the
+  browser's locale and time zone, for the answer's units and the visitor's own today. Step 4 brings the weather.
 #}
 {% extends "base.html" %}
 {% from "chat_parts.html" import bot_meta, error_message %}
@@ -30,9 +31,9 @@
         {{ bot_meta() }}
         <div class="bubble bubble-bot">
           <p>
-            Hi, I'm Nimbus, a weather chatbot being rebuilt in Python, one step at a time. Ask me anything: for now I
-            answer every question with the same reply, streamed a word at a time. Gemini comes in step 3, and the
-            weather in step 4. The Documentation shows each step as it's built.
+            Hi, I'm Nimbus, a weather chatbot being rebuilt in Python, one step at a time. Gemini answers now, but it
+            can't check the weather yet: the weather tools come in step 4. Ask me how weather works in the meantime.
+            The Documentation shows each step as it's built.
           </p>
         </div>
       </li>
@@ -44,6 +45,8 @@
         <label class="visually-hidden" for="question">Your question</label>
         <input id="question" name="question" type="text" placeholder="Ask about the weather anywhere"
           autocomplete="off" maxlength="{{ question_max_chars }}" required>
+        <input id="locale" name="locale" type="hidden">
+        <input id="time-zone" name="time_zone" type="hidden">
         <button id="send" type="submit" class="send-button">Send</button>
         <button id="stop" type="button" class="stop-button">Stop</button>
       </form>

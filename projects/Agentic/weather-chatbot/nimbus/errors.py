@@ -19,6 +19,11 @@ UNEXPECTED = "Something went wrong. Please try again."
 STOPPED = "Stopped."
 CUT_OFF = "The answer was cut off. Please try again."
 UNREACHABLE = "The chat couldn't be reached. Please try again."
+# ④ What it says when the model can't answer (step 3).
+NOT_SET_UP = "The assistant isn't set up on this deployment yet."
+MODEL_BUSY = "The assistant is busy right now. Please try again in a minute."
+ANSWER_TOO_SLOW = "The assistant took too long to answer. Please try again."
+MODEL_FAILED = "The assistant didn't answer. Please try again."
 
 
 class NimbusError(Exception):
@@ -38,6 +43,38 @@ class InputError(NimbusError):
     def __init__(self, code: str, user_message: str, status_code: int = HTTPStatus.BAD_REQUEST) -> None:
         """The rule's code and sentence, and the status, if not 400."""
         super().__init__(code, user_message, status_code)
+
+
+class ConfigError(NimbusError):
+    """This deployment can't answer: it has no key for the model, or the model refuses the key it has (503)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("model_not_set_up", NOT_SET_UP, HTTPStatus.SERVICE_UNAVAILABLE)
+
+
+class ModelBusyError(NimbusError):
+    """The model turned the call away for now: its quota or its rate (429)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("model_busy", MODEL_BUSY, HTTPStatus.TOO_MANY_REQUESTS)
+
+
+class AnswerTimeoutError(NimbusError):
+    """The answer ran past its time limit, or a call to the model did (504)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("answer_timeout", ANSWER_TOO_SLOW, HTTPStatus.GATEWAY_TIMEOUT)
+
+
+class ModelFailedError(NimbusError):
+    """The model failed in any other way: an error from its API, or a connection that broke (502)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence."""
+        super().__init__("model_failed", MODEL_FAILED, HTTPStatus.BAD_GATEWAY)
 
 
 def to_user_message(error: BaseException) -> str:

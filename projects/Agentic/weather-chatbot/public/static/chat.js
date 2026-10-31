@@ -41,7 +41,8 @@
     showNewest();
   }
 
-  // ① Stop: htmx aborts the request; the server hears the browser go, and stops the answer.
+  // ① Stop: htmx aborts the request, and the answer ends on the page. On your computer the server hears the browser
+  // go, and stops the answer too; on Vercel it can't (issue 32).
   stop.addEventListener("click", () => {
     isStopping = true;
     htmx.trigger(form, "htmx:abort");
@@ -97,4 +98,8 @@
       showError(messages.dataset.unreachable);
     }
   });
+
+  // ⑧ Your browser's language and time zone go with each question: the answer's units, and your own today.
+  document.getElementById("locale").value = navigator.language || "";
+  document.getElementById("time-zone").value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
 })();

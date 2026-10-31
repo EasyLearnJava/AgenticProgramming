@@ -10,12 +10,14 @@ import re
 from axe_playwright_python.sync_playwright import Axe
 from playwright.sync_api import ConsoleMessage, Locator, Page, Route, expect
 
-from nimbus.answer import FIXED_ANSWER
 from nimbus.constants import QUESTION_MAX_CHARS
 from nimbus.errors import CUT_OFF, QUESTION_TOO_LONG, STOPPED, UNREACHABLE
+from tests.fakes import ANSWER
 
 QUESTION = "Will it rain in Paris tomorrow?"
 HAS_TEXT = re.compile(r"\S")
+# The finished answer, as the page shows it: its Markdown made HTML, so without the asterisks.
+ANSWER_TEXT = ANSWER.replace("**", "")
 
 
 def ask(page: Page, question: str = QUESTION) -> None:
@@ -41,8 +43,8 @@ def test_an_answer_streams_in_a_piece_at_a_time(page: Page) -> None:
     expect(page.locator(".message-user")).to_have_text(re.compile(re.escape(QUESTION)))
     expect(busy_answer(page)).to_have_text(HAS_TEXT)
     so_far = busy_answer(page).text_content() or ""
-    assert 0 < len(so_far) < len(FIXED_ANSWER)
-    expect(last_answer(page)).to_have_text(FIXED_ANSWER)
+    assert 0 < len(so_far) < len(ANSWER)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
     expect(page.locator('[aria-busy="true"]')).to_have_count(0)
     expect(page.get_by_label("Your question")).to_have_value("")
     expect(page.get_by_role("button", name="Send")).to_be_visible()
@@ -58,7 +60,7 @@ def test_stop_ends_the_answer_where_it_is(page: Page) -> None:
     stopped_at = message.locator(".answer").text_content() or ""
     page.wait_for_timeout(500)
     assert message.locator(".answer").text_content() == stopped_at
-    assert len(stopped_at) < len(FIXED_ANSWER)
+    assert len(stopped_at) < len(ANSWER)
     expect(page.locator('[aria-busy="true"]')).to_have_count(0)
     expect(page.get_by_role("button", name="Send")).to_be_visible()
 
@@ -69,7 +71,7 @@ def test_enter_while_an_answer_streams_sends_nothing_more(page: Page) -> None:
     box = page.get_by_label("Your question")
     box.fill("And in Lyon?")
     box.press("Enter")
-    expect(last_answer(page)).to_have_text(FIXED_ANSWER)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
     expect(page.locator(".message-user")).to_have_count(1)
     expect(box).to_have_value("And in Lyon?")
 
@@ -143,7 +145,7 @@ def test_with_an_answer_the_page_logs_no_error_and_passes_axe(page: Page) -> Non
 
     page.on("console", keep_errors)
     ask(page)
-    expect(last_answer(page)).to_have_text(FIXED_ANSWER)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
     assert errors == []
     results = Axe().run(page)
     assert results.violations_count == 0, results.generate_report()
@@ -152,5 +154,5 @@ def test_with_an_answer_the_page_logs_no_error_and_passes_axe(page: Page) -> Non
 def test_a_long_question_and_its_answer_fit_a_phone(page: Page) -> None:
     page.set_viewport_size({"width": 360, "height": 800})
     ask(page, "x" * 300)
-    expect(last_answer(page)).to_have_text(FIXED_ANSWER)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
     assert page.evaluate("document.documentElement.scrollWidth - window.innerWidth") <= 0

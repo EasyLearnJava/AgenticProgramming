@@ -85,7 +85,7 @@ Each section is one file; the circled numbers are the ones in its code.
 `Settings` is a pydantic-settings class: each field is an environment variable, checked when the app starts. Vercel
 sets its own (①: `VERCEL`, read as `is_vercel`, `VERCEL_ENV`, the commit and the deployment); on a computer,
 `.env.local` can set yours (②). An empty value counts as unset, and an unknown one stops the app with a clear error.
-Vercel's own come from the real environment only (③): `vercel env pull` copies them into `.env.local`, where they'd
+Vercel's own come from the real environment only (⑤): `vercel env pull` copies them into `.env.local`, where they'd
 make a computer look like Vercel (issue 18).
 
 ```python

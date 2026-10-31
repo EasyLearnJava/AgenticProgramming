@@ -14,12 +14,12 @@ What's still open in the Python rebuild, and why. The TypeScript version's list 
 
 - **The Framework Preset is FastAPI** (2026-10-30), with no command overrides: step 1's deploy built with it.
 - **LangSmith's variables** are set in Vercel (2026-10-30): `LANGSMITH_API_KEY`, `LANGSMITH_TRACING`,
-  `LANGSMITH_PROJECT`, `LANGSMITH_HIDE_INPUTS` and `LANGSMITH_HIDE_OUTPUTS`. Step 4 is the first to use them.
+  `LANGSMITH_PROJECT`, `LANGSMITH_HIDE_INPUTS` and `LANGSMITH_HIDE_OUTPUTS`. Step 3 is the first to use them.
 
 ## Next
 
-- **Step 3:** Gemini's answer, through LangChain, streamed the same way: the system prompt, the model's input rules,
-  and time limits on the call; and a cap on each answer, since on Vercel, Stop never reaches the function (issue 32).
+- **Step 4:** the four weather tools and a prebuilt LangGraph agent: the REST · no auth lane, a chip for each tool
+  call with the request it sent, and LangSmith's trace of each tool call.
 - **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build
   label can name another project's commit (issue 21); an `ignoreCommand` in `vercel.json` would end the build when
   this folder hasn't changed.

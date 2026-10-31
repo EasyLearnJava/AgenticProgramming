@@ -8,8 +8,8 @@ met, and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
 
 **In one line:** your browser → Vercel → the FastAPI app: the security headers, the request's id, the router → a page
 from a Jinja2 template, JSON, or a question's answer, streamed as server-sent events of HTML that htmx puts into the
-page → back to you, with its log lines. (From step 3, Gemini writes the answer; from step 4, an agent calls the weather
-tools.)
+page → back to you, with its log lines. Gemini writes the answer, through LangChain (step 3); from step 4, an agent
+calls the weather tools.
 
 ## What you'll build
 
@@ -37,7 +37,7 @@ mutation check; and CI and deploys to Vercel on every push.
 | File or folder | What it holds |
 |---|---|
 | `main.py` | The entry point: `app = create_app()`, which Vercel and Uvicorn both look for |
-| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `answer.py`, `errors.py`, `utils.py` |
+| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `model.py`, `prompts.py`, `answer.py`, `errors.py`, `utils.py` |
 | `templates/` | The Jinja2 templates: the shell with the menu, the chat and the HTML of its answer's events, a list of pages, a page, the 404 page |
 | `public/static/` | The stylesheet, the icon, htmx 4 and its stream extension, and our `chat.js`, served by Vercel's CDN |
 | `docs/` | The chapters (`step-N.md`), the system design, the issues log, the interview guide, the to-do list, the TypeScript version's pages (`*_deprecated.md`), and their pictures (`images/`) |
@@ -58,8 +58,9 @@ Each step's chapter explains it, in order:
 |---|---|---|
 | 1 | [The Project, Its Pages and Its First Deploy](docs/step-1.md) | Done |
 | 2 | [The Chat Streams Its Answer](docs/step-2.md) | Done |
-| 3 | Gemini's answer, through LangChain | Next |
-| 4 to 13 | See [PLAN.md](PLAN.md) | To come |
+| 3 | [Gemini Answers, Streamed](docs/step-3.md) | Done |
+| 4 | The weather tools and a prebuilt agent | Next |
+| 5 to 13 | See [PLAN.md](PLAN.md) | To come |
 
 ## Run it
 
@@ -67,8 +68,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [38084] using StatReload
-INFO:     Started server process [47604]
+INFO:     Started reloader process [14320] using StatReload
+INFO:     Started server process [11352]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -77,9 +78,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 8, "event": "http.request", "level": "info",
- "ts": "2026-10-31T05:04:27.860511Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "9745b7c58601469f"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 9, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T07:17:22.657356Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "4a81e6e5d8f841e6"}
 ```
 
 ## Test it
@@ -88,16 +89,16 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-57 files already formatted
+64 files already formatted
 $ uv run mypy
-Success: no issues found in 33 source files
+Success: no issues found in 39 source files
 $ uv run pytest
-193 passed in 1.19s
+254 passed in 3.67s
 $ uv run pytest tests/e2e --browser-channel msedge
-109 passed in 74.17s (0:01:14)
+113 passed in 71.51s (0:01:11)
 $ uv run python tools/mutation_check.py
 ...
-38 of 38 caught
+61 of 61 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
@@ -112,6 +113,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 | `error: Duplicate module named "conftest" (also at "tests\e2e\conftest.py")` | Two test folders without `__init__.py` | Keep the `__init__.py` files in `tests/` (issue 8) |
 | `ModuleNotFoundError: No module named 'nimbus'` | A script run from another folder: Python looks in the script's folder, not yours | `PYTHONPATH=.` before the command (issue 6) |
 | `Cannot navigate to invalid URL` with `C:/Program Files/Git/...` | Git Bash turned an argument starting with `/` into a Windows path | `MSYS_NO_PATHCONV=1` before the command (issue 6) |
+| `The assistant isn't set up on this deployment yet.`, with `503` | No `GOOGLE_API_KEY`, or one Gemini refuses | Put your own key in `.env.local` and restart; on Vercel, set it in the project's settings and redeploy |
 | `The chat couldn't read that request.`, with `415` | A question sent as JSON, or without the form's type | Send a form, `application/x-www-form-urlencoded`, as the page does; curl's `-d` does too |
 | `ValidationError: 1 validation error for Settings` / `vercel_env` / `Input should be 'production', 'preview' or 'development'` | A setting with a value the app doesn't know, here `VERCEL_ENV=staging` | Fix or remove the value; the error names the setting |
 
@@ -122,12 +124,13 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 - Put `LOG_LEVEL=warning` in `.env.local`, restart, and watch the request lines stop.
 - Send a forged id: `curl -i -H "x-vercel-id: not an id" http://127.0.0.1:8000/api/health` gets a new one back.
 - Watch an answer stream: `curl -N --data-urlencode "question=Hi" http://127.0.0.1:8000/api/chat` prints each event
-  as it comes.
+  as it comes (with your own `GOOGLE_API_KEY` in `.env.local`; without one, the chat says it isn't set up).
+- Ask something off-topic: Gemini says, in one sentence, what it can do.
 
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter
-per step ([step 1](docs/step-1.md), [step 2](docs/step-2.md)), the **System design**
+per step ([step 1](docs/step-1.md), [step 2](docs/step-2.md), [step 3](docs/step-3.md)), the **System design**
 ([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes** ([`docs/issues.md`](docs/issues.md)), the
 **Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do** ([`docs/todo.md`](docs/todo.md)). The
 TypeScript version's pages are kept under **Deprecated**: its steps, System design, Technical details, Issues and
@@ -136,4 +139,4 @@ all).
 
 ## Next
 
-[Step 2's chapter](docs/step-2.md), then step 3: Gemini answers, through LangChain.
+[Step 3's chapter](docs/step-3.md), then step 4: the weather tools, and a prebuilt agent.

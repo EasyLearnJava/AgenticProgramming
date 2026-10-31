@@ -8,9 +8,11 @@ never sees.
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+
+from nimbus.constants import GEMINI_MODEL
 
 SHORT_COMMIT_CHARS = 7
 # The settings Vercel itself sets on its machines.
@@ -50,6 +52,18 @@ class Settings(BaseSettings):
     vercel_deployment_id: str | None = None
     # ② Set by you, if you want more or fewer log lines.
     log_level: Literal["debug", "info", "warning", "error"] = "info"
+    # ③ Set by you (step 3): the key for Gemini, a Secret variable in Vercel, and which Gemini model answers. Without a
+    # key, the chat says it isn't set up.
+    google_api_key: SecretStr | None = None
+    gemini_model: str = Field(default=GEMINI_MODEL, pattern=r"^[a-z0-9][a-z0-9.\-]*$")
+    # ④ Set by you: LangSmith's tracing, its key and project, and whether it hides each run's inputs and outputs. The
+    # app traces only when these say to hide both, through a client of its own that hides both, into this project
+    # (model.py).
+    langsmith_tracing: bool = False
+    langsmith_api_key: SecretStr | None = None
+    langsmith_project: str | None = None
+    langsmith_hide_inputs: bool = False
+    langsmith_hide_outputs: bool = False
 
     @classmethod
     def settings_customise_sources(
@@ -61,7 +75,7 @@ class Settings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         """
-        ③ Where the settings come from, the first that has a value winning: the code's own values, the real
+        ⑤ Where the settings come from, the first that has a value winning: the code's own values, the real
         environment, then the .env files, without Vercel's variables.
         """
         return init_settings, env_settings, WithoutVercelFields(settings_cls, dotenv_settings), file_secret_settings

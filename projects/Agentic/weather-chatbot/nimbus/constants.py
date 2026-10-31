@@ -1,6 +1,7 @@
 """
 nimbus/constants.py: the app's fixed values: where its files are, the headers it reads and sends, the security headers
-on every response, and the chat's limits. One place for each value, so the code and its tests always agree.
+on every response, the chat's limits, and the model's caps. One place for each value, so the code and its tests always
+agree.
 """
 
 import re
@@ -60,3 +61,26 @@ CHAT_BODY_MAX_BYTES: Final = 32 * 1024
 CHAT_FORM_MAX_FIELDS: Final = 10
 EVENT_STREAM: Final = "text/event-stream"
 ERROR_HEADER: Final = "x-nimbus-error"
+
+# ⑥ The visitor's locale and time zone, which the page sends with each question (step 3): a language tag such as
+# "en-US", and a time zone of the IANA database such as "America/Chicago". Without them, the defaults.
+DEFAULT_LOCALE: Final = "en-US"
+DEFAULT_TIME_ZONE: Final = "UTC"
+# A language tag: a language, then subtags of letters and digits (a script, a region, extensions such as -u-ca-...).
+# Letters, digits and hyphens only, so nothing in it can read as an instruction in the system prompt.
+LOCALE_PATTERN: Final = re.compile(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*", re.ASCII)
+LOCALE_MAX_CHARS: Final = 35
+# Where the units are imperial, by the locale's region: the United States, Liberia and Myanmar.
+IMPERIAL_REGIONS: Final = frozenset({"US", "LR", "MM"})
+
+# ⑦ The model (step 3): Gemini, through LangChain, capped. On Vercel, Stop never reaches the function (issue 32), so
+# an answer no one reads still runs to its end: each answer is at most 1,024 tokens and 30 seconds, whatever happens;
+# each call to Gemini waits at most 20 s, and a failed one is tried once more. For Gemini, LangChain's max_retries
+# counts every attempt, the first one included (google-genai's HttpRetryOptions.attempts): two attempts, one retry
+# (issue 36). Its thinking stays at the least there is, since thinking's tokens count against the 1,024.
+GEMINI_MODEL: Final = "gemini-3.5-flash-lite"
+MAX_OUTPUT_TOKENS: Final = 1024
+ANSWER_TIMEOUT_SECONDS: Final = 30
+MODEL_REQUEST_TIMEOUT_SECONDS: Final = 20
+MODEL_MAX_ATTEMPTS: Final = 2
+MODEL_THINKING: Final = "minimal"

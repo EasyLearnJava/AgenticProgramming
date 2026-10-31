@@ -155,3 +155,52 @@ browser, Playwright presses Stop, blocks the request, and stands in another serv
 The policy allows scripts from our own site only, and a third-party CDN would be one more place that can change the
 code we run. The two files are npm's, copied unchanged after the package's integrity hash matched the registry's, and
 a test fails if a byte of either changes.
+
+## Step 3 · Gemini Answers, Streamed
+
+**1. Why LangChain's chat model rather than Google's SDK directly?**
+One interface for any provider: `astream()` for the words, `usage_metadata` for the tokens, and standard exceptions
+such as `ModelRateLimitError`. Our mapping from failures to sentences names no provider, the stand-in model in the
+tests plugs into the same interface, and the agent in steps 4 and 5 is built on it.
+
+**2. How do you stream a model's answer to the page?**
+`model.astream(messages)` yields chunks as the model writes; each one's text goes straight into the same server-sent
+events as step 2's fixed answer, as plain text. When the stream ends, the last event swaps in the finished answer, its
+Markdown made HTML once, safely.
+
+**3. Why cap tokens and time, and how?**
+On Vercel, Stop never reaches the function, so an answer no one reads still runs. `max_output_tokens=1024` caps what
+the model writes, its thinking included, which is set to the least there is; one 30-second deadline caps the whole
+answer; each call waits 20 s, with two attempts at most, where LangChain's default would make six.
+
+**4. How do you turn a model's failures into messages a user can act on?**
+LangChain's standard exceptions: a rate limit becomes "busy, try again in a minute", a timeout "took too long", an
+authentication error "isn't set up", anything else "didn't answer". The model's own error is kept as the cause, and
+logged by its class only: its message could quote the question.
+
+**5. What goes into the system prompt, and why the visitor's time zone?**
+The rules (no weather as fact without tools, weather only, short answers, the units), then the time in UTC and in the
+visitor's zone, with their today and tomorrow. Without the zone, "tomorrow" would be the server's tomorrow, which near
+midnight is a different day.
+
+**6. How do you check a time zone that comes from the browser?**
+It must be one the IANA database names, from `zoneinfo.available_timezones()` with the `tzdata` package: a fixed set,
+read once, so no string from the browser ever becomes a path the library opens.
+
+**7. How do you render a model's Markdown safely?**
+markdown-it with raw HTML off, so tags show as text; pictures off, so the page never fetches from wherever the model
+pointed; `javascript:` addresses are never linked; and each link opens in a new tab with `noopener noreferrer`.
+
+**8. How do you keep questions out of LangSmith?**
+The app traces only when LangSmith's variables say to hide both inputs and outputs, and then through a client of its
+own, `Client(hide_inputs=True, hide_outputs=True)`, passed in `tracing_context()`: LangSmith's default client would
+hide only if each variable held exactly the string `true`.
+
+**9. How do you test code that calls a model?**
+With a stand-in: a small `BaseChatModel` that streams a known answer a word at a time, reports tokens, and raises on
+cue. The app takes its model from `app.state`, so a test puts the stand-in there; the real model never runs in a test.
+
+**10. Why not put an async generator's whole body inside `asyncio.timeout()`?**
+The deadline cancels whichever code is running when it passes. Between two `yield`s, that's the code reading the
+generator, the page's sending here, not the generator: the answer would end as if the browser had gone. So one
+deadline is set, and only the generator's own waits are timed, with `asyncio.timeout_at()` around each `anext()`.

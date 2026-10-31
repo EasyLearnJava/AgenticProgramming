@@ -55,6 +55,16 @@ CHAPTERS: tuple[DocPage, ...] = (
             "can go wrong."
         ),
     ),
+    DocPage(
+        slug="step-3",
+        path="/docs/step-3",
+        label="Step 3: Gemini Answers, Streamed",
+        summary=(
+            "Gemini, through LangChain, streams the answer: a system prompt with the visitor's locale and time zone, "
+            "caps on each answer's tokens and time, our own sentence for each way the model can fail, the answer's "
+            "Markdown made safe HTML, and LangSmith tracing only with inputs and outputs hidden."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

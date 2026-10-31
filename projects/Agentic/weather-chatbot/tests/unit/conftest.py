@@ -1,6 +1,6 @@
 """
 tests/unit/conftest.py: what the unit tests share: no setting from the shell's environment or a .env file, settings of
-their own, and a client that calls the app in memory, without a server.
+their own, a stand-in for Gemini, and a client that calls the app in memory, without a server.
 """
 
 from collections.abc import Iterator
@@ -11,6 +11,7 @@ from pydantic import AliasChoices
 
 from nimbus.app import create_app
 from nimbus.config import Settings
+from tests.fakes import FakeModel
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +35,15 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-def client(settings: Settings) -> Iterator[TestClient]:
-    """A client for the app built with those settings."""
-    with TestClient(create_app(settings)) as test_client:
+def chat_model() -> FakeModel:
+    """The stand-in for Gemini the app answers with: a known answer, a word at a time, with no pause."""
+    return FakeModel()
+
+
+@pytest.fixture
+def client(settings: Settings, chat_model: FakeModel) -> Iterator[TestClient]:
+    """A client for the app built with those settings, which answers with the stand-in model."""
+    app = create_app(settings)
+    app.state.chat_model = chat_model
+    with TestClient(app) as test_client:
         yield test_client

@@ -14,6 +14,7 @@ import uvicorn
 
 from nimbus.app import create_app
 from nimbus.config import Settings
+from tests.fakes import FakeModel
 
 STARTUP_SECONDS = 10
 POLL_SECONDS = 0.05
@@ -41,6 +42,7 @@ def base_url() -> Iterator[str]:
         log_level="warning",
     )
     app = create_app(settings)
+    app.state.chat_model = FakeModel(delay=0.06)  # Gemini needs a key and costs quota: a stand-in answers
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)

@@ -22,7 +22,7 @@ working, and each with a chapter written while it's built. The first version's p
 | Settings | pydantic-settings: one module reads the environment |
 | State between requests | No database: each chat stays in the browser, sent back with every question (step 6); Open-Meteo's answers in Vercel's Runtime Cache, through the `vercel` package (step 7) |
 | Logs | structlog, JSON lines with a request id; Axiom (from step 12) |
-| Errors, traces | Sentry; LangSmith for the agent's runs (from step 4) |
+| Errors, traces | Sentry; LangSmith for the model's runs (from step 3), then the agent's (from step 4) |
 | Tests | pytest; Playwright for Python with axe; mutation checks |
 | Lint, types | Ruff; mypy in strict mode |
 | CI, hosting | GitHub Actions with uv; Vercel's Python runtime |

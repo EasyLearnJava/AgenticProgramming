@@ -3,6 +3,7 @@ nimbus/app.py: builds the app: its settings and logging, the pages, the chat and
 beside them, and the middleware every request goes through. main.py calls create_app() once, when the server starts.
 """
 
+import structlog
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -12,6 +13,7 @@ from nimbus.config import Settings, get_settings
 from nimbus.constants import DOCS_IMAGES_DIR, STATIC_DIR
 from nimbus.logger import configure_logging
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
+from nimbus.model import make_chat_model, make_tracer
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -22,6 +24,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ② The app, without FastAPI's own API pages: /docs is our documentation, and the API isn't public.
     app = FastAPI(title="Nimbus", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings
+    # The model that answers, made once: None on a deployment without its key, where the chat says it isn't set up;
+    # and LangSmith's client, when it may trace, which hides every run's inputs and outputs.
+    # One line says how this copy of the app starts: the model, whether it's set up, whether LangSmith may trace.
+    app.state.chat_model = make_chat_model(settings)
+    app.state.tracer = make_tracer(settings)
+    structlog.get_logger().info(
+        "app.started",
+        model=settings.gemini_model,
+        modelSetUp=app.state.chat_model is not None,
+        tracing=app.state.tracer is not None,
+    )
     # ③ The routes: the pages, the chat and the health check.
     app.include_router(pages.router)
     app.include_router(chat.router)

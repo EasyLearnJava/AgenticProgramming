@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 3 · How Gemini's answer reaches the page</title>
+  <desc id="d">The page posts the question with the browser's locale and time zone. The chat route checks them, takes the model made when the app started, or says it isn't set up, and builds the system prompt: the rules, the units for the locale, and the visitor's own today and tomorrow. LangChain streams Gemini's answer within the caps: 1,024 tokens and 30 seconds an answer, 20 seconds and two attempts a call. Each word goes to the page as plain text; the finished answer's Markdown becomes safe HTML. A failure becomes our own sentence: busy, too slow, not set up, or no answer. LangSmith traces the run only through the app's own client, which hides its inputs and outputs, and the log line holds the tokens.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 3 · How Gemini's answer reaches the page</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">The same stream as step 2, with the model's words in it</text>
+
+  <!-- Row 1: the page, and the route -->
+  <rect x="40" y="100" width="300" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">Your browser: the form</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">the question, and two hidden fields:</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">locale (en-US) and time zone</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">(America/Chicago), from chat.js</text>
+  <line x1="340" y1="152" x2="398" y2="152" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="400" y="100" width="520" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="416" y="126" font-size="15" font-weight="700" fill="#053b30">nimbus/chat.py: chat()</text>
+  <text x="416" y="148" font-size="13" fill="#1f2937">① the checks: a language tag; a time zone the IANA database names</text>
+  <text x="416" y="167" font-size="13" fill="#1f2937">② the model, made when the app started, or 503: "isn't set up"</text>
+  <text x="416" y="186" font-size="13" fill="#1f2937">③ the answer's stream · ④ the turn's first event · ⑤ the stream</text>
+  <line x1="660" y1="204" x2="660" y2="228" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: the prompt, the model -->
+  <rect x="40" y="230" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="256" font-size="15" font-weight="700" fill="#053b30">prompts.py: the system prompt</text>
+  <text x="56" y="278" font-size="13" fill="#1f2937">the rules: no weather as fact yet; weather only;</text>
+  <text x="56" y="297" font-size="13" fill="#1f2937">short answers; the units for the locale</text>
+  <text x="56" y="316" font-size="13" fill="#1f2937">the time in UTC and the visitor's own, with their</text>
+  <text x="56" y="335" font-size="13" fill="#1f2937">today and tomorrow · then the question</text>
+  <line x1="460" y1="292" x2="498" y2="292" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="230" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="256" font-size="15" font-weight="700" fill="#053b30">answer.py · model.py: Gemini, streamed</text>
+  <text x="516" y="278" font-size="13" fill="#1f2937">ChatGoogleGenerativeAI, astream(), via LangChain</text>
+  <text x="516" y="297" font-size="13" fill="#1f2937">an answer: 1,024 tokens, 30 s · a call: 20 s, 2 tries</text>
+  <text x="516" y="316" font-size="13" fill="#1f2937">the words as they come; each chunk's tokens, added</text>
+  <text x="516" y="335" font-size="13" fill="#1f2937">LangSmith: its own client, hiding both sides</text>
+  <line x1="710" y1="354" x2="710" y2="378" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 3: the stream, and a failure -->
+  <rect x="40" y="380" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="406" font-size="15" font-weight="700" fill="#053b30">A failure, as one of ours</text>
+  <text x="56" y="428" font-size="13" fill="#1f2937">rate limit (429): "busy, try again in a minute"</text>
+  <text x="56" y="447" font-size="13" fill="#1f2937">timeout: "took too long" · bad key: "isn't set up"</text>
+  <text x="56" y="466" font-size="13" fill="#1f2937">anything else: "didn't answer" · with the ref</text>
+  <text x="56" y="485" font-size="13" fill="#1f2937">the model's own error: its class in the logs, only</text>
+  <rect x="500" y="380" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="516" y="406" font-size="15" font-weight="700" fill="#053b30">stream_turn(): as in step 2</text>
+  <text x="516" y="428" font-size="13" fill="#1f2937">the turn; each word as plain text, its line breaks kept</text>
+  <text x="516" y="447" font-size="13" fill="#1f2937">the end: the answer's Markdown made HTML, once:</text>
+  <text x="516" y="466" font-size="13" fill="#1f2937">raw HTML off, pictures off, links in a new tab</text>
+  <text x="516" y="485" font-size="13" fill="#1f2937">chat.done: answerChars, ms, tokensIn, tokensOut, model</text>
+  <line x1="500" y1="442" x2="462" y2="442" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+
+  <!-- Why the caps -->
+  <rect x="40" y="524" width="880" height="64" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="550" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#7c2d12">Why the caps: </tspan>on Vercel, Stop never reaches the function (issue 32), so an answer no one reads</text>
+  <text x="56" y="570" font-size="13" fill="#1f2937">still runs to its end; its tokens and its time have a ceiling, whatever happens.</text>
+
+  <!-- The tests -->
+  <rect x="40" y="604" width="880" height="44" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="631" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>tests/fakes.py's stand-in streams a known answer, reports tokens, and fails on cue</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="52" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">LangChain's interface and standard exceptions: the app names no provider but in model.py.</text>
+  <text x="60" y="706" font-size="13" fill="#defcf6">No tools yet: until step 4, the model says it can't check the weather.</text>
+</svg>

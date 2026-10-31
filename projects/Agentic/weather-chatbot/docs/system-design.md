@@ -1,22 +1,22 @@
 # System Design
 
-How Nimbus is built after step 2, drawn the way the TypeScript version's
+How Nimbus is built after step 3, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
 **+** marks a part only Nimbus has. Step 1 laid the ground the assistant will stand on: the pages, the documentation
-and the health check. Step 2 made the chat answer, with a fixed answer, streamed a word at a time; there's no model
-and no tool yet, so this page shows only those. Each step adds its parts to it. Below the diagram, each band is
-described, then each part of the reference is set against what Nimbus has so far.
+and the health check. Step 2 made the chat answer, streamed a word at a time. Step 3 put Gemini in place of step 2's
+fixed answer, through LangChain; there's no tool yet, so this page shows only those. Each step adds its parts to it.
+Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 
-![How Nimbus is built after step 2](images/system-design.svg)
+![How Nimbus is built after step 3](images/system-design.svg)
 
 ## The four bands
 
 ### A · The online request path
 
 1. **You**, in a browser, on a computer or a phone, open a page: the chat, the documentation, or this one; or ask the
-   chat a question, whose answer, a fixed one for now, streams back a word at a time. There's no sign-in.
+   chat a question, whose answer, Gemini's, streams back a word at a time. There's no sign-in.
 2. **Vercel's edge** (02) serves HTTPS and routes the request. It gives the request an id, `x-vercel-id`, which a
    client can't forge: sent with a request, it's replaced by Vercel's own (checked on the live site). Five files never
    reach the app: **Vercel's CDN** serves the stylesheet, the icon, htmx, its stream extension and our `chat.js` from
@@ -30,7 +30,7 @@ described, then each part of the reference is set against what Nimbus has so far
 ### B · Controlled execution
 
 Every request takes the same path through the app: the two middleware classes, outermost first, then FastAPI's
-router. The only work done for a visitor is the chat's fixed answer: there's no model and no tool yet.
+router. The only work done for a visitor is the chat's answer: one call to the model, with no tool yet.
 
 - **The security headers** (`SecurityHeadersMiddleware`, outermost): on every response the app makes, an enforced
   Content Security Policy that allows only our own files; `nosniff`; `X-Frame-Options: DENY`; a referrer policy; and a
@@ -40,11 +40,12 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
   method, the path (never the query string), the status and the time.
 - **The router** sends the request to one of five:
   - **the chat** (`chat.py`): `POST /api/chat`. First the form's checks: the type, at most 32 KiB, each field once,
-    the question 1 to 2,000 characters, no field we don't know; a broken rule gets our own sentence and its status.
-    Then the answer, as server-sent events (`stream_turn()`, in an `EventStream`): your question and the answer, empty;
-    each word from `answer.py`; then the finished answer. Stop ends it on the page; on Vercel the function writes the
-    rest to no one, since Vercel's Python runtime never says the browser has gone; a failure shows the answer so far,
-    our own sentence and its ref;
+    the question 1 to 2,000 characters, no field we don't know; a broken rule gets our own sentence and its status;
+    and the browser's locale and time zone, which take the defaults when the chat can't use them. Then the answer, as
+    server-sent events (`stream_turn()`, in an `EventStream`): your question and the answer, empty; each word as **the
+    model** (07, below) writes it; then the finished answer, its Markdown made HTML. Stop ends it on the page; on
+    Vercel the function writes the rest to no one, since Vercel's Python runtime never says the browser has gone; a
+    failure shows the answer so far, our own sentence and its ref;
   - **the pages** (`pages.py`): the chat's page, the lists of pages and the 404 page, each a Jinja2 template, which
     escapes every value but two marked safe: a doc's Markdown, rendered with raw HTML off, and a menu label, escaped
     first, with the one `<wbr>` we add;
@@ -54,6 +55,11 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
   - **the docs' pictures**, from `docs/images/`.
 
   A missing page gets the app's own 404 page; a missing API address gets JSON.
+- **The model** (07): Gemini 3.5 Flash-Lite, through LangChain's `ChatGoogleGenerativeAI` (`model.py`), made once when
+  the app starts, told its rules by the system prompt (`prompts.py`): no weather as fact without tools, weather only,
+  short answers, the units for the visitor's locale, and their own today and tomorrow. Each answer is capped at 1,024
+  tokens and 30 seconds; each call waits 20 s and is tried once more. Its failures, which LangChain raises as standard
+  exceptions, become our own sentences: busy, too slow, not set up, or no answer.
 
 ### C · State and data freshness
 
@@ -62,9 +68,10 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
   conversation is only on the page, and leaves with it.
 - **Settings and secrets** are Vercel's environment variables, or `.env.local` on a computer, which git never sees;
   `config.py` is the only module that reads them, checked when the app starts. Vercel's own (the environment, the
-  commit, the deployment) come from the real environment only. The app reads one setting of its own, `LOG_LEVEL`. The
-  keys set in Vercel for the TypeScript version, and LangSmith's, wait for the steps that use them, all but Sentry's
-  three build variables, which are to be deleted ([To do](todo.md)).
+  commit, the deployment) come from the real environment only. The app reads `LOG_LEVEL`, the Gemini key (a Sensitive
+  variable) and model's name, and LangSmith's variables. The other keys set in Vercel for the TypeScript version
+  (Apify's, Axiom's, Sentry's) wait for the steps that use them, all but Sentry's three build variables, which are to
+  be deleted ([To do](todo.md)).
 - **The docs** are Markdown in `docs/`, deployed with the function, each page read once by each copy of it.
 - **The static files**, `public/static/`, are on Vercel's CDN, never in the function.
 
@@ -72,9 +79,10 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
 
 - **Observability** (09): JSON lines (structlog), on stdout, which Vercel's logs keep: one per request, and for each
   question, `chat.request` (its length) and how its answer ended, `chat.done`, `chat.aborted` or `chat.failed`, or
-  `chat.rejected` with the broken rule's code. Every line carries the request id, the environment, the commit and the
-  deployment, so one search for an id finds a request's lines. The field names are the TypeScript version's
-  (`requestId`, `deploymentId`), so the queries written for it still match.
+  `chat.rejected` with the broken rule's code; an answer's end holds its tokens and the model. Every line carries the
+  request id, the environment, the commit and the deployment, so one search for an id finds a request's lines. The
+  field names are the TypeScript version's (`requestId`, `deploymentId`), so the queries written for it still match.
+  LangSmith traces each model run, with its timing and tokens, its inputs and outputs hidden.
 - **Evaluation** (09): Ruff, mypy in strict mode, unit tests, and browser tests on every page and of the chat, with
   axe's accessibility checks, which CI runs on every push that touches the project; and a mutation check, which breaks
   each rule on purpose to show a test catches it, run before each commit.
@@ -91,22 +99,22 @@ router. The only work done for a visitor is the chat's fixed answer: there's no 
 
 | The reference | Nimbus after step 2 | Why, or when |
 |---|---|---|
-| Shopper: web or mobile chat | You, in a browser, on a computer or a phone: the chat answers, with a fixed answer for now | Gemini answers from step 3 |
+| Shopper: web or mobile chat | You, in a browser, on a computer or a phone: Gemini answers, but can't check the weather yet | The weather tools come in step 4 |
 | 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, and a request id it sets itself; the security headers on every response, the CDN's files included | The weather is public, so there's no sign-in. Rate limits come with the firewall's rules (step 11) |
-| 01 · Input guardrails: injection, PII, scope | In part: the form's checks: its type, at most 32 KiB, each field once, the question 1 to 2,000 characters, no field we don't know | The model's input rules come in step 3 |
-| 03 · Semantic cache: safe answers, by similarity | None | The answer is fixed for now |
-| 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; the chat's turn, which streams the answer, and which Stop ends on the page (on Vercel, the function writes it to the end) | The agent comes in steps 4 and 5 |
-| 01 · Output guardrails: safety, privacy, grounding | In part: Jinja2 escapes every value but the two marked safe, a doc's Markdown, rendered with no raw HTML, and a menu label's `<wbr>`; the page puts in only our own HTML, and our script only text; the policy runs only our own files | The model's answers come in step 3 |
-| Answer: citations or a safe refusal | The fixed answer, a word at a time; our own sentence for each thing that can go wrong, a failure's with its ref | Citations come with the tools (step 4) |
+| 01 · Input guardrails: injection, PII, scope | In part: the form's checks: its type, at most 32 KiB, each field once, the question 1 to 2,000 characters, a language tag and a known time zone, no field we don't know | Rules against prompt injection come in step 11 |
+| 03 · Semantic cache: safe answers, by similarity | None | The weather changes by the hour, so a cached answer would go stale; step 7 caches the weather's data instead |
+| 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; the chat's turn: one model call, streamed, capped at 1,024 tokens and 30 s, which Stop ends on the page (on Vercel, the function writes it to the end) | The agent comes in steps 4 and 5 |
+| 01 · Output guardrails: safety, privacy, grounding | In part: Jinja2 escapes every value but the two marked safe; an answer's Markdown renders with no raw HTML and no pictures, its links in a new tab; the system prompt's rules; the page puts in only our own HTML, and our script only text; the policy runs only our own files | Grounding in the tools' results comes in step 4 |
+| Answer: citations or a safe refusal | Gemini's answer, a word at a time; a polite refusal off the weather; our own sentence for each thing that can go wrong, a failure's with its ref | Citations come with the tools (step 4) |
 | 05 · Retrieval (RAG) and its index | None | The weather will come live from tools, not from documents |
 | 06 · Commerce tools: typed inputs, per-user permissions | None | The four weather tools come in step 4 |
 | Commerce APIs and databases | None | |
-| 07 · Model gateway: model choice, budgets, fallback | None | Gemini comes in step 3 |
+| 07 · Model gateway: model choice, budgets, fallback | Gemini 3.5 Flash-Lite through LangChain (`model.py`): 1,024 tokens and 30 s an answer, 20 s and one retry a call; LangChain's standard exceptions mapped to our sentences | One model, no fallback yet |
 | 08 · Human in the loop | None | |
 | Knowledge ingestion, change events, index refresh | None | |
 | Session store | None: the conversation is only on the page | From step 6, the browser sends it back with each question |
-| Secure storage | Vercel's environment variables, read only by `config.py` | The app reads no secret yet |
-| 09 · Observability: traces, p95 latency, tokens, cost, alerts | JSON lines with the request's id and its build, in Vercel's logs: one per request, and how each answer ended | |
+| Secure storage | Vercel's environment variables, read only by `config.py`; the Gemini key a Sensitive one, a `SecretStr` in the app, never logged | |
+| 09 · Observability: traces, p95 latency, tokens, cost, alerts | JSON lines with the request's id and its build, in Vercel's logs: one per request, and how each answer ended, with its tokens; LangSmith's trace of each model run, its inputs and outputs hidden | Axiom, Sentry and the dashboards come in step 12 |
 | 09 · Evaluation: golden set, safety tests, feedback | Unit, browser and accessibility tests in CI; a mutation check before each commit | |
 | 09 · Reliability and scale: autoscaling, caps, queues, breakers | Vercel Functions, as many copies as the traffic needs; the CDN for the files; the chat's size limits | |
 | 09 · Release and recovery: load tests, canary, rollback, backups | Every push to `main` deploys, side by side with CI; a tag per step; Vercel can roll back | CI doesn't gate the deployment, so a failure shows after it's live. No backups: Nimbus stores no data |
@@ -151,6 +159,6 @@ Searched for the id, Vercel's logs found its three lines, the question's text in
 
 ## What comes next
 
-Step 3 puts Gemini's answer, through LangChain, in place of the fixed one, streamed the same way, which adds the model
-to band B (07), with the system prompt, the model's input rules and time limits on the call. Each step after it adds
-its parts to this page and its diagram; the plan, `PLAN.md`, has them all.
+Step 4 gives the model four weather tools, through a prebuilt LangGraph agent: the REST · no auth lane, which calls
+Open-Meteo directly, adding the tools (06) and the weather's APIs to band B, and a chip for each tool call to the
+answer. Each step after it adds its parts to this page and its diagram; the plan, `PLAN.md`, has them all.

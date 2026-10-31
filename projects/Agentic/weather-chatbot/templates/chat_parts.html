@@ -1,6 +1,7 @@
 {#
   templates/chat_parts.html: the chat's messages, as macros the page and each event of an answer share (nimbus/chat.py):
-  your question, Nimbus's answer (being written and busy, finished, or failed), and a message that's only an error.
+  your question, Nimbus's answer (being written and busy, its words as plain text; finished, its Markdown made HTML;
+  or failed), and a message that's only an error.
 #}
 {% macro bot_meta() -%}
 <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
@@ -18,7 +19,7 @@
   {%- if busy %} aria-busy="true"{% endif %}>
   {{ bot_meta() }}
   <div class="bubble bubble-bot">
-    <p class="answer" id="answer-{{ turn_id }}">{{ answer }}</p>
+    <div class="answer{% if busy %} answer-streaming{% endif %}" id="answer-{{ turn_id }}">{{ answer }}</div>
     {%- if note %}
     <p class="message-note">{{ note }}</p>
     {%- endif %}

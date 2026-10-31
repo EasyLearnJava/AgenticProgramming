@@ -191,3 +191,61 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     shared state. The chapter, the design picture and the System design say Stop ends the answer on the page only
     there, and step 3 caps each model answer's length and time, so an answer no one reads can't run on. **Check:** the
     live check's Stop, and that request's lines in Vercel's logs.
+
+## Step 3 · Gemini Answers, Streamed
+
+33. **LangSmith would have traced every model run by itself.** *Reading a package's code* (LangSmith's
+    `tracing_is_enabled()`, while adding the model). LangChain traces each model run whenever `LANGSMITH_TRACING` is
+    true, reading LangSmith's variables on its own, not the app's settings; Vercel has them set. With
+    `LANGSMITH_HIDE_INPUTS` and `LANGSMITH_HIDE_OUTPUTS` true, LangSmith would hide every question and answer, but
+    nothing in the app made sure of that: unset either one, and the questions would reach LangSmith, against the rule
+    that a question is never logged or traced. **Fix:** `config.py` reads LangSmith's variables too, and
+    `stream_answer()` runs the model inside `tracing_context(enabled=..., client=...)`, which overrides the
+    environment: on only when `is_tracing_allowed()` finds tracing on, a key, and both hidden, and then with the app's
+    own client, which hides both itself (issue 34). The app's `app.started` line says whether it traces. **Check:** a
+    unit test for each of the four conditions; the mutation check's "LangSmith traces only when it hides both inputs
+    and outputs".
+34. **LangSmith's client and the app read "hide" differently.** *The review.* The app took `LANGSMITH_HIDE_INPUTS`
+    and `LANGSMITH_HIDE_OUTPUTS` as Pydantic does, so `True`, `1` and `yes` count, from `.env.local` too; LangSmith's
+    client hides only when the real environment holds exactly the string `true`. With `True`, or the variables only in
+    `.env.local`, the app would have allowed tracing while LangSmith sent the questions. **Fix:** the app makes its own
+    client, `Client(api_key=..., hide_inputs=True, hide_outputs=True)`, and passes it in `tracing_context()`, which
+    LangChain's tracer uses: it hides whatever the variables say. **Check:** a unit test of how the client is made;
+    the mutation check's "the tracer hides inputs and outputs, whatever LangSmith's variables say".
+35. **The answer's tokens would have been wrong.** *The review.* Gemini's chunks each carry their share of the tokens,
+    a delta, not a running total; the code kept only the last chunk's, so an answer would have logged its last word's
+    tokens. **Fix:** each chunk's tokens are added up; the stand-in model now reports deltas, as Gemini does.
+    **Check:** a unit test; the mutation check's "each chunk's tokens add up".
+36. **"Tried once more" was no retry at all.** *The review.* For Gemini, LangChain passes `max_retries` on as
+    google-genai's `HttpRetryOptions(attempts=...)`, which counts the first attempt: `1` meant one attempt, no retry.
+    **Fix:** `MODEL_MAX_ATTEMPTS = 2`, one retry. **Check:** a unit test of the model's settings, in numbers; the
+    mutation check's "a failed call to Gemini is tried once more, not five times".
+37. **A key Gemini refuses would have said "didn't answer".** *The review.* Gemini answers a bad key with a 400,
+    `INVALID_ARGUMENT`, reason `API_KEY_INVALID`, which LangChain raises as an invalid request, not as an
+    authentication error; a wrong `GEMINI_MODEL` gets a 404. Both are this deployment's set-up, not a passing failure.
+    **Fix:** `is_set_up_wrong()` maps `ModelNotFoundError`, and an invalid request whose text holds `API_KEY_INVALID`,
+    to `ConfigError`: "The assistant isn't set up on this deployment yet." **Check:** unit tests with
+    `langchain-google-genai`'s own error class; two mutation rules.
+38. **The 30-second limit could have landed in the page's code.** *The review* (a probe with a slow reader).
+    `asyncio.timeout()` around the generator's loop spanned its `yield`s: a deadline that passed while the page was
+    sending a piece cancelled the page's code, so the answer would have ended as "cut off", logged as aborted, not as
+    "took too long" (PEP 789's hazard). **Fix:** one deadline, and only each `anext()` on the model's stream timed,
+    with `asyncio.timeout_at()`. **Check:** a unit test whose reader sleeps between pieces past the deadline.
+39. **Stop left Gemini's stream open.** *The review.* Closing `stream_answer()` left `model.astream()` paused, so the
+    HTTP call to Gemini stayed open until Python collected it, outside the request. **Fix:** the model's stream is
+    read through `aclosing()`. **Check:** a unit test that closes the answer after one piece, and finds the model's
+    stream closed.
+40. **A browser's unusual locale or time zone locked its visitor out.** *The review.* ICU's `Etc/Unknown` isn't in the
+    IANA database, and a tag such as `ja-JP-u-ca-japanese-hc-h12` had too many subtags for the pattern: every question
+    from such a browser got "The chat couldn't read that request.", though the values come from the browser, not the
+    visitor. And the units took the tag's last subtag, so `en-US-u-hc-h23` got metric. **Fix:** a value the chat can't
+    use takes the default, logged as `defaulted`; any number of subtags; the region is the subtag of two letters or
+    three digits, before any extension. **Check:** unit tests for six values and for the regions; two mutation rules.
+41. **A test reached out to LangSmith.** *Checking our work* (a run's output). The test of the tracer made LangSmith's
+    real client, whose thread then called `api.smith.langchain.com` from the test run. **Fix:** the test swaps in a
+    client that records how it was made. **Check:** the unit tests' output, with no call out.
+42. **The LangSmith project was read but never used.** *The review.* The app read `LANGSMITH_PROJECT` into its
+    settings, from `.env.local` too, but passed it nowhere: LangChain's tracer took its project from the real
+    environment only. On Vercel the two are the same; on a computer with the variable only in `.env.local`, runs would
+    have gone to LangSmith's default project. **Fix:** `make_tracer()` gives back the client and the project, and
+    `tracing_context()` gets both, as `client` and `project_name`. **Check:** a unit test of each; two mutation rules.

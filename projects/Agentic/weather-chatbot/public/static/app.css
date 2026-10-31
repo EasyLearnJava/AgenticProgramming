@@ -1,7 +1,8 @@
 /*
  * public/static/app.css: Nimbus's look: the mint and teal design of the TypeScript app, ported rule by rule as each
  * step needs it. Step 1: the shell with its menu, the chat card's welcome and input, and the documentation pages.
- * Step 2: your messages and Nimbus's answers, a note at an answer's end, an error's colours, and Stop.
+ * Step 2: your messages and Nimbus's answers, a note at an answer's end, an error's colours, and Stop. Step 3: an
+ * answer's Markdown: paragraphs, lists, links and code.
  */
 :root {
   --bg-top: #fcfffe;
@@ -254,6 +255,34 @@ body {
 
 .answer:empty {
   min-height: 1.5em;
+}
+
+/* An answer being written is plain text, its line breaks kept; once finished, its Markdown is HTML. */
+.answer-streaming {
+  white-space: pre-wrap;
+}
+
+.answer > * {
+  margin: 0 0 8px;
+}
+
+.answer > :last-child {
+  margin-bottom: 0;
+}
+
+.answer ul,
+.answer ol {
+  padding-left: 20px;
+}
+
+.answer a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.answer code {
+  font-family: var(--mono);
+  font-size: 0.875em;
 }
 
 /* A note at an answer's end: Stopped, cut off, or an error's sentence and its ref. */
