@@ -26,7 +26,10 @@ NOT_COPIED: Final = shutil.ignore_patterns(
 TESTS_TIMEOUT_SECONDS: Final = 600
 # The test files that guard each module: a rule in it runs these. A module not here, the constants included, runs all.
 TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
+    "nimbus/actor.py": ("test_actor.py", "test_auth_lanes.py"),
     "nimbus/agent.py": ("test_agent.py", "test_answer.py"),
+    "nimbus/apify.py": ("test_apify.py",),
+    "nimbus/auth_lanes.py": ("test_auth_lanes.py",),
     "nimbus/answer.py": ("test_answer.py", "test_agent.py", "test_chat.py"),
     "nimbus/cache.py": ("test_cache.py", "test_open_meteo.py"),
     "nimbus/app.py": ("test_model.py", "test_pages.py", "test_chat.py"),
@@ -718,7 +721,7 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/chat.py",
-        'lane: OpenLaneId = "rest-no-auth"',
+        'lane: LaneId = "rest-no-auth"',
         'lane: str = "rest-no-auth"',
         "a lane that isn't open is refused",
     ),
@@ -727,6 +730,96 @@ MUTATIONS = (
         "lane = get_lane(self.record.lane).label",
         'lane = "REST · no auth"',
         "a chip names its lane",
+    ),
+    Mutation(
+        "nimbus/actor.py",
+        "return round(celsius * 9 / 5 + 32, 1)",
+        "return celsius",
+        "the Actor's Celsius turns to Fahrenheit when asked",
+    ),
+    Mutation(
+        "nimbus/actor.py",
+        "SAME_PLACE_DEGREES: Final = 0.01",
+        "SAME_PLACE_DEGREES: Final = 180",
+        "the Actor's items must be for the place asked",
+    ),
+    Mutation(
+        "nimbus/actor.py",
+        "if len(days) != forecast_days or",
+        "if len(days) > forecast_days or",
+        "the Actor's items must hold every day asked",
+    ),
+    Mutation(
+        "nimbus/apify.py",
+        'authorization = {"authorization": f"Bearer {token.get_secret_value()}"}',
+        'authorization = {"authorization": "Bearer"}',
+        "a run over REST carries the token in its header",
+    ),
+    Mutation(
+        "nimbus/apify.py",
+        "        401: AuthError,",
+        "        401: ContractError,",
+        "Apify's 401 is a token refused",
+    ),
+    Mutation(
+        "nimbus/apify.py",
+        "BudgetExceededError() if PAYMENT_WORDS.search(text) else ContractError()",
+        "ContractError()",
+        "an error result about payment is a credit used up",
+    ),
+    Mutation(
+        "nimbus/apify.py",
+        "    if not pinned:\n        raise ContractError",
+        "    if False:\n        raise ContractError",
+        "Apify's tools must match our pin",
+    ),
+    Mutation(
+        "nimbus/apify.py",
+        "if run.status in STILL_RUNNING:",
+        "if run.status in ():",
+        "a run still going is too slow",
+    ),
+    Mutation(
+        "nimbus/auth_lanes.py",
+        "falls_back = left >= FALLBACK_MIN_LEFT_SECONDS",
+        "falls_back = True",
+        "nothing falls back with too little of the answer left",
+    ),
+    Mutation(
+        "nimbus/auth_lanes.py",
+        "lane if tool is GET_FORECAST else twin",
+        "lane",
+        "a lane with auth's other tools are its twin's",
+    ),
+    Mutation(
+        "nimbus/lanes.py",
+        "return not lane.auth or settings.apify_token is not None",
+        "return True",
+        "a lane with auth is closed with no token",
+    ),
+    Mutation(
+        "nimbus/answer.py",
+        "return AUTH_ANSWER_TIMEOUT_SECONDS if lane.auth else ANSWER_TIMEOUT_SECONDS",
+        "return ANSWER_TIMEOUT_SECONDS",
+        "an answer on a lane with auth has 50 s",
+    ),
+    Mutation(
+        "nimbus/mcp_lane.py",
+        '    "mcp-session-id": "<masked>",',
+        '    "mcp-session-ids": "<masked>",',
+        "a chip masks a session's id",
+    ),
+    Mutation(
+        "nimbus/auth_lanes.py",
+        "if self.left_in_answer <= 0:",
+        "if self.left_in_answer <= -99:",
+        "an answer starts two Actor runs at most",
+    ),
+    Mutation(
+        "nimbus/auth_lanes.py",
+        "if runs >= APIFY_RUNS_PER_DAY:",
+        "if runs >= APIFY_RUNS_PER_DAY * 1000:",
+        "the day's Actor runs are capped",
     ),
 )
 

@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     langsmith_project: str | None = None
     langsmith_hide_inputs: bool = False
     langsmith_hide_outputs: bool = False
+    # ⑥ Set by you (step 10): Apify's token, a Sensitive variable in Vercel, for the lanes with auth; without it,
+    # they're closed.
+    apify_token: SecretStr | None = None
 
     @classmethod
     def settings_customise_sources(

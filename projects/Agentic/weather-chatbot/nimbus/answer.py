@@ -32,7 +32,7 @@ from markupsafe import Markup
 
 from nimbus.agent import make_agent, to_agent_config
 from nimbus.cache import WeatherCache
-from nimbus.constants import ANSWER_TIMEOUT_SECONDS
+from nimbus.constants import ANSWER_TIMEOUT_SECONDS, AUTH_ANSWER_TIMEOUT_SECONDS
 from nimbus.errors import AnswerTimeoutError, ConfigError, ModelBusyError, ModelFailedError, NimbusError
 from nimbus.lanes import REST_NO_AUTH, Lane
 from nimbus.model import Tracer
@@ -125,13 +125,15 @@ async def stream_answer(
     stats: AnswerStats,
     tracer: Tracer | None,
     lane: Lane = REST_NO_AUTH,
+    deadline: float | None = None,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The agent's run, as events: each tool call as it starts and ends, each piece of the words as the model writes it;
     within 30 s in all. LangSmith traces the run only with a tracer, whose client hides its inputs and outputs, in its
     project. A failure becomes ours: ModelBusyError, AnswerTimeoutError, ConfigError or ModelFailedError.
     """
-    deadline = asyncio.get_running_loop().time() + ANSWER_TIMEOUT_SECONDS
+    if deadline is None:
+        deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
     client, project = (tracer.client, tracer.project) if tracer is not None else (None, None)
     # Whether the model has written words yet, and whether a tool call has started since: the words that follow it
     # start a paragraph of their own, rather than running on from "Let me check." (issue 53).
@@ -184,6 +186,11 @@ def make_http_client() -> httpx2.AsyncClient:
     return httpx2.AsyncClient()
 
 
+def to_answer_seconds(lane: Lane) -> float:
+    """How long an answer on the lane may take: 30 s, or 50 s on a lane with auth, which runs an Actor (step 10)."""
+    return AUTH_ANSWER_TIMEOUT_SECONDS if lane.auth else ANSWER_TIMEOUT_SECONDS
+
+
 @asynccontextmanager
 async def rest_tools(
     http_client: httpx2.AsyncClient, weather_cache: WeatherCache | None = None
@@ -203,6 +210,7 @@ async def stream_weather_answer(
     tracer: Tracer | None,
     tools: AbstractAsyncContextManager[list[StructuredTool]],
     lane: Lane = REST_NO_AUTH,
+    deadline: float | None = None,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The answer, by the agent with the four weather tools of the question's lane (step 9), open for as long as the
@@ -210,7 +218,7 @@ async def stream_weather_answer(
     """
     async with tools as weather_tools:
         agent = make_agent(model, weather_tools)
-        async with aclosing(stream_answer(agent, messages, stats, tracer, lane)) as events:
+        async with aclosing(stream_answer(agent, messages, stats, tracer, lane, deadline)) as events:
             async for event in events:
                 yield event
 

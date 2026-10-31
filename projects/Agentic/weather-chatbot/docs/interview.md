@@ -361,3 +361,22 @@ group's block leaves it wrapped. Give a group of one back as the error inside.
 **5. How do you keep two lanes the same?**
 One definition for both, the same names, descriptions and inputs; the same errors, by name; and tests that the two
 agree.
+
+## Step 10 · The Lanes With Auth, Through Apify
+
+**1. How do you call a paid API from an agent without risking its answer?**
+Cap the call: its time and its charge. When it fails, fall back to a free source for the same data, say why, and
+never retry the paid call.
+
+**2. What do you pin when you call someone else's code?**
+Its version, so its answer can't change under you; its time; its cost.
+
+**3. How do you keep a token secret in a chat that shows its requests?**
+Send it only in a header, mask it wherever a request is shown, keep it out of the logs, and read it only from the
+environment.
+
+**4. How do you check an answer from a service you don't control?**
+Its shape, field by field, and its meaning: the place you asked for, the days you asked for, in order.
+
+**5. Why open a connection in the task that will close it?**
+Libraries built on anyio enter a task group on connecting; leaving it from another task fails.

@@ -121,6 +121,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "address of its own; the chips show both hops, and a compare view one forecast call through each lane."
         ),
     ),
+    DocPage(
+        slug="step-10",
+        path="/docs/step-10",
+        label="Step 10: The Lanes With Auth, Through Apify",
+        summary=(
+            "The forecast through Apify's Actor, over its REST API or its MCP server, behind a token, pinned and "
+            "capped; the other tools, and any failure, by the twin with no auth, the chip saying why."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

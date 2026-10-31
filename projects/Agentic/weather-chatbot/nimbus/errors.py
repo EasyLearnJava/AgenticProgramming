@@ -37,6 +37,16 @@ HISTORY_TOO_LONG = "This conversation is too long to go on. Please start a new c
 # ⑦ The lanes (step 9): one the form names that isn't open; our own MCP server, which the MCP lane couldn't reach.
 LANE_CLOSED = "That lane isn't open yet. Please choose REST · no auth or MCP · no auth."
 MCP_UNREACHABLE = "Our MCP server couldn't be reached. Please try again, or choose REST · no auth."
+LANE_NEEDS_TOKEN = "That lane needs an Apify token, which this deployment doesn't have. Please choose one with no auth."
+# ⑧ Why a forecast on a lane with auth fell back to its twin with no auth (step 10), as its chip says it.
+APIFY_TOKEN_REFUSED = "Apify didn't accept our token"
+APIFY_CREDIT_USED = "Apify's credit for this month is used up"
+APIFY_TOO_SLOW = "Apify took too long"
+APIFY_BUSY = "Apify is busy"
+APIFY_UNREACHABLE = "Apify can't be reached"
+APIFY_UNEXPECTED = "Apify answered in a way we didn't expect"
+APIFY_ANSWER_RUNS_USED = "This answer's two Actor runs are used up"
+APIFY_DAY_RUNS_USED = "Today's Actor runs are used up"
 
 
 class NimbusError(Exception):
@@ -133,6 +143,31 @@ class McpLaneError(UpstreamError):
     def __init__(self) -> None:
         """The error, with its sentence."""
         super().__init__("mcp_unreachable", MCP_UNREACHABLE, HTTPStatus.BAD_GATEWAY)
+
+
+class AuthError(UpstreamError):
+    """Apify didn't accept our token: 401 or 403 (step 10); the forecast falls back (502)."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence, for when nothing can fall back."""
+        super().__init__("apify_auth", WEATHER_UNREACHABLE, HTTPStatus.BAD_GATEWAY)
+
+
+class BudgetExceededError(UpstreamError):
+    """Apify asked for payment: our token's credit for the month is used up (402) (step 10); the forecast falls back."""
+
+    def __init__(self) -> None:
+        """The error, with its sentence, for when nothing can fall back."""
+        super().__init__("apify_budget", WEATHER_UNREACHABLE, HTTPStatus.BAD_GATEWAY)
+
+
+class RunsUsedUpError(UpstreamError):
+    """No Actor run left: 2 an answer, 25 a day (step 10); the forecast falls back with none started (429)."""
+
+    def __init__(self, reason: str) -> None:
+        """The error, with whose runs are used up, the answer's or the day's, for the chip."""
+        super().__init__("apify_runs_used_up", WEATHER_UNREACHABLE, HTTPStatus.TOO_MANY_REQUESTS)
+        self.reason = reason
 
 
 def to_user_message(error: BaseException) -> str:

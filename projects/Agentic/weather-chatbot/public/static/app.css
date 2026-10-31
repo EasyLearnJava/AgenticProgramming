@@ -718,3 +718,10 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* A forecast on a lane with auth that fell back to its twin (step 10): why, under its lane's line. */
+.tool-chip-fallback {
+  display: block;
+  color: var(--warn);
+  font-size: 0.8rem;
+}

@@ -15,6 +15,8 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from nimbus.actor import to_actor_input
+from nimbus.apify import to_call_actor_example, to_rest_request
 from nimbus.chips import MARKS, WORDS
 from nimbus.config import Settings
 from nimbus.constants import (
@@ -36,7 +38,7 @@ from nimbus.docs import (
     title_of,
 )
 from nimbus.errors import CUT_OFF, STOPPED, UNREACHABLE
-from nimbus.lanes import LANES, MCP_NO_AUTH, REST_NO_AUTH, Lane
+from nimbus.lanes import LANES, MCP_NO_AUTH, MCP_WITH_AUTH, REST_NO_AUTH, REST_WITH_AUTH, Lane, is_open
 from nimbus.mcp_lane import to_tools_call
 from nimbus.open_meteo import to_forecast_request
 from nimbus.tools import ForecastInput
@@ -135,7 +137,7 @@ def chat_page(request: Request) -> HTMLResponse:
         "history_max_messages": HISTORY_MAX_MESSAGES,
         "history_max_chars": HISTORY_MAX_CHARS,
         "answer_max_chars": HISTORY_ANSWER_MAX_CHARS,
-        "lanes": LANES,
+        "lanes": [(lane, is_open(lane, request.app.state.settings)) for lane in LANES],
         "default_lane": REST_NO_AUTH.id,
         "compare": to_compare_cells(request),
     }
@@ -159,6 +161,14 @@ COMPARE_NOTES = {
         "A JSON-RPC message to our own MCP server, which then sends Open-Meteo the request beside it. The SDK's "
         "client adds its own headers and the protocol's _meta: a chip shows them as they're sent."
     ),
+    REST_WITH_AUTH.id: (
+        "One request: Apify runs the Actor, which asks Open-Meteo, and answers with its items. The token goes in a "
+        "header, masked here; if the run fails, REST · no auth answers."
+    ),
+    MCP_WITH_AUTH.id: (
+        "After the 2025 handshake, call-actor runs the Actor with the same three limits, then get-dataset-items reads "
+        "its items. The token is masked here; if the run fails, MCP · no auth answers."
+    ),
 }
 
 
@@ -167,9 +177,12 @@ def to_compare_cells(request: Request) -> list[CompareCell]:
     state = request.app.state
     arguments = COMPARE_CALL.model_dump(mode="json")
     mcp_url = state.to_mcp_url(request, state.settings) or MCP_PATH
+    actor_input = to_actor_input(COMPARE_CALL)
     requests = {
         REST_NO_AUTH.id: to_forecast_request(**arguments).to_text(),
         MCP_NO_AUTH.id: to_tools_call(mcp_url, "get_forecast", arguments).to_text(),
+        REST_WITH_AUTH.id: to_rest_request(actor_input).to_text(),
+        MCP_WITH_AUTH.id: to_call_actor_example(actor_input).to_text(),
     }
     return [
         CompareCell(lane, requests.get(lane.id), COMPARE_NOTES.get(lane.id, f"Opens in step {lane.step}."))

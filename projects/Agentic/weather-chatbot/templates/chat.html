@@ -7,7 +7,8 @@
   script also fills the hidden fields: the browser's locale and time zone, for the units and the visitor's today; and
   the conversation so far (step 6), which goes back with each question, within the limits held here; New chat clears it.
   The lane picker (step 9) chooses how the tools are reached: its radios belong to the form (form="chat-form"), so the
-  lane goes with each question; the compare view shows one forecast call through each lane.
+  lane goes with each question; the two with auth (step 10) open only with Apify's token. The compare view shows one
+  forecast call through each lane.
 #}
 {% extends "base.html" %}
 {% from "chat_parts.html" import bot_meta, error_message %}
@@ -50,12 +51,12 @@
       <fieldset class="lane-picker">
         <legend class="lane-picker-legend">Lane: how the tools are reached</legend>
         <div class="lane-grid">
-          {%- for lane in lanes %}
-          <label class="lane{{ '' if lane.is_open else ' lane-closed' }}">
+          {%- for lane, open in lanes %}
+          <label class="lane{{ '' if open else ' lane-closed' }}">
             <input type="radio" name="lane" value="{{ lane.id }}" form="chat-form"
-              {%- if lane.id == default_lane %} checked{% endif %}{% if not lane.is_open %} disabled{% endif %}>
+              {%- if lane.id == default_lane %} checked{% endif %}{% if not open %} disabled{% endif %}>
             <span class="lane-label">{{ lane.label }}</span>
-            <span class="lane-note">{{ "live" if lane.is_open else "step " ~ lane.step }}</span>
+            <span class="lane-note">{{ "live" if open else "needs a token" }}</span>
           </label>
           {%- endfor %}
         </div>

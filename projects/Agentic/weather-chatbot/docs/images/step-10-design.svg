@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 10 · The lanes with auth, through Apify</title>
+  <desc id="d">On a lane with auth, get_forecast runs through Apify's Actor, over Apify's REST API, one request, or over its MCP server, call-actor then get-dataset-items, the build, 18 s and $0.01 pinned on both, the token only in a header. Its items become the same forecast. The other three tools are the twin's, with no auth. A failure falls back to the twin's get_forecast, if 12 s of the answer's 50 are left, and the chip says why. Without a token, the lanes are closed.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 10 · The lanes with auth, through Apify</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">The forecast through a paid Actor, behind a token; the rest, and any failure, by the twin</text>
+
+  <!-- Row 1: the two doors -->
+  <rect x="40" y="100" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">REST · with auth: one request</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">POST run-sync-get-dataset-items, 20 s</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">build=1.0.9, timeout=18, $0.01 in the address</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">authorization: Bearer, masked in the chip</text>
+  <text x="56" y="205" font-size="13" fill="#1f2937">a status: one of our errors</text>
+  <rect x="500" y="100" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="516" y="126" font-size="15" font-weight="700" fill="#053b30">MCP · with auth: Apify's MCP server</text>
+  <text x="516" y="148" font-size="13" fill="#1f2937">opened with the lane: 2025, sessions, 5 s</text>
+  <text x="516" y="167" font-size="13" fill="#1f2937">our pin checked; then call-actor, same limits,</text>
+  <text x="516" y="186" font-size="13" fill="#1f2937">then get-dataset-items, 100 items at most</text>
+  <text x="516" y="205" font-size="13" fill="#1f2937">each POST's status kept (issue 65)</text>
+  <line x1="250" y1="224" x2="250" y2="268" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="710" y1="224" x2="710" y2="268" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: the items, the fallback -->
+  <rect x="40" y="270" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="296" font-size="15" font-weight="700" fill="#053b30">actor.py: the items, as get_forecast's</text>
+  <text x="56" y="318" font-size="13" fill="#1f2937">each checked: shape, the place asked, every day</text>
+  <text x="56" y="337" font-size="13" fill="#1f2937">asked, once each and in order</text>
+  <text x="56" y="356" font-size="13" fill="#1f2937">°C to °F here, when asked</text>
+  <text x="56" y="375" font-size="13" fill="#1f2937">hourly: at most 3 days, its hours alone</text>
+  <rect x="500" y="270" width="420" height="124" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="516" y="296" font-size="15" font-weight="700" fill="#7c2d12">A failure: the twin answers</text>
+  <text x="516" y="318" font-size="13" fill="#1f2937">one lane.fallback line, its class, never the token</text>
+  <text x="516" y="337" font-size="13" fill="#1f2937">the twin's get_forecast, if 12 s are left</text>
+  <text x="516" y="356" font-size="13" fill="#1f2937">the chip: ↩ Apify didn't accept our token,</text>
+  <text x="516" y="375" font-size="13" fill="#1f2937">so REST · no auth answered</text>
+
+  <!-- The other three tools -->
+  <rect x="40" y="414" width="880" height="64" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="440" font-size="15" font-weight="700" fill="#053b30">The other three tools: the twin's</text>
+  <text x="56" y="462" font-size="13" fill="#1f2937">geocode_location, get_current_weather, get_air_quality: the Actor has none of them, so the same door with no auth runs them</text>
+
+  <!-- Why -->
+  <rect x="40" y="498" width="880" height="84" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="524" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#7c2d12">Why this way: </tspan>a run costs about half a cent, capped at one, so it's never retried or cached.</text>
+  <text x="56" y="544" font-size="13" fill="#1f2937">An answer on these lanes has 50 s, the Actor's call 20. Without APIFY_TOKEN, the lanes are closed: the</text>
+  <text x="56" y="564" font-size="13" fill="#1f2937">picker says "needs a token", and a form that names one gets our sentence.</text>
+
+  <!-- The tests -->
+  <rect x="40" y="602" width="880" height="44" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="629" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>the Actor's recorded answers; Apify's REST API and MCP server played back; each fallback</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">A paid door, capped and pinned, with a free one behind it: the forecast always comes.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">The chip says which door answered, and why.</text>
+</svg>

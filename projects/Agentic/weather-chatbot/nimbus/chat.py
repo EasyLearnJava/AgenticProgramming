@@ -35,7 +35,9 @@ from nimbus.answer import (
     render_answer,
     rest_tools,
     stream_weather_answer,
+    to_answer_seconds,
 )
+from nimbus.auth_lanes import open_mcp_with_auth, open_rest_with_auth
 from nimbus.chips import ToolChip
 from nimbus.config import Settings
 from nimbus.constants import (
@@ -60,6 +62,7 @@ from nimbus.errors import (
     HISTORY_TOO_LONG,
     HISTORY_UNREADABLE,
     LANE_CLOSED,
+    LANE_NEEDS_TOKEN,
     QUESTION_TOO_LONG,
     UNREADABLE,
     ConfigError,
@@ -67,7 +70,7 @@ from nimbus.errors import (
     NimbusError,
     to_user_message,
 )
-from nimbus.lanes import MCP_NO_AUTH, Lane, OpenLaneId, get_lane
+from nimbus.lanes import MCP_NO_AUTH, MCP_WITH_AUTH, REST_WITH_AUTH, Lane, LaneId, get_lane, is_open
 from nimbus.mcp_lane import open_mcp_lane
 from nimbus.pages import templates
 from nimbus.prompts import to_messages
@@ -102,7 +105,7 @@ class ChatRequest(BaseModel):
     locale: str = DEFAULT_LOCALE
     time_zone: str = DEFAULT_TIME_ZONE
     history: tuple[HistoryMessage, ...] = ()
-    lane: OpenLaneId = "rest-no-auth"
+    lane: LaneId = "rest-no-auth"
 
     @field_validator("history", mode="before")
     @classmethod
@@ -347,15 +350,24 @@ def refusal(error: NimbusError) -> HTMLResponse:
     )
 
 
-def open_lane_tools(request: Request, lane: Lane) -> AbstractAsyncContextManager[list[StructuredTool]]:
+def open_lane_tools(request: Request, lane: Lane, deadline: float) -> AbstractAsyncContextManager[list[StructuredTool]]:
     """
-    The lane's four tools, for one answer (step 9): on REST · no auth, calling Open-Meteo through a new HTTP client;
-    on MCP · no auth, calling our own MCP server on this same deployment, which calls Open-Meteo.
+    The lane's four tools, for one answer: on REST · no auth, calling Open-Meteo through a new HTTP client; on MCP ·
+    no auth, calling our own MCP server on this same deployment (step 9); on the lanes with auth, the forecast through
+    Apify's Actor, falling back to the twin before the deadline, and the other three the twin's (step 10).
     """
     state = request.app.state
+    settings: Settings = state.settings
+    bypass, token = settings.vercel_automation_bypass_secret, settings.apify_token
     if lane == MCP_NO_AUTH:
-        url = state.to_mcp_url(request, state.settings)
-        return open_mcp_lane(url, state.make_mcp_http_client(), state.settings.vercel_automation_bypass_secret)
+        return open_mcp_lane(state.to_mcp_url(request, settings), state.make_mcp_http_client(), bypass)
+    if lane == REST_WITH_AUTH and token is not None:
+        apify_http = state.make_apify_http_client()
+        return open_rest_with_auth(state.make_http_client(), state.weather_cache, apify_http, token, deadline)
+    if lane == MCP_WITH_AUTH and token is not None:
+        url, apify_http = state.to_mcp_url(request, settings), state.make_apify_http_client()
+        mcp_http, cache = state.make_mcp_http_client(), state.weather_cache
+        return open_mcp_with_auth(url, mcp_http, bypass, apify_http, token, deadline, cache)
     return rest_tools(state.make_http_client(), state.weather_cache)
 
 
@@ -378,6 +390,12 @@ async def chat(request: Request) -> Response:
     except ClientDisconnect:
         log.info("chat.aborted", answerChars=0, ms=to_ms(time.perf_counter() - started))
         return Response(status_code=HTTP_CLIENT_CLOSED_REQUEST)
+    # A lane with auth is open only with Apify's token (step 10).
+    lane = get_lane(chat_request.lane)
+    if not is_open(lane, settings):
+        closed = InputError("lane_needs_token", LANE_NEEDS_TOKEN)
+        log.info("chat.rejected", code=closed.code, status=closed.status_code)
+        return refusal(closed)
     # The question's length, never its text; and which of the browser's values took the default, if any did.
     extra: dict[str, object] = {"defaulted": defaulted} if defaulted else {}
     if chat_request.history:
@@ -395,9 +413,9 @@ async def chat(request: Request) -> Response:
     history = [(message.role, message.text) for message in chat_request.history]
     now = datetime.now(UTC)
     messages = to_messages(chat_request.question, now, chat_request.locale, chat_request.time_zone, history)
-    lane = get_lane(chat_request.lane)
-    tools = open_lane_tools(request, lane)
-    answer = stream_weather_answer(model, messages, stats, request.app.state.tracer, tools, lane)
+    deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
+    tools = open_lane_tools(request, lane, deadline)
+    answer = stream_weather_answer(model, messages, stats, request.app.state.tracer, tools, lane, deadline)
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.
     turn = stream_turn(answer, chat_request.question, request.state.request_id, stats, settings.gemini_model)

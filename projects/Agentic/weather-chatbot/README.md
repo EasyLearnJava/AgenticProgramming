@@ -65,8 +65,9 @@ Each step's chapter explains it, in order:
 | 7 | [Open-Meteo's Answers, Cached](docs/step-7.md) | Done |
 | 8 | [Our Own MCP Server](docs/step-8.md) | Done |
 | 9 | [The MCP · No Auth Lane](docs/step-9.md) | Done |
-| 10 | The lanes with auth: Apify's Actor, over REST and MCP | Next |
-| 11 to 13 | See [PLAN.md](PLAN.md) | To come |
+| 10 | [The Lanes With Auth, Through Apify](docs/step-10.md) | Done |
+| 11 | Security: rate limits, prompt injection, privacy | Next |
+| 12 to 13 | See [PLAN.md](PLAN.md) | To come |
 
 ## Run it
 
@@ -74,8 +75,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [29496] using StatReload
-INFO:     Started server process [42492]
+INFO:     Started reloader process [35220] using StatReload
+INFO:     Started server process [4848]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -84,9 +85,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 16, "event": "http.request", "level": "info",
- "ts": "2026-10-31T15:31:32.993840Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "4914c92601324bbe"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 9, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T16:35:02.867997Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "34483762efbf45b6"}
 ```
 
 ## Test it
@@ -95,16 +96,16 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-89 files already formatted
+96 files already formatted
 $ uv run mypy
-Success: no issues found in 58 source files
+Success: no issues found in 64 source files
 $ uv run pytest
-463 passed in 7.77s
+515 passed in 8.48s
 $ uv run pytest tests/e2e --browser-channel msedge
-147 passed in 109.90s (0:01:49)
+151 passed in 112.33s (0:01:52)
 $ uv run python tools/mutation_check.py
 ...
-128 of 128 caught
+143 of 143 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
@@ -138,7 +139,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 9](docs/step-9.md)), the
+step ([step 1](docs/step-1.md) to [step 10](docs/step-10.md)), the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do**
 ([`docs/todo.md`](docs/todo.md)). The TypeScript version's pages are kept under **Deprecated**: its steps, System
@@ -147,4 +148,4 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 
 ## Next
 
-[Step 9's chapter](docs/step-9.md), then step 10: the lanes with auth, through Apify.
+[Step 10's chapter](docs/step-10.md), then step 11: security.

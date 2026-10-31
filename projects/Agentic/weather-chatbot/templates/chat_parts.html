@@ -33,6 +33,9 @@
       {%- if chip.lane_line %}
       <span class="tool-chip-lane">{{ chip.lane_line }}</span>
       {%- endif %}
+      {%- if chip.record and chip.record.fallback_note %}
+      <span class="tool-chip-fallback">↩ {{ chip.record.fallback_note }}</span>
+      {%- endif %}
     </summary>
     <div class="tool-chip-body">
       {%- if chip.record %}

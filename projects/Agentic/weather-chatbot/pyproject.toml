@@ -46,6 +46,8 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "S", "SIM", "C4", "RET", "PTH", "P
 [tool.ruff.lint.per-file-ignores]
 # Tests use assert, and literal numbers that say what they check.
 "tests/**" = ["S101"]
+# Our sentences: some speak of a token, which S105 takes for a hardcoded one; none holds a secret.
+"nimbus/errors.py" = ["S105"]
 
 [tool.mypy]
 python_version = "3.13"

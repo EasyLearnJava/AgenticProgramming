@@ -157,3 +157,31 @@ MCP_LOCAL_HOSTS: Final = ("127.0.0.1", "localhost", "[::1]", "127.0.0.1:*", "loc
 # the deployment's own address, the secret that gets an automated call past it goes in this header.
 MCP_CONNECT_SECONDS: Final = 6
 BYPASS_HEADER: Final = "x-vercel-protection-bypass"
+
+# ⑮ The lanes with auth (step 10): get_forecast through Apify's Actor, behind Apify's token. Over REST, one request
+# runs the Actor and answers with its items; over MCP, Apify's MCP server, with call-actor, then get-dataset-items, at
+# most 100 items in one read (an hourly forecast has 72). Both pin the Actor's build, stop its run at 18 s and its
+# charge at $0.01. An answer on these lanes has 50 s; the Actor's call, 20 s; connecting to Apify's MCP server, 5 s. A
+# call that fails falls back to its twin with no auth only with 12 s of the answer left, for the twin's 8 s and the
+# words. Apify's own words about a failure are cut to 200 characters.
+APIFY_ACTOR_RUN_URL: Final = (
+    "https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items"
+)
+APIFY_ACTOR_BUILD: Final = "1.0.9"
+APIFY_RUN_TIMEOUT_SECONDS: Final = 18
+APIFY_MAX_CHARGE_USD: Final = 0.01
+APIFY_MCP_URL: Final = "https://mcp.apify.com/?tools=call-actor,gochujang/open-meteo-weather-forecast"
+APIFY_ACTOR: Final = "gochujang/open-meteo-weather-forecast"
+ACTOR_TOOL_NAME: Final = "gochujang--open-meteo-weather-forecast"
+APIFY_RUN_TOOL: Final = "call-actor"
+APIFY_DATASET_TOOL: Final = "get-dataset-items"
+MAX_ACTOR_ITEMS: Final = 100
+AUTH_ANSWER_TIMEOUT_SECONDS: Final = 50
+AUTH_TOOL_SECONDS: Final = 20
+APIFY_MCP_CONNECT_SECONDS: Final = 5
+FALLBACK_MIN_LEFT_SECONDS: Final = 12
+MAX_APIFY_DETAIL_CHARS: Final = 200
+# A run costs about half a cent, capped at one, and anyone can ask (issue 66): at most 2 runs an answer, and 25 a day
+# across the app, counted in the weather's cache; past either, the forecast falls back with no run.
+APIFY_RUNS_PER_ANSWER: Final = 2
+APIFY_RUNS_PER_DAY: Final = 25

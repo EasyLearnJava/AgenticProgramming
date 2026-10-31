@@ -34,17 +34,22 @@ from nimbus.errors import (
 )
 from nimbus.lanes import MCP_NO_AUTH
 from nimbus.open_meteo import WireRequest
-from nimbus.tools import WEATHER_TOOLS, ToolRun, WeatherTool, to_langchain_tool
+from nimbus.tools import WEATHER_TOOLS, Run, ToolRun, WeatherTool, to_langchain_tool
 
 # The errors a tool's answer can name, by its class's name: the ones REST · no auth raises.
 KNOWN_ERRORS: Final[dict[str, Callable[[], UpstreamError]]] = {
     error.__name__: error
     for error in (UpstreamTimeoutError, UpstreamUnavailableError, UpstreamRateLimitedError, ContractError)
 }
-# What a chip shows in place of the secret that gets a call past Vercel's protection, and of any credential or cookie
-# the client might carry.
+# What a chip shows in place of the secret that gets a call past Vercel's protection, of any credential or cookie the
+# client might carry, and of a session's id, which a session opened with a token may honour alone (issue 67).
 MASKED_BYPASS: Final = "<VERCEL_AUTOMATION_BYPASS_SECRET>"
-MASKED_HEADERS: Final = {BYPASS_HEADER: MASKED_BYPASS, "authorization": "<masked>", "cookie": "<masked>"}
+MASKED_HEADERS: Final = {
+    BYPASS_HEADER: MASKED_BYPASS,
+    "authorization": "<masked>",
+    "cookie": "<masked>",
+    "mcp-session-id": "<masked>",
+}
 
 
 class McpOutput(RootModel[dict[str, Any]]):
@@ -188,11 +193,21 @@ def unwrap(group: BaseExceptionGroup) -> BaseException:
 async def open_mcp_lane(
     url: str | None, http_client: httpx2.AsyncClient, bypass_secret: SecretStr | None = None
 ) -> AsyncIterator[list[StructuredTool]]:
+    """The lane's four tools, as LangChain tools on MCP · no auth: each call a tools/call to our server."""
+    async with open_mcp_runs(url, http_client, bypass_secret) as runs:
+        yield [to_langchain_tool(tool, runs[tool.name], MCP_NO_AUTH) for tool in WEATHER_TOOLS]
+
+
+@asynccontextmanager
+async def open_mcp_runs(
+    url: str | None, http_client: httpx2.AsyncClient, bypass_secret: SecretStr | None = None
+) -> AsyncIterator[dict[str, Run]]:
     """
-    The lane's four tools, on one connection to the server at the URL, open for as long as the answer is, and closed
-    with it, however it ends. Connecting and listing its tools have 6 s; a server that can't be reached, or doesn't
-    offer our four, is McpLaneError. Each request the client sends is kept, for the chips; the secret that gets a call
-    past Vercel's protection goes with each, if the deployment has one.
+    The lane's run of each of our four tools, on one connection to the server at the URL, open for as long as the
+    answer is, and closed with it, however it ends; MCP · with auth runs three of them, and falls back to the fourth.
+    Connecting and listing its tools have 6 s; a server that can't be reached, or doesn't offer our four, is
+    McpLaneError. Each request the client sends is kept, for the chips; the secret that gets a call past Vercel's
+    protection goes with each, if the deployment has one.
     """
     sent: list[httpx2.Request] = []
 
@@ -217,8 +232,7 @@ async def open_mcp_lane(
             offered = {tool.name for tool in listed.tools}
             if not {tool.name for tool in WEATHER_TOOLS} <= offered:
                 raise McpLaneError
-            runs = {tool.name: make_mcp_run(tool, client, url, sent) for tool in WEATHER_TOOLS}
-            yield [to_langchain_tool(tool, runs[tool.name], MCP_NO_AUTH) for tool in WEATHER_TOOLS]
+            yield {tool.name: make_mcp_run(tool, client, url, sent) for tool in WEATHER_TOOLS}
     except BaseExceptionGroup as group:
         # The SDK's client runs in a task group, which wraps whatever leaves it, the answer's own errors among them: the
         # one inside goes on as it was, its cause kept, so the chat still knows it (issue 64).

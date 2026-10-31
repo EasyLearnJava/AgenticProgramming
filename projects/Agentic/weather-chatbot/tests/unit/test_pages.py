@@ -11,6 +11,7 @@ from html.parser import HTMLParser
 import pytest
 from fastapi.testclient import TestClient
 from markupsafe import escape
+from pydantic import SecretStr
 
 from nimbus.app import create_app
 from nimbus.config import Settings
@@ -204,4 +205,23 @@ def test_the_chat_page_offers_the_lanes_and_compares_one_call_through_each(clien
     ]
     assert "GET https://api.open-meteo.com/v1/forecast?latitude=48.85&amp;longitude=2.35" in page
     assert "POST http://testserver:80/api/mcp" in page
-    assert page.count("Opens in step 10.") == 2
+    # The lanes with auth, closed here (no token), show their requests too, the token masked (step 10).
+    assert "POST https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items" in page
+    assert page.count("authorization: Bearer &lt;APIFY_TOKEN&gt;") == 2
+    assert '"name": "call-actor"' in page.replace("&#34;", '"')
+    assert page.count("needs a token") == 2
+
+
+def test_with_apify_s_token_the_lanes_with_auth_are_open(settings: Settings) -> None:
+    app = create_app(settings.model_copy(update={"apify_token": SecretStr("test-apify-token")}))
+    with TestClient(app) as client:
+        page = client.get("/").text
+    radios = re.findall(r'<input type="radio" name="lane" value="([a-z-]+)" form="chat-form"([^>]*)>', page)
+    assert [(lane, "disabled" in rest) for lane, rest in radios] == [
+        ("rest-no-auth", False),
+        ("rest-with-auth", False),
+        ("mcp-no-auth", False),
+        ("mcp-with-auth", False),
+    ]
+    assert "needs a token" not in page
+    assert "test-apify-token" not in page

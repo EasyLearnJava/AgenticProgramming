@@ -394,3 +394,22 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     review, the cancellation or closing it holds, so the answer still ends as it must, else McpLaneError. **Check:**
     unit tests: an error the answer raises comes out as itself; `unwrap()`'s three cases; the mutation check's "an
     error out of the MCP lane is never wrapped".
+
+## Step 10 · The Lanes With Auth, Through Apify
+
+65. **The SDK's client turns an HTTP error status into a JSON-RPC error without it.** *Reading its code, to tell a
+    refused token from a used-up credit.* `mcp.client.streamable_http` answers a request whose response is 4xx or 5xx
+    with a JSON-RPC error of its own, "Server returned an error response", the status gone; so Apify's 401, 402 and
+    429 would have looked the same. **Fix:** the lane's HTTP client has a response hook that keeps each POST's status;
+    a failed exchange is read by the last error status it saw. **Check:** a unit test: a server that answers 401
+    gives a connection whose run is AuthError; the REST door's statuses, each its error.
+66. **Paid runs had no cap, an answer's or a day's.** *The review.* Each forecast on a lane with auth runs the Actor,
+    about half a cent, and anyone can ask: one answer could start a run for each of ten cities, and a script could
+    ask again and again, until step 11's rate limit. **Fix:** `RunBudget`: at most 2 runs an answer, and 25 a day
+    across the app, counted in the weather's cache until UTC midnight; past either, the forecast falls back with no
+    run, the chip saying whose runs are used up. **Check:** unit tests: a third forecast in an answer falls back; the
+    day's count, its time to midnight, and its cap; the mutation check's two rules.
+67. **A chip showed Apify's session id.** *The review.* The MCP door's chip masked the token, but showed the
+    `mcp-session-id` Apify's server gave our session, opened with our token, which may honour its id alone. **Fix:**
+    chips mask `mcp-session-id` too, as the TypeScript version did. **Check:** the MCP door's unit test; the
+    mutation check's "a chip masks a session's id".

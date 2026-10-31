@@ -37,7 +37,7 @@ log = structlog.get_logger()
 LOCAL_TIME_FORMAT: Final = "%Y-%m-%dT%H:%M"
 
 
-def _utc_now() -> datetime:
+def utc_now() -> datetime:
     """The time now, in UTC."""
     return datetime.now(UTC)
 
@@ -47,14 +47,15 @@ class ToolContext:
     """What a tool runs with: the Open-Meteo client, and a clock (the tests pass their own)."""
 
     open_meteo: OpenMeteoClient
-    now: Callable[[], datetime] = field(default=_utc_now)
+    now: Callable[[], datetime] = field(default=utc_now)
 
 
 @dataclass(frozen=True)
 class ToolRun:
     """
     One run of a tool: what the model reads, the request behind it, the one-line summary for its chip, whether the
-    cache gave Open-Meteo's answer (step 7), and, on the MCP lane, the request our MCP server sent Open-Meteo (step 9).
+    cache gave Open-Meteo's answer (step 7), and, on the MCP lane, the request our MCP server sent Open-Meteo (step 9);
+    on a lane with auth, when its forecast fell back, the lane that answered and why (step 10).
     """
 
     output: BaseModel
@@ -62,6 +63,12 @@ class ToolRun:
     summary: str
     from_cache: bool = False
     upstream_request: WireRequest | None = None
+    lane_id: str | None = None
+    fallback_note: str | None = None
+
+
+# How a lane runs one of our tools: its input, checked, in; the tool's run, or one of our upstream errors, out.
+type Run = Callable[[BaseModel], Awaitable[ToolRun]]
 
 
 @dataclass(frozen=True)
@@ -219,7 +226,7 @@ class AirQualityOutput(BaseModel):
 # ③ How each tool runs, and its chip's summary.
 
 
-def _to_local_now(now: datetime, time_zone: str) -> str:
+def to_local_now(now: datetime, time_zone: str) -> str:
     """The time now in a place's zone, to the minute: "2026-10-29T20:57"; in UTC when the zone isn't known."""
     try:
         zone = ZoneInfo(time_zone)
@@ -228,7 +235,7 @@ def _to_local_now(now: datetime, time_zone: str) -> str:
     return now.astimezone(zone).strftime(LOCAL_TIME_FORMAT)
 
 
-def _round_point(value: float) -> float:
+def round_point(value: float) -> float:
     """A latitude or longitude as the request sent it: 2 decimals, about 1 km."""
     return round(value, 2)
 
@@ -236,7 +243,7 @@ def _round_point(value: float) -> float:
 def _to_place_line(place: Place) -> str:
     """A place, in a few words: "Paris, Île-de-France Region, FR · 48.85, 2.35"."""
     name = ", ".join(part for part in (place.name, place.region, place.country_code) if part)
-    return f"{name} · {_round_point(place.latitude)}, {_round_point(place.longitude)}"
+    return f"{name} · {round_point(place.latitude)}, {round_point(place.longitude)}"
 
 
 async def _geocode(params: GeocodeInput, context: ToolContext) -> ToolRun:
@@ -257,8 +264,8 @@ async def _current_weather(params: CurrentWeatherInput, context: ToolContext) ->
     answer = await context.open_meteo.get_current_weather(params.latitude, params.longitude, units=params.units)
     now = answer.data
     output = CurrentWeatherOutput(
-        latitude=_round_point(params.latitude),
-        longitude=_round_point(params.longitude),
+        latitude=round_point(params.latitude),
+        longitude=round_point(params.longitude),
         time_zone=now.time_zone,
         observed_at=now.observed_at,
         condition=to_condition(now.weather_code),
@@ -307,18 +314,18 @@ async def _forecast(params: ForecastInput, context: ToolContext) -> ToolRun:
             for hour in data.hours
         ]
     output = ForecastOutput(
-        latitude=_round_point(params.latitude),
-        longitude=_round_point(params.longitude),
+        latitude=round_point(params.latitude),
+        longitude=round_point(params.longitude),
         time_zone=data.time_zone,
-        local_now=_to_local_now(context.now(), data.time_zone),
+        local_now=to_local_now(context.now(), data.time_zone),
         temperature_unit=data.temperature_unit,
         days=days,
         hours=hours,
     )
-    return ToolRun(output, answer.request, _summarize_forecast(output), answer.from_cache)
+    return ToolRun(output, answer.request, summarize_forecast(output), answer.from_cache)
 
 
-def _summarize_forecast(output: ForecastOutput) -> str:
+def summarize_forecast(output: ForecastOutput) -> str:
     """A forecast in a line: "2 days, hourly · 6 to 16 °C · rain up to 40%"."""
     count = len(output.days)
     span = f"{count} {'day' if count == 1 else 'days'}{', hourly' if output.hours is not None else ''}"
@@ -335,8 +342,8 @@ async def _air_quality(params: AirQualityInput, context: ToolContext) -> ToolRun
     answer = await context.open_meteo.get_air_quality(params.latitude, params.longitude)
     air = answer.data
     output = AirQualityOutput(
-        latitude=_round_point(params.latitude),
-        longitude=_round_point(params.longitude),
+        latitude=round_point(params.latitude),
+        longitude=round_point(params.longitude),
         **air.model_dump(),
     )
     us = "unknown" if output.us_aqi is None else output.us_aqi
@@ -391,7 +398,8 @@ WEATHER_TOOLS: Final = (GEOCODE_LOCATION, GET_CURRENT_WEATHER, GET_FORECAST, GET
 class ToolCallRecord:
     """
     What the page gets of a tool call besides what the model read: the lane, the request, its time and summary,
-    whether the cache gave the answer, and, on the MCP lane, the request our MCP server sent Open-Meteo.
+    whether the cache gave the answer, and, on the MCP lane, the request our MCP server sent Open-Meteo; and, when a
+    forecast fell back, why.
     """
 
     lane: str
@@ -400,6 +408,7 @@ class ToolCallRecord:
     summary: str
     from_cache: bool = False
     upstream_request: WireRequest | None = None
+    fallback_note: str | None = None
 
 
 async def run_in_time(tool: WeatherTool, params: BaseModel, context: ToolContext) -> ToolRun:
@@ -440,9 +449,19 @@ def to_langchain_tool(tool: WeatherTool, run: Callable[[BaseModel], Awaitable[To
             log.info("tool.call", tool=tool.name, lane=lane.id, status="failed", ms=ms, errorClass=type(error).__name__)
             raise
         ms = to_ms(time.perf_counter() - started)
-        log.info("tool.call", tool=tool.name, lane=lane.id, status="ok", ms=ms)
-        upstream = tool_run.upstream_request
-        record = ToolCallRecord(lane.id, tool_run.request, ms, tool_run.summary, tool_run.from_cache, upstream)
+        # The lane that answered: the tool's own, or, for a forecast that fell back, its twin (step 10).
+        answered = tool_run.lane_id or lane.id
+        fell_back = {"fallbackFrom": lane.id} if tool_run.lane_id is not None else {}
+        log.info("tool.call", tool=tool.name, lane=answered, status="ok", ms=ms, **fell_back)
+        record = ToolCallRecord(
+            answered,
+            tool_run.request,
+            ms,
+            tool_run.summary,
+            tool_run.from_cache,
+            tool_run.upstream_request,
+            tool_run.fallback_note,
+        )
         return tool_run.output.model_dump_json(), record
 
     return StructuredTool.from_function(
@@ -455,8 +474,12 @@ def to_langchain_tool(tool: WeatherTool, run: Callable[[BaseModel], Awaitable[To
     )
 
 
+def rest_runs(context: ToolContext) -> dict[str, Run]:
+    """REST · no auth's run of each tool: Open-Meteo, through the context's client, within the tool's 8 s."""
+    return {tool.name: partial(run_in_time, tool, context=context) for tool in WEATHER_TOOLS}
+
+
 def make_tools(context: ToolContext) -> list[StructuredTool]:
     """The four weather tools, as LangChain tools on REST · no auth, all with the same context."""
-    return [
-        to_langchain_tool(tool, partial(run_in_time, tool, context=context), REST_NO_AUTH) for tool in WEATHER_TOOLS
-    ]
+    runs = rest_runs(context)
+    return [to_langchain_tool(tool, runs[tool.name], REST_NO_AUTH) for tool in WEATHER_TOOLS]
