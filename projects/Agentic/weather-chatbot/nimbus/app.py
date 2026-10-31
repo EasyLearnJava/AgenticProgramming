@@ -1,7 +1,11 @@
 """
-nimbus/app.py: builds the app: its settings and logging, the pages, the chat and the health check, the files served
-beside them, and the middleware every request goes through. main.py calls create_app() once, when the server starts.
+nimbus/app.py: builds the app: its settings and logging, the pages, the chat and the health check, our MCP server,
+the files served beside them, and the middleware every request goes through. main.py calls create_app() once, when the
+server starts.
 """
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
@@ -14,8 +18,16 @@ from nimbus.cache import make_weather_cache
 from nimbus.config import Settings, get_settings
 from nimbus.constants import DOCS_IMAGES_DIR, STATIC_DIR
 from nimbus.logger import configure_logging
+from nimbus.mcp_server import make_mcp_server, to_routes
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from nimbus.model import make_chat_model, make_tracer
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """While the app runs, so does the MCP server's session manager, which each MCP request needs (step 8)."""
+    async with app.state.mcp_server.session_manager.run():
+        yield
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -24,7 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings)
     # ② The app, without FastAPI's own API pages: /docs is our documentation, and the API isn't public.
-    app = FastAPI(title="Nimbus", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="Nimbus", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.settings = settings
     # The model that answers, made once: None on a deployment without its key, where the chat says it isn't set up;
     # and LangSmith's client, when it may trace, which hides every run's inputs and outputs.
@@ -41,10 +53,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         modelSetUp=app.state.chat_model is not None,
         tracing=app.state.tracer is not None,
     )
-    # ③ The routes: the pages, the chat and the health check.
+    # ③ The routes: the pages, the chat and the health check; and our MCP server's, with the same tools (step 8).
     app.include_router(pages.router)
     app.include_router(chat.router)
     app.include_router(health.router)
+    app.state.mcp_server = make_mcp_server(app.state)
+    app.router.routes.extend(to_routes(app.state.mcp_server, settings))
     # ④ The files beside them: the docs' pictures, and, on a computer only, the stylesheet. On Vercel, its CDN serves
     # public/ itself, with the headers vercel.json gives it; Vercel's docs say never to mount public/ there.
     app.mount("/docs/images", StaticFiles(directory=DOCS_IMAGES_DIR), name="docs-images")

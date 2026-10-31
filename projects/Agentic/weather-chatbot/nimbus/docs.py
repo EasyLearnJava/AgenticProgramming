@@ -103,6 +103,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "kind for its own time; a cache that fails or is slow is a miss; and the chip says when it answered."
         ),
     ),
+    DocPage(
+        slug="step-8",
+        path="/docs/step-8",
+        label="Step 8: Our Own MCP Server",
+        summary=(
+            "The four weather tools offered to any MCP client at /api/mcp, from the same definitions the agent runs "
+            "over REST: the official SDK's MCPServer, with no session and JSON answers; and a client to call it."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

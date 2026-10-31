@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 8 · Our own MCP server</title>
+  <desc id="d">Any MCP client posts to /api/mcp: one JSON-RPC message of at most 8 KiB, through our middleware. The official SDK's MCPServer keeps no session and answers in JSON. Its four tools are made from the same definitions the agent runs over REST: the input schema from the same model, the run within the same 8 s, through the same cache. Each answer carries the weather as structured content, the summary as text, and in _meta the request and whether the cache gave it; a failure, our sentence and its class.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 8 · Our own MCP server</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">The same four tools, through a second door: MCP, for any client</text>
+
+  <!-- Row 1: the client, the route -->
+  <rect x="40" y="100" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">Any MCP client</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">Claude, Cursor, tools/call_mcp.py, and the</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">agent's MCP lane in step 9</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">2026-07-28: server/discover, then calls</text>
+  <text x="56" y="205" font-size="13" fill="#1f2937">2025: initialize first, or not</text>
+  <line x1="460" y1="162" x2="498" y2="162" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="100" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="516" y="126" font-size="15" font-weight="700" fill="#053b30">POST /api/mcp: the SDK's MCPServer</text>
+  <text x="516" y="148" font-size="13" fill="#1f2937">through our middleware: id, log line, headers</text>
+  <text x="516" y="167" font-size="13" fill="#1f2937">no session: each request on its own</text>
+  <text x="516" y="186" font-size="13" fill="#1f2937">JSON answers, never a stream</text>
+  <text x="516" y="205" font-size="13" fill="#1f2937">one message, 8 KiB · a GET: 405 · no CORS</text>
+  <line x1="710" y1="224" x2="710" y2="268" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: one definition, two doors -->
+  <rect x="500" y="270" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="296" font-size="15" font-weight="700" fill="#053b30">mcp_server.py: our tool, as MCP's</text>
+  <text x="516" y="318" font-size="13" fill="#1f2937">its signature: the input model's fields,</text>
+  <text x="516" y="337" font-size="13" fill="#1f2937">so the same input schema</text>
+  <text x="516" y="356" font-size="13" fill="#1f2937">run_in_time(): 8 s, the cache, Open-Meteo</text>
+  <text x="516" y="375" font-size="13" fill="#1f2937">one mcp.call line, never the input</text>
+  <line x1="498" y1="332" x2="462" y2="332" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="40" y="270" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="296" font-size="15" font-weight="700" fill="#053b30">tools.py: one definition, two doors</text>
+  <text x="56" y="318" font-size="13" fill="#1f2937">the four WeatherTools: input model, run</text>
+  <text x="56" y="337" font-size="13" fill="#1f2937">REST: the agent's tools, as in step 5</text>
+  <text x="56" y="356" font-size="13" fill="#1f2937">MCP: this server's, from the same ones</text>
+  <text x="56" y="375" font-size="13" fill="#1f2937">a test checks the two schemas agree</text>
+
+  <!-- The answer -->
+  <rect x="40" y="414" width="880" height="64" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="440" font-size="15" font-weight="700" fill="#053b30">Each answer</text>
+  <text x="56" y="462" font-size="13" fill="#1f2937">structuredContent: the weather · text: the summary · _meta: the request, fromCache · a failure: isError, our sentence, its class</text>
+
+  <!-- Why -->
+  <rect x="40" y="498" width="880" height="84" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="524" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#7c2d12">Why no session: </tspan>Vercel's copies share no memory, so a session begun on one would be unknown</text>
+  <text x="56" y="544" font-size="13" fill="#1f2937">on the next. Why returned, never raised: the SDK would write "Error executing tool" before our sentence.</text>
+  <text x="56" y="564" font-size="13" fill="#1f2937">Why public: it's the no-auth lane; step 11 limits how often one client may call it.</text>
+
+  <!-- The tests -->
+  <rect x="40" y="602" width="880" height="44" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="629" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>the SDK's own client, in this process and over HTTP; the schemas agree; 413, 400, no CORS</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">One definition, two doors: the agent's REST tools, and an MCP server any client can call.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">On serverless, MCP keeps no session, and answers in JSON.</text>
+</svg>

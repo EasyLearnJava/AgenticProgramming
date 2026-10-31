@@ -1,6 +1,6 @@
 # System Design
 
-How Nimbus is built after step 7, drawn the way the TypeScript version's
+How Nimbus is built after step 8, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
@@ -8,10 +8,11 @@ A number on a box is the reference's number for the part it plays (02 for the ga
 and the health check. Step 2 made the chat answer, streamed a word at a time. Step 3 put Gemini in place of step 2's
 fixed answer, through LangChain. Step 4 gave it four weather tools, which call Open-Meteo: the REST · no auth lane.
 Step 5 made the agent that runs them a LangGraph graph of our own. Step 6 gave the chat a memory, kept in the
-browser. Step 7 keeps Open-Meteo's answers in Vercel's Runtime Cache. Each step adds its parts to this page.
+browser. Step 7 keeps Open-Meteo's answers in Vercel's Runtime Cache. Step 8 offers the same four tools to any MCP
+client, from our own MCP server. Each step adds its parts to this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 
-![How Nimbus is built after step 7](images/system-design.svg)
+![How Nimbus is built after step 8](images/system-design.svg)
 
 ## The four bands
 
@@ -42,7 +43,7 @@ tools, and through them Open-Meteo.
 - **The request's context** (`RequestContextMiddleware`): the request id, Vercel's when it looks like one, else a new
   one, on every log line, on the response and in the request's state; and one line per request when it ends: the
   method, the path (never the query string), the status and the time.
-- **The router** sends the request to one of five:
+- **The router** sends the request to one of six:
   - **the chat** (`chat.py`): `POST /api/chat`. First the form's checks: the type, at most 32 KiB, each field once,
     the question 1 to 2,000 characters, no field we don't know; a broken rule gets our own sentence and its status;
     the browser's locale and time zone, which take the defaults when the chat can't use them; and the conversation
@@ -59,7 +60,11 @@ tools, and through them Open-Meteo.
   - **the docs** (`docs.py`, **+**): Markdown rendered with raw HTML off, each page found by its address in a
     registry, never by a file path taken from the address;
   - **the health check** (`health.py`): `GET` and `HEAD /api/health`, the build and the time, never cached;
-  - **the docs' pictures**, from `docs/images/`.
+  - **the docs' pictures**, from `docs/images/`;
+  - **our MCP server** (`mcp_server.py`): `/api/mcp`, the official MCP SDK's `MCPServer`, offering the four weather
+    tools to any MCP client, from the same definitions; no session and JSON answers, as Vercel's copies share no
+    memory; one message of at most 8 KiB; a GET refused, as it offers no stream; on a computer, the Host checked
+    against DNS rebinding; its session manager run by the app's lifespan.
 
   A missing page gets the app's own 404 page; a missing API address gets JSON.
 - **The model** (07): Gemini 3.5 Flash-Lite, through LangChain's `ChatGoogleGenerativeAI` (`model.py`), made once when
@@ -75,7 +80,9 @@ tools, and through them Open-Meteo.
 - **The weather tools** (06): four (`tools.py`), each written once, its input a Pydantic model the model's call must
   fit: `geocode_location`, `get_current_weather`, `get_forecast` and `get_air_quality`. The model reads the weather;
   the page gets the request and its time, as the call's record. The ambiguity rule and the weather codes' words are
-  in code (`weather.py`). A failure reaches the model and the chip as our own sentence.
+  in code (`weather.py`). A failure reaches the model and the chip as our own sentence. Our MCP server offers the
+  same four, each input schema made from the same model: the weather as structured content, the summary as text, the
+  request and the cache's part in `_meta`.
 - **Open-Meteo** (`open_meteo.py`), the REST · no auth lane: its geocoding, forecast and air-quality APIs, with no key,
   through httpx2: a point rounded to about 1 km, times in the place's own zone, 3 s a try and one more for a timeout,
   a 5xx or a short 429; but first, the cache (band C).
@@ -137,7 +144,7 @@ tools, and through them Open-Meteo.
 | 01 · Output guardrails: safety, privacy, grounding | In part: Jinja2 escapes every value but the two marked safe; an answer's Markdown renders with no raw HTML and no pictures, its links in a new tab; the rules: weather facts only from the tools' results, a tool's result read as data; the page puts in only our own HTML, and our script only text; the policy runs only our own files | Nothing checks an answer before it streams |
 | Answer: citations or a safe refusal | Gemini's answer, a word at a time, after a chip for each tool call, which opens to its request, input and output; a polite refusal off the weather; our own sentence for each thing that can go wrong, a failure's with its ref | |
 | 05 · Retrieval (RAG) and its index | None | The weather will come live from tools, not from documents |
-| 06 · Commerce tools: typed inputs, per-user permissions | Four weather tools (`tools.py`), each input a Pydantic model; no per-user permissions, as the weather is public | The MCP lanes from step 8, the auth lanes in step 10 |
+| 06 · Commerce tools: typed inputs, per-user permissions | Four weather tools (`tools.py`), each input a Pydantic model; no per-user permissions, as the weather is public | Our MCP server offers them to any MCP client (step 8); the MCP lane in step 9, the auth lanes in step 10 |
 | Commerce APIs and databases | Open-Meteo's geocoding, forecast and air-quality APIs, with no key: 3 s a try, one more; their answers in Vercel's Runtime Cache | |
 | 07 · Model gateway: model choice, budgets, fallback | Gemini 3.5 Flash-Lite through LangChain (`model.py`): 1,024 tokens, 20 s and two attempts a call; 5 calls and 30 s an answer; LangChain's standard exceptions mapped to our sentences | One model, no fallback yet |
 | 08 · Human in the loop | None | |
@@ -208,5 +215,5 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 
 ## What comes next
 
-Step 8 builds our own MCP server, with FastMCP, at `/api/mcp`, offering the same four weather tools. Each step after
-it adds its parts to this page and its diagram; the plan, `PLAN.md`, has them all.
+Step 9 adds the MCP · no auth lane: the agent reaches its tools through our MCP server, and the page compares the
+two lanes. Each step after it adds its parts to this page and its diagram; the plan, `PLAN.md`, has them all.

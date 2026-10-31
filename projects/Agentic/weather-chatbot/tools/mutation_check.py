@@ -37,6 +37,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/errors.py": ("test_errors.py", "test_chat.py"),
     "nimbus/health.py": ("test_health.py",),
     "nimbus/logger.py": ("test_logger.py",),
+    "nimbus/mcp_server.py": ("test_mcp_server.py",),
     "nimbus/middleware.py": ("test_middleware.py",),
     "nimbus/model.py": ("test_model.py",),
     "nimbus/open_meteo.py": ("test_open_meteo.py", "test_tools.py"),
@@ -462,7 +463,7 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/tools.py",
-        "raise ToolException(failure.user_message) from error",
+        "raise ToolException(error.user_message) from error",
         "raise",
         "Open-Meteo's failure reaches the model as our sentence",
     ),
@@ -629,6 +630,60 @@ MUTATIONS = (
         'cache = " · from the cache" if self.record.from_cache else ""',
         'cache = ""',
         "a chip says when the cache answered",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        "annotation=Annotated[field.annotation, field]",
+        "annotation=field.annotation",
+        "each MCP tool's input schema is its model's",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        "ToolAnnotations(read_only_hint=True,",
+        "ToolAnnotations(read_only_hint=False,",
+        "the MCP tools say they only read",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        "is_error=True,",
+        "is_error=False,",
+        "a failed MCP call says it's an error",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        '"fromCache": tool_run.from_cache},',
+        '"fromCache": False},',
+        "an MCP answer says when the cache gave it",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        "stateless_http=True,",
+        "stateless_http=False,",
+        "the MCP server keeps no session",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        "json_response=True,",
+        "json_response=False,",
+        "the MCP server answers in JSON, not a stream",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        "max_request_body_size=MCP_BODY_MAX_BYTES,",
+        "max_request_body_size=MCP_BODY_MAX_BYTES * 512,",
+        "an MCP request's body is at most 8 KiB",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        'endpoint=refuse_stream, methods=["GET", "HEAD"]',
+        'endpoint=refuse_stream, methods=["HEAD"]',
+        "a GET at /api/mcp gets 405, never a stream",
+    ),
+    Mutation(
+        "nimbus/mcp_server.py",
+        "enable_dns_rebinding_protection=not settings.is_vercel,",
+        "enable_dns_rebinding_protection=False,",
+        "on a computer, the MCP server checks the Host",
     ),
 )
 

@@ -13,6 +13,7 @@ dependencies = [
     "langchain-google-genai==4.4.2",
     "langgraph==1.2.16",
     "markdown-it-py==4.2.0",
+    "mcp==2.3.0",
     "pydantic-settings==2.16.0",
     "structlog==26.1.0",
     "tenacity==9.1.4",

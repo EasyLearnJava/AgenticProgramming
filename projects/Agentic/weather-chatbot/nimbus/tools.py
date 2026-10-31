@@ -399,6 +399,18 @@ class ToolCallRecord:
     from_cache: bool = False
 
 
+async def run_in_time(tool: WeatherTool, params: BaseModel, context: ToolContext) -> ToolRun:
+    """
+    The tool's run within its 8 s, its tries included: past them, it failed as Open-Meteo's slowness does, with
+    UpstreamTimeoutError. The agent's tools and our MCP server (step 8) run each call through this.
+    """
+    try:
+        async with asyncio.timeout(TOOL_TIMEOUT_SECONDS):
+            return await tool.run(params, context)
+    except TimeoutError as error:
+        raise UpstreamTimeoutError from error
+
+
 def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool:
     """
     One of our tools as a LangChain tool on REST · no auth. The model reads the weather (the tool message's content);
@@ -413,15 +425,12 @@ def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool
         params = tool.input_model.model_validate(kwargs)
         started = time.perf_counter()
         try:
-            async with asyncio.timeout(TOOL_TIMEOUT_SECONDS):
-                tool_run = await tool.run(params, context)
-        except (UpstreamError, TimeoutError) as error:
-            # A call past its own time limit, its tries included, failed as Open-Meteo's slowness does.
-            failure = error if isinstance(error, UpstreamError) else UpstreamTimeoutError()
+            tool_run = await run_in_time(tool, params, context)
+        except UpstreamError as error:
             ms = to_ms(time.perf_counter() - started)
-            failed = {"status": "failed", "ms": ms, "errorClass": type(failure).__name__}
+            failed = {"status": "failed", "ms": ms, "errorClass": type(error).__name__}
             log.info("tool.call", tool=tool.name, lane=LANE_ID, **failed)
-            raise ToolException(failure.user_message) from error
+            raise ToolException(error.user_message) from error
         ms = to_ms(time.perf_counter() - started)
         log.info("tool.call", tool=tool.name, lane=LANE_ID, status="ok", ms=ms)
         record = ToolCallRecord(LANE_ID, tool_run.request, ms, tool_run.summary, tool_run.from_cache)

@@ -362,3 +362,18 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     reaches us. **Fix:** the docs say so; a failure is still a miss, and the weather is fetched. To do, for step 12:
     the store built with an `on_error` that raises, so the error reaches our warning. **Check:** the package's
     `AsyncBuildCache`: its `get()` and `set()` hand every error to `on_error`, which the package sets to `print`.
+
+## Step 8 · Our Own MCP Server
+
+61. **A GET at `/api/mcp` opened a stream that never ended.** *The review.* With no session and JSON answers, the
+    SDK still answers a GET with `200` and `text/event-stream`, then sends nothing: a `curl` on a computer hung until
+    its own limit. On Vercel a client leaving never reaches the app (issue 32), so each GET would hold a copy of the
+    app for its 300 s. **Fix:** a route of ours, ahead of the SDK's, answers a GET or a HEAD with 405 and
+    `Allow: POST`, as MCP lets a server with no stream do. **Check:** a unit test: a GET and a HEAD get 405 within
+    2 s; the mutation check's "a GET at /api/mcp gets 405, never a stream".
+62. **On a computer, a page that rebinds its name to 127.0.0.1 could reach the server.** *The review.* The SDK's Host
+    and Origin checks were off, on the reasoning that our server is public; but on a computer, a page whose name
+    points to 127.0.0.1 is same-origin with the app, so no CORS preflight stops it. **Fix:** off Vercel, the SDK
+    checks that a request names the app as 127.0.0.1 or localhost; on Vercel, its edge sends the app only our own
+    names. **Check:** unit tests: on a computer, another host gets 421; on Vercel, the host isn't checked; the
+    mutation check's "on a computer, the MCP server checks the Host".

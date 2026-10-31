@@ -318,3 +318,25 @@ from Open-Meteo. Our warning says when the cache was too slow; on Vercel, the pa
 **5. Why cache Open-Meteo's answers, not Nimbus's?**
 A question asked in other words, in another place or a day later wants another answer; Open-Meteo's answers are
 facts with a known lifetime, which every answer can reuse.
+
+## Step 8 · Our Own MCP Server
+
+**1. What does an MCP server offer, and to whom?**
+Tools, with their names, descriptions and input schemas, to any MCP client: a model's host lists them, then calls
+them. Ours offers the four weather tools, which the agent itself calls over REST.
+
+**2. Why no session, and why JSON instead of a stream?**
+Serverless copies share no memory, so a session begun on one is unknown on the next; and each call has one answer,
+which needs no stream.
+
+**3. How do you keep the REST and MCP tools from drifting apart?**
+One definition for both: the MCP tool's schema is made from the same input model, and a test checks that the two
+schemas agree.
+
+**4. What does an MCP tool's answer carry?**
+Content for a person, here the summary; structured content for a model, the weather; `_meta` for the client, the
+request and the cache's part; and `isError` when it failed.
+
+**5. What must a public MCP server guard against?**
+Big bodies, batches of calls in one request, streams held open, and pages elsewhere using a visitor's browser;
+on a computer, DNS rebinding; then, in step 11, too many calls from one client.
