@@ -146,6 +146,19 @@ the first question and its answer; New chat starts over, its next question going
 limit keeps its emoji whole. The mutation check breaks
 6 more rules (its first 100 lines are left out above; each says caught).
 
+## Deploy it
+
+The push, ecfdb91, was live on Vercel within a minute, while CI ran its checks, which passed in about three minutes.
+Checked on the live site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026, after a warm-up:
+
+- "Will it rain in Paris tomorrow?" streamed its two chips and its words, as in step 5: "There is no rain expected in
+  Paris, Île-de-France Region, France tomorrow, Sunday, November 1."
+- In Edge, "How's the air in Delhi right now?" ran `geocode_location` and `get_air_quality`. Then "And is it windy
+  there?": the page sent the first question and its answer back with it, and the model took "there" to be Delhi, ran
+  `geocode_location` and `get_current_weather` again, and answered "In Delhi, National Capital Territory of Delhi,
+  India, the wind speed is 2.1 mph at 18:00 Asia/Kolkata time under a clear sky."
+- New chat cleared the page and the `history` field; axe found no violation, and the console held no error.
+
 ## Things to take care of, and pitfalls
 
 - **A conversation the browser sends back is the client's word:** check its shape, its roles and its sizes, and never
