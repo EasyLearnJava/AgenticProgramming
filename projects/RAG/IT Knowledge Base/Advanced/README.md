@@ -5,7 +5,7 @@ when everything goes right; its Advanced version handles what goes wrong in real
 report: bad data, sensitive data, failing services, slow or costly calls, wrong answers, attacks, and the day-to-day
 running of the app.
 
-> **Status:** 01 to 06 are built. 07 to 12 are planned: each folder holds a README with its plan, and no code yet.
+> **Status:** 01 to 07 are built. 08 to 12 are planned: each folder holds a README with its plan, and no code yet.
 
 ---
 
@@ -19,7 +19,7 @@ running of the app.
 | [04 · Embeddings](04-embeddings/README.md) | ✅ Built | Batching, retries with backoff, a cache so unchanged chunks are never embedded twice, cost and latency tracking, and a sensitive-data gate before anything leaves the machine |
 | [05 · Vector Store](05-vector-store/README.md) | ✅ Built | Idempotent upserts and deletes, payload indexes for filters, dense + sparse vectors, consistency checks, and re-indexing without downtime |
 | [06 · Retriever](06-retriever/README.md) | ✅ Built | Hybrid search, metadata filters, re-ranking, a "no good match" threshold, query rewriting, and retrieval measured on a labeled set |
-| [07 · Grounded Answer](07-grounded-answer/README.md) | 📝 Planned | Structured answers with checked citations, saying "I don't know" when the context doesn't cover it, prompt-injection defenses, and a token budget |
+| [07 · Grounded Answer](07-grounded-answer/README.md) | ✅ Built | Structured answers with checked citations, saying "I don't know" when the context doesn't cover it, prompt-injection defenses, and a token budget |
 | [08 · RAG Engine](08-rag-engine/README.md) | 📝 Planned | One settings object, timeouts and retries for every call, a cache for repeated questions, tracing of every stage, and conversation memory |
 | [09 · API](09-api/README.md) | 📝 Planned | Authentication, rate limits, request IDs, structured errors and logs, readiness checks, streaming answers, and a feedback endpoint |
 | [10 · Chat Page](10-chat-page/README.md) | 📝 Planned | Streaming replies, clickable sources, safe rendering of model output, accessibility, and loading, empty and error states |

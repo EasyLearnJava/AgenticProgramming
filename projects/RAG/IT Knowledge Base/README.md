@@ -29,7 +29,7 @@ The projects come in five levels:
   replaceable; every setting in `config.yaml`; errors that answer in one shape; and logs in which one trace ID follows
   each request through every layer, shown on the page under each answer. 01 is built.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
-  and reports it. 01 to 06 are built; 07 to 12 are planned, each with a README giving its plan, and
+  and reports it. 01 to 07 are built; 08 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
 - **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
   [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
@@ -83,7 +83,8 @@ Models and Embeddings in RAGs.
 | `04-embeddings` | The chunks embedded by Gemini through a sensitive-data gate; a cache on disk (SQLite) so an unchanged chunk is never sent twice, two models never mixed; batches under the API's limits, two calls at a time; retries with backoff and jitter for a 429, a 5xx or a timeout, a clear stop for anything else (a used-up daily quota too); every vector checked; calls, tokens and time reported. `provider = "fake"` runs it with no key | `python pipeline.py` |
 | `05-vector-store` | The chunks' points in Qdrant (on disk in the process, no server needed), written idempotently (a point's ID from its chunk_id); a changed article's old chunks and a removed article's points deleted; a dense and a sparse vector per point; payload indexes on the labels; each load checked; `--rebuild` fills a new collection behind the alias `it_kb` and moves the alias only if it passes, `--rollback` moves it back | `python pipeline.py` |
 | `06-retriever` | A LangChain retriever: dense and sparse search fused by rank (RRF); label filters read from the question; a "no match" threshold; re-ranking (word overlap, or a cross-encoder); at most 2 chunks per article, picked by MMR; a question cache; a rewriting hook. `evaluation.py` measures Recall@5, MRR and nDCG for each variant on 52 labeled questions (`data/eval_questions.csv`) and tunes the threshold | `python pipeline.py --question "..."`; `python evaluation.py` |
-| `07` to `12` | Planned: each folder's README gives its plan (hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
+| `07-grounded-answer` | Each question answered by Gemini as a structured answer (the answer, the chunks it cites, whether they were enough): citations checked against the chunks given; an honest "not covered" instead of a guess; a chunk that speaks to the model kept out, the rest delimited; a token budget of whole chunks; a versioned prompt file; the answer redacted; an optional faithfulness judge. `data/sample_it_kb_injected.csv` plants an injected instruction | `python pipeline.py --question "..."` |
+| `08` to `12` | Planned: each folder's README gives its plan (hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
 
 ## What you need
 

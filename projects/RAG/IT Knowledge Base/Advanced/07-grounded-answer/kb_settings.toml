@@ -1,0 +1,130 @@
+# The knowledge base export, described: which column holds each field, which fields become the Document's text and
+# which its labels, what an article's ID is made from, and one spelling for each label value; then how the articles
+# are cut into chunks, how the chunks are embedded, where their points are kept, how a question is searched, and how
+# it's answered. A new export with renamed columns, or a new spelling, needs a change here, not in the code.
+# The pipeline checks this file at start and stops, naming the setting, on a typo.
+
+# The Document's text (page_content), in this order: what gets searched and read
+text_fields = ["title", "problem", "resolution", "notes"]
+
+# The Document's labels (metadata): shown with an answer, and used to filter. The title is in both.
+label_fields = ["title", "system", "category", "priority", "tags", "visibility", "team"]
+
+# What an article's ID is made from when the export has no id column. Change the title or the system and it's a new
+# article (the old one is listed as removed); change anything else and it's the same article, changed.
+id_fields = ["title", "system"]
+
+# Each field (left) is read from the export's column (right). title, problem and resolution must be in the file; the
+# others may be missing from it. A column of the file that isn't named here isn't read, and the log says so.
+[columns]
+id = "id"                    # the article's key in the source system
+title = "title"
+problem = "problem"
+resolution = "resolution"
+notes = "notes"
+system = "system"
+category = "category"
+priority = "priority"        # Low, Medium, High or Critical: the article.py schema allows nothing else
+tags = "tags"                # separated by ;
+visibility = "visibility"    # who may see the article: public, internal or restricted
+team = "team"                # the team that owns it
+
+# One spelling for each value: each spelling on the right becomes the one on the left. Upper and lower case, spaces,
+# hyphens and underscores never count, so "Wi-Fi" and "wifi" find "WiFi" with no entry. A system or category that
+# isn't here is kept as written, and flagged; a priority that isn't here fails the schema.
+[spellings.priority]
+Low = ["P4"]
+Medium = ["Med", "Normal", "P3"]
+High = ["P2"]
+Critical = ["Crit", "P1"]
+
+[spellings.system]
+"Active Directory" = ["AD"]
+Database = ["DB"]
+Email = ["E-mail", "Mail"]
+"HR Portal" = []
+Laptop = ["Notebook"]
+MFA = ["2FA", "Multi-Factor Authentication"]
+"Microsoft Teams" = ["Teams", "MS Teams"]
+Payments = []
+Printer = ["Printers"]
+Salesforce = ["SFDC"]
+VPN = []
+WiFi = ["Wireless", "WLAN"]
+
+[spellings.category]
+Collaboration = []
+Communication = []
+Hardware = []
+"Identity Management" = ["Identity", "IAM"]
+Infrastructure = []
+Network = ["Networking"]
+"Remote Access" = []
+"SaaS Access" = ["SaaS"]
+Security = []
+
+# How the articles are cut into chunks, counted in tokens. utils.count_tokens() estimates them, erring high, and the
+# ceiling is a quarter of gemini-embedding-001's 2,048-token limit, so an estimate that's a little low can't reach it.
+[chunking]
+chunk_size = 128       # a chunk's size, its header (the title and the section) included
+chunk_overlap = 16     # the last sentences of a chunk, up to this many tokens, start the next one
+min_tokens = 8         # a smaller last piece of a section is merged into the chunk before it
+max_tokens = 512       # the ceiling no chunk ever passes
+
+# The embedding model and how it's called. provider "google" is Gemini, and needs GOOGLE_API_KEY (in .env, or the
+# environment); "fake" is a stand-in that needs no key and makes no call: its vectors come from each text's hash, so
+# they mean nothing, but every step around them runs as it would. A vector is cached under "<provider>/<model>", so
+# the two never mix.
+[embeddings]
+provider = "google"
+model = "gemini-embedding-001"
+dimensions = 768
+batch_size = 100           # texts per call (Gemini takes up to 100)
+batch_tokens = 20000       # estimated tokens per call
+max_concurrency = 2        # calls at once
+max_attempts = 4           # tries per call: a rate limit, a server error or a timeout is tried again
+timeout_seconds = 30       # each try is cut off after this long
+backoff_seconds = 1        # the first wait before trying again; it doubles each time, with jitter
+backoff_max_seconds = 30   # the longest wait
+cache_path = "data/embedding_cache.sqlite3"   # from this file's folder; delete it to embed every chunk again
+
+# Where the points are kept. location is a folder (Qdrant on disk, run in this process: no server needed), ":memory:"
+# (gone when the run ends), or a Qdrant server's URL, such as "http://localhost:6333"; a server's API key is
+# QDRANT_API_KEY in .env, never here. Searches use the alias, which points at it_kb_v1, it_kb_v2, ... so a rebuild
+# can fill a new collection while the old one answers.
+[vectorstore]
+location = "data/qdrant"
+alias = "it_kb"
+hnsw_m = 16                  # HNSW's links per point: a server uses it; Qdrant in a process ignores it
+hnsw_ef_construct = 100      # how hard HNSW looks while it builds: the same
+
+# How a question is searched. hybrid searches by meaning (the dense vector) and by exact words (the sparse one), and
+# fuses the two lists; python evaluation.py measures each mode on data/eval_questions.csv. min_score is the "no
+# match" threshold, on the dense similarity (-1 to 1): -1 never says "no match"; evaluation.py prints the one that
+# gets the most decisions right for your model (the stand-in's vectors mean nothing, so tune it with Gemini).
+[retrieval]
+mode = "hybrid"            # "dense", "sparse" or "hybrid"
+k = 5                      # chunks returned
+candidates = 20            # chunks each search finds, for fusing and re-ranking
+rrf_k = 60                 # reciprocal rank fusion's constant
+min_score = -1.0           # below this dense similarity, "no match" (-1: never)
+max_per_article = 2        # chunks from one article, at most
+mmr_lambda = 0.7           # 1: by relevance only; lower: more variety
+read_filters = true        # filter on a system, or a priority, named in the question
+reranker = "none"          # "none", "word-overlap", or "cross-encoder" (needs pip install sentence-transformers)
+cross_encoder_model = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+# How a question is answered from its chunks. provider "google" is Gemini (the same GOOGLE_API_KEY); "fake" is a
+# stand-in that quotes the first chunk and cites it, so every check around it runs with no key. The prompt is a
+# versioned file, and its version is recorded with every answer.
+[answer]
+provider = "google"
+model = "gemini-3.5-flash-lite"
+temperature = 0.0
+max_output_tokens = 512
+timeout_seconds = 30
+max_attempts = 3             # tries per call: a rate limit, a server error or a timeout is tried again
+prompt_file = "prompts/answer-v1.txt"   # from this file's folder
+max_context_tokens = 3000    # the chunks' share of the prompt: whole chunks, best first, until it's spent
+not_covered = "The knowledge base doesn't cover this. Contact the service desk, and say what you tried."
+judge = false                # true: a second call checks each sentence is supported by the chunks it cites

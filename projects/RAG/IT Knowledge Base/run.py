@@ -43,6 +43,7 @@ COMMANDS = {
     "Advanced/04-embeddings": ["pipeline.py"],
     "Advanced/05-vector-store": ["pipeline.py"],
     "Advanced/06-retriever": ["pipeline.py"],
+    "Advanced/07-grounded-answer": ["pipeline.py"],
 }
 
 
