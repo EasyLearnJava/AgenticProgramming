@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1160" width="1160" height="1160" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
-  <title id="t">How Nimbus is built after step 6</title>
-  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages, the docs, the health check or the docs' pictures; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, which call Open-Meteo with no key; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: no database, only log lines kept, settings read only by config.py, the docs as Markdown, the static files on the CDN. D, production operations: JSON log lines in Vercel's logs, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI.</desc>
+  <title id="t">How Nimbus is built after step 7</title>
+  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages, the docs, the health check or the docs' pictures; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, which call Open-Meteo with no key; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: no database, only log lines kept, settings read only by config.py, the docs as Markdown and the static files on the CDN, and Open-Meteo's answers in Vercel's Runtime Cache, each key our namespace and a SHA-256, each kind for its own time. D, production operations: JSON log lines in Vercel's logs, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
@@ -166,14 +166,16 @@
   <text x="326" y="900" font-size="13" fill="#374151">the Gemini key a Sensitive one</text>
 
   <rect x="596" y="814" width="270" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="612" y="840" font-size="15" font-weight="700" fill="#053b30">Docs as Markdown</text>
-  <text x="612" y="864" font-size="13" fill="#374151">docs/*.md, in the function</text>
-  <text x="612" y="882" font-size="13" fill="#374151">read once by each copy</text>
+  <text x="612" y="840" font-size="15" font-weight="700" fill="#053b30">Docs and static files</text>
+  <text x="612" y="864" font-size="13" fill="#374151">docs/*.md, read once by each copy</text>
+  <text x="612" y="882" font-size="13" fill="#374151">public/static/ on Vercel's CDN,</text>
+  <text x="612" y="900" font-size="13" fill="#374151">never in the function</text>
 
   <rect x="882" y="814" width="254" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="898" y="840" font-size="15" font-weight="700" fill="#053b30">Static files</text>
-  <text x="898" y="864" font-size="13" fill="#374151">public/static/ on Vercel's</text>
-  <text x="898" y="882" font-size="13" fill="#374151">CDN, never in the function</text>
+  <text x="898" y="840" font-size="15" font-weight="700" fill="#053b30">The weather's cache</text>
+  <text x="898" y="864" font-size="13" fill="#374151">Vercel's Runtime Cache, our</text>
+  <text x="898" y="882" font-size="13" fill="#374151">namespace, keys a SHA-256</text>
+  <text x="898" y="900" font-size="13" fill="#374151">a place 30 days, weather 10-30 min</text>
 
   <!-- D · 09 · Production operations -->
   <rect x="8" y="944" width="1144" height="170" rx="16" fill="#fafafa" stroke="#d7e7e2"/>

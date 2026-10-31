@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from nimbus import chat, health, pages
 from nimbus.answer import make_http_client
+from nimbus.cache import make_weather_cache
 from nimbus.config import Settings, get_settings
 from nimbus.constants import DOCS_IMAGES_DIR, STATIC_DIR
 from nimbus.logger import configure_logging
@@ -30,8 +31,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # One line says how this copy of the app starts: the model, whether it's set up, whether LangSmith may trace.
     app.state.chat_model = make_chat_model(settings)
     app.state.tracer = make_tracer(settings)
-    # How each answer's weather tools reach Open-Meteo: a new HTTP client for each; the tests give one of their own.
+    # How each answer's weather tools reach Open-Meteo: a new HTTP client for each, and one cache for Open-Meteo's
+    # answers (step 7); the tests give their own.
     app.state.make_http_client = make_http_client
+    app.state.weather_cache = make_weather_cache()
     structlog.get_logger().info(
         "app.started",
         model=settings.gemini_model,

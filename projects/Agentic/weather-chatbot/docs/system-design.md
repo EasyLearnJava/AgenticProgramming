@@ -1,6 +1,6 @@
 # System Design
 
-How Nimbus is built after step 6, drawn the way the TypeScript version's
+How Nimbus is built after step 7, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
@@ -8,10 +8,10 @@ A number on a box is the reference's number for the part it plays (02 for the ga
 and the health check. Step 2 made the chat answer, streamed a word at a time. Step 3 put Gemini in place of step 2's
 fixed answer, through LangChain. Step 4 gave it four weather tools, which call Open-Meteo: the REST · no auth lane.
 Step 5 made the agent that runs them a LangGraph graph of our own. Step 6 gave the chat a memory, kept in the
-browser. Each step adds its parts to this page.
+browser. Step 7 keeps Open-Meteo's answers in Vercel's Runtime Cache. Each step adds its parts to this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 
-![How Nimbus is built after step 6](images/system-design.svg)
+![How Nimbus is built after step 7](images/system-design.svg)
 
 ## The four bands
 
@@ -78,14 +78,19 @@ tools, and through them Open-Meteo.
   in code (`weather.py`). A failure reaches the model and the chip as our own sentence.
 - **Open-Meteo** (`open_meteo.py`), the REST · no auth lane: its geocoding, forecast and air-quality APIs, with no key,
   through httpx2: a point rounded to about 1 km, times in the place's own zone, 3 s a try and one more for a timeout,
-  a 5xx or a short 429.
+  a 5xx or a short 429; but first, the cache (band C).
 
 ### C · State and data freshness
 
 - **No database and no sessions:** the app keeps nothing a visitor sends beyond its log lines, which hold a request's
   method and path (never the query string) and a question's length (never its text); it sets no cookie. The
   conversation is kept on the page, which sends it back with each question; New chat clears it, and it leaves with
-  the page. The weather isn't kept either: each answer asks Open-Meteo afresh, until step 7 caches it.
+  the page.
+- **Open-Meteo's answers** are kept in Vercel's Runtime Cache (`cache.py`), which every copy of the app shares, and
+  on Hobby every project of the team: under our namespace, each key the SHA-256 of the request's address. A place is
+  kept 30 days; a forecast 30 minutes, never past its place's midnight; the air 30 minutes; the weather now 10. An
+  answer kept is checked as a fresh one is; only answers that worked are kept; a read or a write that fails, or takes
+  more than 1 s, is a miss.
 - **Settings and secrets** are Vercel's environment variables, or `.env.local` on a computer, which git never sees;
   `config.py` is the only module that reads them, checked when the app starts. Vercel's own (the environment, the
   commit, the deployment) come from the real environment only. The app reads `LOG_LEVEL`, the Gemini key (a Sensitive
@@ -127,13 +132,13 @@ tools, and through them Open-Meteo.
 | Shopper: web or mobile chat | You, in a browser, on a computer or a phone: Gemini answers from the weather tools' results, each call a chip | |
 | 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, and a request id it sets itself; the security headers on every response, the CDN's files included | The weather is public, so there's no sign-in. Rate limits come with the firewall's rules (step 11) |
 | 01 · Input guardrails: injection, PII, scope | In part: the form's checks: its type, at most 32 KiB, each field once, the question 1 to 2,000 characters, a language tag and a known time zone, no field we don't know; each tool call's input checked against its schema | Rules against prompt injection come in step 11 |
-| 03 · Semantic cache: safe answers, by similarity | None | The weather changes by the hour, so a cached answer would go stale; step 7 caches the weather's data instead |
+| 03 · Semantic cache: safe answers, by similarity | None | The weather changes by the hour, so a cached answer would go stale; Open-Meteo's answers are cached instead, each for its own time (step 7) |
 | 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; our own LangGraph graph: 5 calls to the model, the last with its tools off; 10 s for each call's first words, 8 s a tool call, 30 s an answer, which Stop ends on the page (on Vercel, the function goes on to the end) | |
 | 01 · Output guardrails: safety, privacy, grounding | In part: Jinja2 escapes every value but the two marked safe; an answer's Markdown renders with no raw HTML and no pictures, its links in a new tab; the rules: weather facts only from the tools' results, a tool's result read as data; the page puts in only our own HTML, and our script only text; the policy runs only our own files | Nothing checks an answer before it streams |
 | Answer: citations or a safe refusal | Gemini's answer, a word at a time, after a chip for each tool call, which opens to its request, input and output; a polite refusal off the weather; our own sentence for each thing that can go wrong, a failure's with its ref | |
 | 05 · Retrieval (RAG) and its index | None | The weather will come live from tools, not from documents |
 | 06 · Commerce tools: typed inputs, per-user permissions | Four weather tools (`tools.py`), each input a Pydantic model; no per-user permissions, as the weather is public | The MCP lanes from step 8, the auth lanes in step 10 |
-| Commerce APIs and databases | Open-Meteo's geocoding, forecast and air-quality APIs, with no key: 3 s a try, one more | Cached from step 7 |
+| Commerce APIs and databases | Open-Meteo's geocoding, forecast and air-quality APIs, with no key: 3 s a try, one more; their answers in Vercel's Runtime Cache | |
 | 07 · Model gateway: model choice, budgets, fallback | Gemini 3.5 Flash-Lite through LangChain (`model.py`): 1,024 tokens, 20 s and two attempts a call; 5 calls and 30 s an answer; LangChain's standard exceptions mapped to our sentences | One model, no fallback yet |
 | 08 · Human in the loop | None | |
 | Knowledge ingestion, change events, index refresh | None | |
@@ -203,5 +208,5 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 
 ## What comes next
 
-Step 7 caches Open-Meteo's answers in Vercel's Runtime Cache, under our own namespace. Each step after it adds its
-parts to this page and its diagram; the plan, `PLAN.md`, has them all.
+Step 8 builds our own MCP server, with FastMCP, at `/api/mcp`, offering the same four weather tools. Each step after
+it adds its parts to this page and its diagram; the plan, `PLAN.md`, has them all.

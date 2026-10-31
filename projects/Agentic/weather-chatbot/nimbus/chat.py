@@ -368,7 +368,7 @@ async def chat(request: Request) -> Response:
     now = datetime.now(UTC)
     messages = to_messages(chat_request.question, now, chat_request.locale, chat_request.time_zone, history)
     state = request.app.state
-    answer = stream_weather_answer(model, messages, stats, state.tracer, state.make_http_client())
+    answer = stream_weather_answer(model, messages, stats, state.tracer, state.make_http_client(), state.weather_cache)
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.
     turn = stream_turn(answer, chat_request.question, request.state.request_id, stats, settings.gemini_model)

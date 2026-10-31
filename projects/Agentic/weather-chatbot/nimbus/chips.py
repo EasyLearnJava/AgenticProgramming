@@ -112,7 +112,8 @@ class ToolChip:
 
     @property
     def lane_line(self) -> str | None:
-        """Once done: "REST · no auth · api.open-meteo.com · 0.3 s"."""
+        """Once done: "REST · no auth · api.open-meteo.com · 0.3 s", and "from the cache" before the time if it was."""
         if self.record is None:
             return None
-        return f"{LANE_LABEL} · {self.record.request.host} · {to_duration_text(self.record.ms)}"
+        cache = " · from the cache" if self.record.from_cache else ""
+        return f"{LANE_LABEL} · {self.record.request.host}{cache} · {to_duration_text(self.record.ms)}"

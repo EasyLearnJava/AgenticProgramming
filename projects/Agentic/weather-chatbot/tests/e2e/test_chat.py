@@ -267,3 +267,16 @@ def test_an_answer_cut_for_the_conversation_keeps_its_emoji_whole(page: Page) ->
     # Half an emoji would come back as a lone surrogate, which UTF-8 can't encode: the server refuses it.
     assert answer["text"].encode("utf-8").endswith("a🌦".encode())
     assert len(answer["text"]) == 4000
+
+
+def test_the_same_question_again_is_answered_from_the_cache(page: Page, open_meteo: OpenMeteoRecordings) -> None:
+    ask(page)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
+    asked = len(open_meteo.requests)
+    box = page.get_by_label("Your question")
+    box.fill(QUESTION)
+    box.press("Enter")
+    expect(page.locator(".message-user")).to_have_count(2)
+    expect(page.locator(".message-bot[aria-busy]")).to_have_count(0)
+    expect(chips(page).locator(".tool-chip-lane")).to_have_text([re.compile(" · from the cache · ")] * 2)
+    assert len(open_meteo.requests) == asked

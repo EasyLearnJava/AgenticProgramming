@@ -165,6 +165,37 @@ def open_meteo_answer(name: str) -> Any:
     return json.loads(_read_answer(name))
 
 
+class FakeCacheStore:
+    """
+    Vercel's Runtime Cache, played in memory: each value kept through JSON, as the real one keeps it, with its time to
+    live; a read or a write fails, or is slow, when a test says so.
+    """
+
+    def __init__(self) -> None:
+        """Empty, and working."""
+        self.items: dict[str, object] = {}
+        self.ttls: dict[str, object] = {}
+        self.error: Exception | None = None
+        self.delay = 0.0
+
+    async def get(self, key: str) -> object:
+        """The value kept under the key, or None."""
+        await self._wait_or_fail()
+        return self.items.get(key)
+
+    async def set(self, key: str, value: object, options: dict[str, object] | None = None) -> None:
+        """Keeps the value under the key, through JSON, with options' time to live."""
+        await self._wait_or_fail()
+        self.items[key] = json.loads(json.dumps(value))
+        self.ttls[key] = (options or {}).get("ttl")
+
+    async def _wait_or_fail(self) -> None:
+        """The delay a test gave, then the error it gave, if any."""
+        await asyncio.sleep(self.delay)
+        if self.error is not None:
+            raise self.error
+
+
 class OpenMeteoRecordings:
     """Open-Meteo, played back: each request gets the recorded answer for what it asks, after the pause."""
 

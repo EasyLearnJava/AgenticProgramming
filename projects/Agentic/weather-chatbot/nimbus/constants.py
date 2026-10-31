@@ -132,3 +132,15 @@ AGENT_RECURSION_LIMIT: Final = 2 * MAX_MODEL_CALLS
 HISTORY_MAX_MESSAGES: Final = 10
 HISTORY_ANSWER_MAX_CHARS: Final = 4000
 HISTORY_MAX_CHARS: Final = 16000
+
+# ⑫ The weather's cache (step 7): Open-Meteo's answers, kept in Vercel's Runtime Cache, which on Hobby all of a team's
+# projects share: under our own namespace. A place's name and point hardly change: 30 days. A forecast, 30 minutes,
+# but never past the place's midnight, since its first day is the day it was fetched; the air, 30 minutes; the weather
+# now, 10. A read or a write that takes more than 1 s is given up, as a miss: the package itself would wait 30 s.
+CACHE_NAMESPACE: Final = "nimbus-weather"
+CACHE_TIMEOUT_SECONDS: Final = 1
+SECONDS_PER_DAY: Final = 24 * 60 * 60
+GEOCODING_CACHE_SECONDS: Final = 30 * SECONDS_PER_DAY
+FORECAST_CACHE_SECONDS: Final = 30 * 60
+CURRENT_CACHE_SECONDS: Final = 10 * 60
+AIR_QUALITY_CACHE_SECONDS: Final = 30 * 60

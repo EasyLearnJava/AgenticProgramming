@@ -4,6 +4,7 @@ once done, its lane, host and time, and the request as it went out; a failure as
 """
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -86,3 +87,9 @@ def test_an_input_in_a_few_words(args: dict[str, object], summary: str) -> None:
 @pytest.mark.parametrize(("ms", "text"), [(0, "<0.1 s"), (49, "<0.1 s"), (312, "0.3 s"), (2950, "3.0 s")])
 def test_a_call_s_time_to_a_tenth_of_a_second(ms: int, text: str) -> None:
     assert to_duration_text(ms) == text
+
+
+def test_a_chip_answered_from_the_cache_says_so_before_its_time() -> None:
+    chip = started()
+    chip.end(ToolEnded("call-0-0", "geocode_location", "{}", replace(RECORD, from_cache=True), False))
+    assert chip.lane_line == "REST · no auth · geocoding-api.open-meteo.com · from the cache · 0.3 s"

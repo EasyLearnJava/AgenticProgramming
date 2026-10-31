@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 7 · Open-Meteo's answers, cached</title>
+  <desc id="d">A weather tool's request goes first to the cache: its key is our namespace, then the SHA-256 of the request's address. Vercel's Runtime Cache is shared by the app's copies, and on Hobby by the team's projects. A hit is checked as a fresh answer is, and its chip says from the cache; a miss asks Open-Meteo, checks the answer, and keeps it, only if it worked, for its kind's time: a place 30 days, a forecast 30 minutes but never past its place's midnight, the air 30 minutes, the weather now 10. A read or a write that fails or takes more than 1 s is a miss.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 7 · Open-Meteo's answers, cached</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">The cache first, Open-Meteo on a miss: the same question again asks no one</text>
+
+  <!-- Row 1: the key, the cache -->
+  <rect x="40" y="100" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">cache.py: the key</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">"nimbus-weather:", then the SHA-256 of the</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">request's address: never the address, which can</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">name a place, nor a 32-bit hash, which collides</text>
+  <text x="56" y="205" font-size="13" fill="#1f2937">1 s for a read or a write, else a miss</text>
+  <line x1="460" y1="162" x2="498" y2="162" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="100" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="126" font-size="15" font-weight="700" fill="#053b30">Vercel's Runtime Cache</text>
+  <text x="516" y="148" font-size="13" fill="#1f2937">the vercel package's AsyncRuntimeCache</text>
+  <text x="516" y="167" font-size="13" fill="#1f2937">shared by every copy of the app, in each</text>
+  <text x="516" y="186" font-size="13" fill="#1f2937">environment; on Hobby, by the team's projects</text>
+  <text x="516" y="205" font-size="13" fill="#1f2937">off Vercel: this process's memory</text>
+  <line x1="250" y1="224" x2="250" y2="268" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="710" y1="224" x2="710" y2="268" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: a hit, a miss -->
+  <rect x="40" y="270" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="296" font-size="15" font-weight="700" fill="#053b30">A hit: checked as a fresh answer</text>
+  <text x="56" y="318" font-size="13" fill="#1f2937">the same schema as Open-Meteo's answer</text>
+  <text x="56" y="337" font-size="13" fill="#1f2937">one line: upstream.cache, hit, and its time</text>
+  <text x="56" y="356" font-size="13" fill="#1f2937">the chip: · from the cache ·</text>
+  <text x="56" y="375" font-size="13" fill="#1f2937">one that no longer reads: a miss</text>
+  <rect x="500" y="270" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="296" font-size="15" font-weight="700" fill="#053b30">A miss: Open-Meteo, then kept</text>
+  <text x="516" y="318" font-size="13" fill="#1f2937">3 s a try, one more, as in step 4</text>
+  <text x="516" y="337" font-size="13" fill="#1f2937">the answer checked, then kept as it came</text>
+  <text x="516" y="356" font-size="13" fill="#1f2937">for its kind's time, below</text>
+  <text x="516" y="375" font-size="13" fill="#1f2937">a failure is never kept</text>
+
+  <!-- How long -->
+  <rect x="40" y="414" width="880" height="64" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="440" font-size="15" font-weight="700" fill="#053b30">How long each kind is kept</text>
+  <text x="56" y="462" font-size="13" fill="#1f2937">a place 30 days · a forecast 30 minutes, never past its place's midnight · the air 30 minutes · the weather now 10</text>
+
+  <!-- Why a miss -->
+  <rect x="40" y="498" width="880" height="84" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="524" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#7c2d12">Why a miss, never an error: </tspan>the cache only saves time. A read or a write that fails, or takes</text>
+  <text x="56" y="544" font-size="13" fill="#1f2937">more than 1 s, is a miss, and the weather is fetched as if nothing were kept. And the package's</text>
+  <text x="56" y="564" font-size="13" fill="#1f2937">telemetry is off: it would send usage events when the process ends.</text>
+
+  <!-- The tests -->
+  <rect x="40" y="602" width="880" height="44" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="629" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>a stand-in store, through JSON, empty for each test; its failures; the same question twice</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">Keep facts for as long as they stay true, under keys that name nothing and collide with nothing.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">A cache that fails is a miss: the weather can always be fetched.</text>
+</svg>

@@ -296,3 +296,25 @@ only from tool results, so the model fetches them again, from Open-Meteo.
 **4. Why cap the conversation at the newest messages?**
 Each question sends it all to the model again: without a cap, tokens and time grow with every question, and so does
 the request.
+
+## Step 7 · Open-Meteo's Answers, Cached
+
+**1. How do you cache in a serverless app?**
+Not in memory: each copy has its own, and copies come and go. In a cache the copies share, such as Vercel's Runtime
+Cache, with a key and a time to live for each value.
+
+**2. How do you make a cache key in a cache others share?**
+A namespace of your own, then a hash of everything that makes the request what it is, here its whole address: a
+SHA-256, which no other address shares, and which says nothing of a place.
+
+**3. How long do you keep each kind of data?**
+As long as it stays true: a place for 30 days, a forecast and the air for 30 minutes, the weather now for 10. And no
+longer than it stays whole: a forecast's first day ends at its place's midnight.
+
+**4. What happens when the cache fails?**
+Nothing the visitor sees: a read or a write that fails, or takes more than 1 s, is a miss, and the weather is fetched
+from Open-Meteo. Our warning says when the cache was too slow; on Vercel, the package prints the cache's own errors.
+
+**5. Why cache Open-Meteo's answers, not Nimbus's?**
+A question asked in other words, in another place or a day later wants another answer; Open-Meteo's answers are
+facts with a known lifetime, which every answer can reuse.

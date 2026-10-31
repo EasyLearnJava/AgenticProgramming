@@ -19,8 +19,13 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from tenacity import AsyncRetrying, RetryCallState, retry_if_exception, stop_after_attempt
 
+from nimbus.cache import WeatherCache
 from nimbus.constants import (
+    AIR_QUALITY_CACHE_SECONDS,
     COORDINATE_DECIMALS,
+    CURRENT_CACHE_SECONDS,
+    FORECAST_CACHE_SECONDS,
+    GEOCODING_CACHE_SECONDS,
     MAX_HOURLY_DAYS,
     OPEN_METEO_AIR_QUALITY_URL,
     OPEN_METEO_ATTEMPTS,
@@ -29,6 +34,7 @@ from nimbus.constants import (
     OPEN_METEO_TRY_SECONDS,
     RETRY_AFTER_MAX_SECONDS,
     RETRY_WAIT_MAX_SECONDS,
+    SECONDS_PER_DAY,
 )
 from nimbus.errors import (
     ContractError,
@@ -130,9 +136,10 @@ class _Hourly(BaseModel):
 
 
 class _ForecastAnswer(BaseModel):
-    """A forecast, as Open-Meteo gives it."""
+    """A forecast, as Open-Meteo gives it; its place's offset from UTC, for how long the cache keeps it (step 7)."""
 
     timezone: str
+    utc_offset_seconds: int = 0
     daily_units: _DailyUnits
     daily: _Daily
     hourly: _Hourly | None = None
@@ -351,26 +358,34 @@ def _is_worth_retrying(error: BaseException) -> bool:
 
 @dataclass(frozen=True)
 class UpstreamAnswer[T]:
-    """One answer from Open-Meteo, in our names, and the request that fetched it."""
+    """One answer from Open-Meteo, in our names; the request that fetched it; and whether the cache gave it (step 7)."""
 
     data: T
     request: WireRequest
+    from_cache: bool = False
 
 
 class OpenMeteoClient:
-    """Open-Meteo's three APIs, through an HTTP client that the caller opens and closes."""
+    """Open-Meteo's three APIs, through an HTTP client that the caller opens and closes, and a cache, if it's given."""
 
     def __init__(
         self,
         http: httpx2.AsyncClient,
         *,
+        cache: WeatherCache | None = None,
         try_seconds: float = OPEN_METEO_TRY_SECONDS,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock: Callable[[], float] = time.time,
     ) -> None:
-        """The HTTP client; how long a try may take, and how to wait between two (the tests pass their own)."""
+        """
+        The HTTP client; the cache that keeps the answers, if any; how long a try may take, how to wait between two,
+        and the time now, for how long a forecast is kept (the tests pass their own).
+        """
         self._http = http
+        self._cache = cache
         self._try_seconds = try_seconds
         self._sleep = sleep
+        self._clock = clock
 
     async def search_places(self, query: str, count: int, country_code: str | None) -> UpstreamAnswer[list[Place]]:
         """The places with a name, in English, at most count of them, in one country if it's given."""
@@ -378,8 +393,8 @@ class OpenMeteoClient:
         if country_code is not None:
             params["countryCode"] = country_code.upper()
         request = _to_get_request(OPEN_METEO_GEOCODING_URL, params)
-        answer = await self._get(request, _GeocodingAnswer)
-        return UpstreamAnswer(answer.results, request)
+        answer, from_cache = await self._get(request, _GeocodingAnswer, lambda _: GEOCODING_CACHE_SECONDS)
+        return UpstreamAnswer(answer.results, request, from_cache)
 
     async def get_forecast(
         self, latitude: float, longitude: float, *, days: int, include_hourly: bool, units: Units
@@ -390,7 +405,8 @@ class OpenMeteoClient:
             params["hourly"] = HOURLY_FIELDS
         params |= {"timezone": "auto", "forecast_days": str(days), **_to_units(units)}
         request = _to_get_request(OPEN_METEO_FORECAST_URL, params)
-        return UpstreamAnswer(_to_forecast(await self._get(request, _ForecastAnswer), include_hourly), request)
+        answer, from_cache = await self._get(request, _ForecastAnswer, self._keep_forecast)
+        return UpstreamAnswer(_to_forecast(answer, include_hourly), request, from_cache)
 
     async def get_current_weather(
         self, latitude: float, longitude: float, *, units: Units
@@ -398,22 +414,36 @@ class OpenMeteoClient:
         """The weather now at a point."""
         params = {**_to_point(latitude, longitude), "current": CURRENT_FIELDS, "timezone": "auto", **_to_units(units)}
         request = _to_get_request(OPEN_METEO_FORECAST_URL, params)
-        return UpstreamAnswer(_to_current(await self._get(request, _CurrentAnswer)), request)
+        answer, from_cache = await self._get(request, _CurrentAnswer, lambda _: CURRENT_CACHE_SECONDS)
+        return UpstreamAnswer(_to_current(answer), request, from_cache)
 
     async def get_air_quality(self, latitude: float, longitude: float) -> UpstreamAnswer[AirQualityData]:
         """The air now at a point."""
         params = {**_to_point(latitude, longitude), "current": AIR_QUALITY_FIELDS, "timezone": "auto"}
         request = _to_get_request(OPEN_METEO_AIR_QUALITY_URL, params)
-        return UpstreamAnswer(_to_air_quality(await self._get(request, _AirQualityAnswer)), request)
+        answer, from_cache = await self._get(request, _AirQualityAnswer, lambda _: AIR_QUALITY_CACHE_SECONDS)
+        return UpstreamAnswer(_to_air_quality(answer), request, from_cache)
 
-    async def _get[M: BaseModel](self, request: WireRequest, schema: type[M]) -> M:
+    def _keep_forecast(self, answer: _ForecastAnswer) -> int:
+        """A forecast's time in the cache: 30 minutes, but never past its place's midnight, when its first day ends."""
+        seconds_into_day = int(self._clock() + answer.utc_offset_seconds) % SECONDS_PER_DAY
+        return min(FORECAST_CACHE_SECONDS, SECONDS_PER_DAY - seconds_into_day)
+
+    async def _get[M: BaseModel](
+        self, request: WireRequest, schema: type[M], keep_for: Callable[[M], int]
+    ) -> tuple[M, bool]:
         """
-        One GET: a try, and one more if the first was worth it; the answer checked against the schema; one line, when
-        it's done, with the host, the path, the time and the tries. A retry is a warning. A stop isn't logged.
+        One GET: the answer the cache kept, if it reads as a fresh one would; else a try, and one more if the first was
+        worth it, the answer checked against the schema, then kept for keep_for(answer) seconds; one line, when it's
+        done, with the host, the path, the time and the tries. A retry is a warning. A stop isn't logged. With the
+        answer, whether the cache gave it.
         """
+        fields = {"upstream": "open-meteo", "host": request.host, "path": request.path}
+        kept = await self._get_kept(request, schema, fields)
+        if kept is not None:
+            return kept, True
         started = time.perf_counter()
         attempts = 0
-        fields = {"upstream": "open-meteo", "host": request.host, "path": request.path}
         retrying = AsyncRetrying(
             stop=stop_after_attempt(OPEN_METEO_ATTEMPTS),
             retry=retry_if_exception(_is_worth_retrying),
@@ -436,9 +466,31 @@ class OpenMeteoClient:
         write = log.warning if attempts > 1 else log.info
         write("upstream.http", **fields, status="ok", httpStatus=HTTP_OK, ms=ms, attempts=attempts)
         try:
-            return schema.model_validate(body)
+            answer = schema.model_validate(body)
         except ValidationError as error:
             raise ContractError from error
+        if self._cache is not None:
+            await self._cache.set(request.url, body, keep_for(answer))
+        return answer, False
+
+    async def _get_kept[M: BaseModel](self, request: WireRequest, schema: type[M], fields: dict[str, str]) -> M | None:
+        """
+        The answer the cache kept for the request, checked as a fresh one is; a line says it came from the cache. One
+        that no longer reads, a warning says, is a miss: the answer is fetched again, and kept in its place.
+        """
+        if self._cache is None:
+            return None
+        started = time.perf_counter()
+        kept = await self._cache.get(request.url)
+        if kept is None:
+            return None
+        try:
+            answer = schema.model_validate(kept)
+        except ValidationError:
+            log.warning("upstream.cache", **fields, status="unreadable")
+            return None
+        log.info("upstream.cache", **fields, status="hit", ms=to_ms(time.perf_counter() - started))
+        return answer
 
     async def _fetch_once(self, request: WireRequest) -> Any:
         """One try, of at most 3 s: the answer's JSON, or one of our errors."""

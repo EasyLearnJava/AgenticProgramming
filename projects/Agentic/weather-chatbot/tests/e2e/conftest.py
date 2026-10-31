@@ -14,8 +14,9 @@ import pytest
 import uvicorn
 
 from nimbus.app import create_app
+from nimbus.cache import WeatherCache
 from nimbus.config import Settings
-from tests.fakes import PARIS_STEPS, FakeModel, OpenMeteoRecordings
+from tests.fakes import PARIS_STEPS, FakeCacheStore, FakeModel, OpenMeteoRecordings
 
 STARTUP_SECONDS = 10
 POLL_SECONDS = 0.05
@@ -46,6 +47,18 @@ def slow_open_meteo(open_meteo: OpenMeteoRecordings) -> Iterator[OpenMeteoRecord
 
 
 @pytest.fixture(scope="session")
+def cache_store() -> FakeCacheStore:
+    """Vercel's Runtime Cache, played in memory for the whole session."""
+    return FakeCacheStore()
+
+
+@pytest.fixture(autouse=True)
+def empty_cache(cache_store: FakeCacheStore) -> None:
+    """Nothing kept when a test starts, so no test's weather comes from another's."""
+    cache_store.items.clear()
+
+
+@pytest.fixture(scope="session")
 def chat_model() -> FakeModel:
     """
     Gemini needs a key and costs quota: a stand-in answers for the whole session. It asks for the place, then its
@@ -55,7 +68,7 @@ def chat_model() -> FakeModel:
 
 
 @pytest.fixture(scope="session")
-def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel) -> Iterator[str]:
+def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store: FakeCacheStore) -> Iterator[str]:
     """The app's address, once Uvicorn is serving it; Uvicorn stops when the session ends."""
     port = _free_port()
     # Every setting given here, so the shell's environment can't change the app; it logs only warnings, so its line
@@ -69,9 +82,10 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel) -> Iterator
         log_level="warning",
     )
     app = create_app(settings)
-    # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour.
+    # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour; and the cache.
     app.state.chat_model = chat_model
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
+    app.state.weather_cache = WeatherCache(cache_store)
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)

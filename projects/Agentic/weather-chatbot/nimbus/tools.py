@@ -51,11 +51,15 @@ class ToolContext:
 
 @dataclass(frozen=True)
 class ToolRun:
-    """One run of a tool: what the model reads, the request behind it, and the one-line summary for its chip."""
+    """
+    One run of a tool: what the model reads, the request behind it, the one-line summary for its chip, and whether the
+    cache gave Open-Meteo's answer (step 7).
+    """
 
     output: BaseModel
     request: WireRequest
     summary: str
+    from_cache: bool = False
 
 
 @dataclass(frozen=True)
@@ -243,7 +247,7 @@ async def _geocode(params: GeocodeInput, context: ToolContext) -> ToolRun:
         summary = f"{len(output.candidates)} places, ambiguous"
     else:
         summary = _to_place_line(output.candidates[0])
-    return ToolRun(output, answer.request, summary)
+    return ToolRun(output, answer.request, summary, answer.from_cache)
 
 
 async def _current_weather(params: CurrentWeatherInput, context: ToolContext) -> ToolRun:
@@ -267,7 +271,7 @@ async def _current_weather(params: CurrentWeatherInput, context: ToolContext) ->
         summary = output.condition
     else:
         summary = f"{round(output.temperature)} {output.temperature_unit}, {output.condition.lower()}"
-    return ToolRun(output, answer.request, summary)
+    return ToolRun(output, answer.request, summary, answer.from_cache)
 
 
 async def _forecast(params: ForecastInput, context: ToolContext) -> ToolRun:
@@ -309,7 +313,7 @@ async def _forecast(params: ForecastInput, context: ToolContext) -> ToolRun:
         days=days,
         hours=hours,
     )
-    return ToolRun(output, answer.request, _summarize_forecast(output))
+    return ToolRun(output, answer.request, _summarize_forecast(output), answer.from_cache)
 
 
 def _summarize_forecast(output: ForecastOutput) -> str:
@@ -335,7 +339,7 @@ async def _air_quality(params: AirQualityInput, context: ToolContext) -> ToolRun
     )
     us = "unknown" if output.us_aqi is None else output.us_aqi
     european = "unknown" if output.european_aqi is None else output.european_aqi
-    return ToolRun(output, answer.request, f"US AQI {us} · European AQI {european}")
+    return ToolRun(output, answer.request, f"US AQI {us} · European AQI {european}", answer.from_cache)
 
 
 GEOCODE_LOCATION: Final = WeatherTool(
@@ -383,12 +387,16 @@ WEATHER_TOOLS: Final = (GEOCODE_LOCATION, GET_CURRENT_WEATHER, GET_FORECAST, GET
 
 @dataclass(frozen=True)
 class ToolCallRecord:
-    """What the page gets of a tool call besides what the model read: the lane, the request, its time and summary."""
+    """
+    What the page gets of a tool call besides what the model read: the lane, the request, its time and summary, and
+    whether the cache gave the answer.
+    """
 
     lane: str
     request: WireRequest
     ms: int
     summary: str
+    from_cache: bool = False
 
 
 def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool:
@@ -416,7 +424,8 @@ def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool
             raise ToolException(failure.user_message) from error
         ms = to_ms(time.perf_counter() - started)
         log.info("tool.call", tool=tool.name, lane=LANE_ID, status="ok", ms=ms)
-        return tool_run.output.model_dump_json(), ToolCallRecord(LANE_ID, tool_run.request, ms, tool_run.summary)
+        record = ToolCallRecord(LANE_ID, tool_run.request, ms, tool_run.summary, tool_run.from_cache)
+        return tool_run.output.model_dump_json(), record
 
     return StructuredTool.from_function(
         coroutine=call,

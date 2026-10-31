@@ -11,8 +11,9 @@ from fastapi.testclient import TestClient
 from pydantic import AliasChoices
 
 from nimbus.app import create_app
+from nimbus.cache import WeatherCache
 from nimbus.config import Settings
-from tests.fakes import FakeModel, OpenMeteoRecordings
+from tests.fakes import FakeCacheStore, FakeModel, OpenMeteoRecordings
 
 
 @pytest.fixture(autouse=True)
@@ -48,10 +49,19 @@ def open_meteo() -> OpenMeteoRecordings:
 
 
 @pytest.fixture
-def client(settings: Settings, chat_model: FakeModel, open_meteo: OpenMeteoRecordings) -> Iterator[TestClient]:
+def cache_store() -> FakeCacheStore:
+    """The stand-in for Vercel's Runtime Cache, empty for each test, so no test's weather comes from another's."""
+    return FakeCacheStore()
+
+
+@pytest.fixture
+def client(
+    settings: Settings, chat_model: FakeModel, open_meteo: OpenMeteoRecordings, cache_store: FakeCacheStore
+) -> Iterator[TestClient]:
     """A client for the app built with those settings, which answers with the stand-ins: no call leaves the test."""
     app = create_app(settings)
     app.state.chat_model = chat_model
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
+    app.state.weather_cache = WeatherCache(cache_store)
     with TestClient(app) as test_client:
         yield test_client

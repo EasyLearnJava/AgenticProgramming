@@ -94,6 +94,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "answers in turn, checked and capped, never a tool's result, so the tools run again; and New chat."
         ),
     ),
+    DocPage(
+        slug="step-7",
+        path="/docs/step-7",
+        label="Step 7: Open-Meteo's Answers, Cached",
+        summary=(
+            "Open-Meteo's answers kept in Vercel's Runtime Cache, under our namespace, each key a SHA-256 and each "
+            "kind for its own time; a cache that fails or is slow is a miss; and the chip says when it answered."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

@@ -616,3 +616,17 @@ def test_the_tools_run_again_for_a_follow_up_question(client: TestClient, chat_m
         client.post("/api/chat", data={"question": "And the day after?", "history": history})
     assert [line["tool"] for line in lines if line["event"] == "tool.call"] == ["geocode_location", "get_forecast"]
     assert isinstance(chat_model.seen[0][2], AIMessage)
+
+
+def test_the_same_question_again_is_answered_from_the_cache_and_its_chips_say_so(
+    client: TestClient, chat_model: FakeModel, open_meteo: OpenMeteoRecordings
+) -> None:
+    chat_model.tool_steps = PARIS_STEPS
+    first = client.post("/api/chat", data={"question": "Will it rain in Paris tomorrow?"}).text
+    again = client.post("/api/chat", data={"question": "Will it rain in Paris tomorrow?"}).text
+    # Two tools, each asking Open-Meteo once; every chip of the second answer (each comes twice: running, then done,
+    # in its event and in the answer's last) says the cache answered.
+    assert len(open_meteo.requests) == 2
+    assert "from the cache" not in first
+    assert again.count(" · from the cache · ") == first.count("REST · no auth · ") > 0
+    assert again.count("On the wire, when it was first fetched") == first.count("On the wire") > 0

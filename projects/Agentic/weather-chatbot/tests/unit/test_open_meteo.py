@@ -14,8 +14,10 @@ import httpx2
 import pytest
 from structlog.testing import capture_logs
 
+from nimbus.cache import WeatherCache, to_cache_key
 from nimbus.errors import ContractError, UpstreamRateLimitedError, UpstreamTimeoutError, UpstreamUnavailableError
-from nimbus.open_meteo import OpenMeteoClient, Place
+from nimbus.open_meteo import OpenMeteoClient, Place, UpstreamAnswer
+from tests.fakes import FakeCacheStore
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "open_meteo"
 DAILY = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset"
@@ -279,3 +281,114 @@ def test_each_request_writes_one_line_with_its_host_and_path_never_its_query() -
     assert (line["status"], line["httpStatus"], line["attempts"], line["log_level"]) == ("ok", 200, 1, "info")
     assert isinstance(line["ms"], int)
     assert "Paris" not in json.dumps(line)
+
+
+# The cache (step 7). Noon in Paris, an hour ahead of UTC, unless a test says otherwise.
+NOON_IN_PARIS = 1793444400.0
+GEOCODE_ADDRESS = "https://geocoding-api.open-meteo.com/v1/search?name=Paris&count=5&language=en&format=json"
+
+
+def call_with_cache[T](
+    stub: OpenMeteoStub,
+    store: FakeCacheStore,
+    run: Callable[[OpenMeteoClient], Awaitable[T]],
+    now: float = NOON_IN_PARIS,
+) -> T:
+    """Runs one call with a client whose HTTP goes to the stub, and whose cache is the store."""
+
+    async def go() -> T:
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(stub)) as http:
+            client = OpenMeteoClient(
+                http, cache=WeatherCache(store), try_seconds=TRY_SECONDS, sleep=stub.sleep, clock=lambda: now
+            )
+            return await run(client)
+
+    return asyncio.run(go())
+
+
+@pytest.mark.parametrize(
+    ("name", "run", "seconds"),
+    [
+        ("geocode-paris", lambda client: client.search_places("Paris", 5, None), 30 * 24 * 60 * 60),
+        (
+            "forecast-paris",
+            lambda client: client.get_forecast(48.85, 2.35, days=2, include_hourly=False, units="metric"),
+            30 * 60,
+        ),
+        ("current-tokyo", lambda client: client.get_current_weather(35.69, 139.69, units="metric"), 10 * 60),
+        ("air-delhi", lambda client: client.get_air_quality(28.65, 77.23), 30 * 60),
+    ],
+    ids=["a-place-30-days", "a-forecast-30-minutes", "the-weather-now-10-minutes", "the-air-30-minutes"],
+)
+def test_each_answer_is_kept_under_its_address_hash_for_its_own_time(
+    name: str, run: Callable[[OpenMeteoClient], Awaitable[UpstreamAnswer[Any]]], seconds: int
+) -> None:
+    stub, store = OpenMeteoStub(ok(name)), FakeCacheStore()
+    answer = call_with_cache(stub, store, run)
+    key = to_cache_key(str(stub.requests[0].url))
+    assert answer.from_cache is False
+    assert store.items == {key: fixture(name)}
+    assert store.ttls == {key: seconds}
+
+
+def test_an_answer_kept_is_given_again_with_no_request_and_says_so() -> None:
+    stub, store = OpenMeteoStub(ok("geocode-paris")), FakeCacheStore()
+    first = call_with_cache(stub, store, lambda client: client.search_places("Paris", 5, None))
+    with capture_logs() as lines:
+        again = call_with_cache(stub, store, lambda client: client.search_places("Paris", 5, None))
+    assert len(stub.requests) == 1
+    assert (again.data, again.request, again.from_cache) == (first.data, first.request, True)
+    [line] = lines
+    assert {key: line[key] for key in ("event", "log_level", "host", "path", "status")} == {
+        "event": "upstream.cache",
+        "log_level": "info",
+        "host": "geocoding-api.open-meteo.com",
+        "path": "/v1/search",
+        "status": "hit",
+    }
+    assert isinstance(line["ms"], int)
+
+
+def test_a_forecast_is_kept_no_later_than_its_place_s_midnight() -> None:
+    # 23:50 in Paris: its forecast's first day ends in 10 minutes, and so does its time in the cache.
+    stub, store = OpenMeteoStub(ok("forecast-paris")), FakeCacheStore()
+    ten_to_midnight_in_paris = NOON_IN_PARIS + 11 * 60 * 60 + 50 * 60
+    call_with_cache(
+        stub,
+        store,
+        lambda client: client.get_forecast(48.85, 2.35, days=2, include_hourly=False, units="metric"),
+        now=ten_to_midnight_in_paris,
+    )
+    assert list(store.ttls.values()) == [10 * 60]
+
+
+def test_an_answer_kept_that_no_longer_reads_is_fetched_again_and_kept_in_its_place() -> None:
+    stub, store = OpenMeteoStub(ok("geocode-paris")), FakeCacheStore()
+    store.items[to_cache_key(GEOCODE_ADDRESS)] = {"results": "not a list"}
+    with capture_logs() as lines:
+        answer = call_with_cache(stub, store, lambda client: client.search_places("Paris", 5, None))
+    assert (len(stub.requests), answer.from_cache) == (1, False)
+    assert store.items == {to_cache_key(GEOCODE_ADDRESS): fixture("geocode-paris")}
+    assert [(line["event"], line["log_level"], line.get("status")) for line in lines] == [
+        ("upstream.cache", "warning", "unreadable"),
+        ("upstream.http", "info", "ok"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "answers",
+    [(httpx2.Response(503), httpx2.Response(503)), (httpx2.Response(200, json={"results": "not a list"}),)],
+    ids=["open-meteo-failed", "its-answer-did-not-read"],
+)
+def test_an_answer_that_failed_is_never_kept(answers: tuple[httpx2.Response, ...]) -> None:
+    store = FakeCacheStore()
+    with pytest.raises((UpstreamUnavailableError, ContractError)):
+        call_with_cache(OpenMeteoStub(*answers), store, lambda client: client.search_places("Paris", 5, None))
+    assert store.items == {}
+
+
+def test_a_cache_that_fails_never_fails_the_answer() -> None:
+    stub, store = OpenMeteoStub(ok("geocode-paris")), FakeCacheStore()
+    store.error = ConnectionError("the cache is down")
+    answer = call_with_cache(stub, store, lambda client: client.search_places("Paris", 5, None))
+    assert (answer.data[0].name, answer.from_cache) == ("Paris", False)

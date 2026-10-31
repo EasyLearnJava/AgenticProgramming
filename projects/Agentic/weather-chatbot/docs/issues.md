@@ -342,3 +342,23 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     with `slice()`, which counts UTF-16 units: an emoji at the cut lost half of its pair, which the server refuses as
     unreadable, so each question after it failed until New chat. **Fix:** the page cuts by whole characters
     (`Array.from()`). **Check:** a browser test whose answer ends in an emoji at the cut.
+
+## Step 7 · Open-Meteo's Answers, Cached
+
+58. **The `vercel` package sends telemetry when the process ends.** *Reading its source, before using it.* Its
+    `track()` keeps usage events, such as each read of the cache, with the user's, team's and project's ids it can
+    find in its credentials, and an `atexit` handler posts them to telemetry.vercel.com, waiting up to 30 s. It reads
+    `VERCEL_TELEMETRY_DISABLED` once, when it's imported. **Fix:** `nimbus/cache.py` sets it to 1, unless it's set
+    already, before importing the package. **Check:** a unit test: the variable is 1, and the package's telemetry
+    client is off.
+59. **The tests shared one cache, and a test's weather came from another's.** *The unit suite's first run with the
+    cache.* The app's cache is the package's, which off Vercel keeps answers in the process's memory, for every app
+    built in it: a test whose forecast should fail got an earlier test's forecast from the cache. **Fix:** each unit
+    test's app gets a stand-in store of its own (`FakeCacheStore`), and the browser tests' store is emptied before
+    each test. **Check:** that test passes again, as does every other, each with its own store.
+60. **On Vercel, a cache that fails says so in the package's line, not ours.** *The review.* On Vercel, the
+    package's store catches each of the cache's HTTP errors itself: it prints it in a plain line, without our fields
+    or the request's id, and gives a miss. So `cache.failed` is written only for our 1 s limit, or for an error that
+    reaches us. **Fix:** the docs say so; a failure is still a miss, and the weather is fetched. To do, for step 12:
+    the store built with an `on_error` that raises, so the error reaches our warning. **Check:** the package's
+    `AsyncBuildCache`: its `get()` and `set()` hand every error to `on_error`, which the package sets to `print`.

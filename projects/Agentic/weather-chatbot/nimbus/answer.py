@@ -30,6 +30,7 @@ from markdown_it.utils import EnvType, OptionsDict
 from markupsafe import Markup
 
 from nimbus.agent import AGENT_CONFIG, make_agent
+from nimbus.cache import WeatherCache
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.errors import AnswerTimeoutError, ConfigError, ModelBusyError, ModelFailedError, NimbusError
 from nimbus.model import Tracer
@@ -185,13 +186,14 @@ async def stream_weather_answer(
     stats: AnswerStats,
     tracer: Tracer | None,
     http_client: httpx2.AsyncClient,
+    weather_cache: WeatherCache | None = None,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The answer, by the agent with the four weather tools, which call Open-Meteo through the HTTP client given, open for
-    as long as the answer is, and closed with it.
+    as long as the answer is, and closed with it; and keep its answers in the cache given (step 7).
     """
     async with http_client as http:
-        agent = make_agent(model, make_tools(ToolContext(OpenMeteoClient(http))))
+        agent = make_agent(model, make_tools(ToolContext(OpenMeteoClient(http, cache=weather_cache))))
         async with aclosing(stream_answer(agent, messages, stats, tracer)) as events:
             async for event in events:
                 yield event

@@ -16,7 +16,8 @@
 
 {#
   A tool call's chip: a <details>, so it opens with the keyboard and without script. Its mark (…, ✓, ✗ or ■) has its
-  word for a screen reader; once done, its lane, host and time; opened, the request as it went out, input and output.
+  word for a screen reader; once done, its lane, host and time, and whether the cache answered; opened, the request
+  as it went out, the first time if the cache answered, then input and output.
 #}
 {% macro tool_chip(turn_id, chip) -%}
 <li class="tool-chip tool-chip-{{ chip.status }}" id="tool-{{ turn_id }}-{{ chip.index }}">
@@ -40,7 +41,11 @@
       <p class="tool-chip-error">{{ chip.error }}</p>
       {%- endif %}
       {%- if chip.record %}
+      {%- if chip.record.from_cache %}
+      <p class="tool-chip-label">On the wire, when it was first fetched</p>
+      {%- else %}
       <p class="tool-chip-label">On the wire</p>
+      {%- endif %}
       <pre>{{ chip.record.request.to_text() }}</pre>
       {%- endif %}
       <p class="tool-chip-label">Input</p>
