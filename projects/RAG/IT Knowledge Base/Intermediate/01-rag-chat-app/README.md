@@ -120,7 +120,7 @@ where it started.
 01-rag-chat-app/
 ├── main.py                           # the one way in: python main.py (serve), ask or index; app, for Vercel
 ├── config.yaml                       # every setting except the key: one section per layer
-├── vercel.json                       # Vercel's build runs python main.py index: the vectors, once per deployment
+├── vercel.json                       # Vercel's build: python main.py index, skipped if nothing here changed
 ├── .env.example                      # copy to .env and put your Gemini key in it; .env never goes into git
 ├── data/
 │   ├── sample_it_kb.csv              # the knowledge base: 10 IT support articles
@@ -328,12 +328,17 @@ What's different there:
 - **Vercel runs the app as instances: copies it starts and stops.** It starts one when a request comes and none is
   free (after a quiet spell, say), and more when requests come at once: a page load sends several. Each copy has its
   own memory, so each builds its own index at start. On their own, 4 copies starting together embed 4 × 28 = 112
-  chunks within seconds, over the free tier's 100 a minute.
+  chunks within seconds, over the free tier's 100 a minute, and 36 starts use up its 1,000 a day.
 - **So the build embeds the chunks once.** `python main.py index`, in the build, saves their vectors in
   `data/vectors.json`, which goes into the deployment; each copy loads them at start, with no call to Gemini. In the
   build's log, `embeddings.save_vectors ok`; in the deployment's, at each start, `embeddings.load_vectors ok` with
   `used=True`; a start that finds no file logs a warning (see Troubleshooting). Should the build fail (no key, or
   Gemini refuses), the deployment stops there, and Vercel goes on serving the one before.
+- **A push that changes nothing here builds nothing.** Vercel builds a project at every push to its repo, even one
+  that only changes another project in it, and each build here embeds the 28 chunks. So `vercel.json`'s
+  `ignoreCommand` compares this folder at the pushed commit with the commit of the last deployment that succeeded
+  (`git diff`), and when nothing in it changed, skips the build: the deployment shows as Canceled, and the one before
+  goes on serving. Redeploying the deployment that's serving always builds, so a changed key reaches it.
 - **Traces live in one instance's memory.** The page reads each request's trace right after its answer; should that
   read reach another instance, the page says `The trace isn't available: ...` instead of the boxes.
 - **Unless you protect it, the address is public**: anyone who has it can ask questions on your key, and read a
@@ -602,8 +607,9 @@ client sends with, is stopped from sending anything. They check each layer on it
   reordered or an article removed: still used), but only when every chunk has one from the same model and size (an
   edited or added text, another model or size: a warning says why, and the chunks are embedded); a missing file
   isn't a warning, except on Vercel, a broken one is; the file is written whole or not at all; a failed `index`
-  exits 1 (Ctrl+C: 130), so Vercel's build stops; `vercel.json`'s build command runs `index`. Each test's vector
-  file is in its own temporary folder, never `data/vectors.json`
+  exits 1 (Ctrl+C: 130), so Vercel's build stops; `vercel.json`'s build command runs `index`, and its ignore
+  command skips a push that changed nothing here. Each test's vector file is in its own temporary folder, never
+  `data/vectors.json`
 
 The 2 deselected tests are live tests, marked `live`: they build the real engine and ask the real Gemini, once
 through the engine and once through the API, so they need your key in `.env`; with no key, `tests/conftest.py`
@@ -710,11 +716,11 @@ vectors = saved if saved is not None else self.embedder.embed_documents(texts)
 Qdrant here lives in the app's memory, and memory belongs to one process: a copy of the app that starts can't see
 the index another copy built, and neither keeps it once it stops. One server that runs for hours embeds once; a host
 that starts copies on demand, like Vercel, would embed once per copy. So the work that's the same for every copy,
-turning the chunks into vectors, is done once, before any copy starts (`index`, in Vercel's build), and each copy
-loads the result. The saved vectors stand in for embedding only when they're exactly what embedding would give: the
-file names the model and size they were made with, and the hash of each chunk's text, so an edited article or a new
-model can't quietly be answered from old vectors. The same idea, at a larger scale, is a vector database outside the
-app, which every copy shares.
+turning the chunks into vectors, is done once, before any copy starts (`index`, in Vercel's build, which runs only
+when something in this folder changed), and each copy loads the result. The saved vectors stand in for embedding
+only when they're exactly what embedding would give: the file names the model and size they were made with, and the
+hash of each chunk's text, so an edited article or a new model can't quietly be answered from old vectors. The same
+idea, at a larger scale, is a vector database outside the app, which every copy shares.
 
 ---
 
@@ -744,8 +750,9 @@ added.
 or `Indexing failed: ...`
 **Fix**: The build runs `python main.py index`, which embeds the chunks, so it needs the key too: add
 `GOOGLE_API_KEY` under **Settings** > **Environment Variables**, then redeploy. After `Indexing failed:
-UPSTREAM_RATE_LIMITED`, wait a minute and redeploy. Until a build succeeds, Vercel goes on serving the deployment
-before it.
+UPSTREAM_RATE_LIMITED`, read the rest of the line: wait a minute and redeploy, or, when it says `Embed content
+requests per day limit exceeded on Free Tier`, redeploy after midnight Pacific time, when the day's quota comes back.
+Until a build succeeds, Vercel goes on serving the deployment before it.
 
 **Issue**: On Vercel, each start's log shows `WARNING [...] main: No saved vectors on Vercel (<the path>): each instance embeds the chunks as it starts, and instances starting together can use up Gemini's quota. vercel.json has the build save them with python main.py index`, then `embeddings.load_vectors ok ... used=False reason="there's no file: python main.py index makes it"` and `embeddings.embed_documents`
 **Fix**: The deployment has no saved vectors, so each copy embeds the chunks, as before the build step. Check that
@@ -778,9 +785,11 @@ it should list the Gemini API (the Generative Language API), not Gemini for Goog
 Application restrictions, None. New settings can take up to 5 minutes to work.
 
 **Issue**: `ERROR [...] main: Start-up failed: UPSTREAM_RATE_LIMITED: embeddings: GoogleGenerativeAIError: Error embedding content (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. ...`, or the page shows `The AI service is busy (rate limited). Try again in a minute.`
-**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute; starting the app embeds
-28 (none when it loads the saved vectors: see Or: Embed the Chunks Once), and each question 1 more. Wait a minute,
-then try again.
+**Fix**: Your key has used its quota. On the free tier, that's 100 embedded texts a minute and 1,000 a day; starting
+the app embeds 28 (none when it loads the saved vectors: see Or: Embed the Chunks Once), and each question 1 more.
+Wait a minute, then try again. When the line says `Embed content requests per day limit exceeded on Free Tier`, the
+day's are used up: they come back at midnight Pacific time, and the line says how long that is (`retry in ...`).
+The page says `Try again in a minute` either way.
 
 **Issue**: `Can't start: the log file can't be opened (Permission denied): <the full path>`
 **Fix**: `logging.file` in `config.yaml` leads to a folder, or to a place you can't write. Point it at a file in a

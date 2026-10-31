@@ -3,7 +3,7 @@ Tests for main.py: the command line; stopping with one clear line and exit code 
 settings, the key or the build fails; answering in the terminal, each answer with the trace ID its log lines carry
 in the log file; serving with uvicorn under the app's logging; its app, started the way a host such as Vercel starts
 it; index, which saves the vectors a later start loads (and exits 1 when it fails, so Vercel's build stops), and
-vercel.json, whose build runs it; and main.py as the only file that runs anything.
+vercel.json, whose build runs it unless nothing in this folder changed; and main.py as the only file that runs anything.
 """
 import ast
 import json
@@ -278,10 +278,14 @@ def test_on_vercel_a_start_with_no_saved_vectors_warns(config, stand_ins, restor
     assert "No saved vectors" not in capsys.readouterr().err
 
 
-def test_vercels_build_runs_index():
-    # vercel.json, in the folder Vercel deploys: its build command runs after the packages are installed
+def test_vercels_build_runs_index_unless_nothing_here_changed():
+    # vercel.json, in the folder Vercel deploys: its build command runs after the packages are installed. Its ignore
+    # command runs before, in this folder: exit 0 (this folder is as it was at the last successful deployment) skips
+    # the build; anything else builds, a redeploy of that same commit too
     settings = json.loads((PROJECT_DIR / "vercel.json").read_text(encoding="utf-8"))
     assert settings["buildCommand"] == "python main.py index"
+    assert settings["ignoreCommand"] == ('[ "$VERCEL_GIT_PREVIOUS_SHA" != "$VERCEL_GIT_COMMIT_SHA" ] && '
+                                         'git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" HEAD -- .')
 
 
 def test_only_main_runs_anything():
