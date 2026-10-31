@@ -54,11 +54,12 @@ SECURITY_HEADERS: Final[tuple[tuple[str, str], ...]] = (
 NO_STORE: Final = "no-store"
 
 # ⑤ The chat (step 2): what the form sends, and what comes back. A question is at most 2,000 characters; the body
-# that carries it, at most 32 KiB, room for 2,000 characters of four UTF-8 bytes each, written %XX. The answer streams
-# as server-sent events; our own error pages carry a header, so the page can tell them from anyone else's.
+# that carries it and the conversation so far (⑪), at most 256 KiB, room for both, each character of four UTF-8 bytes
+# written %XX. The answer streams as server-sent events; our own error pages carry a header, so the page can tell them
+# from anyone else's.
 FORM_MEDIA_TYPE: Final = "application/x-www-form-urlencoded"
 QUESTION_MAX_CHARS: Final = 2000
-CHAT_BODY_MAX_BYTES: Final = 32 * 1024
+CHAT_BODY_MAX_BYTES: Final = 256 * 1024
 CHAT_FORM_MAX_FIELDS: Final = 10
 EVENT_STREAM: Final = "text/event-stream"
 ERROR_HEADER: Final = "x-nimbus-error"
@@ -124,3 +125,10 @@ MAX_MODEL_CALLS: Final = 5
 MODEL_FIRST_CHUNK_SECONDS: Final = 10
 TOOL_TIMEOUT_SECONDS: Final = 8
 AGENT_RECURSION_LIMIT: Final = 2 * MAX_MODEL_CALLS
+
+# ⑪ The chat's memory (step 6): the page sends back the conversation so far with each question, as untrusted input:
+# only the visitor's questions and Nimbus's answers, in turns, never a tool's result, so the tools run again. At most
+# the last 10 messages, each question 2,000 characters and each answer 4,000, all of them at most 16,000.
+HISTORY_MAX_MESSAGES: Final = 10
+HISTORY_ANSWER_MAX_CHARS: Final = 4000
+HISTORY_MAX_CHARS: Final = 16000

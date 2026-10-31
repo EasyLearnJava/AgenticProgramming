@@ -46,7 +46,16 @@ def slow_open_meteo(open_meteo: OpenMeteoRecordings) -> Iterator[OpenMeteoRecord
 
 
 @pytest.fixture(scope="session")
-def base_url(open_meteo: OpenMeteoRecordings) -> Iterator[str]:
+def chat_model() -> FakeModel:
+    """
+    Gemini needs a key and costs quota: a stand-in answers for the whole session. It asks for the place, then its
+    forecast, then writes its words; a test reads what it was sent.
+    """
+    return FakeModel(delay=0.06, tool_steps=PARIS_STEPS)
+
+
+@pytest.fixture(scope="session")
+def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel) -> Iterator[str]:
     """The app's address, once Uvicorn is serving it; Uvicorn stops when the session ends."""
     port = _free_port()
     # Every setting given here, so the shell's environment can't change the app; it logs only warnings, so its line
@@ -60,9 +69,8 @@ def base_url(open_meteo: OpenMeteoRecordings) -> Iterator[str]:
         log_level="warning",
     )
     app = create_app(settings)
-    # Gemini needs a key and costs quota, and Open-Meteo's weather changes by the hour: stand-ins answer. The model
-    # asks for the place, then its forecast, then writes its words.
-    app.state.chat_model = FakeModel(delay=0.06, tool_steps=PARIS_STEPS)
+    # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour.
+    app.state.chat_model = chat_model
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)

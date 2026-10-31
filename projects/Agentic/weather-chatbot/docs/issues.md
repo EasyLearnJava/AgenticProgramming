@@ -330,3 +330,15 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     the whole suite for the constants, or for a rule those files miss, before it's called missed; two workers run the
     rules, each in a copy of the project, so the files you work on are never changed. The check takes 3 minutes.
     **Check:** 100 of 100 caught, in the rules' order; `git status` unchanged after the run.
+
+## Step 6 · The Chat Remembers, in the Browser
+
+56. **JSON nested deep enough gave a 500.** *The review.* A conversation of 30,000 nested brackets fits in the body's
+    256 KiB, and `json.loads()` raises `RecursionError` on it, which isn't a `ValueError`, so Pydantic didn't make it
+    a validation error: the chat answered "Internal Server Error". **Fix:** the validator turns `RecursionError` into
+    a `ValueError`: our sentence, "The chat couldn't read the conversation so far." **Check:** a unit test with the
+    30,000-deep JSON; the mutation check's "JSON nested too deep is unreadable, never a 500".
+57. **An emoji cut in half would have refused every later question.** *The review.* `chat.js` cut an answer to 4,000
+    with `slice()`, which counts UTF-16 units: an emoji at the cut lost half of its pair, which the server refuses as
+    unreadable, so each question after it failed until New chat. **Fix:** the page cuts by whole characters
+    (`Array.from()`). **Check:** a browser test whose answer ends in an emoji at the cut.

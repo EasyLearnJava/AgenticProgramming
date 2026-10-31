@@ -278,3 +278,21 @@ run's next item. Never around a `yield`, where the deadline could land in someon
 
 **5. Why keep a recursion limit the graph can't reach?**
 It costs nothing, and if a change ever broke the loop, the run would still end.
+
+## Step 6 · The Chat Remembers, in the Browser
+
+**1. How does a chat remember with no database?**
+The client keeps the conversation and sends it back with each question; the server keeps nothing. It costs bandwidth
+and tokens, which a cap bounds, and it means the server must treat the conversation as untrusted input.
+
+**2. What do you check in a conversation a client sends back?**
+Its shape (JSON of messages with a role and a text, nothing else), its roles (the user's and the assistant's only, in
+turn), and its sizes (messages, characters). And what it may hold: never a tool's result, which the client could forge.
+
+**3. Why do the tools run again for a follow-up question?**
+The earlier answers came back from the browser: their weather is the client's word. Rule 1 says weather facts come
+only from tool results, so the model fetches them again, from Open-Meteo.
+
+**4. Why cap the conversation at the newest messages?**
+Each question sends it all to the model again: without a cap, tokens and time grow with every question, and so does
+the request.

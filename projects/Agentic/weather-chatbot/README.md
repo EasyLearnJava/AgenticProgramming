@@ -61,8 +61,9 @@ Each step's chapter explains it, in order:
 | 3 | [Gemini Answers, Streamed](docs/step-3.md) | Done |
 | 4 | [The Weather Tools, and an Agent That Calls Them](docs/step-4.md) | Done |
 | 5 | [The Agent as a Graph of Our Own](docs/step-5.md) | Done |
-| 6 | Chat memory, kept in the browser | Next |
-| 7 to 13 | See [PLAN.md](PLAN.md) | To come |
+| 6 | [The Chat Remembers, in the Browser](docs/step-6.md) | Done |
+| 7 | Open-Meteo's answers, cached | Next |
+| 8 to 13 | See [PLAN.md](PLAN.md) | To come |
 
 ## Run it
 
@@ -70,8 +71,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [23564] using StatReload
-INFO:     Started server process [1960]
+INFO:     Started reloader process [4944] using StatReload
+INFO:     Started server process [17220]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -80,9 +81,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 7, "event": "http.request", "level": "info",
- "ts": "2026-10-31T09:52:18.956715Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "76e8fde110174357"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 8, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T12:25:34.702660Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "d056727cafe14994"}
 ```
 
 ## Test it
@@ -91,16 +92,16 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-77 files already formatted
+78 files already formatted
 $ uv run mypy
 Success: no issues found in 50 source files
 $ uv run pytest
-367 passed in 9.11s
+388 passed in 5.48s
 $ uv run pytest tests/e2e --browser-channel msedge
-125 passed in 93.10s (0:01:33)
+132 passed in 95.59s (0:01:35)
 $ uv run python tools/mutation_check.py
 ...
-100 of 100 caught
+106 of 106 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
@@ -134,7 +135,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 5](docs/step-5.md)), the
+step ([step 1](docs/step-1.md) to [step 6](docs/step-6.md)), the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do**
 ([`docs/todo.md`](docs/todo.md)). The TypeScript version's pages are kept under **Deprecated**: its steps, System
@@ -143,4 +144,4 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 
 ## Next
 
-[Step 5's chapter](docs/step-5.md), then step 6: the chat's memory, kept in the browser.
+[Step 6's chapter](docs/step-6.md), then step 7: Open-Meteo's answers, cached in Vercel's Runtime Cache.

@@ -17,7 +17,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from nimbus.chips import MARKS, WORDS
 from nimbus.config import Settings
-from nimbus.constants import QUESTION_MAX_CHARS, TEMPLATES_DIR
+from nimbus.constants import (
+    HISTORY_ANSWER_MAX_CHARS,
+    HISTORY_MAX_CHARS,
+    HISTORY_MAX_MESSAGES,
+    QUESTION_MAX_CHARS,
+    TEMPLATES_DIR,
+)
 from nimbus.docs import (
     CHAPTERS,
     DEPRECATED_PAGES,
@@ -110,8 +116,8 @@ def _render_doc(request: Request) -> HTMLResponse:
 @router.get("/", response_class=HTMLResponse)
 def chat_page(request: Request) -> HTMLResponse:
     """
-    The chat: its card, its welcome and its form, with the sentences the page shows by itself (chat.js), and a chip's
-    mark and word when Stop ends its call.
+    The chat: its card, its welcome and its form, with the sentences the page shows by itself (chat.js), a chip's mark
+    and word when Stop ends its call, and the limits of the conversation it sends back.
     """
     context = {
         "question_max_chars": QUESTION_MAX_CHARS,
@@ -120,6 +126,9 @@ def chat_page(request: Request) -> HTMLResponse:
         "unreachable": UNREACHABLE,
         "chip_stopped_mark": MARKS["stopped"],
         "chip_stopped_word": f"{WORDS['stopped']}:",
+        "history_max_messages": HISTORY_MAX_MESSAGES,
+        "history_max_chars": HISTORY_MAX_CHARS,
+        "answer_max_chars": HISTORY_ANSWER_MAX_CHARS,
     }
     return _render(request, "chat.html", context)
 

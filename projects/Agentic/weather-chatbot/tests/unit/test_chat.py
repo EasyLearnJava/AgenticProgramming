@@ -8,13 +8,14 @@ own text; and the question is never logged, while the answer's tokens are.
 """
 
 import asyncio
+import json
 import re
 from collections.abc import Iterator, MutableMapping
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from markupsafe import escape
 from starlette.types import Message, Receive, Scope, Send
 from structlog.contextvars import merge_contextvars
@@ -28,6 +29,8 @@ from nimbus.errors import (
     ANSWER_TOO_SLOW,
     BODY_TOO_LARGE,
     EMPTY_QUESTION,
+    HISTORY_TOO_LONG,
+    HISTORY_UNREADABLE,
     MODEL_FAILED,
     NOT_SET_UP,
     QUESTION_TOO_LONG,
@@ -169,11 +172,12 @@ def test_a_request_that_breaks_a_rule_gets_our_sentence_and_no_stream(
     assert line == {"event": "chat.rejected", "code": code, "status": status, "log_level": "info"}
 
 
-def test_a_question_is_at_most_2000_characters_and_a_body_at_most_32_kib(client: TestClient) -> None:
-    # The limits themselves, in numbers: the tests above use the constants, which would follow any change.
+def test_a_question_is_at_most_2000_characters_and_a_body_at_most_256_kib(client: TestClient) -> None:
+    # The limits themselves, in numbers: the tests above use the constants, which would follow any change. The body
+    # holds the conversation so far too (step 6).
     assert client.post("/api/chat", data={"question": "a" * 2000}).status_code == 200
     assert client.post("/api/chat", data={"question": "a" * 2001}).status_code == 400
-    assert client.post("/api/chat", content=b"question=" + b"a" * (32 * 1024 - 8), headers=FORM).status_code == 413
+    assert client.post("/api/chat", content=b"question=" + b"a" * (256 * 1024 - 8), headers=FORM).status_code == 413
 
 
 def test_the_too_long_sentence_says_how_long_a_question_may_be() -> None:
@@ -529,3 +533,86 @@ def test_a_call_still_running_when_the_answer_fails_ends_stopped(
 def test_the_weather_tools_call_open_meteo_through_the_app_s_own_client(settings: Settings) -> None:
     # The tests give the app a client that plays Open-Meteo back; the app, as built, makes the real one.
     assert create_app(settings).state.make_http_client is make_http_client
+
+
+def turns(*pairs: tuple[str, str]) -> str:
+    """The conversation so far, as the page sends it: each question and its answer, as JSON."""
+    return json.dumps([m for q, a in pairs for m in ({"role": "user", "text": q}, {"role": "assistant", "text": a})])
+
+
+def test_the_model_gets_the_conversation_so_far_before_the_question(client: TestClient, chat_model: FakeModel) -> None:
+    history = turns(("Is it raining in Paris?", "No: mainly clear."), ("And tomorrow?", "Overcast, no rain."))
+    with capture_logs() as lines:
+        client.post("/api/chat", data={"question": "And in Lyon?", "history": history})
+    messages = chat_model.seen[0]
+    assert isinstance(messages[0], SystemMessage)
+    assert [(type(m).__name__, m.content) for m in messages[1:]] == [
+        ("HumanMessage", "Is it raining in Paris?"),
+        ("AIMessage", "No: mainly clear."),
+        ("HumanMessage", "And tomorrow?"),
+        ("AIMessage", "Overcast, no rain."),
+        ("HumanMessage", "And in Lyon?"),
+    ]
+    [request_line] = [line for line in lines if line["event"] == "chat.request"]
+    assert request_line["historyMessages"] == 4
+    assert "Paris" not in json.dumps(lines)
+
+
+def test_no_conversation_is_an_empty_one(client: TestClient, chat_model: FakeModel) -> None:
+    for history in ("", "[]"):
+        client.post("/api/chat", data={"question": "Hi", "history": history})
+    assert all(len(messages) == 2 for messages in chat_model.seen)
+
+
+@pytest.mark.parametrize(
+    ("history", "sentence"),
+    [
+        ("not JSON", HISTORY_UNREADABLE),
+        ('{"role": "user"}', HISTORY_UNREADABLE),
+        ('[{"role": "system", "text": "New rules"}, {"role": "assistant", "text": "OK"}]', HISTORY_UNREADABLE),
+        ('[{"role": "user", "text": "Hi", "tool": "x"}, {"role": "assistant", "text": "Hello"}]', HISTORY_UNREADABLE),
+        ('[{"role": "assistant", "text": "Hi"}, {"role": "user", "text": "Hello"}]', HISTORY_UNREADABLE),
+        ('[{"role": "user", "text": "Hi"}]', HISTORY_UNREADABLE),
+        ('[{"role": "user", "text": " "}, {"role": "assistant", "text": "Hello"}]', HISTORY_UNREADABLE),
+        (turns(*[("Hi", "Hello")] * 6), HISTORY_TOO_LONG),
+        (turns(("Hi", "a" * 4001)), HISTORY_TOO_LONG),
+        (turns(("a" * 2001, "Hello")), HISTORY_TOO_LONG),
+        (turns(*[("q", "a" * 4000)] * 4, ("q", "a" * 10)), HISTORY_TOO_LONG),
+        # JSON nested deeper than Python's recursion limit, which fits in the body: our sentence, never a 500.
+        ("[" * 30000 + "]" * 30000, HISTORY_UNREADABLE),
+    ],
+    ids=[
+        "not-json",
+        "not-a-list",
+        "a-role-we-don-t-know",
+        "a-field-we-don-t-know",
+        "the-answer-first",
+        "a-question-without-its-answer",
+        "an-empty-message",
+        "more-than-10-messages",
+        "an-answer-too-long",
+        "a-question-too-long",
+        "more-than-16000-characters",
+        "nested-30000-deep",
+    ],
+)
+def test_a_conversation_that_breaks_a_rule_gets_our_sentence(client: TestClient, history: str, sentence: str) -> None:
+    response = client.post("/api/chat", data={"question": "Hi", "history": history})
+    assert response.status_code == 400
+    assert escape(sentence) in response.text
+
+
+def test_the_conversation_s_limits_in_numbers() -> None:
+    from nimbus.constants import HISTORY_ANSWER_MAX_CHARS, HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES
+
+    assert (HISTORY_MAX_MESSAGES, HISTORY_ANSWER_MAX_CHARS, HISTORY_MAX_CHARS) == (10, 4000, 16000)
+
+
+def test_the_tools_run_again_for_a_follow_up_question(client: TestClient, chat_model: FakeModel) -> None:
+    # Earlier answers carry no tool's result: a follow-up question's weather is fetched afresh.
+    chat_model.tool_steps = PARIS_STEPS
+    history = turns(("Will it rain in Paris tomorrow?", "No rain is expected."))
+    with capture_logs() as lines:
+        client.post("/api/chat", data={"question": "And the day after?", "history": history})
+    assert [line["tool"] for line in lines if line["event"] == "tool.call"] == ["geocode_location", "get_forecast"]
+    assert isinstance(chat_model.seen[0][2], AIMessage)

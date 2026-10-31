@@ -85,6 +85,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "call's first words and on each tool call."
         ),
     ),
+    DocPage(
+        slug="step-6",
+        path="/docs/step-6",
+        label="Step 6: The Chat Remembers, in the Browser",
+        summary=(
+            "The page keeps the conversation and sends it back with each question, as untrusted input: questions and "
+            "answers in turn, checked and capped, never a tool's result, so the tools run again; and New chat."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

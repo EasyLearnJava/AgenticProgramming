@@ -1,16 +1,17 @@
 # System Design
 
-How Nimbus is built after step 5, drawn the way the TypeScript version's
+How Nimbus is built after step 6, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
 **+** marks a part only Nimbus has. Step 1 laid the ground the assistant will stand on: the pages, the documentation
 and the health check. Step 2 made the chat answer, streamed a word at a time. Step 3 put Gemini in place of step 2's
 fixed answer, through LangChain. Step 4 gave it four weather tools, which call Open-Meteo: the REST · no auth lane.
-Step 5 made the agent that runs them a LangGraph graph of our own. Each step adds its parts to this page.
+Step 5 made the agent that runs them a LangGraph graph of our own. Step 6 gave the chat a memory, kept in the
+browser. Each step adds its parts to this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 
-![How Nimbus is built after step 5](images/system-design.svg)
+![How Nimbus is built after step 6](images/system-design.svg)
 
 ## The four bands
 
@@ -44,7 +45,9 @@ tools, and through them Open-Meteo.
 - **The router** sends the request to one of five:
   - **the chat** (`chat.py`): `POST /api/chat`. First the form's checks: the type, at most 32 KiB, each field once,
     the question 1 to 2,000 characters, no field we don't know; a broken rule gets our own sentence and its status;
-    and the browser's locale and time zone, which take the defaults when the chat can't use them. Then the answer, as
+    the browser's locale and time zone, which take the defaults when the chat can't use them; and the conversation
+    so far, which the page sends back, checked as untrusted input: questions and answers in turn, at most 10 messages
+    and 16,000 characters, never a tool's result. Then the answer, as
     server-sent events (`stream_turn()`, in an `EventStream`): your question and the answer, empty; a chip for each
     tool call as **the agent** (04, below) starts and ends it; each word as **the model** (07) writes it; then the
     finished answer, its Markdown made HTML, with every chip as it ended. Stop ends it on the page; on
@@ -81,8 +84,8 @@ tools, and through them Open-Meteo.
 
 - **No database and no sessions:** the app keeps nothing a visitor sends beyond its log lines, which hold a request's
   method and path (never the query string) and a question's length (never its text); it sets no cookie. The
-  conversation is only on the page, and leaves with it. The weather isn't kept either: each answer asks Open-Meteo
-  afresh, until step 7 caches it.
+  conversation is kept on the page, which sends it back with each question; New chat clears it, and it leaves with
+  the page. The weather isn't kept either: each answer asks Open-Meteo afresh, until step 7 caches it.
 - **Settings and secrets** are Vercel's environment variables, or `.env.local` on a computer, which git never sees;
   `config.py` is the only module that reads them, checked when the app starts. Vercel's own (the environment, the
   commit, the deployment) come from the real environment only. The app reads `LOG_LEVEL`, the Gemini key (a Sensitive
@@ -134,7 +137,7 @@ tools, and through them Open-Meteo.
 | 07 · Model gateway: model choice, budgets, fallback | Gemini 3.5 Flash-Lite through LangChain (`model.py`): 1,024 tokens, 20 s and two attempts a call; 5 calls and 30 s an answer; LangChain's standard exceptions mapped to our sentences | One model, no fallback yet |
 | 08 · Human in the loop | None | |
 | Knowledge ingestion, change events, index refresh | None | |
-| Session store | None: the conversation is only on the page | From step 6, the browser sends it back with each question |
+| Session store | The browser: the page keeps the conversation and sends it back with each question, checked as untrusted input; New chat clears it | |
 | Secure storage | Vercel's environment variables, read only by `config.py`; the Gemini key a Sensitive one, a `SecretStr` in the app, never logged | |
 | 09 · Observability: traces, p95 latency, tokens, cost, alerts | JSON lines with the request's id and its build, in Vercel's logs: one per request, each tool call and each request to Open-Meteo, and how each answer ended, with its tool calls and tokens; LangSmith's trace of each agent run, its inputs and outputs hidden | Axiom, Sentry and the dashboards come in step 12 |
 | 09 · Evaluation: golden set, safety tests, feedback | Unit, browser and accessibility tests in CI; a mutation check before each commit | |
@@ -200,6 +203,5 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 
 ## What comes next
 
-Step 6 gives the chat a memory: the conversation kept in the browser and sent back with each question, as untrusted
-input, checked and capped; and New chat. Each step after it adds its parts to this page and its diagram; the plan,
-`PLAN.md`, has them all.
+Step 7 caches Open-Meteo's answers in Vercel's Runtime Cache, under our own namespace. Each step after it adds its
+parts to this page and its diagram; the plan, `PLAN.md`, has them all.

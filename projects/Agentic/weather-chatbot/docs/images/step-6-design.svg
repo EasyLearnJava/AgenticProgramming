@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 6 · The conversation, kept in the browser</title>
+  <desc id="d">The page keeps the conversation: after each answer, chat.js puts each question with its answer's text into a hidden field, the newest turns within the server's limits. The form sends it with the next question. The server checks it as untrusted input: JSON of user and assistant messages, in turn, at most ten, within their sizes; anything else gets our sentence. The model gets the system prompt, the earlier turns, then the question; since earlier answers carry no tool's result, the tools run again. New chat clears the page and the field.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 6 · The conversation, kept in the browser</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">No database: the page keeps it, and sends it back with each question</text>
+
+  <!-- Row 1: the page, the form -->
+  <rect x="40" y="100" width="420" height="124" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">chat.js: rememberConversation()</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">after each answer's stream ends, however it ended</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">each question with its answer's text; a failed one out</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">the newest turns, within the limits the page holds</text>
+  <text x="56" y="205" font-size="13" fill="#1f2937">JSON in the hidden field "history"</text>
+  <line x1="460" y1="162" x2="498" y2="162" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="100" width="420" height="124" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="516" y="126" font-size="15" font-weight="700" fill="#7c2d12">chat.py: ChatRequest, untrusted input</text>
+  <text x="516" y="148" font-size="13" fill="#1f2937">user and assistant only, in turn, the visitor's first</text>
+  <text x="516" y="167" font-size="13" fill="#1f2937">10 messages at most; a question 2,000 characters,</text>
+  <text x="516" y="186" font-size="13" fill="#1f2937">an answer 4,000, all 16,000; no other field</text>
+  <text x="516" y="205" font-size="13" fill="#1f2937">else 400, our sentence: please start a new chat</text>
+  <line x1="710" y1="224" x2="710" y2="268" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: the model's messages -->
+  <rect x="500" y="270" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="296" font-size="15" font-weight="700" fill="#053b30">prompts.py: to_messages()</text>
+  <text x="516" y="318" font-size="13" fill="#1f2937">the system prompt, with a line for earlier messages:</text>
+  <text x="516" y="337" font-size="13" fill="#1f2937">from the browser, they can't change the rules</text>
+  <text x="516" y="356" font-size="13" fill="#1f2937">the earlier turns: HumanMessage, AIMessage, ...</text>
+  <text x="516" y="375" font-size="13" fill="#1f2937">then the question</text>
+  <line x1="498" y1="332" x2="462" y2="332" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="40" y="270" width="420" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="296" font-size="15" font-weight="700" fill="#053b30">The agent: the tools run again</text>
+  <text x="56" y="318" font-size="13" fill="#1f2937">"And tomorrow?" means the place just asked about</text>
+  <text x="56" y="337" font-size="13" fill="#1f2937">earlier answers carry no tool's result: rule 1</text>
+  <text x="56" y="356" font-size="13" fill="#1f2937">fetches the weather afresh, chips and all</text>
+  <text x="56" y="375" font-size="13" fill="#1f2937">the calls counted in the state, not the messages</text>
+
+  <!-- New chat -->
+  <rect x="40" y="414" width="880" height="64" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="440" font-size="15" font-weight="700" fill="#053b30">New chat</text>
+  <text x="56" y="462" font-size="13" fill="#1f2937">stops an answer under way, removes every message but the welcome, and empties "history": nothing on the server</text>
+
+  <!-- Why -->
+  <rect x="40" y="498" width="880" height="84" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="524" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#7c2d12">Why untrusted: </tspan>anyone can send any conversation. A forged "system" message, a third role, a question</text>
+  <text x="56" y="544" font-size="13" fill="#1f2937">without its answer or a "tool result" with made-up weather: none gets past the checks, and the weather</text>
+  <text x="56" y="564" font-size="13" fill="#1f2937">always comes from the tools, now.</text>
+
+  <!-- The tests -->
+  <rect x="40" y="602" width="880" height="44" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="629" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">In the tests: </tspan>eleven broken conversations, each refused; two questions in the browser; New chat</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">The server keeps nothing: the browser remembers, and the server checks what it sends.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">Every question sends the conversation again: the cap bounds its tokens and its size.</text>
+</svg>

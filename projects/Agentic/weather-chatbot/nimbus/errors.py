@@ -31,6 +31,9 @@ WEATHER_UNREACHABLE = "The weather service can't be reached right now. Please tr
 WEATHER_BUSY = "The weather service is busy. Please try again in a minute."
 WEATHER_UNEXPECTED = "The weather service answered in a way we didn't expect. Please try again later."
 TOOL_MISUSED = "The assistant called a weather tool the wrong way."
+# ⑥ What the chat says when the conversation the page sends back breaks a rule (step 6).
+HISTORY_UNREADABLE = "The chat couldn't read the conversation so far. Please start a new chat."
+HISTORY_TOO_LONG = "This conversation is too long to go on. Please start a new chat."
 
 
 class NimbusError(Exception):

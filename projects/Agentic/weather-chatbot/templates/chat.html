@@ -4,7 +4,8 @@
   dropped while an answer streams (hx-sync). Without htmx, the form still posts (method, action), so a question never
   goes into the address. public/static/chat.js does what htmx doesn't: Stop, and our own sentences when no answer can
   come, and a chip's mark when Stop ends its call; they're held here, on the conversation's data-* attributes. The
-  script also fills the two hidden fields: the browser's locale and time zone, for the units and the visitor's today.
+  script also fills the hidden fields: the browser's locale and time zone, for the units and the visitor's today; and
+  the conversation so far (step 6), which goes back with each question, within the limits held here; New chat clears it.
 #}
 {% extends "base.html" %}
 {% from "chat_parts.html" import bot_meta, error_message %}
@@ -24,10 +25,13 @@
           Ask about the weather anywhere. Each answer will show the tool calls behind it, and the lane each one took.
         </p>
       </div>
+      <button id="new-chat" type="button" class="new-chat-button">New chat</button>
     </header>
     <ol id="messages" class="messages" aria-label="Conversation" aria-live="polite"
       data-stopped="{{ stopped }}" data-cut-off="{{ cut_off }}" data-unreachable="{{ unreachable }}"
-      data-chip-stopped-mark="{{ chip_stopped_mark }}" data-chip-stopped-word="{{ chip_stopped_word }}">
+      data-chip-stopped-mark="{{ chip_stopped_mark }}" data-chip-stopped-word="{{ chip_stopped_word }}"
+      data-history-max-messages="{{ history_max_messages }}" data-history-max-chars="{{ history_max_chars }}"
+      data-question-max-chars="{{ question_max_chars }}" data-answer-max-chars="{{ answer_max_chars }}">
       <li class="message message-bot">
         {{ bot_meta() }}
         <div class="bubble bubble-bot">
@@ -48,6 +52,7 @@
           autocomplete="off" maxlength="{{ question_max_chars }}" required>
         <input id="locale" name="locale" type="hidden">
         <input id="time-zone" name="time_zone" type="hidden">
+        <input id="history" name="history" type="hidden" value="[]">
         <button id="send" type="submit" class="send-button">Send</button>
         <button id="stop" type="button" class="stop-button">Stop</button>
       </form>

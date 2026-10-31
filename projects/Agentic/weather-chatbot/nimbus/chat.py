@@ -8,19 +8,20 @@ Gemini, with the four weather tools (nimbus/tools.py), told its rules by nimbus/
 """
 
 import asyncio
+import json
 import time
 import zoneinfo
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import aclosing, suppress
 from datetime import UTC, datetime
 from http import HTTPStatus
-from typing import Annotated
+from typing import Annotated, Literal, Self
 from urllib.parse import parse_qsl
 
 import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
-from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, field_validator, model_validator
 from starlette.requests import ClientDisconnect
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
@@ -36,6 +37,9 @@ from nimbus.constants import (
     ERROR_HEADER,
     EVENT_STREAM,
     FORM_MEDIA_TYPE,
+    HISTORY_ANSWER_MAX_CHARS,
+    HISTORY_MAX_CHARS,
+    HISTORY_MAX_MESSAGES,
     LOCALE_MAX_CHARS,
     LOCALE_PATTERN,
     NO_STORE,
@@ -44,6 +48,8 @@ from nimbus.constants import (
 from nimbus.errors import (
     BODY_TOO_LARGE,
     EMPTY_QUESTION,
+    HISTORY_TOO_LONG,
+    HISTORY_UNREADABLE,
     QUESTION_TOO_LONG,
     UNREADABLE,
     ConfigError,
@@ -62,11 +68,20 @@ HTTP_CLIENT_CLOSED_REQUEST = 499
 TIME_ZONES = frozenset(zoneinfo.available_timezones())
 
 
+class HistoryMessage(BaseModel):
+    """One message of the conversation so far, as the page sends it back: who wrote it, and its text, trimmed."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    role: Literal["user", "assistant"]
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=HISTORY_ANSWER_MAX_CHARS)]
+
+
 class ChatRequest(BaseModel):
     """
-    What the chat's form sends, checked: the question, trimmed, 1 to 2,000 characters, and no field we don't know; and
-    the browser's locale and time zone. Those two come from the browser, not the visitor, and some browsers send ones
-    we can't use (ICU's "Etc/Unknown"): they take the default rather than lock the visitor out (issue 40).
+    What the chat's form sends, checked: the question, trimmed, 1 to 2,000 characters, and no field we don't know; the
+    browser's locale and time zone, which come from the browser, not the visitor, and take the default when we can't use
+    them (issue 40); and the conversation so far (step 6), untrusted: questions and answers in turn, capped.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -74,6 +89,36 @@ class ChatRequest(BaseModel):
     question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=QUESTION_MAX_CHARS)]
     locale: str = DEFAULT_LOCALE
     time_zone: str = DEFAULT_TIME_ZONE
+    history: tuple[HistoryMessage, ...] = ()
+
+    @field_validator("history", mode="before")
+    @classmethod
+    def history_from_json(cls, value: object) -> object:
+        """
+        The conversation so far, which the page sends as JSON in one field; an empty field is no conversation. JSON
+        nested deeper than Python can read is unreadable, like any other (issue 56).
+        """
+        if not isinstance(value, str):
+            return value
+        try:
+            return json.loads(value) if value.strip() else []
+        except RecursionError as error:
+            raise ValueError("history_unreadable") from error
+
+    @model_validator(mode="after")
+    def history_in_turns(self) -> Self:
+        """
+        The conversation's rules: a question, then its answer, in turn, the visitor's first; at most the last 10
+        messages, a question at most 2,000 characters, all at most 16,000.
+        """
+        roles = [message.role for message in self.history]
+        if roles != ["user", "assistant"] * (len(roles) // 2) or len(roles) % 2:
+            raise ValueError("history_not_in_turns")
+        too_long_question = any(m.role == "user" and len(m.text) > QUESTION_MAX_CHARS for m in self.history)
+        total = sum(len(message.text) for message in self.history)
+        if len(self.history) > HISTORY_MAX_MESSAGES or too_long_question or total > HISTORY_MAX_CHARS:
+            raise ValueError("history_too_long")
+        return self
 
     @field_validator("locale", mode="before")
     @classmethod
@@ -128,7 +173,14 @@ def to_input_error(error: ValidationError) -> InputError:
     The rule a form broke, from Pydantic's account of it: a field we don't know (the form can't be read); else too long
     a question, or none.
     """
-    problems = {(str(problem["loc"][0]) if problem["loc"] else "", problem["type"]) for problem in error.errors()}
+    errors = error.errors()
+    # ① The conversation so far: too long, or unreadable, whether its field or its turns broke the rule.
+    history = [problem for problem in errors if not problem["loc"] or problem["loc"][0] == "history"]
+    if history:
+        if any("history_too_long" in problem["msg"] or problem["type"] == "string_too_long" for problem in history):
+            return InputError("history_too_long", HISTORY_TOO_LONG)
+        return InputError("history_unreadable", HISTORY_UNREADABLE)
+    problems = {(str(problem["loc"][0]) if problem["loc"] else "", problem["type"]) for problem in errors}
     if any(field != "question" for field, _ in problems):
         return InputError("form_unreadable", UNREADABLE)
     if ("question", "string_too_long") in problems:
@@ -299,7 +351,9 @@ async def chat(request: Request) -> Response:
         log.info("chat.aborted", answerChars=0, ms=to_ms(time.perf_counter() - started))
         return Response(status_code=HTTP_CLIENT_CLOSED_REQUEST)
     # The question's length, never its text; and which of the browser's values took the default, if any did.
-    extra = {"defaulted": defaulted} if defaulted else {}
+    extra: dict[str, object] = {"defaulted": defaulted} if defaulted else {}
+    if chat_request.history:
+        extra["historyMessages"] = len(chat_request.history)
     log.info("chat.request", questionChars=len(chat_request.question), **extra)
     # ② The model, made when the app started; a deployment without its key can't answer at all.
     model = request.app.state.chat_model
@@ -310,7 +364,9 @@ async def chat(request: Request) -> Response:
     # ③ The answer: the system prompt and the question, to the agent, with the weather tools; LangSmith traces it
     # only through the app's own tracer, whose client hides its inputs and outputs, when tracing is allowed at all.
     stats = AnswerStats()
-    messages = to_messages(chat_request.question, datetime.now(UTC), chat_request.locale, chat_request.time_zone)
+    history = [(message.role, message.text) for message in chat_request.history]
+    now = datetime.now(UTC)
+    messages = to_messages(chat_request.question, now, chat_request.locale, chat_request.time_zone, history)
     state = request.app.state
     answer = stream_weather_answer(model, messages, stats, state.tracer, state.make_http_client())
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in

@@ -16,6 +16,7 @@
   const send = document.getElementById("send");
   const stop = document.getElementById("stop");
   const errorTemplate = document.getElementById("chat-error-template");
+  const historyField = document.getElementById("history");
   let isStopping = false;
   let hasStarted = false;
 
@@ -83,8 +84,43 @@
   // ④ Each event put into the page keeps the newest message in view.
   form.addEventListener("htmx:after:swap", showNewest);
 
+  /** The text cut to at most so many characters, whole ones: an emoji is never cut in half (issue 57). */
+  function cut(text, characters) {
+    return Array.from(text).slice(0, characters).join("");
+  }
+
+  /**
+   * The conversation so far, for the next question: each question with its answer, as text, an answer that failed left
+   * out with its question; the newest turns only, within the server's limits, which the page holds.
+   */
+  function rememberConversation() {
+    const limits = messages.dataset;
+    const turns = [];
+    let question = null;
+    for (const item of messages.children) {
+      if (item.classList.contains("message-user")) {
+        question = item.querySelector(".bubble").textContent.trim();
+        continue;
+      }
+      const answer = item.id.startsWith("turn-") && !item.classList.contains("message-error")
+        ? (item.querySelector(".answer").innerText || "").trim()
+        : "";
+      if (question && answer) {
+        turns.push([cut(question, +limits.questionMaxChars), cut(answer, +limits.answerMaxChars)]);
+      }
+      question = null;
+    }
+    const kept = turns.slice(-(+limits.historyMaxMessages / 2));
+    while (kept.length && kept.flat().join("").length > +limits.historyMaxChars) {
+      kept.shift();
+    }
+    const sent = kept.flatMap(([q, a]) => [{ role: "user", text: q }, { role: "assistant", text: a }]);
+    historyField.value = JSON.stringify(sent);
+  }
+
   // ⑤ The stream has ended. An answer still busy never got its end: it was stopped, or cut off on the way. A stream
-  // that ended before its first event was cut off too; your question is still in the box.
+  // that ended before its first event was cut off too; your question is still in the box. Either way, the
+  // conversation so far is what goes back with the next question.
   form.addEventListener("htmx:sse:close", () => {
     const busy = messages.querySelector('.message[aria-busy="true"]');
     if (busy) {
@@ -92,6 +128,7 @@
     } else if (!hasStarted && !isStopping) {
       showError(messages.dataset.cutOff);
     }
+    rememberConversation();
   });
 
   // ⑥ A response that isn't ours, such as another service's error page, is never shown: our own sentence instead.
@@ -110,6 +147,19 @@
     if (!isStopping) {
       showError(messages.dataset.unreachable);
     }
+  });
+
+  // ⑨ New chat: the conversation starts over, on the page and in what goes back; an answer under way stops first.
+  document.getElementById("new-chat").addEventListener("click", () => {
+    if (messages.querySelector('.message[aria-busy="true"]')) {
+      isStopping = true;
+      htmx.trigger(form, "htmx:abort");
+    }
+    while (messages.children.length > 1) {
+      messages.lastElementChild.remove();
+    }
+    historyField.value = "[]";
+    box.focus();
   });
 
   // ⑧ Your browser's language and time zone go with each question: the answer's units, and your own today.

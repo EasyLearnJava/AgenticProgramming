@@ -21,7 +21,7 @@ import httpx2
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_core.language_models.chat_models import agenerate_from_stream
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
@@ -121,7 +121,9 @@ class FakeModel(BaseChatModel):
         tokens. It marks itself closed however it ends.
         """
         self.seen.append(messages)
-        step = sum(1 for message in messages if isinstance(message, AIMessage))
+        # The calls so far for this question: the answers after it, not the conversation's earlier ones.
+        question_at = max((i for i, message in enumerate(messages) if isinstance(message, HumanMessage)), default=-1)
+        step = sum(1 for message in messages[question_at + 1 :] if isinstance(message, AIMessage))
         try:
             if step < len(self.tool_steps) and self.tool_choice != "none":
                 await asyncio.sleep(self.delay)

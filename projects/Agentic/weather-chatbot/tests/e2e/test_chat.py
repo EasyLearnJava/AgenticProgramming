@@ -6,14 +6,16 @@ service's error page and an answer cut off each get our own sentence; and with a
 page logs no error, passes axe's checks, and fits a phone.
 """
 
+import json
 import re
 
 from axe_playwright_python.sync_playwright import Axe
+from langchain_core.messages import AIMessage, HumanMessage
 from playwright.sync_api import ConsoleMessage, Locator, Page, Route, expect
 
 from nimbus.constants import QUESTION_MAX_CHARS
 from nimbus.errors import CUT_OFF, QUESTION_TOO_LONG, STOPPED, UNREACHABLE
-from tests.fakes import ANSWER, OpenMeteoRecordings
+from tests.fakes import ANSWER, FakeModel, OpenMeteoRecordings
 
 QUESTION = "Will it rain in Paris tomorrow?"
 HAS_TEXT = re.compile(r"\S")
@@ -213,3 +215,55 @@ def test_an_open_chip_passes_axe_and_fits_a_phone(page: Page) -> None:
     assert page.evaluate("document.documentElement.scrollWidth - window.innerWidth") <= 0
     results = Axe().run(page)
     assert results.violations_count == 0, results.generate_report()
+
+
+def test_a_second_question_carries_the_first_one_and_its_answer(page: Page, chat_model: FakeModel) -> None:
+    ask(page)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
+    box = page.get_by_label("Your question")
+    box.fill("And the day after?")
+    box.press("Enter")
+    expect(page.locator(".message-user")).to_have_count(2)
+    expect(page.locator(".message-bot[aria-busy]")).to_have_count(0)
+    sent = chat_model.seen[-1]
+    earlier = [(type(m).__name__, m.content) for m in sent if isinstance(m, (HumanMessage, AIMessage)) and m.content]
+    expected = [("HumanMessage", QUESTION), ("AIMessage", ANSWER_TEXT), ("HumanMessage", "And the day after?")]
+    assert earlier[:3] == expected
+
+
+def test_new_chat_starts_over_on_the_page_and_in_what_goes_back(page: Page, chat_model: FakeModel) -> None:
+    ask(page)
+    expect(last_answer(page)).to_have_text(ANSWER_TEXT)
+    page.get_by_role("button", name="New chat").click()
+    expect(page.locator(".message-user")).to_have_count(0)
+    expect(page.locator(".message-bot")).to_have_count(1)
+    expect(page.get_by_label("Your question")).to_be_focused()
+    box = page.get_by_label("Your question")
+    box.fill("Is it windy in Paris?")
+    box.press("Enter")
+    expect(page.locator(".message-bot[aria-busy]")).to_have_count(0)
+    first = [m for m in chat_model.seen[-1] if isinstance(m, HumanMessage)]
+    assert [m.content for m in first] == ["Is it windy in Paris?"]
+
+
+def test_an_answer_cut_for_the_conversation_keeps_its_emoji_whole(page: Page) -> None:
+    # 3,999 letters, then an emoji: cut at 4,000 UTF-16 units, it would end in half an emoji, which the server refuses.
+    page.goto("/")
+    page.evaluate(
+        r"""() => {
+            const item = document.createElement("li");
+            item.className = "message message-user";
+            item.innerHTML = '<div class="bubble bubble-user"><p>Hi</p></div>';
+            const answer = document.createElement("li");
+            answer.className = "message message-bot";
+            answer.id = "turn-test";
+            answer.innerHTML = '<div class="bubble bubble-bot"><div class="answer"></div></div>';
+            answer.querySelector(".answer").textContent = "a".repeat(3999) + "\u{1F326}\u{FE0F}";
+            document.getElementById("messages").append(item, answer);
+            document.getElementById("chat-form").dispatchEvent(new Event("htmx:sse:close"));
+        }"""
+    )
+    _question, answer = json.loads(page.locator("#history").input_value())
+    # Half an emoji would come back as a lone surrogate, which UTF-8 can't encode: the server refuses it.
+    assert answer["text"].encode("utf-8").endswith("a🌦".encode())
+    assert len(answer["text"]) == 4000
