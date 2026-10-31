@@ -821,6 +821,12 @@ MUTATIONS = (
         "if runs >= APIFY_RUNS_PER_DAY * 1000:",
         "the day's Actor runs are capped",
     ),
+    Mutation(
+        "nimbus/auth_lanes.py",
+        "async with self.lock:",
+        "async with asyncio.Lock():",
+        "an answer's forecasts at once are each counted for the day",
+    ),
 )
 
 

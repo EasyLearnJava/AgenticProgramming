@@ -407,8 +407,12 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     about half a cent, and anyone can ask: one answer could start a run for each of ten cities, and a script could
     ask again and again, until step 11's rate limit. **Fix:** `RunBudget`: at most 2 runs an answer, and 25 a day
     across the app, counted in the weather's cache until UTC midnight; past either, the forecast falls back with no
-    run, the chip saying whose runs are used up. **Check:** unit tests: a third forecast in an answer falls back; the
-    day's count, its time to midnight, and its cap; the mutation check's two rules.
+    run, the chip saying whose runs are used up. The review's second look found an answer's forecasts, which
+    LangGraph runs at once, both reading the day's count and writing one more: they now take their runs in turn, under
+    a lock. Two answers at once may still both take the last run, and a read that fails starts the day's count again:
+    the account's own limit, on To do, is the real cap. **Check:** unit tests: a third forecast in an answer falls
+    back; two at once are each counted; the day's count, its time to midnight, and its cap; the mutation check's
+    three rules.
 67. **A chip showed Apify's session id.** *The review.* The MCP door's chip masked the token, but showed the
     `mcp-session-id` Apify's server gave our session, opened with our token, which may honour its id alone. **Fix:**
     chips mask `mcp-session-id` too, as the TypeScript version did. **Check:** the MCP door's unit test; the

@@ -252,3 +252,17 @@ def test_the_day_s_runs_are_counted_in_the_cache_until_utc_midnight_and_capped_a
     runs, started = run_three_forecasts(cache)
     assert started == 0
     assert runs[0].fallback_note == "Today's Actor runs are used up, so REST · no auth answered"
+
+
+def test_two_forecasts_at_once_in_one_answer_are_each_counted_for_the_day() -> None:
+    # LangGraph runs a turn's tool calls at once: both read the day's count, so they take their runs in turn.
+    store = FakeCacheStore()
+
+    async def go() -> None:
+        deadline = asyncio.get_running_loop().time() + 50
+        budget = RunBudget(WeatherCache(store), lambda: NOW)
+        run = make_actor_run(REST_WITH_AUTH, REST_NO_AUTH, actor_for_paris, twin_run, deadline, lambda: NOW, budget)
+        await asyncio.gather(run(PARIS), run(PARIS))
+
+    asyncio.run(go())
+    assert list(store.items.values()) == [2]

@@ -9,7 +9,7 @@ answer still has 12 s; the chip says so. A run is never retried or cached: each 
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any, Final
@@ -78,29 +78,32 @@ RunActor = Callable[[dict[str, Any]], Awaitable[ActorRun]]
 class RunBudget:
     """
     The Actor runs an answer may still start (issue 66): 2 an answer, and 25 a day across the app, counted in the
-    weather's cache, which every copy shares. The day's count is near enough: two copies starting at once may both
-    take the last run, and a cache that fails counts nothing, while the answer's 2 still hold.
+    weather's cache, which every copy shares. An answer's forecasts, which LangGraph runs at once, take their runs in
+    turn, so each is counted. The day's count is near enough: two answers at once may both take the last run, and a
+    read that fails starts the day's count again, while the answer's 2 still hold.
     """
 
     cache: WeatherCache | None
     now: Callable[[], datetime]
     left_in_answer: int = APIFY_RUNS_PER_ANSWER
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     async def take(self) -> None:
         """Takes one run; with none left, RunsUsedUpError, saying whose: the answer's, or the day's."""
-        if self.left_in_answer <= 0:
-            raise RunsUsedUpError(APIFY_ANSWER_RUNS_USED)
-        self.left_in_answer -= 1
-        if self.cache is None:
-            return
-        now = self.now().astimezone(UTC)
-        key = f"apify-runs:{now.date().isoformat()}"
-        kept = await self.cache.get(key)
-        runs = kept if isinstance(kept, int) else 0
-        if runs >= APIFY_RUNS_PER_DAY:
-            raise RunsUsedUpError(APIFY_DAY_RUNS_USED)
-        midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
-        await self.cache.set(key, runs + 1, max(1, int((midnight - now).total_seconds())))
+        async with self.lock:
+            if self.left_in_answer <= 0:
+                raise RunsUsedUpError(APIFY_ANSWER_RUNS_USED)
+            self.left_in_answer -= 1
+            if self.cache is None:
+                return
+            now = self.now().astimezone(UTC)
+            key = f"apify-runs:{now.date().isoformat()}"
+            kept = await self.cache.get(key)
+            runs = kept if isinstance(kept, int) else 0
+            if runs >= APIFY_RUNS_PER_DAY:
+                raise RunsUsedUpError(APIFY_DAY_RUNS_USED)
+            midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
+            await self.cache.set(key, runs + 1, max(1, int((midnight - now).total_seconds())))
 
 
 def make_actor_run(

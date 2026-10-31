@@ -67,7 +67,7 @@ answers, and the chip says why. Without a token, the two lanes are closed.
 | `tools/run_tool.py` | `--auth`: `get_forecast` on REST · with auth |
 | `tests/fixtures/apify/`, `tests/fakes.py` | The Actor's recorded answers; Apify's REST API and MCP server, played back |
 | `tests/unit/test_actor.py`, `test_apify.py`, `test_auth_lanes.py` | The items, the doors, the fallback, a whole answer |
-| `tools/mutation_check.py` | 14 more rules |
+| `tools/mutation_check.py` | 15 more rules |
 
 ## How it works
 
@@ -92,8 +92,10 @@ the forecast falls back. `run_actor()` sends `call-actor`, reads the run's statu
 ### The lanes and the fallback: `nimbus/auth_lanes.py`
 
 `make_actor_run()` takes a run from the answer's budget, `RunBudget`: 2 an answer, and 25 a day across the app,
-counted in the weather's cache until UTC midnight, near enough (two copies at once may both take the last). Then it
-runs the Actor within 20 s and reads its items. No run left, or a failure, writes one `lane.fallback` line, an
+counted in the weather's cache until UTC midnight. An answer's forecasts, which LangGraph runs at once, take theirs
+in turn, so each is counted; the day's count is near enough, as two answers at once may both take the last run, and a
+read that fails starts it again. Then it runs the Actor within 20 s and reads its items. No run left, or a failure,
+writes one `lane.fallback` line, an
 error for a token or an answer we can't read, a warning otherwise, then, with 12 s of the answer left, the twin's
 `get_forecast` answers, its run marked with the twin's lane and the reason: "Apify didn't accept our token, so REST ·
 no auth answered". `to_auth_tools()` gives the lane's four tools, the forecast by the Actor and the other three by the
@@ -108,20 +110,20 @@ With a token that isn't one, set for this command only, the runner shows a fallb
 $ APIFY_TOKEN=not-a-real-apify-token uv run python -m tools.run_tool get_forecast \
   '{"latitude": 48.85, "longitude": 2.35, "days": 2, "include_hourly": false, "units": "metric"}' --auth
 {"upstream": "apify", "host": "api.apify.com",
- "path": "/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items", "status": "failed", "ms": 219,
+ "path": "/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items", "status": "failed", "ms": 212,
  "httpStatus": 401, "errorClass": "AuthError",
  "apifyError": "user-or-token-not-found (User was not found or authentication token is not valid)",
- "event": "upstream.http", "level": "info", "ts": "2026-10-31T16:35:19.656566Z", "env": "local", "commit": null,
+ "event": "upstream.http", "level": "info", "ts": "2026-10-31T16:59:45.864605Z", "env": "local", "commit": null,
  "deploymentId": null}
-{"fromLane": "rest-with-auth", "toLane": "rest-no-auth", "errorClass": "AuthError", "fellBack": true, "msLeft": 49766,
- "event": "lane.fallback", "level": "error", "ts": "2026-10-31T16:35:19.656680Z", "env": "local", "commit": null,
+{"fromLane": "rest-with-auth", "toLane": "rest-no-auth", "errorClass": "AuthError", "fellBack": true, "msLeft": 49777,
+ "event": "lane.fallback", "level": "error", "ts": "2026-10-31T16:59:45.864738Z", "env": "local", "commit": null,
  "deploymentId": null}
 Runtime Cache unavailable in this environment. Falling back to in-memory cache.
 {"upstream": "open-meteo", "host": "api.open-meteo.com", "path": "/v1/forecast", "status": "ok", "httpStatus": 200,
- "ms": 549, "attempts": 1, "event": "upstream.http", "level": "info", "ts": "2026-10-31T16:35:20.205788Z",
+ "ms": 256, "attempts": 1, "event": "upstream.http", "level": "info", "ts": "2026-10-31T16:59:46.121422Z",
  "env": "local", "commit": null, "deploymentId": null}
-{"tool": "get_forecast", "lane": "rest-no-auth", "status": "ok", "ms": 776, "fallbackFrom": "rest-with-auth",
- "event": "tool.call", "level": "info", "ts": "2026-10-31T16:35:20.213349Z", "env": "local", "commit": null,
+{"tool": "get_forecast", "lane": "rest-no-auth", "status": "ok", "ms": 476, "fallbackFrom": "rest-with-auth",
+ "event": "tool.call", "level": "info", "ts": "2026-10-31T16:59:46.128506Z", "env": "local", "commit": null,
  "deploymentId": null}
 ↩ Apify didn't accept our token, so REST · no auth answered
 GET https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&
@@ -133,7 +135,7 @@ accept: application/json
   "latitude": 48.85,
   "longitude": 2.35,
   "time_zone": "Europe/Paris",
-  "local_now": "2026-10-31T17:35",
+  "local_now": "2026-10-31T17:59",
   "temperature_unit": "°C",
   "days": [
     {
@@ -174,9 +176,9 @@ $ uv run ruff format --check .
 $ uv run mypy
 Success: no issues found in 64 source files
 $ uv run pytest
-515 passed in 8.48s
+516 passed in 8.06s
 $ uv run pytest tests/e2e --browser-channel msedge
-151 passed in 112.33s (0:01:52)
+151 passed in 118.27s (0:01:58)
 $ uv run python tools/mutation_check.py
 ...
 caught: the Actor's Celsius turns to Fahrenheit when asked
@@ -194,7 +196,8 @@ caught: an answer on a lane with auth has 50 s
 caught: a chip masks a session's id
 caught: an answer starts two Actor runs at most
 caught: the day's Actor runs are capped
-143 of 143 caught
+caught: an answer's forecasts at once are each counted for the day
+144 of 144 caught
 ```
 
 The unit tests read the Actor's recorded answers for Dallas: its input; its items in our shape, in °F; seven answers
@@ -202,9 +205,24 @@ we can't trust. They play Apify back: over REST, the request, its limits and its
 each status as its error, Apify's message kept for an account's problem only; over MCP, against a stand-in of Apify's
 server with sessions, `call-actor` then `get-dataset-items`, the pin, an error result about payment, a run still
 going or failed, a dataset too big, a token refused. The fallback, for each error, its line and its reason; too
-little time, none; two runs an answer, and the day's 25, counted in the cache; the twin's other tools; 50 s; closed
+little time, none; two runs an answer, and the day's 25, counted in the cache, two at once counted each; the twin's
+other tools; 50 s; closed
 with no token; and two whole answers on REST · with auth, one by the Actor, one falling back. The mutation check breaks
-14 more rules (its first 128 lines are left out above).
+15 more rules (its first 128 lines are left out above).
+
+## Deploy it
+
+The push, 39bc9ca, was live on Vercel, and CI's checks had passed, within about three minutes. Checked on the live
+site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026, after a warm-up, with the token Vercel holds (two
+runs of the Actor, about a cent):
+
+- The picker showed all four lanes open.
+- "Will it rain in Paris tomorrow?" on REST · with auth: the place by REST · no auth, from the cache; the forecast
+  "REST · with auth · api.apify.com · 3.0 s", the Actor's run, nothing falling back. The answer: "In Paris, France,
+  tomorrow (Sunday, November 1, 2026), the forecast shows overcast skies with a 0% chance of rain."
+- The same question on MCP · with auth: the place by our own MCP server, from the cache; the forecast
+  "MCP · with auth · mcp.apify.com · 7.5 s": Apify's real MCP server, its 2025 handshake, our pin, call-actor, then
+  get-dataset-items, nothing falling back. The same answer.
 
 ## Things to take care of, and pitfalls
 
