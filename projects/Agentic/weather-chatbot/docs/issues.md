@@ -107,3 +107,20 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     `Creating virtual environment at "...` without its closing quote and dots: it was copied from a browser tool's
     outline of the page, which cut the line's end. **Fix:** the line copied again, from the page's own text.
     **Check:** each line of the block compared with the build log's text.
+20. **The System design page claimed more than step 1 does.** *The review.* The new page, meant to show only what
+    step 1 built, said CI runs the mutation check (it runs before each commit; CI runs the rest), that the chat's
+    input rules come in step 2 (the plan puts them in step 3), that nothing a visitor sends is kept (each request's
+    method and path stay in its log line), that every key the TypeScript version set waits for a step (Sentry's three
+    build variables are to be deleted), and that Jinja2 escapes every value (two are marked safe: a doc's Markdown and
+    a menu label's `<wbr>`). Its table of one request also had the log line before the security headers: the
+    middleware writes it last, once the whole response has gone. Step 1's chapter said CI "ran every check" too.
+    **Fix:** each claim corrected against the code, the plan and the workflow; the menu now lists the pages every step
+    adds to from `PAGES`, so a page can't be in one and not the other. **Check:** the review read each claim against
+    the code; the page tests run over `PAGES`, and a test pins the menu's order.
+21. **The live site's build named another project's commit.** *Checking our work* (the live health check, while
+    writing the System design). `/api/health` answered `"commit":"f1a9163"`, a commit that changed only another
+    project in the repository: Vercel builds this project on every push to `main`, whatever the push changes, and the
+    menu's build label names that push's commit. Nothing is wrong with the app, but each such push is a deploy, and
+    the label no longer says which commit last changed Nimbus. **Fix:** the System design says so; skipping those
+    deploys (an `ignoreCommand` in `vercel.json` that ends the build when this folder hasn't changed) is on To do.
+    **Check:** `/api/health`'s commit, after a push that changes only another project.

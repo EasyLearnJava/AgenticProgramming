@@ -1,8 +1,8 @@
 """
-nimbus/pages.py: the app's pages: the chat (its shell, until step 2 makes it answer), the documentation, the issues
-log, the interview guide and the to-do list, and the TypeScript app's pages, kept as *_deprecated. Each is a Jinja2
-template rendered on the server, inside the shell with the menu on the left (templates/base.html); Jinja2 escapes
-every value put into a page.
+nimbus/pages.py: the app's pages: the chat (its shell, until step 2 makes it answer), the documentation, the system
+design, the issues log, the interview guide and the to-do list, and the TypeScript app's pages, kept as *_deprecated.
+Each is a Jinja2 template rendered on the server, inside the shell with the menu on the left (templates/base.html);
+Jinja2 escapes every value put into a page but two marked safe: a doc's rendered Markdown and a menu label's <wbr>.
 """
 
 from collections.abc import Mapping
@@ -17,7 +17,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from nimbus.config import Settings
 from nimbus.constants import TEMPLATES_DIR
-from nimbus.docs import CHAPTERS, DEPRECATED_PAGES, DEPRECATED_STEPS, find_doc, read_markdown, render_markdown, title_of
+from nimbus.docs import (
+    CHAPTERS,
+    DEPRECATED_PAGES,
+    DEPRECATED_STEPS,
+    PAGES,
+    find_doc,
+    read_markdown,
+    render_markdown,
+    title_of,
+)
 
 HTTP_NOT_FOUND = 404
 API_PREFIX = "/api/"
@@ -40,13 +49,12 @@ class ListEntry:
     summary: str = ""
 
 
-# ① The menu: the new app's pages, then the TypeScript app's, each renamed *_deprecated.
+# ① The menu: the chat, the documentation and the pages every step adds to, then the TypeScript app's pages, each
+# renamed *_deprecated. Both lists come from the docs' registry, so a page can't be in one and not the other.
 MENU_ITEMS: tuple[MenuItem, ...] = (
     MenuItem("/", "Chat"),
     MenuItem("/docs", "Documentation"),
-    MenuItem("/issues", "Issues and fixes"),
-    MenuItem("/interview", "Interview guide"),
-    MenuItem("/todo", "To do"),
+    *(MenuItem(doc.path, doc.label) for doc in PAGES),
 )
 DEPRECATED_MENU_ITEMS: tuple[MenuItem, ...] = (
     MenuItem("/docs_deprecated", "Documentation_deprecated"),
@@ -123,11 +131,17 @@ def deprecated_docs_index(request: Request) -> HTMLResponse:
     return _render(request, "docs_index.html", context)
 
 
-# ④ The documentation pages, each found by its address: a chapter, the three pages every step adds to, and the
+# ④ The documentation pages, each found by its address: a chapter, the four pages every step adds to, and the
 # TypeScript app's pages.
 @router.get("/docs/{slug}", response_class=HTMLResponse)
 def chapter_page(request: Request, slug: str) -> HTMLResponse:
     """A step's chapter."""
+    return _render_doc(request)
+
+
+@router.get("/system-design", response_class=HTMLResponse)
+def system_design_page(request: Request) -> HTMLResponse:
+    """The system design: how Nimbus is built so far, drawn the way a reference design for AI assistants is."""
     return _render_doc(request)
 
 

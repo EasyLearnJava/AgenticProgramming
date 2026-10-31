@@ -92,6 +92,13 @@ def test_a_deprecated_pages_links_and_diagram_point_at_the_app() -> None:
     assert (DOCS_IMAGES_DIR / "system-design_deprecated.png").is_file()
 
 
+def test_the_system_design_shows_its_own_diagram_and_links_to_the_old_one() -> None:
+    html = render_markdown(read_markdown("system-design"))
+    assert 'src="/docs/images/system-design.svg"' in html
+    assert 'href="/system-design_deprecated"' in html
+    assert (DOCS_IMAGES_DIR / "system-design.svg").is_file()
+
+
 def test_finds_a_page_only_by_its_own_address() -> None:
     assert find_doc("/docs/step-1") == CHAPTERS[0]
     assert find_doc("/issues_deprecated") == DEPRECATED_PAGES[2]

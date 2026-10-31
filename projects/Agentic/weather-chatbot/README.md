@@ -39,7 +39,7 @@ mutation check; and CI and deploys to Vercel on every push.
 | `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `utils.py` |
 | `templates/` | The Jinja2 templates: the shell with the menu, the chat, a list of pages, a page, the 404 page |
 | `public/static/` | The stylesheet and the icon, served by Vercel's CDN |
-| `docs/` | The chapters (`step-N.md`), the issues log, the interview guide, the to-do list, the TypeScript version's pages (`*_deprecated.md`), and their pictures (`images/`) |
+| `docs/` | The chapters (`step-N.md`), the system design, the issues log, the interview guide, the to-do list, the TypeScript version's pages (`*_deprecated.md`), and their pictures (`images/`) |
 | `tests/unit/`, `tests/e2e/` | The tests: the app called in memory, and the app in a real browser |
 | `tools/mutation_check.py` | Breaks each of the app's rules on purpose, and checks a test fails |
 | `pyproject.toml`, `uv.lock`, `.python-version` | The packages, pinned to exact versions; the tools' settings; Python 3.13 |
@@ -65,8 +65,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [36760] using StatReload
-INFO:     Started server process [3920]
+INFO:     Started reloader process [11752] using StatReload
+INFO:     Started server process [39204]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -75,9 +75,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 13, "event": "http.request", "level": "info",
- "ts": "2026-10-30T23:07:18.495927Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "6fcf320b485d4f78"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 9, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T03:23:15.203317Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "4a1492eb0ddc4e75"}
 ```
 
 ## Test it
@@ -86,20 +86,20 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-48 files already formatted
+49 files already formatted
 $ uv run mypy
 Success: no issues found in 26 source files
 $ uv run pytest
-117 passed in 1.00s
+121 passed in 0.63s
 $ uv run pytest tests/e2e --browser-channel msedge
-89 passed in 52.69s
+94 passed in 44.24s
 $ uv run python tools/mutation_check.py
 ...
 16 of 16 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
-21 pages (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints its platform line
+22 pages (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints its platform line
 and each test's dot, and the mutation check a line per rule (step 1's chapter lists them).
 
 ## When things go wrong
@@ -114,17 +114,19 @@ and each test's dot, and the mutation check a line per rule (step 1's chapter li
 
 ## Things to try
 
-- Add a page: a Markdown file in `docs/` and its `DocPage` in `nimbus/docs.py`; the tests say if you forget either.
+- Add a chapter: a Markdown file in `docs/` and its `DocPage` in `CHAPTERS` (`nimbus/docs.py`); the tests say if
+  you forget either. A page outside `/docs/`, in `PAGES`, also needs its route in `nimbus/pages.py`.
 - Put `LOG_LEVEL=warning` in `.env.local`, restart, and watch the request lines stop.
 - Send a forged id: `curl -i -H "x-vercel-id: not an id" http://127.0.0.1:8000/api/health` gets a new one back.
 
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter
-per step ([step 1](docs/step-1.md)), **Issues and fixes** ([`docs/issues.md`](docs/issues.md)), the **Interview
-guide** ([`docs/interview.md`](docs/interview.md)) and **To do** ([`docs/todo.md`](docs/todo.md)). The TypeScript
-version's pages are kept under **Deprecated**: its steps, System design, Technical details, Issues and fixes,
-Interview guide and To do, each named `*_deprecated` ([README_deprecated.md](README_deprecated.md) links them all).
+per step ([step 1](docs/step-1.md)), the **System design** ([`docs/system-design.md`](docs/system-design.md)),
+**Issues and fixes** ([`docs/issues.md`](docs/issues.md)), the **Interview guide**
+([`docs/interview.md`](docs/interview.md)) and **To do** ([`docs/todo.md`](docs/todo.md)). The TypeScript version's
+pages are kept under **Deprecated**: its steps, System design, Technical details, Issues and fixes, Interview guide
+and To do, each named `*_deprecated` ([README_deprecated.md](README_deprecated.md) links them all).
 
 ## Next
 

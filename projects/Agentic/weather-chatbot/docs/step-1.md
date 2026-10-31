@@ -15,6 +15,7 @@ router → a page made from a Jinja2 template, or JSON → back to you, with one
 - The page shell, with the TypeScript version's mint and teal look: the menu, the chat card (not answering yet), and
   the documentation, rendered from Markdown.
 - The TypeScript version's pages, kept at their old addresses with `_deprecated` added.
+- A System design page, drawn the way the TypeScript version's was, with what step 1 built; each step adds its parts.
 - `GET /api/health` (and `HEAD`): up, and which build is answering.
 - A request id on every log line and response, and one JSON line per request.
 - The security headers, with a Content Security Policy enforced from the start.
@@ -68,7 +69,7 @@ router → a page made from a Jinja2 template, or JSON → back to you, with one
 | `nimbus/utils.py` | Small shared helpers: request ids and times |
 | `templates/*.html` | The shell (`base.html`), the chat, a list of pages, a page, the 404 page |
 | `public/static/` | The stylesheet and the icon, which Vercel's CDN serves |
-| `docs/` | The chapters, the issues log, the interview guide, the to-do list, the deprecated pages, and their pictures |
+| `docs/` | The chapters, the system design, the issues log, the interview guide, the to-do list, the deprecated pages, and their pictures |
 | `tests/unit/`, `tests/e2e/` | The tests: in memory, and in a real browser |
 | `tools/mutation_check.py` | Breaks each rule on purpose and checks a test fails |
 | `pyproject.toml`, `uv.lock`, `.python-version` | The packages, pinned, the tools' settings, and Python 3.13 |
@@ -177,8 +178,8 @@ Vercel (`settings.is_vercel`).
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [36760] using StatReload
-INFO:     Started server process [3920]
+INFO:     Started reloader process [11752] using StatReload
+INFO:     Started server process [39204]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -188,9 +189,9 @@ request, which would also write the query string; the app writes its own. Asking
 line, without the query:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 13, "event": "http.request", "level": "info",
- "ts": "2026-10-30T23:07:18.495927Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "6fcf320b485d4f78"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 9, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T03:23:15.203317Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "4a1492eb0ddc4e75"}
 ```
 
 And the health check, with its headers (the policy's long line wrapped here; in PowerShell, type `curl.exe`):
@@ -198,12 +199,12 @@ And the health check, with its headers (the policy's long line wrapped here; in 
 ```text
 $ curl -i http://127.0.0.1:8000/api/health
 HTTP/1.1 200 OK
-date: Fri, 30 Oct 2026 23:07:18 GMT
+date: Sat, 31 Oct 2026 03:23:15 GMT
 server: uvicorn
 cache-control: no-store
 content-length: 90
 content-type: application/json
-x-request-id: a2b33c6df3194eae
+x-request-id: 6469033baecb41ab
 content-security-policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src
   'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
 x-content-type-options: nosniff
@@ -211,7 +212,7 @@ referrer-policy: strict-origin-when-cross-origin
 x-frame-options: DENY
 permissions-policy: camera=(), geolocation=(self), microphone=()
 
-{"status":"ok","checkedAt":"2026-10-30T23:07:18.439Z","commit":null,"environment":"local"}
+{"status":"ok","checkedAt":"2026-10-31T03:23:15.154Z","commit":null,"environment":"local"}
 ```
 
 ## Test it
@@ -220,13 +221,13 @@ permissions-policy: camera=(), geolocation=(self), microphone=()
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-48 files already formatted
+49 files already formatted
 $ uv run mypy
 Success: no issues found in 26 source files
 $ uv run pytest
-117 passed in 1.00s
+121 passed in 0.63s
 $ uv run pytest tests/e2e --browser-channel msedge
-89 passed in 52.69s
+94 passed in 44.24s
 $ uv run python tools/mutation_check.py
 caught: a request id is ASCII
 caught: a request id is at most 128 characters
@@ -250,10 +251,10 @@ caught: the health check answers HEAD
 The unit tests call the app in memory, through FastAPI's `TestClient`: every page and its menu link, the 404 page, the
 headers on every kind of response, a stream passed on message by message, the log line, the settings, and the
 Markdown. No setting comes from your shell (an automatic fixture removes them), and any warning fails the test that
-caused it. The browser tests serve the real app with Uvicorn and drive it with Playwright, on every one of the 21
+caused it. The browser tests serve the real app with Uvicorn and drive it with Playwright, on every one of the 22
 pages: no error in the browser's console, axe's accessibility checks, no sideways scrolling at 1,280 and 360 pixels;
-and the menu, every menu link inside the menu, and a deprecated page's diagram and links. Leave out
-`--browser-channel msedge` to use Playwright's own Chromium.
+and the menu, every menu link inside the menu, the system design's diagram, and a deprecated page's diagram and links.
+Leave out `--browser-channel msedge` to use Playwright's own Chromium.
 
 The mutation check breaks one rule at a time, the way a bug would, and runs the unit tests: each change must fail
 one. Issue 4 tells the one that didn't, at first.
@@ -303,7 +304,9 @@ Checked on the live site, https://weather-chatbot-hazel.vercel.app:
  "deploymentId": "dpl_85W8gAmSCsmU34mV5AG4dvfKjoKY", "requestId": "cle1::nmzgg-1793403045507-1e71e313788a"}
 ```
 
-CI ran every check on the same push, and passed, in about two minutes.
+CI ran its checks on the same push, every one but the mutation check, which runs before each commit, and passed, in
+about two minutes. The System design page came after this deploy, in a commit of its own; the tests above cover it
+with the other 21 pages.
 
 ## Things to take care of, and pitfalls
 
@@ -357,6 +360,8 @@ CI ran every check on the same push, and passed, in about two minutes.
 18. A pulled `.env.local` would have made a computer look like Vercel: Vercel's own settings come from the real
     environment only.
 19. A build-log line copied wrong: copied again, from the page's own text.
+20. The System design page claimed more than step 1 does: each claim checked against the code, the plan and CI.
+21. The live site's build named another project's commit: Vercel deploys Nimbus on every push to `main`.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 
@@ -441,8 +446,10 @@ On Vercel, the CDN serves `public/` before any function runs, so headers the app
 
 ## Things to try
 
-- **Add a page:** a Markdown file in `docs/`, and its `DocPage` in `nimbus/docs.py`. Forget either, and
-  `test_every_page_has_its_file_and_every_file_its_page` fails.
+- **Add a chapter:** a Markdown file in `docs/`, and its `DocPage` in `CHAPTERS` (`nimbus/docs.py`). Forget either,
+  and `test_every_page_has_its_file_and_every_file_its_page` fails. A page outside `/docs/`, as System design is, goes
+  in `PAGES`, which the menu lists, and needs a route of its own in `nimbus/pages.py`; without one, its page test
+  fails.
 - **Fewer lines:** put `LOG_LEVEL=warning` in `.env.local` and restart; the request lines stop.
 - **A forged id:** `curl -i -H "x-vercel-id: not an id" http://127.0.0.1:8000/api/health` gets a new id back.
 - **Uvicorn's own line:** leave out `--no-access-log`, and compare its line with the app's: its line keeps the query.

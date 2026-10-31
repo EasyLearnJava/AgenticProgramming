@@ -20,4 +20,7 @@ What's still open in the Python rebuild, and why. The TypeScript version's list 
 
 - **Step 2:** the chat streams a fixed answer over server-sent events with HTMX, with Stop and our own error
   sentences, before any AI.
+- **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build
+  label can name another project's commit (issue 21); an `ignoreCommand` in `vercel.json` would end the build when
+  this folder hasn't changed.
 - **When the rebuild is done (step 13):** delete the backup tag `weather-chatbot-typescript-backup`.

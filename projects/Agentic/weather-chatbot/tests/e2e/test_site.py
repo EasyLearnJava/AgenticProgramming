@@ -1,7 +1,8 @@
 """
-tests/e2e/test_site.py: the pages in a real browser: the menu takes you to each page and marks it, a deprecated page
-keeps its diagram and its links, no page logs an error (a Content Security Policy refusal among them), every page
-passes axe's accessibility checks, and none scrolls sideways, on a computer or a phone.
+tests/e2e/test_site.py: the pages in a real browser: the menu takes you to each page and marks it, the system design
+and a deprecated page show their diagrams, a deprecated page keeps its links, no page logs an error (a Content
+Security Policy refusal among them), every page passes axe's accessibility checks, and none scrolls sideways, on a
+computer or a phone.
 """
 
 import re
@@ -34,6 +35,16 @@ def test_a_deprecated_page_says_so_and_keeps_its_diagram(page: Page) -> None:
     page.get_by_role("link", name="System design_deprecated").click()
     expect(page.get_by_role("note")).to_contain_text("Deprecated")
     diagram = page.get_by_role("img", name="How Nimbus is built today, steps 1 to 9")
+    expect(diagram).to_be_visible()
+    assert diagram.evaluate("img => img.naturalWidth") > 0
+
+
+def test_the_system_design_shows_its_diagram(page: Page) -> None:
+    page.goto("/")
+    page.get_by_role("link", name="System design", exact=True).click()
+    expect(page.get_by_role("heading", level=1, name="System Design")).to_be_visible()
+    expect(page.get_by_role("link", name="System design", exact=True)).to_have_attribute("aria-current", "page")
+    diagram = page.get_by_role("img", name="How Nimbus is built after step 1")
     expect(diagram).to_be_visible()
     assert diagram.evaluate("img => img.naturalWidth") > 0
 

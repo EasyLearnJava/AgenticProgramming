@@ -36,7 +36,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 
 | Step | What it builds | What you do |
 |---|---|---|
-| 1 | The project: uv, FastAPI, Ruff, mypy, pytest, CI, the first deploy; the page shell in Jinja2; the docs, the deprecated ones included; security headers; JSON logs with a request id | Switch the Framework Preset to FastAPI (done); delete the three `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` variables |
+| 1 | The project: uv, FastAPI, Ruff, mypy, pytest, CI, the first deploy; the page shell in Jinja2; the docs, the deprecated ones included, and the System design page; security headers; JSON logs with a request id | Switch the Framework Preset to FastAPI (done); delete the three `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` variables |
 | 2 | The chat streams a fixed answer over server-sent events with HTMX; Stop; our own error sentences | |
 | 3 | Gemini through LangChain, streamed; the system prompt; the input rules | |
 | 4 | The four weather tools and a prebuilt agent: the REST · no auth lane; tool chips with the wire view; LangSmith | The LangSmith variables (done) |
@@ -48,7 +48,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 | 10 | The auth lanes: Apify's Actor over REST and over Apify's MCP server, each falling back to its no-auth twin | |
 | 11 | Security: rate-limit rules, prompt-injection rules, privacy checks | The firewall's rules |
 | 12 | Monitoring: Axiom, Sentry, LangSmith; `/api/health` with each lane's check, and the status dots | |
-| 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; System design and Technical details; the backup deleted | |
+| 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; Technical details; the backup deleted | |
 
 ## 3. A chapter's sections
 
@@ -92,8 +92,9 @@ copies them; a test checks they match).
 
 1. **Build it:** the tests, the code, then the mutation check.
 2. **Check it:** `ruff check`, `ruff format --check`, `mypy`, the unit tests, the browser tests.
-3. **Write it down:** the chapter; every problem met, in the issues log (how it was found, why, the fix, the check);
-   the interview guide; the to-do list; the README's outputs, from one captured full run.
+3. **Write it down:** the chapter; the System design page and its diagram, with the parts the step adds; every
+   problem met, in the issues log (how it was found, why, the fix, the check); the interview guide; the to-do list;
+   the README's outputs, from one captured full run.
 4. **Review it:** an independent review of the step, before the commit.
 5. **Ship it:** commit (staged by path), tag `py-step-N`, push both; wait for CI and the deploy; check the live site,
    and add what the check found.

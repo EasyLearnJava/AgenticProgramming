@@ -34,7 +34,7 @@ class DocPage:
     is_deprecated: bool = False
 
 
-# ① The new app's pages: a chapter for each step, and the three pages every step adds to.
+# ① The new app's pages: a chapter for each step, and the four pages every step adds to.
 CHAPTERS: tuple[DocPage, ...] = (
     DocPage(
         slug="step-1",
@@ -47,6 +47,7 @@ CHAPTERS: tuple[DocPage, ...] = (
     ),
 )
 PAGES: tuple[DocPage, ...] = (
+    DocPage(slug="system-design", path="/system-design", label="System design"),
     DocPage(slug="issues", path="/issues", label="Issues and fixes"),
     DocPage(slug="interview", path="/interview", label="Interview guide"),
     DocPage(slug="todo", path="/todo", label="To do"),

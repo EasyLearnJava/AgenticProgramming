@@ -9,7 +9,7 @@ from markupsafe import escape
 
 from nimbus.app import create_app
 from nimbus.config import Settings
-from nimbus.docs import CHAPTERS, DEPRECATED_PAGES, DEPRECATED_STEPS, DocPage, read_markdown, title_of
+from nimbus.docs import CHAPTERS, DEPRECATED_PAGES, DEPRECATED_STEPS, PAGES, DocPage, read_markdown, title_of
 from nimbus.pages import DEPRECATED_MENU_ITEMS, MENU_ITEMS, to_aria_current, to_menu_label
 
 DEPRECATED_NOTE = "Deprecated: this page describes the earlier TypeScript version of Nimbus."
@@ -57,11 +57,15 @@ def test_every_documentation_page_opens(client: TestClient, doc: DocPage) -> Non
     assert (DEPRECATED_NOTE in page.text) is doc.is_deprecated
 
 
-@pytest.mark.parametrize("path", ["/issues", "/interview", "/todo"])
-def test_the_pages_every_step_adds_to_open_and_mark_their_link(client: TestClient, path: str) -> None:
-    page = client.get(path)
+@pytest.mark.parametrize("doc", PAGES, ids=lambda doc: doc.slug)
+def test_the_pages_every_step_adds_to_open_and_mark_their_link(client: TestClient, doc: DocPage) -> None:
+    page = client.get(doc.path)
     assert page.status_code == 200
-    assert f'href="{path}" aria-current="page"' in page.text
+    assert f'href="{doc.path}" aria-current="page"' in page.text
+
+
+def test_the_menu_lists_the_chat_the_documentation_then_the_pages_every_step_adds_to() -> None:
+    assert [item.href for item in MENU_ITEMS] == ["/", "/docs", "/system-design", "/issues", "/interview", "/todo"]
 
 
 @pytest.mark.parametrize(
