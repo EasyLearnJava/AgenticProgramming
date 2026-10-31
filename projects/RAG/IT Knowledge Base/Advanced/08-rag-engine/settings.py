@@ -11,7 +11,9 @@ anything is loaded. It handles:
   4. VectorStoreSettings: where Qdrant is, the alias, and the HNSW index's settings
   5. RetrievalSettings: how a question is searched: dense, sparse or hybrid, how many, the threshold, re-ranking
   6. AnswerSettings: the chat model, the prompt file, the context's token budget, the "not covered" reply, the judge
-  7. load_settings(): the file read and checked; a typo or a missing setting stops the run with one clear line
+  7. EngineSettings: the deadline, the breakers, the answer cache, the conversation memory, the prices
+  8. load_settings(): the file read and checked, with any KB__<TABLE>__<SETTING> variable of the environment over
+     it; a typo or a missing setting stops the run with one clear line
 
     load_settings(Path("kb_settings.toml"))  ->  KBSettings(text_fields=("title", ...), columns={"title": "title", ...})
 """

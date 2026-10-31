@@ -203,6 +203,7 @@ def test_the_script_finds_its_files_from_any_folder(tmp_path):
     here = run_script("--manifest-path", str(tmp_path / "a.json"), settings=fake_settings(tmp_path / "a"),
                       cwd=tmp_path)
     there = run_script("--manifest-path", str(tmp_path / "b.json"), settings=fake_settings(tmp_path / "b"))
+
     def without_traces(output):                       # trace IDs and times differ from run to run
         return [line for line in output.splitlines() if not re.search(r"\bms\b|kb_version", line)]
 
