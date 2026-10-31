@@ -201,6 +201,8 @@ follow-up from the review (issue 79) added a seventh: run again, 592 unit tests 
     goes where it was.
 79. LangSmith's dataset never followed `golden.json`: made once, an edited golden's answer couldn't be found, and a
     new golden never reached it. Each example carries its golden's id, and each run adds the ones missing.
+80. A browser test raced its own question on CI: it waited for no answer to be busy, which held before the new turn
+    was on the page, and read the model's call for the question before. It waits for the new turn first.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 

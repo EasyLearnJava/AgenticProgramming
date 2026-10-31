@@ -496,3 +496,9 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     **Fix:** each example carries its golden's id, and the answers are found by it; each run adds the examples the
     dataset lacks; an example whose golden this run didn't ask is graded "not asked in this run". **Check:** a test of
     a dataset that lacks a golden, and of one whose golden has gone; the mutation check's rule.
+80. **A browser test raced its own question.** *CI, on the review's follow-up.* After New chat, the test sent a second
+    question and waited for no answer to be busy, then read the model's last call: but no answer is busy before the
+    new turn is on the page too, so on CI's runner it read the call for the question before. It had passed every run
+    until then. **Fix:** it waits for the new question's own turn, as the tests that ask twice already did; the turn
+    and its busy answer come in one event, so no answer busy then means the answer ended. **Check:** CI's browser
+    suite.

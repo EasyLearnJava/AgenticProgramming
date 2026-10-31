@@ -241,6 +241,9 @@ def test_new_chat_starts_over_on_the_page_and_in_what_goes_back(page: Page, chat
     box = page.get_by_label("Your question")
     box.fill("Is it windy in Paris?")
     box.press("Enter")
+    # Its own turn first: no answer busy is true before the turn is on the page, when the model's last call is still
+    # the first question's (issue 80).
+    expect(page.locator(".message-user")).to_have_count(1)
     expect(page.locator(".message-bot[aria-busy]")).to_have_count(0)
     first = [m for m in chat_model.seen[-1] if isinstance(m, HumanMessage)]
     assert [m.content for m in first] == ["Is it windy in Paris?"]
