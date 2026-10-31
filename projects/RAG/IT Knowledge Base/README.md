@@ -29,7 +29,7 @@ The projects come in five levels:
   replaceable; every setting in `config.yaml`; errors that answer in one shape; and logs in which one trace ID follows
   each request through every layer, shown on the page under each answer. 01 is built.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
-  and reports it. 01 to 08 are built; 09 to 12 are planned, each with a README giving its plan, and
+  and reports it. 01 to 09 are built; 10 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
 - **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
   [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
@@ -85,7 +85,8 @@ Models and Embeddings in RAGs.
 | `06-retriever` | A LangChain retriever: dense and sparse search fused by rank (RRF); label filters read from the question; a "no match" threshold; re-ranking (word overlap, or a cross-encoder); at most 2 chunks per article, picked by MMR; a question cache; a rewriting hook. `evaluation.py` measures Recall@5, MRR and nDCG for each variant on 52 labeled questions (`data/eval_questions.csv`) and tunes the threshold | `python pipeline.py --question "..."`; `python evaluation.py` |
 | `07-grounded-answer` | Each question answered by Gemini as a structured answer (the answer, the chunks it cites, whether they were enough): citations checked against the chunks given; an honest "not covered" instead of a guess; a chunk that speaks to the model kept out, the rest delimited; a token budget of whole chunks; a versioned prompt file; the answer redacted; an optional faithfulness judge. `data/sample_it_kb_injected.csv` plants an injected instruction | `python pipeline.py --question "..."` |
 | `08-rag-engine` | The retriever and the answerer as one dependable core: parts passed in, settings from the file or the environment (`KB__...`); a deadline on every question; circuit breakers on the store and the model; an answer cache (exact and by meaning, scoped to the prompt, model and knowledge base, with an expiry); a trace per question; follow-ups rewritten with the conversation; honest stats | `python pipeline.py --question "..." --question "and on Mac?"` |
-| `09` to `12` | Planned: each folder's README gives its plan (hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
+| `09-api` | The engine behind an HTTP API: API keys kept as hashes; a rate limit per caller; body and question limits; a request ID on every response and log line; JSON logs with nothing of the question; one error shape; liveness and readiness; streamed answers (server-sent events); feedback on answers; a load test | `python main.py add-key me`, then `python main.py` |
+| `10` to `12` | Planned: each folder's README gives its plan (a chat page on the API, the app and Qdrant in containers with CI, an evaluation suite and tuning). See the [roadmap](Advanced/README.md) | (no code yet) |
 
 ## What you need
 

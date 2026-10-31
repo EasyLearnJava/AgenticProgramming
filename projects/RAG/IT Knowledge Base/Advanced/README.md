@@ -5,7 +5,7 @@ when everything goes right; its Advanced version handles what goes wrong in real
 report: bad data, sensitive data, failing services, slow or costly calls, wrong answers, attacks, and the day-to-day
 running of the app.
 
-> **Status:** 01 to 08 are built. 09 to 12 are planned: each folder holds a README with its plan, and no code yet.
+> **Status:** 01 to 09 are built. 10 to 12 are planned: each folder holds a README with its plan, and no code yet.
 
 ---
 
@@ -21,7 +21,7 @@ running of the app.
 | [06 · Retriever](06-retriever/README.md) | ✅ Built | Hybrid search, metadata filters, re-ranking, a "no good match" threshold, query rewriting, and retrieval measured on a labeled set |
 | [07 · Grounded Answer](07-grounded-answer/README.md) | ✅ Built | Structured answers with checked citations, saying "I don't know" when the context doesn't cover it, prompt-injection defenses, and a token budget |
 | [08 · RAG Engine](08-rag-engine/README.md) | ✅ Built | One settings object, timeouts and retries for every call, a cache for repeated questions, tracing of every stage, and conversation memory |
-| [09 · API](09-api/README.md) | 📝 Planned | Authentication, rate limits, request IDs, structured errors and logs, readiness checks, streaming answers, and a feedback endpoint |
+| [09 · API](09-api/README.md) | ✅ Built | Authentication, rate limits, request IDs, structured errors and logs, readiness checks, streaming answers, and a feedback endpoint |
 | [10 · Chat Page](10-chat-page/README.md) | 📝 Planned | Streaming replies, clickable sources, safe rendering of model output, accessibility, and loading, empty and error states |
 | [11 · Qdrant in Docker](11-qdrant-in-docker/README.md) | 📝 Planned | The app in its own container, health checks, secured and backed-up Qdrant, secrets kept out of images, and a CI pipeline |
 | [12 · Tuning](12-tuning/README.md) | 📝 Planned | An evaluation suite for retrieval and answers, experiment tracking, a quality gate in CI, and the model alone compared with RAG |

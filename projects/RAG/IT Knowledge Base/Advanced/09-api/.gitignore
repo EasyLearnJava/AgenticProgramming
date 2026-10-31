@@ -1,0 +1,15 @@
+# Your Gemini key: never in git
+.env
+# Written by each run: the last run's articles, to compare the next run with
+data/manifest.json
+data/manifest.json.*.tmp
+# The vectors already made, kept by text, model and size: delete it to embed every chunk again
+data/embedding_cache.sqlite3
+# Qdrant on disk, written by each run: the points, behind the it_kb alias
+data/qdrant/
+# Answers already given, kept by question, prompt, model and knowledge base: delete it to answer afresh
+data/answer_cache.sqlite3
+# The API's answers, kept for a while so they can be rated, and their ratings: written by the server
+data/feedback.sqlite3
+# The API's callers and their keys' hashes: python main.py add-key NAME writes it
+data/api_keys.toml

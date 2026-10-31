@@ -45,6 +45,7 @@ COMMANDS = {
     "Advanced/06-retriever": ["pipeline.py"],
     "Advanced/07-grounded-answer": ["pipeline.py"],
     "Advanced/08-rag-engine": ["pipeline.py"],
+    "Advanced/09-api": ["main.py"],
 }
 
 
