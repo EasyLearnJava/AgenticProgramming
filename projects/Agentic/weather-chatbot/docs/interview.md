@@ -257,3 +257,24 @@ agent for the app would share one client across event loops and answers.
 **10. What does the prebuilt agent leave to you?**
 Its limits: its own step limit is 9,999, and it gives the last call to the model the tools like any other, so an answer
 can end on a failure rather than in words. Step 5 builds our own graph for that.
+
+## Step 5 · The Agent as a Graph of Our Own
+
+**1. Why replace a prebuilt agent with your own graph?**
+The prebuilt one decides the loop's limits for you: its own step limit is 9,999, and its last call can still ask for a
+tool, so a limit ends the answer with a failure. In our own graph, the limits are a few lines of code, tested.
+
+**2. How do you make sure an agent's answer always ends in words?**
+Count the calls to the model in the state, and on the last one bind the tools with `tool_choice="none"`: the model
+still sees them, but can't call one, so it answers with what it has.
+
+**3. What does `Send` do in a LangGraph graph?**
+It starts a node with an input of its own. Sending each tool call to the tools node on its own makes each a task: they
+run at once, and each one's result comes as soon as it's done.
+
+**4. Where do you put an agent's time limits?**
+On the waits: the first chunk of each call to the model, each tool call, and the whole answer around each wait for the
+run's next item. Never around a `yield`, where the deadline could land in someone else's code.
+
+**5. Why keep a recursion limit the graph can't reach?**
+It costs nothing, and if a change ever broke the loop, the run would still end.

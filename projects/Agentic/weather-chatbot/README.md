@@ -60,8 +60,9 @@ Each step's chapter explains it, in order:
 | 2 | [The Chat Streams Its Answer](docs/step-2.md) | Done |
 | 3 | [Gemini Answers, Streamed](docs/step-3.md) | Done |
 | 4 | [The Weather Tools, and an Agent That Calls Them](docs/step-4.md) | Done |
-| 5 | The agent as a graph of our own | Next |
-| 6 to 13 | See [PLAN.md](PLAN.md) | To come |
+| 5 | [The Agent as a Graph of Our Own](docs/step-5.md) | Done |
+| 6 | Chat memory, kept in the browser | Next |
+| 7 to 13 | See [PLAN.md](PLAN.md) | To come |
 
 ## Run it
 
@@ -69,8 +70,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [28008] using StatReload
-INFO:     Started server process [38936]
+INFO:     Started reloader process [23564] using StatReload
+INFO:     Started server process [1960]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -79,9 +80,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 8, "event": "http.request", "level": "info",
- "ts": "2026-10-31T09:16:15.011594Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "cc72b5f0a782411f"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 7, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T09:52:18.956715Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "76e8fde110174357"}
 ```
 
 ## Test it
@@ -90,16 +91,16 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-75 files already formatted
+77 files already formatted
 $ uv run mypy
-Success: no issues found in 49 source files
+Success: no issues found in 50 source files
 $ uv run pytest
-357 passed in 8.95s
+367 passed in 9.11s
 $ uv run pytest tests/e2e --browser-channel msedge
-121 passed in 90.67s (0:01:30)
+125 passed in 93.10s (0:01:33)
 $ uv run python tools/mutation_check.py
 ...
-96 of 96 caught
+100 of 100 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
@@ -133,7 +134,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md), [step 2](docs/step-2.md), [step 3](docs/step-3.md), [step 4](docs/step-4.md)), the
+step ([step 1](docs/step-1.md) to [step 5](docs/step-5.md)), the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do**
 ([`docs/todo.md`](docs/todo.md)). The TypeScript version's pages are kept under **Deprecated**: its steps, System
@@ -142,4 +143,4 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 
 ## Next
 
-[Step 4's chapter](docs/step-4.md), then step 5: the agent as a LangGraph graph of our own.
+[Step 5's chapter](docs/step-5.md), then step 6: the chat's memory, kept in the browser.

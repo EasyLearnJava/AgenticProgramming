@@ -1,16 +1,16 @@
 # System Design
 
-How Nimbus is built after step 4, drawn the way the TypeScript version's
+How Nimbus is built after step 5, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
 **+** marks a part only Nimbus has. Step 1 laid the ground the assistant will stand on: the pages, the documentation
 and the health check. Step 2 made the chat answer, streamed a word at a time. Step 3 put Gemini in place of step 2's
-fixed answer, through LangChain. Step 4 gave it four weather tools, which call Open-Meteo, run by LangChain's prebuilt
-agent: the REST · no auth lane. Each step adds its parts to this page.
+fixed answer, through LangChain. Step 4 gave it four weather tools, which call Open-Meteo: the REST · no auth lane.
+Step 5 made the agent that runs them a LangGraph graph of our own. Each step adds its parts to this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 
-![How Nimbus is built after step 4](images/system-design.svg)
+![How Nimbus is built after step 5](images/system-design.svg)
 
 ## The four bands
 
@@ -65,9 +65,10 @@ tools, and through them Open-Meteo.
   visitor's locale, and their own today and tomorrow. Each call writes at most 1,024 tokens, waits 20 s and is tried
   once more. Its failures, which LangChain raises as standard exceptions, become our own sentences: busy, too slow,
   not set up, or no answer.
-- **The agent** (04): LangChain's prebuilt agent (`agent.py`), made for each answer: it calls the model with the tools,
-  runs each tool call the model asks for, at once, and calls the model again with the results, until the model answers
-  in words: 5 calls to the model at most, and 30 s for the whole answer.
+- **The agent** (04): a LangGraph graph of our own (`agent.py`), made for each answer: `model` calls Gemini with the
+  tools, each call's first words within 10 s; the route sends each tool call the model asked for to `tools` as a task
+  of its own, each within 8 s; then the model again, until it answers in words. Its fifth call has its tools turned
+  off, so every answer ends in words; the whole answer stays within 30 s.
 - **The weather tools** (06): four (`tools.py`), each written once, its input a Pydantic model the model's call must
   fit: `geocode_location`, `get_current_weather`, `get_forecast` and `get_air_quality`. The model reads the weather;
   the page gets the request and its time, as the call's record. The ambiguity rule and the weather codes' words are
@@ -124,7 +125,7 @@ tools, and through them Open-Meteo.
 | 02 · API gateway and identity: WAF, rate limits, sign-in | Vercel's edge: HTTPS, routing, and a request id it sets itself; the security headers on every response, the CDN's files included | The weather is public, so there's no sign-in. Rate limits come with the firewall's rules (step 11) |
 | 01 · Input guardrails: injection, PII, scope | In part: the form's checks: its type, at most 32 KiB, each field once, the question 1 to 2,000 characters, a language tag and a known time zone, no field we don't know; each tool call's input checked against its schema | Rules against prompt injection come in step 11 |
 | 03 · Semantic cache: safe answers, by similarity | None | The weather changes by the hour, so a cached answer would go stale; step 7 caches the weather's data instead |
-| 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; LangChain's prebuilt agent: 5 calls to the model at most, 30 s an answer, which Stop ends on the page (on Vercel, the function goes on to the end) | Our own graph, whose last call to the model has no tools, comes in step 5 |
+| 04 · Router and orchestrator: intent, step limits, time budgets | FastAPI's router; our own LangGraph graph: 5 calls to the model, the last with its tools off; 10 s for each call's first words, 8 s a tool call, 30 s an answer, which Stop ends on the page (on Vercel, the function goes on to the end) | |
 | 01 · Output guardrails: safety, privacy, grounding | In part: Jinja2 escapes every value but the two marked safe; an answer's Markdown renders with no raw HTML and no pictures, its links in a new tab; the rules: weather facts only from the tools' results, a tool's result read as data; the page puts in only our own HTML, and our script only text; the policy runs only our own files | Nothing checks an answer before it streams |
 | Answer: citations or a safe refusal | Gemini's answer, a word at a time, after a chip for each tool call, which opens to its request, input and output; a polite refusal off the weather; our own sentence for each thing that can go wrong, a failure's with its ref | |
 | 05 · Retrieval (RAG) and its index | None | The weather will come live from tools, not from documents |
@@ -199,6 +200,6 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 
 ## What comes next
 
-Step 5 replaces the prebuilt agent with a LangGraph graph of our own: a step limit, a last call to the model with no
-tools, so every answer ends in words, and a time limit on each step. Each step after it adds its parts to this page
-and its diagram; the plan, `PLAN.md`, has them all.
+Step 6 gives the chat a memory: the conversation kept in the browser and sent back with each question, as untrusted
+input, checked and capped; and New chat. Each step after it adds its parts to this page and its diagram; the plan,
+`PLAN.md`, has them all.

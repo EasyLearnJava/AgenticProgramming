@@ -5,6 +5,7 @@ reads and its chip's one-line summary. to_langchain_tool() makes one a LangChain
 reads the weather; the page also gets the request that fetched it and its time, as the tool message's artifact.
 """
 
+import asyncio
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -23,8 +24,9 @@ from nimbus.constants import (
     MAX_HOURLY_DAYS,
     MAX_PLACE_COUNT,
     MAX_QUERY_CHARS,
+    TOOL_TIMEOUT_SECONDS,
 )
-from nimbus.errors import UpstreamError
+from nimbus.errors import UpstreamError, UpstreamTimeoutError
 from nimbus.open_meteo import OpenMeteoClient, Place, WireRequest
 from nimbus.utils import to_ms
 from nimbus.weather import is_ambiguous_place, to_condition
@@ -392,8 +394,9 @@ class ToolCallRecord:
 def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool:
     """
     One of our tools as a LangChain tool on REST · no auth. The model reads the weather (the tool message's content);
-    the page also gets the request and the time (its artifact). Open-Meteo's failure reaches the model and the chip as
-    our own sentence, a tool error the model can answer with; each call writes one tool.call line.
+    the page also gets the request and the time (its artifact). Open-Meteo's failure, or a call past its 8 s, reaches
+    the model and the chip as our own sentence, a tool error the model can answer with; each call writes one tool.call
+    line.
     """
 
     async def call(**kwargs: Any) -> tuple[str, ToolCallRecord]:
@@ -402,11 +405,15 @@ def to_langchain_tool(tool: WeatherTool, context: ToolContext) -> StructuredTool
         params = tool.input_model.model_validate(kwargs)
         started = time.perf_counter()
         try:
-            tool_run = await tool.run(params, context)
-        except UpstreamError as error:
+            async with asyncio.timeout(TOOL_TIMEOUT_SECONDS):
+                tool_run = await tool.run(params, context)
+        except (UpstreamError, TimeoutError) as error:
+            # A call past its own time limit, its tries included, failed as Open-Meteo's slowness does.
+            failure = error if isinstance(error, UpstreamError) else UpstreamTimeoutError()
             ms = to_ms(time.perf_counter() - started)
-            log.info("tool.call", tool=tool.name, lane=LANE_ID, status="failed", ms=ms, errorClass=type(error).__name__)
-            raise ToolException(error.user_message) from error
+            failed = {"status": "failed", "ms": ms, "errorClass": type(failure).__name__}
+            log.info("tool.call", tool=tool.name, lane=LANE_ID, **failed)
+            raise ToolException(failure.user_message) from error
         ms = to_ms(time.perf_counter() - started)
         log.info("tool.call", tool=tool.name, lane=LANE_ID, status="ok", ms=ms)
         return tool_run.output.model_dump_json(), ToolCallRecord(LANE_ID, tool_run.request, ms, tool_run.summary)

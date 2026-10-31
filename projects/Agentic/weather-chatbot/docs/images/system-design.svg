@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1160" width="1160" height="1160" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
-  <title id="t">How Nimbus is built after step 4</title>
-  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages, the docs, the health check or the docs' pictures; the chat checks the form, then streams the agent's answer: LangChain's prebuilt agent calls Gemini, which asks for the four weather tools, which call Open-Meteo with no key; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: no database, only log lines kept, settings read only by config.py, the docs as Markdown, the static files on the CDN. D, production operations: JSON log lines in Vercel's logs, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI.</desc>
+  <title id="t">How Nimbus is built after step 5</title>
+  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages, the docs, the health check or the docs' pictures; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, which call Open-Meteo with no key; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: no database, only log lines kept, settings read only by config.py, the docs as Markdown, the static files on the CDN. D, production operations: JSON log lines in Vercel's logs, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
@@ -129,9 +129,9 @@
   <text x="40" y="656" font-size="15" font-weight="700" fill="#053b30">The agent</text>
   <circle cx="340" cy="652" r="13" fill="#0f766e"/>
   <text x="340" y="656" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">04</text>
-  <text x="40" y="680" font-size="13" fill="#374151">agent.py · LangChain's create_agent()</text>
-  <text x="40" y="698" font-size="13" fill="#374151">the model (07) ⇄ the tools, 5 calls at most</text>
-  <text x="40" y="716" font-size="13" fill="#374151">each tool call a chip on the page</text>
+  <text x="40" y="680" font-size="13" fill="#374151">agent.py · our own LangGraph graph</text>
+  <text x="40" y="698" font-size="13" fill="#374151">the model (07) ⇄ the tools · 5 calls, the</text>
+  <text x="40" y="716" font-size="13" fill="#374151">last with no tools · 10 s, 8 s a tool</text>
   <line x1="364" y1="682" x2="392" y2="682" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
   <rect x="394" y="630" width="340" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
   <text x="410" y="656" font-size="15" font-weight="700" fill="#053b30">The weather tools</text>

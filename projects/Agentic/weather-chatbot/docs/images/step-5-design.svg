@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 5 · Our own graph</title>
+  <desc id="d">The agent is a LangGraph graph of our own. Its state holds the conversation and the number of calls to the model. The model node calls Gemini with the tools, or, at the fifth call, with calling them turned off, so every answer ends in words; each call's first words must come within 10 seconds. The route sends each tool call the model asked for to the tools node as a task of its own, or ends the run on words. The tools node runs each call within 8 seconds and returns the result to the model. The whole answer stays within 30 seconds.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 5 · Our own graph</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">The same loop as step 4's, its limits now in our code</text>
+
+  <!-- The state -->
+  <rect x="40" y="100" width="880" height="64" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">AgentState</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">messages: the conversation, each node's messages added to it · model_calls: the calls to the model so far</text>
+
+  <!-- Start, the model node -->
+  <rect x="40" y="194" width="140" height="44" rx="22" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="110" y="221" font-size="14" font-weight="700" fill="#053b30" text-anchor="middle">START</text>
+  <line x1="180" y1="216" x2="238" y2="216" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="240" y="184" width="440" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="256" y="210" font-size="15" font-weight="700" fill="#053b30">"model": call_model()</text>
+  <text x="256" y="232" font-size="13" fill="#1f2937">① model_calls + 1; the tools bound with tool_choice "auto",</text>
+  <text x="256" y="251" font-size="13" fill="#1f2937">or "none" at the fifth call: an answer always ends in words</text>
+  <text x="256" y="270" font-size="13" fill="#1f2937">the first words within 10 s, or the answer ends as too slow</text>
+  <text x="256" y="289" font-size="13" fill="#1f2937">each chunk to the page as it comes, via LangGraph</text>
+
+  <!-- The route -->
+  <line x1="460" y1="308" x2="460" y2="346" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="240" y="348" width="440" height="104" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="256" y="374" font-size="15" font-weight="700" fill="#7c2d12">② route(): after each call to the model</text>
+  <text x="256" y="396" font-size="13" fill="#1f2937">tool calls: Send("tools", [call]) for each, a task of its own</text>
+  <text x="256" y="415" font-size="13" fill="#1f2937">words, no tool call: the end of the run</text>
+  <text x="256" y="434" font-size="13" fill="#1f2937">the fifth call has no tools: it always ends here</text>
+
+  <!-- END -->
+  <line x1="680" y1="400" x2="738" y2="400" stroke="#0f766e" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  <rect x="740" y="378" width="140" height="44" rx="22" fill="#053b30"/>
+  <text x="810" y="405" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">END: words</text>
+
+  <!-- The tools node -->
+  <line x1="460" y1="452" x2="460" y2="490" stroke="#0f766e" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  <rect x="240" y="492" width="440" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="256" y="518" font-size="15" font-weight="700" fill="#053b30">"tools": LangGraph's ToolNode, one call a task</text>
+  <text x="256" y="540" font-size="13" fill="#1f2937">each of our four tools, within 8 s, its tries included</text>
+  <text x="256" y="559" font-size="13" fill="#1f2937">a failure: our sentence, as a tool error</text>
+  <text x="256" y="578" font-size="13" fill="#1f2937">each result to the state, and its chip ends</text>
+  <!-- back to the model -->
+  <path d="M240 544 H200 V268 H238" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="96" y="410" font-size="12" font-style="italic" fill="#4b5563">then the model</text>
+  <text x="96" y="426" font-size="12" font-style="italic" fill="#4b5563">again</text>
+
+  <!-- The limits -->
+  <rect x="40" y="616" width="880" height="44" rx="12" fill="#fcfffe" stroke="#9ca3af" stroke-dasharray="6 4"/>
+  <text x="56" y="643" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#374151">The limits: </tspan>5 calls to the model · 10 s for each call's first words · 8 s a tool call · 30 s the answer</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="672" width="880" height="48" rx="12" fill="#053b30"/>
+  <text x="60" y="694" font-size="14" font-weight="700" fill="#ffffff">The loop's limits are the agent's real rules: they belong in our code, where tests hold them.</text>
+  <text x="60" y="711" font-size="13" fill="#defcf6">The page, the tools and the logs are step 4's: only the loop changed hands.</text>
+</svg>

@@ -59,6 +59,8 @@ class FakeModel(BaseChatModel):
     fail_after_first_word: BaseException | None = None
     seen: list[list[BaseMessage]] = Field(default_factory=list)
     bound_tools: list[str] = Field(default_factory=list)
+    tool_choice: str | None = None
+    tool_choices: list[str | None] = Field(default_factory=list)
     closed: bool = False
 
     @property
@@ -66,9 +68,14 @@ class FakeModel(BaseChatModel):
         """The model's kind, for LangChain."""
         return "nimbus-fake"
 
-    def bind_tools(self, tools: Sequence[Any], **_kwargs: Any) -> "FakeModel":
-        """Keeps the tools' names, as Gemini would get them; the script decides the calls."""
+    def bind_tools(self, tools: Sequence[Any], *, tool_choice: str | None = None, **_kwargs: Any) -> "FakeModel":
+        """
+        Keeps the tools' names, as Gemini would get them, and the tool choice of each call: "none" turns calling them
+        off, as it does Gemini's. The script decides the calls.
+        """
         self.bound_tools = [tool.name for tool in tools]
+        self.tool_choice = tool_choice
+        self.tool_choices.append(tool_choice)
         return self
 
     def _generate(
@@ -116,7 +123,7 @@ class FakeModel(BaseChatModel):
         self.seen.append(messages)
         step = sum(1 for message in messages if isinstance(message, AIMessage))
         try:
-            if step < len(self.tool_steps):
+            if step < len(self.tool_steps) and self.tool_choice != "none":
                 await asyncio.sleep(self.delay)
                 if self.step_words:
                     yield ChatGenerationChunk(message=AIMessageChunk(content=self.step_words))

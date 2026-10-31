@@ -112,11 +112,15 @@ MAX_FORECAST_DAYS: Final = 16
 MAX_HOURLY_DAYS: Final = 3
 COORDINATE_DECIMALS: Final = 2
 
-# ⑩ The agent (step 4): LangChain's prebuilt agent, on the REST · no auth lane, its tools calling Open-Meteo from the
-# chat's own function. At most 5 calls to the model in an answer: LangGraph counts each node's run, a model call or a
-# round of tools, so the recursion limit is twice that.
+# ⑩ The agent (step 5): a LangGraph graph of our own, on the REST · no auth lane, its tools calling Open-Meteo from
+# the chat's own function. At most 5 calls to the model in an answer, the fifth with its tools turned off, so every
+# answer ends in words; each call's first words within 10 s; each tool call within 8 s, its tries included; the whole
+# answer within 30 s (⑦). LangGraph's recursion limit stays as a backstop: it counts each node's run, a model call or
+# a round of tools, so twice the calls.
 LANE_ID: Final = "rest-no-auth"
 LANE_LABEL: Final = "REST · no auth"
 AGENT_NAME: Final = "nimbus"
 MAX_MODEL_CALLS: Final = 5
+MODEL_FIRST_CHUNK_SECONDS: Final = 10
+TOOL_TIMEOUT_SECONDS: Final = 8
 AGENT_RECURSION_LIMIT: Final = 2 * MAX_MODEL_CALLS

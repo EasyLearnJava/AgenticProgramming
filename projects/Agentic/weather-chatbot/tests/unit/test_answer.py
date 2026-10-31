@@ -24,7 +24,6 @@ from langchain_core.exceptions import (
 from langchain_core.exceptions import ModelTimeoutError as LangChainModelTimeoutError
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_google_genai.chat_models import GoogleInvalidRequestError
-from langgraph.errors import GraphRecursionError
 from langsmith import Client
 
 from nimbus import answer
@@ -132,14 +131,6 @@ def test_a_failed_tool_call_ends_failed_and_the_model_reads_our_sentence() -> No
     assert (failed.failed, failed.content, failed.record) == (True, WEATHER_UNREACHABLE, None)
     results = [message for message in model.seen[2] if isinstance(message, ToolMessage)]
     assert results[-1].content == WEATHER_UNREACHABLE
-
-
-def test_five_calls_to_the_model_may_answer_and_a_sixth_fails_the_answer() -> None:
-    # LangGraph counts each node's run: 5 calls to the model and 4 rounds of tools fit in its limit of 10.
-    assert "".join(words(collect(FakeModel(tool_steps=[GEOCODE_PARIS] * 4)))) == ANSWER
-    with pytest.raises(ModelFailedError) as caught:
-        collect(FakeModel(tool_steps=[GEOCODE_PARIS] * 5))
-    assert isinstance(caught.value.__cause__, GraphRecursionError)
 
 
 @pytest.mark.parametrize(

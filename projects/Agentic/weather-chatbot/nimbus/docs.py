@@ -75,6 +75,16 @@ CHAPTERS: tuple[DocPage, ...] = (
             "the weather only, and answers by the TypeScript version's 13 rules."
         ),
     ),
+    DocPage(
+        slug="step-5",
+        path="/docs/step-5",
+        label="Step 5: The Agent as a Graph of Our Own",
+        summary=(
+            "A LangGraph graph of our own in place of the prebuilt agent: its last call to the model with the tools "
+            "turned off, so every answer ends in words; each tool call a task of its own; and time limits on each "
+            "call's first words and on each tool call."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

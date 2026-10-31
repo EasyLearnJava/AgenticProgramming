@@ -319,3 +319,14 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     for "²", which `float()` refuses, so a 429 with that header would have failed as `ContractError`, not as busy.
     **Fix:** ASCII digits only (`isascii()` and `isdecimal()`). **Check:** a unit test with the byte httpx2 reads as
     "²"; the mutation check's "a Retry-After is read from ASCII digits only".
+
+## Step 5 · The Agent as a Graph of Our Own
+
+55. **The mutation check grew past ten minutes, and a stopped one left a rule broken.** *The captured run.* Each of
+    the 100 rules ran the whole unit suite, about 9 s, one after the other: on a computer short of memory, the check
+    took more than ten minutes, past a command's time limit, and was stopped twice. Each time it was stopped with a
+    rule broken in place, in `nimbus/prompts.py`, then `nimbus/weather.py`, and its `finally` never ran to put the
+    file back; both were restored from git. **Fix:** each rule runs only the test files that guard its module, and
+    the whole suite for the constants, or for a rule those files miss, before it's called missed; two workers run the
+    rules, each in a copy of the project, so the files you work on are never changed. The check takes 3 minutes.
+    **Check:** 100 of 100 caught, in the rules' order; `git status` unchanged after the run.

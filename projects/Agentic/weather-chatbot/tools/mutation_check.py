@@ -1,15 +1,51 @@
 """
 tools/mutation_check.py: proves the unit tests guard the app's rules. Each mutation breaks one rule in the code, the
-way a bug would; the unit tests must fail with it. Every file is put back as it was, whatever happens. Run it from the
-project's folder: `uv run python tools/mutation_check.py`.
+way a bug would; the unit tests must fail with it. Each rule runs the test files that guard its module, and the whole
+suite for the constants, or for a rule those files miss before it's called missed. Two workers run the rules, each in
+a copy of the project, so your files are never changed, even by a check that's stopped. Run it from the project's
+folder: `uv run python tools/mutation_check.py` (MUTATION_WORKERS sets how many workers).
 """
 
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import NamedTuple
+from queue import Queue
+from typing import Final, NamedTuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# What a copy of the project leaves out: the environment, which the copies share through this same Python; caches; and
+# any .env file, which may hold a key, and which no test reads.
+NOT_COPIED: Final = shutil.ignore_patterns(
+    ".venv", ".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".env*"
+)
+# How long one run of the tests may take: a mutation that made a test wait forever fails it, rather than hang the check.
+TESTS_TIMEOUT_SECONDS: Final = 600
+# The test files that guard each module: a rule in it runs these. A module not here, the constants included, runs all.
+TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
+    "nimbus/agent.py": ("test_agent.py", "test_answer.py"),
+    "nimbus/answer.py": ("test_answer.py", "test_agent.py", "test_chat.py"),
+    "nimbus/app.py": ("test_model.py", "test_pages.py", "test_chat.py"),
+    "nimbus/chat.py": ("test_chat.py",),
+    "nimbus/chips.py": ("test_chips.py", "test_chat.py"),
+    "nimbus/config.py": ("test_config.py", "test_model.py"),
+    "nimbus/docs.py": ("test_docs.py", "test_pages.py"),
+    "nimbus/errors.py": ("test_errors.py", "test_chat.py"),
+    "nimbus/health.py": ("test_health.py",),
+    "nimbus/logger.py": ("test_logger.py",),
+    "nimbus/middleware.py": ("test_middleware.py",),
+    "nimbus/model.py": ("test_model.py",),
+    "nimbus/open_meteo.py": ("test_open_meteo.py", "test_tools.py"),
+    "nimbus/pages.py": ("test_pages.py", "test_docs.py"),
+    "nimbus/prompts.py": ("test_prompts.py", "test_chat.py"),
+    "nimbus/tools.py": ("test_tools.py", "test_answer.py", "test_agent.py"),
+    "nimbus/utils.py": ("test_utils.py", "test_logger.py", "test_middleware.py"),
+    "nimbus/weather.py": ("test_weather.py", "test_tools.py"),
+    "templates/chat.html": ("test_pages.py", "test_chat.py"),
+}
 
 
 class Mutation(NamedTuple):
@@ -420,7 +456,7 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/tools.py",
-        "raise ToolException(error.user_message) from error",
+        "raise ToolException(failure.user_message) from error",
         "raise",
         "Open-Meteo's failure reaches the model as our sentence",
     ),
@@ -452,13 +488,38 @@ MUTATIONS = (
         "nimbus/constants.py",
         "AGENT_RECURSION_LIMIT: Final = 2 * MAX_MODEL_CALLS",
         "AGENT_RECURSION_LIMIT: Final = 9_999",
-        "an answer makes 5 calls to the model at most",
+        "LangGraph's recursion limit stays a backstop of 10",
     ),
     Mutation(
         "nimbus/answer.py",
         'failed = message.status == "error"',
         "failed = False",
         "a failed tool call is marked failed",
+    ),
+    # Step 5: our own graph.
+    Mutation(
+        "nimbus/agent.py",
+        'tool_choice="none" if calls >= MAX_MODEL_CALLS else "auto"',
+        'tool_choice="auto"',
+        "the last call to the model has its tools turned off",
+    ),
+    Mutation(
+        "nimbus/constants.py",
+        "MAX_MODEL_CALLS: Final = 5",
+        "MAX_MODEL_CALLS: Final = 6",
+        "an answer makes 5 calls to the model at most",
+    ),
+    Mutation(
+        "nimbus/agent.py",
+        "async with asyncio.timeout(MODEL_FIRST_CHUNK_SECONDS):",
+        "async with asyncio.timeout(None):",
+        "each call's first words come within 10 s",
+    ),
+    Mutation(
+        "nimbus/tools.py",
+        "async with asyncio.timeout(TOOL_TIMEOUT_SECONDS):",
+        "async with asyncio.timeout(None):",
+        "a tool call ends within 8 s",
     ),
     Mutation(
         "nimbus/answer.py",
@@ -493,31 +554,67 @@ MUTATIONS = (
 )
 
 
-def is_caught(mutation: Mutation) -> bool:
-    """Whether the unit tests fail with this mutation in place; the file is put back afterwards."""
-    path = PROJECT_ROOT / mutation.file
+def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
+    """
+    Whether the unit tests fail in the copy: these test files, or, given none, the whole suite. Tests that run past
+    10 minutes count as failing: the mutation made one wait forever.
+    """
+    targets = [f"tests/unit/{name}" for name in test_files]
+    # The unit tests, with this same Python: `uv run` started it in the project's environment. The files named are
+    # this script's own, never anyone's input.
+    try:
+        tests = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", *targets],
+            cwd=copy,
+            capture_output=True,
+            check=False,
+            timeout=TESTS_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return True
+    return tests.returncode != 0
+
+
+def is_caught(mutation: Mutation, copy: Path) -> bool:
+    """
+    Whether the unit tests fail with this mutation in place, in a copy of the project: the module's own test files
+    first, then, if they pass, the whole suite. The copy's file is put back afterwards.
+    """
+    path = copy / mutation.file
     original = path.read_text(encoding="utf-8")
     if original.count(mutation.old) != 1:
         raise RuntimeError(f"{mutation.file} doesn't hold this text exactly once: {mutation.old!r}")
     try:
         path.write_text(original.replace(mutation.old, mutation.new, 1), encoding="utf-8", newline="\n")
-        # The unit tests, with this same Python: `uv run` started it in the project's environment.
-        tests = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider"],
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            check=False,
-        )
-        return tests.returncode != 0
+        test_files = TESTS_FOR.get(mutation.file, ())
+        return (bool(test_files) and _fails(copy, test_files)) or _fails(copy, ())
     finally:
         path.write_text(original, encoding="utf-8", newline="\n")
 
 
 def main() -> int:
-    """Runs every mutation and says which the tests caught; 1 if any wasn't."""
+    """Runs every mutation and says which the tests caught, in the rules' order; 1 if any wasn't."""
+    workers = max(1, int(os.environ.get("MUTATION_WORKERS", "2")))
+    with tempfile.TemporaryDirectory(prefix="mut") as scratch:
+        # Each worker takes a copy of the project from the queue, and gives it back when its rule is done.
+        copies: Queue[Path] = Queue()
+        for index in range(workers):
+            copy = Path(scratch) / str(index)
+            shutil.copytree(PROJECT_ROOT, copy, ignore=NOT_COPIED)
+            copies.put(copy)
+
+        def check(mutation: Mutation) -> bool:
+            """One rule, in whichever copy is free."""
+            copy = copies.get()
+            try:
+                return is_caught(mutation, copy)
+            finally:
+                copies.put(copy)
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            results = list(pool.map(check, MUTATIONS))
     missed = 0
-    for mutation in MUTATIONS:
-        caught = is_caught(mutation)
+    for mutation, caught in zip(MUTATIONS, results, strict=True):
         missed += not caught
         print(f"{'caught' if caught else 'MISSED'}: {mutation.rule}")
     print(f"{len(MUTATIONS) - missed} of {len(MUTATIONS)} caught")

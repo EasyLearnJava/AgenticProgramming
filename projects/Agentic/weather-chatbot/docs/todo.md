@@ -18,8 +18,8 @@ What's still open in the Python rebuild, and why. The TypeScript version's list 
 
 ## Next
 
-- **Step 5:** the agent as a LangGraph graph of our own: a step limit, a last call to the model with no tools, so
-  every answer ends in words, and a time limit on each step.
+- **Step 6:** the chat's memory: the conversation kept in the browser and sent back with each question, as
+  untrusted input (only the visitor's and Nimbus's text, checked and capped, never a tool result); and New chat.
 - **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build
   label can name another project's commit (issue 21); an `ignoreCommand` in `vercel.json` would end the build when
   this folder hasn't changed.
