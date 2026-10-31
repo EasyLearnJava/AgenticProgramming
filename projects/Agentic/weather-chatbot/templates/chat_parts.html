@@ -1,0 +1,34 @@
+{#
+  templates/chat_parts.html: the chat's messages, as macros the page and each event of an answer share (nimbus/chat.py):
+  your question, Nimbus's answer (being written and busy, finished, or failed), and a message that's only an error.
+#}
+{% macro bot_meta() -%}
+<p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
+{%- endmacro %}
+
+{% macro user_message(question) -%}
+<li class="message message-user">
+  <p class="message-meta"><span>You</span></p>
+  <div class="bubble bubble-user"><p>{{ question }}</p></div>
+</li>
+{%- endmacro %}
+
+{% macro bot_message(turn_id, answer="", busy=False, failed=False, note="") -%}
+<li class="message message-bot{% if failed %} message-error{% endif %}" id="turn-{{ turn_id }}"
+  {%- if busy %} aria-busy="true"{% endif %}>
+  {{ bot_meta() }}
+  <div class="bubble bubble-bot">
+    <p class="answer" id="answer-{{ turn_id }}">{{ answer }}</p>
+    {%- if note %}
+    <p class="message-note">{{ note }}</p>
+    {%- endif %}
+  </div>
+</li>
+{%- endmacro %}
+
+{% macro error_message(text) -%}
+<li class="message message-bot message-error">
+  {{ bot_meta() }}
+  <div class="bubble bubble-bot"><p class="message-note">{{ text }}</p></div>
+</li>
+{%- endmacro %}

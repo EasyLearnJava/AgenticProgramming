@@ -11,16 +11,16 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from nimbus.constants import REQUEST_ID_HEADER, SECURITY_HEADERS, VERCEL_ID_HEADER
-from nimbus.utils import to_request_id
+from nimbus.utils import to_ms, to_request_id
 
-MS_PER_SECOND = 1000
 HTTP_SERVER_ERROR = 500
 
 
 class RequestContextMiddleware:
     """
-    Gives each request its id, puts the id on every line it logs and on its response, and logs one line when it ends:
-    the method, the path (never the query string, which can hold what a user typed), the status and the time it took.
+    Gives each request its id, puts the id on every line it logs, on its response and in its state, and logs one line
+    when it ends: the method, the path (never the query string, which can hold what a user typed), the status and the
+    time it took.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -32,8 +32,10 @@ class RequestContextMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        # ① The request's id: Vercel's own, when it looks like one, else a new one.
+        # ① The request's id: Vercel's own, when it looks like one, else a new one; the app finds it in the request's
+        # state (request.state.request_id), for the ref an error's sentence ends with.
         request_id = to_request_id(Headers(scope=scope).get(VERCEL_ID_HEADER))
+        scope.setdefault("state", {})["request_id"] = request_id
         status = HTTP_SERVER_ERROR
         error_class: str | None = None
         started = time.perf_counter()
@@ -60,7 +62,7 @@ class RequestContextMiddleware:
                     "method": scope["method"],
                     "path": scope["path"],
                     "status": status,
-                    "ms": round((time.perf_counter() - started) * MS_PER_SECOND),
+                    "ms": to_ms(time.perf_counter() - started),
                 }
                 log = structlog.get_logger()
                 if error_class is None:

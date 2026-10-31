@@ -45,6 +45,16 @@ CHAPTERS: tuple[DocPage, ...] = (
             "from Markdown; a request id on every log line; the security headers; CI; and the first deploy to Vercel."
         ),
     ),
+    DocPage(
+        slug="step-2",
+        path="/docs/step-2",
+        label="Step 2: The Chat Streams Its Answer",
+        summary=(
+            "POST /api/chat streams a fixed answer as server-sent events of HTML, which htmx 4 puts into the page a "
+            "word at a time; Stop ends it, on the page and on the server; and our own sentence for each thing that "
+            "can go wrong."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),

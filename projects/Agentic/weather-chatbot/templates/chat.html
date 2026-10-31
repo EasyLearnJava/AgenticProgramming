@@ -1,8 +1,18 @@
 {#
-  templates/chat.html: the chat page: its card, the welcome, and the input. In step 1 the input is off: step 2 makes
-  the chat answer, and step 4 brings the weather.
+  templates/chat.html: the chat page: its card, the conversation, and the form. htmx posts each question to /api/chat
+  and adds each event of the answer's stream to the conversation (hx-post, hx-target, hx-swap); a second question is
+  dropped while an answer streams (hx-sync). Without htmx, the form still posts (method, action), so a question never
+  goes into the address. public/static/chat.js does what htmx doesn't: Stop, and our own sentences when no answer can
+  come; they're held here, on the conversation's data-* attributes. Step 4 brings the weather.
 #}
 {% extends "base.html" %}
+{% from "chat_parts.html" import bot_meta, error_message %}
+{% block head %}
+    <meta name="htmx-config" content='{"extensions": "sse", "includeIndicatorCSS": false, "history": false}'>
+    <script src="/static/htmx.min.js" defer></script>
+    <script src="/static/hx-sse.min.js" defer></script>
+    <script src="/static/chat.js" defer></script>
+{% endblock %}
 {% block content %}
 <main class="chat-page">
   <section class="chat-card" aria-labelledby="chat-title">
@@ -14,23 +24,30 @@
         </p>
       </div>
     </header>
-    <ol class="messages" aria-label="Conversation">
+    <ol id="messages" class="messages" aria-label="Conversation" aria-live="polite"
+      data-stopped="{{ stopped }}" data-cut-off="{{ cut_off }}" data-unreachable="{{ unreachable }}">
       <li class="message message-bot">
-        <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
+        {{ bot_meta() }}
         <div class="bubble bubble-bot">
           <p>
-            Hi, I'm Nimbus, a weather chatbot being rebuilt in Python, one step at a time. I can't answer yet: the
-            chat comes in step 2, and the weather in step 4. The Documentation shows each step as it's built.
+            Hi, I'm Nimbus, a weather chatbot being rebuilt in Python, one step at a time. Ask me anything: for now I
+            answer every question with the same reply, streamed a word at a time. Gemini comes in step 3, and the
+            weather in step 4. The Documentation shows each step as it's built.
           </p>
         </div>
       </li>
     </ol>
+    <template id="chat-error-template">{{ error_message("") }}</template>
     <div class="chat-input-area">
-      <form class="chat-input" aria-label="Ask about the weather">
+      <form id="chat-form" class="chat-input" method="post" action="/api/chat" hx-post="/api/chat"
+        hx-target="#messages" hx-swap="beforeend" hx-sync="this:drop" aria-label="Ask about the weather">
         <label class="visually-hidden" for="question">Your question</label>
-        <input id="question" type="text" placeholder="The chat opens in step 2" autocomplete="off" disabled>
-        <button type="submit" class="send-button" disabled>Send</button>
+        <input id="question" name="question" type="text" placeholder="Ask about the weather anywhere"
+          autocomplete="off" maxlength="{{ question_max_chars }}" required>
+        <button id="send" type="submit" class="send-button">Send</button>
+        <button id="stop" type="button" class="stop-button">Stop</button>
       </form>
+      <noscript><p class="chat-noscript">The chat needs JavaScript; the documentation doesn't.</p></noscript>
     </div>
   </section>
 </main>

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" width="960" height="760" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 2 · How a question's answer streams</title>
+  <desc id="d">The chat page's form posts the question to /api/chat with htmx. The chat route reads and checks the form: a broken rule gets our own sentence, with its status. Otherwise the answer streams back as server-sent events of HTML: first the question and Nimbus's empty, busy answer, which htmx adds to the conversation; then a piece per word, each added to that answer; then the finished answer in its place. Stop aborts the request, and the server, hearing the browser go, ends the stream and logs it as aborted; a failure shows the answer so far, our own sentence and its ref. Each step writes a log line.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="744" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 2 · How a question's answer streams</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">From the form to each word on your screen, and Stop</text>
+
+  <!-- Row 1: the browser, and the chat's route -->
+  <rect x="40" y="100" width="300" height="112" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">Your browser: the chat page</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">the form: htmx 4's hx-post</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">hx-sync this:drop: one at a time</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">chat.js: Stop, our own sentences</text>
+  <line x1="340" y1="156" x2="398" y2="156" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="369" y="146" font-size="11" fill="#4b5563" text-anchor="middle">POST</text>
+
+  <rect x="400" y="100" width="520" height="112" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="416" y="126" font-size="15" font-weight="700" fill="#053b30">nimbus/chat.py: chat(), POST /api/chat</text>
+  <text x="416" y="148" font-size="13" fill="#1f2937">read_chat_request(): a form · at most 32 KiB · each field once</text>
+  <text x="416" y="167" font-size="13" fill="#1f2937">ChatRequest: the question, trimmed, 1 to 2,000 characters</text>
+  <text x="416" y="186" font-size="13" fill="#1f2937">a broken rule: 400, 413 or 415, our sentence, x-nimbus-error</text>
+  <line x1="660" y1="212" x2="660" y2="238" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: the stream -->
+  <rect x="40" y="240" width="880" height="226" rx="16" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="60" y="268" font-size="15" font-weight="700" fill="#053b30">stream_turn(): the answer, as server-sent events of HTML, in an EventStream</text>
+  <rect x="60" y="284" width="268" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="76" y="308" font-size="15" font-weight="700" fill="#053b30">① The turn</text>
+  <text x="76" y="330" font-size="13" fill="#1f2937">your question, and Nimbus's</text>
+  <text x="76" y="349" font-size="13" fill="#1f2937">answer, empty and aria-busy</text>
+  <text x="76" y="368" font-size="13" fill="#1f2937">htmx adds both to the end</text>
+  <text x="76" y="387" font-size="13" fill="#1f2937">of #messages (beforeend)</text>
+  <rect x="346" y="284" width="268" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="362" y="308" font-size="15" font-weight="700" fill="#053b30">② A piece per word</text>
+  <text x="362" y="330" font-size="13" fill="#1f2937">answer.py: the fixed answer,</text>
+  <text x="362" y="349" font-size="13" fill="#1f2937">a word every 60 ms</text>
+  <text x="362" y="368" font-size="13" fill="#1f2937">each an hx-partial, added to</text>
+  <text x="362" y="387" font-size="13" fill="#1f2937">the end of #answer-ID</text>
+  <rect x="632" y="284" width="268" height="124" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="648" y="308" font-size="15" font-weight="700" fill="#053b30">③ The end</text>
+  <text x="648" y="330" font-size="13" fill="#1f2937">the finished answer, no</text>
+  <text x="648" y="349" font-size="13" fill="#1f2937">longer busy, in the place of</text>
+  <text x="648" y="368" font-size="13" fill="#1f2937">#turn-ID (outerHTML)</text>
+  <text x="648" y="387" font-size="13" fill="#1f2937">then chat.done is logged</text>
+  <line x1="328" y1="346" x2="344" y2="346" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="614" y1="346" x2="630" y2="346" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="60" y="438" font-size="13" fill="#1f2937">text/event-stream · no-store · however it ends, its source is closed within the request, so</text>
+  <text x="60" y="456" font-size="13" fill="#1f2937">the answer's last line comes before the request's own; a browser that has gone isn't an error</text>
+
+  <!-- Row 3: Stop, and a failure -->
+  <rect x="40" y="486" width="430" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="512" font-size="15" font-weight="700" fill="#053b30">④ Stop</text>
+  <text x="56" y="534" font-size="13" fill="#1f2937">chat.js: htmx:abort, and the browser drops the stream</text>
+  <text x="56" y="553" font-size="13" fill="#1f2937">the server hears it go and cancels the stream</text>
+  <text x="56" y="572" font-size="13" fill="#1f2937">chat.aborted, never an error · the page: "Stopped."</text>
+  <rect x="490" y="486" width="430" height="104" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="506" y="512" font-size="15" font-weight="700" fill="#053b30">⑤ A failure</text>
+  <text x="506" y="534" font-size="13" fill="#1f2937">the answer so far, then our own sentence and its</text>
+  <text x="506" y="553" font-size="13" fill="#1f2937">ref, the end of the request's id: "(ref 33a7af21)"</text>
+  <text x="506" y="572" font-size="13" fill="#1f2937">chat.failed: the error's class, never its text</text>
+
+  <!-- The logs -->
+  <rect x="40" y="606" width="880" height="50" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="56" y="636" font-size="13" fill="#1f2937"><tspan font-weight="700" fill="#7c2d12">The logs: </tspan>chat.request (the question's length, never its text) · chat.done, aborted or failed · http.request</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="672" width="880" height="64" rx="12" fill="#053b30"/>
+  <text x="60" y="698" font-size="14" font-weight="700" fill="#ffffff">The server makes every event's HTML, every value escaped; htmx puts it in place.</text>
+  <text x="60" y="720" font-size="14" fill="#defcf6">Our own script only ever adds text, and no script is inline: the policy still allows only our files.</text>
+</svg>

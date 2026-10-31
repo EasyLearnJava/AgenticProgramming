@@ -13,7 +13,7 @@ working, and each with a chapter written while it's built. The first version's p
 | Language | Python 3.13, async throughout |
 | Packages | uv: `pyproject.toml` and `uv.lock`, exact versions |
 | Web framework | FastAPI; Uvicorn on a computer |
-| Pages | Jinja2 templates; HTMX with its server-sent-events extension (from step 2); plain CSS |
+| Pages | Jinja2 templates; htmx 4 with its server-sent-events extension (from step 2); plain CSS |
 | Markdown | markdown-it-py, raw HTML off: the answers and the docs |
 | Agent | LangGraph (from step 4) |
 | Model | Gemini, through `langchain-google-genai` (from step 3) |
@@ -37,7 +37,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 | Step | What it builds | What you do |
 |---|---|---|
 | 1 | The project: uv, FastAPI, Ruff, mypy, pytest, CI, the first deploy; the page shell in Jinja2; the docs, the deprecated ones included, and the System design page; security headers; JSON logs with a request id | Switch the Framework Preset to FastAPI (done); delete the three `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` variables |
-| 2 | The chat streams a fixed answer over server-sent events with HTMX; Stop; our own error sentences | |
+| 2 | The chat streams a fixed answer over server-sent events with htmx; Stop; the question's checks and our own error sentences | |
 | 3 | Gemini through LangChain, streamed; the system prompt; the input rules | |
 | 4 | The four weather tools and a prebuilt agent: the REST · no auth lane; tool chips with the wire view; LangSmith | The LangSmith variables (done) |
 | 5 | The agent as our own LangGraph graph: step limit, last step without tools, time limits | |

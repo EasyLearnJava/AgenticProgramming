@@ -1,10 +1,10 @@
-"""tests/unit/test_utils.py: the shared helpers: request ids and times."""
+"""tests/unit/test_utils.py: the shared helpers: request ids, refs and turn ids, times, and server-sent events."""
 
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from nimbus.utils import new_request_id, to_iso, to_request_id
+from nimbus.utils import new_request_id, new_turn_id, to_iso, to_ms, to_ref, to_request_id, to_sse_message
 
 HEX = set("0123456789abcdef")
 
@@ -36,3 +36,33 @@ def test_a_moment_is_written_in_utc_to_the_millisecond() -> None:
     assert to_iso(datetime(2026, 10, 30, 19, 57, 20, 324_567, tzinfo=UTC)) == "2026-10-30T19:57:20.324Z"
     dallas = timezone(timedelta(hours=-5))
     assert to_iso(datetime(2026, 10, 30, 14, 57, tzinfo=dallas)) == "2026-10-30T19:57:00.000Z"
+
+
+def test_a_ref_is_the_last_8_letters_and_digits_of_a_request_id() -> None:
+    assert to_ref("cle1::v9h4q-1793390239541-fa4d33a7af21") == "33a7af21"
+    assert to_ref("0123456789abcdef") == "89abcdef"
+    assert to_ref("a-b.c:d") == "abcd"
+
+
+def test_a_new_turn_id_is_16_hex_characters_and_new_each_time() -> None:
+    first, second = new_turn_id(), new_turn_id()
+    assert len(first) == 16
+    assert set(first) <= HEX
+    assert first != second
+
+
+def test_a_time_in_seconds_is_written_in_whole_milliseconds() -> None:
+    assert to_ms(1.2346) == 1235
+    assert to_ms(0.0004) == 0
+
+
+def test_a_server_sent_event_puts_each_line_of_its_data_on_a_data_line_and_ends_with_a_blank_line() -> None:
+    assert to_sse_message("one") == "data: one\n\n"
+    assert to_sse_message("<li>\n  <p>two</p>\n</li>") == "data: <li>\ndata:   <p>two</p>\ndata: </li>\n\n"
+    assert to_sse_message("") == "data: \n\n"
+
+
+def test_a_server_sent_event_breaks_lines_only_where_the_browser_does() -> None:
+    # The browser ends a line at \r\n, \r or \n, and nowhere else: Python's splitlines() would also break at \u2028.
+    assert to_sse_message("a\r\nb\rc\nd") == "data: a\ndata: b\ndata: c\ndata: d\n\n"
+    assert to_sse_message("keep\u2028this") == "data: keep\u2028this\n\n"

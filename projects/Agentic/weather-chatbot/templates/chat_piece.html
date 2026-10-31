@@ -1,0 +1,5 @@
+{#
+  templates/chat_piece.html: one piece of an answer, as it comes. htmx's <hx-partial> puts its text at the end of this
+  turn's answer, wherever that is in the page.
+#}
+<hx-partial hx-target="#answer-{{ turn_id }}" hx-swap="beforeend">{{ text }}</hx-partial>

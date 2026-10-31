@@ -30,6 +30,12 @@ def test_every_page_has_a_title(slug: str) -> None:
     assert title_of(read_markdown(slug)) != ""
 
 
+@pytest.mark.parametrize("slug", sorted(ALL_DOCS))
+def test_no_page_holds_an_invisible_line_separator(slug: str) -> None:
+    # U+2028 and U+2029 don't show on the screen, and a tool can write one where an escape was meant (issue 26).
+    assert not {chr(0x2028), chr(0x2029)} & set(read_markdown(slug))
+
+
 def test_keeps_all_the_typescript_apps_pages_each_marked_deprecated() -> None:
     deprecated = [*DEPRECATED_STEPS, *DEPRECATED_PAGES]
     assert len(DEPRECATED_STEPS) == 9

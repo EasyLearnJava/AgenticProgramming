@@ -7,8 +7,9 @@ working, and has a chapter written while it was built: the design, the code that
 met, and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
 
 **In one line:** your browser → Vercel → the FastAPI app: the security headers, the request's id, the router → a page
-from a Jinja2 template, or JSON → back to you, with one log line. (From step 2, answers stream in; from step 4, an
-agent calls the weather tools.)
+from a Jinja2 template, JSON, or a question's answer, streamed as server-sent events of HTML that htmx puts into the
+page → back to you, with its log lines. (From step 3, Gemini writes the answer; from step 4, an agent calls the weather
+tools.)
 
 ## What you'll build
 
@@ -36,9 +37,9 @@ mutation check; and CI and deploys to Vercel on every push.
 | File or folder | What it holds |
 |---|---|
 | `main.py` | The entry point: `app = create_app()`, which Vercel and Uvicorn both look for |
-| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `utils.py` |
-| `templates/` | The Jinja2 templates: the shell with the menu, the chat, a list of pages, a page, the 404 page |
-| `public/static/` | The stylesheet and the icon, served by Vercel's CDN |
+| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `answer.py`, `errors.py`, `utils.py` |
+| `templates/` | The Jinja2 templates: the shell with the menu, the chat and the HTML of its answer's events, a list of pages, a page, the 404 page |
+| `public/static/` | The stylesheet, the icon, htmx 4 and its stream extension, and our `chat.js`, served by Vercel's CDN |
 | `docs/` | The chapters (`step-N.md`), the system design, the issues log, the interview guide, the to-do list, the TypeScript version's pages (`*_deprecated.md`), and their pictures (`images/`) |
 | `tests/unit/`, `tests/e2e/` | The tests: the app called in memory, and the app in a real browser |
 | `tools/mutation_check.py` | Breaks each of the app's rules on purpose, and checks a test fails |
@@ -56,8 +57,9 @@ Each step's chapter explains it, in order:
 | Step | Chapter | Status |
 |---|---|---|
 | 1 | [The Project, Its Pages and Its First Deploy](docs/step-1.md) | Done |
-| 2 | The chat streams its answer, with HTMX | Next |
-| 3 to 13 | See [PLAN.md](PLAN.md) | To come |
+| 2 | [The Chat Streams Its Answer](docs/step-2.md) | Done |
+| 3 | Gemini's answer, through LangChain | Next |
+| 4 to 13 | See [PLAN.md](PLAN.md) | To come |
 
 ## Run it
 
@@ -65,8 +67,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [11752] using StatReload
-INFO:     Started server process [39204]
+INFO:     Started reloader process [38084] using StatReload
+INFO:     Started server process [47604]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -75,9 +77,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 9, "event": "http.request", "level": "info",
- "ts": "2026-10-31T03:23:15.203317Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "4a1492eb0ddc4e75"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 8, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T05:04:27.860511Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "9745b7c58601469f"}
 ```
 
 ## Test it
@@ -86,21 +88,21 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-49 files already formatted
+57 files already formatted
 $ uv run mypy
-Success: no issues found in 26 source files
+Success: no issues found in 33 source files
 $ uv run pytest
-121 passed in 0.63s
+193 passed in 1.19s
 $ uv run pytest tests/e2e --browser-channel msedge
-94 passed in 44.24s
+109 passed in 74.17s (0:01:14)
 $ uv run python tools/mutation_check.py
 ...
-16 of 16 caught
+38 of 38 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
-22 pages (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints its platform line
-and each test's dot, and the mutation check a line per rule (step 1's chapter lists them).
+23 pages and in the chat (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints
+its platform line and each test's dot, and the mutation check a line per rule (each chapter lists its own).
 
 ## When things go wrong
 
@@ -110,6 +112,7 @@ and each test's dot, and the mutation check a line per rule (step 1's chapter li
 | `error: Duplicate module named "conftest" (also at "tests\e2e\conftest.py")` | Two test folders without `__init__.py` | Keep the `__init__.py` files in `tests/` (issue 8) |
 | `ModuleNotFoundError: No module named 'nimbus'` | A script run from another folder: Python looks in the script's folder, not yours | `PYTHONPATH=.` before the command (issue 6) |
 | `Cannot navigate to invalid URL` with `C:/Program Files/Git/...` | Git Bash turned an argument starting with `/` into a Windows path | `MSYS_NO_PATHCONV=1` before the command (issue 6) |
+| `The chat couldn't read that request.`, with `415` | A question sent as JSON, or without the form's type | Send a form, `application/x-www-form-urlencoded`, as the page does; curl's `-d` does too |
 | `ValidationError: 1 validation error for Settings` / `vercel_env` / `Input should be 'production', 'preview' or 'development'` | A setting with a value the app doesn't know, here `VERCEL_ENV=staging` | Fix or remove the value; the error names the setting |
 
 ## Things to try
@@ -118,16 +121,19 @@ and each test's dot, and the mutation check a line per rule (step 1's chapter li
   you forget either. A page outside `/docs/`, in `PAGES`, also needs its route in `nimbus/pages.py`.
 - Put `LOG_LEVEL=warning` in `.env.local`, restart, and watch the request lines stop.
 - Send a forged id: `curl -i -H "x-vercel-id: not an id" http://127.0.0.1:8000/api/health` gets a new one back.
+- Watch an answer stream: `curl -N --data-urlencode "question=Hi" http://127.0.0.1:8000/api/chat` prints each event
+  as it comes.
 
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter
-per step ([step 1](docs/step-1.md)), the **System design** ([`docs/system-design.md`](docs/system-design.md)),
-**Issues and fixes** ([`docs/issues.md`](docs/issues.md)), the **Interview guide**
-([`docs/interview.md`](docs/interview.md)) and **To do** ([`docs/todo.md`](docs/todo.md)). The TypeScript version's
-pages are kept under **Deprecated**: its steps, System design, Technical details, Issues and fixes, Interview guide
-and To do, each named `*_deprecated` ([README_deprecated.md](README_deprecated.md) links them all).
+per step ([step 1](docs/step-1.md), [step 2](docs/step-2.md)), the **System design**
+([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes** ([`docs/issues.md`](docs/issues.md)), the
+**Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do** ([`docs/todo.md`](docs/todo.md)). The
+TypeScript version's pages are kept under **Deprecated**: its steps, System design, Technical details, Issues and
+fixes, Interview guide and To do, each named `*_deprecated` ([README_deprecated.md](README_deprecated.md) links them
+all).
 
 ## Next
 
-[Step 1's chapter](docs/step-1.md), then step 2: the chat streams its answer.
+[Step 2's chapter](docs/step-2.md), then step 3: Gemini answers, through LangChain.

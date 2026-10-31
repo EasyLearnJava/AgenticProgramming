@@ -124,3 +124,61 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     the label no longer says which commit last changed Nimbus. **Fix:** the System design says so; skipping those
     deploys (an `ignoreCommand` in `vercel.json` that ends the build when this folder hasn't changed) is on To do.
     **Check:** `/api/health`'s commit, after a push that changes only another project.
+
+## Step 2 · The Chat Streams Its Answer
+
+22. **Stop would have been an error on some servers, and logged late on others.** *Reading a package's code*
+    (Starlette's `StreamingResponse`, before the stream was written). Starlette hears the browser go in one of two ways,
+    by the server's ASGI version: under 2.3, which Uvicorn speaks, it listens for `http.disconnect` and cancels the
+    stream; under 2.4, the next send fails and it raises `ClientDisconnect`, which would have reached the middleware and
+    been logged as an error, for every Stop. And when the cancel lands during a send, the generator is left at its
+    `yield`, closed only when Python collects it: after the request's own line, outside the request's log context.
+    **Fix:** `EventStream` closes its source as soon as the stream ends, however it ends, and takes `ClientDisconnect`
+    as the browser leaving; the generator logs `chat.aborted` on `asyncio.CancelledError` and on `GeneratorExit`.
+    **Check:** two unit tests play each kind of server and want `chat.aborted` before the request's line, with no
+    error; three mutation rules.
+23. **A test caught no log lines.** *Checking our work* (a failing test). The Stop test built its app inside
+    `capture_logs()`; building the app sets structlog up afresh (`configure_logging()`), which undid the capture, so
+    the lines went to stdout. **Fix:** each test builds the app before the capture starts. **Check:** the Stop tests,
+    which fail when no line is caught.
+24. **Two limits no test held.** *Checking our work* (the mutation check). Raising the question's limit from 2,000
+    characters, or the body's from 32 KiB, failed no test: every test took its numbers from the same constants, and so
+    followed the change. **Fix:** one test states both limits in numbers. **Check:** the mutation check's "a question
+    is at most 2,000 characters" and "a body over 32 KiB is refused".
+25. **A test's number rounded the other way.** *Checking our work* (a failing test). `to_ms(1.2345)` gave 1234, not
+    1235: 1.2345 × 1000 comes out as exactly 1234.5, and `round()` rounds a half to the even 1234. (Step 2's chapter
+    first said the product was 1234.4999…; issue 30.) **Fix:** the test uses 1.2346. **Check:** the test itself.
+26. **An escape arrived as the character itself.** *Checking our work* (reading the file back). A test's `\u2028`,
+    appended to the file through a shell command, arrived as the line-separator character itself, invisible on the
+    screen. **Fix:** a script wrote the escape back, and tests are edited with an editor, not through the shell.
+    **Check:** the line-break test's source shows `\u2028`; and since step 2's chapter met the same
+    trouble (issue 30), a test checks that no page holds U+2028 or U+2029.
+27. **A browser that left before the first event left no line saying how the answer ended.** *The review* (a probe
+    that played a server whose first send failed). The stream's generator logs how an answer ends, in its `except`;
+    but a generator closed before it has started runs none of its code, and the generator only started when the
+    stream asked for its first event, after the response's start had been sent. A browser gone by then left
+    `chat.request` and the request's line, and nothing between. **Fix:** the route makes the turn's first event
+    itself, before the response starts (`first = await anext(turn)`), and `EventStream` closes the generator, and the
+    stream it feeds, as the response ends. **Check:** two unit tests, under ASGI 2.3 and 2.4, where the browser goes
+    before the response starts; the mutation check's "an answer starts before its response".
+28. **Without htmx, the form would have put the question in the address.** *The review.* The form had no `method` or
+    `action`, so with htmx missing (a script blocked, or still loading), Enter sent `GET /?question=…`: the question
+    in the address, the browser's history, and any log that keeps addresses. **Fix:** `method="post"` and
+    `action="/api/chat"`. **Check:** a page test; the mutation check's "without htmx, a question never goes into the
+    address".
+29. **A question could vanish from the box with nothing shown.** *The review.* The script cleared the box when the
+    stream opened, on its headers; a stream that then ended with no event left the box empty and no message.
+    **Fix:** the box is cleared on the answer's first event, and a stream that ends before one says it was cut off.
+    **Check:** a browser test with an empty stream.
+30. **Wrong explanations, and a raw line separator, in step 2's chapter.** *The review.* It said a server speaking
+    ASGI 2.4 sends no `http.disconnect` (every version does; 2.4 adds that a send to a closed connection raises
+    `OSError`, and Starlette then stops listening); it said 1.2345 × 1000 isn't exact (it's exactly 1234.5); and a
+    pitfall held the U+2028 character itself, invisible, as in issue 26. **Fix:** each corrected; the character
+    written as its escape by a script. **Check:** a test that no page holds U+2028 or U+2029.
+31. **Smaller review findings.** *The review.* A body sent in chunks, with no length, was checked against 32 KiB as
+    it was read, but no test or mutation said so; a declared length such as `²` passed `isdigit()` and then broke
+    `int()`; a form with only a field we don't know got "Please type a question."; a browser gone while sending its
+    question was logged as an error; and clicking Send hid it while it had the focus. **Fix:** a test and a mutation
+    for the chunked body; `isascii()` and `isdecimal()`; a field we don't know is checked first; `chat.aborted` and a
+    499; the focus goes to the box. **Check:** a unit test for each, the browser test for the focus, and three
+    mutation rules.

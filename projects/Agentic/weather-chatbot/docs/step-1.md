@@ -45,7 +45,7 @@ router → a page made from a Jinja2 template, or JSON → back to you, with one
 | Decision | Why |
 |---|---|
 | One FastAPI app for the pages and the API | One deploy, one language; FastAPI is ASGI, so step 2 can stream an answer as it's written |
-| Pages rendered on the server with Jinja2 | No JavaScript at all in step 1, so the Content Security Policy can forbid inline scripts from the start; step 2 adds HTMX, one script file, for the live parts |
+| Pages rendered on the server with Jinja2 | No JavaScript at all in step 1, so the Content Security Policy can forbid inline scripts from the start; step 2 adds htmx, for the live parts |
 | Plain ASGI middleware | Each message passes through untouched, so a streamed answer (step 2) streams, with its request's log context |
 | One module reads the environment | `config.py` checks every value once, at start; a test builds its own settings instead |
 | JSON log lines with the request id | One search finds everything about a request; the field names are the TypeScript app's, so its Axiom queries still work |

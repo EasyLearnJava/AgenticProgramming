@@ -44,7 +44,7 @@ def test_the_system_design_shows_its_diagram(page: Page) -> None:
     page.get_by_role("link", name="System design", exact=True).click()
     expect(page.get_by_role("heading", level=1, name="System Design")).to_be_visible()
     expect(page.get_by_role("link", name="System design", exact=True)).to_have_attribute("aria-current", "page")
-    diagram = page.get_by_role("img", name="How Nimbus is built after step 1")
+    diagram = page.get_by_role("img", name=re.compile(r"^How Nimbus is built after step \d+$"))
     expect(diagram).to_be_visible()
     assert diagram.evaluate("img => img.naturalWidth") > 0
 

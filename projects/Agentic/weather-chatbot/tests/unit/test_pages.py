@@ -1,7 +1,11 @@
 """
-tests/unit/test_pages.py: the pages, through the app: each opens inside the shell, its menu link marked; the lists
-name every page; a missing page gets the app's own 404 page, and a missing API, JSON.
+tests/unit/test_pages.py: the pages, through the app: each opens inside the shell, its menu link marked; the chat's
+form posts to the chat and loads only our own scripts, none inline; the lists name every page; a missing page gets the
+app's own 404 page, and a missing API, JSON.
 """
+
+import json
+from html.parser import HTMLParser
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +13,9 @@ from markupsafe import escape
 
 from nimbus.app import create_app
 from nimbus.config import Settings
+from nimbus.constants import QUESTION_MAX_CHARS
 from nimbus.docs import CHAPTERS, DEPRECATED_PAGES, DEPRECATED_STEPS, PAGES, DocPage, read_markdown, title_of
+from nimbus.errors import CUT_OFF, STOPPED, UNREACHABLE
 from nimbus.pages import DEPRECATED_MENU_ITEMS, MENU_ITEMS, to_aria_current, to_menu_label
 
 DEPRECATED_NOTE = "Deprecated: this page describes the earlier TypeScript version of Nimbus."
@@ -21,6 +27,75 @@ def test_the_chat_page_shows_its_card_and_marks_its_menu_link(client: TestClient
     assert "Nimbus (Weather)" in page.text
     assert '<a class="side-menu-link" href="/" aria-current="page">Chat</a>' in page.text
     assert "Build c7165ac · production" in page.text
+
+
+class _Elements(HTMLParser):
+    """A page's elements, read as a browser would: their attributes by id, the scripts it loads, its meta tags."""
+
+    def __init__(self, page: str) -> None:
+        """Reads the page."""
+        super().__init__()
+        self.by_id: dict[str, dict[str, str | None]] = {}
+        self.scripts: list[str | None] = []
+        self.metas: dict[str, str | None] = {}
+        self.attribute_names: set[str] = set()
+        self.feed(page)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Keeps what the tests look at."""
+        attributes = dict(attrs)
+        self.attribute_names |= set(attributes)
+        if attributes.get("id"):
+            self.by_id[str(attributes["id"])] = attributes
+        if tag == "script":
+            self.scripts.append(attributes.get("src"))
+        if tag == "meta" and attributes.get("name"):
+            self.metas[str(attributes["name"])] = attributes.get("content")
+
+
+def test_the_chat_form_posts_each_question_and_adds_its_streamed_answer_to_the_conversation(
+    client: TestClient,
+) -> None:
+    page = _Elements(client.get("/").text)
+    form = page.by_id["chat-form"]
+    # Without htmx, the browser posts the form itself: a question never goes into the address.
+    assert form["method"] == "post"
+    assert form["action"] == "/api/chat"
+    assert form["hx-post"] == "/api/chat"
+    assert form["hx-target"] == "#messages"
+    assert form["hx-swap"] == "beforeend"
+    assert form["hx-sync"] == "this:drop"
+    question = page.by_id["question"]
+    assert question["name"] == "question"
+    assert question["maxlength"] == str(QUESTION_MAX_CHARS)
+    assert "required" in question
+    assert "disabled" not in question
+    assert page.by_id["send"]["type"] == "submit"
+    assert page.by_id["stop"]["type"] == "button"
+
+
+def test_the_chat_page_loads_htmx_its_stream_extension_and_our_script_and_nothing_inline(client: TestClient) -> None:
+    page = _Elements(client.get("/").text)
+    assert page.scripts == ["/static/htmx.min.js", "/static/hx-sse.min.js", "/static/chat.js"]
+    assert not [name for name in page.attribute_names if name.startswith(("on", "hx-on"))]
+    content = page.metas["htmx-config"]
+    assert content is not None
+    assert json.loads(content) == {"extensions": "sse", "includeIndicatorCSS": False, "history": False}
+
+
+def test_the_chat_page_holds_the_sentences_our_script_shows(client: TestClient) -> None:
+    page = _Elements(client.get("/").text)
+    messages = page.by_id["messages"]
+    assert messages["data-stopped"] == STOPPED
+    assert messages["data-cut-off"] == CUT_OFF
+    assert messages["data-unreachable"] == UNREACHABLE
+    assert messages["aria-live"] == "polite"
+    assert "chat-error-template" in page.by_id
+
+
+def test_only_the_chat_page_loads_scripts(client: TestClient) -> None:
+    assert "<script" not in client.get("/docs").text
+    assert "<script" not in client.get("/docs/step-1").text
 
 
 def test_every_page_has_the_whole_menu(client: TestClient) -> None:

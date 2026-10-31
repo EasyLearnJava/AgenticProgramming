@@ -1,0 +1,7 @@
+{#
+  templates/chat_turn.html: an answer's first event: your question, and Nimbus's answer, empty and marked busy until its
+  end comes. htmx adds both to the end of the conversation (the form's hx-target and hx-swap).
+#}
+{% from "chat_parts.html" import user_message, bot_message %}
+{{ user_message(question) }}
+{{ bot_message(turn_id, busy=True) }}

@@ -1,6 +1,6 @@
 """
-nimbus/constants.py: the app's fixed values: where its files are, the headers it reads and sends, and the security
-headers on every response. One place for each value, so the code and its tests always agree.
+nimbus/constants.py: the app's fixed values: where its files are, the headers it reads and sends, the security headers
+on every response, and the chat's limits. One place for each value, so the code and its tests always agree.
 """
 
 import re
@@ -48,5 +48,15 @@ SECURITY_HEADERS: Final[tuple[tuple[str, str], ...]] = (
     ("permissions-policy", "camera=(), geolocation=(self), microphone=()"),
 )
 
-# ④ The health check's answer is never cached: it says how the app is now.
+# ④ The health check's answer is never cached: it says how the app is now; nor is an answer's stream.
 NO_STORE: Final = "no-store"
+
+# ⑤ The chat (step 2): what the form sends, and what comes back. A question is at most 2,000 characters; the body
+# that carries it, at most 32 KiB, room for 2,000 characters of four UTF-8 bytes each, written %XX. The answer streams
+# as server-sent events; our own error pages carry a header, so the page can tell them from anyone else's.
+FORM_MEDIA_TYPE: Final = "application/x-www-form-urlencoded"
+QUESTION_MAX_CHARS: Final = 2000
+CHAT_BODY_MAX_BYTES: Final = 32 * 1024
+CHAT_FORM_MAX_FIELDS: Final = 10
+EVENT_STREAM: Final = "text/event-stream"
+ERROR_HEADER: Final = "x-nimbus-error"

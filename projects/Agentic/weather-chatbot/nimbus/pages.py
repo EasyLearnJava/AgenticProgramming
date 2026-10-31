@@ -1,5 +1,5 @@
 """
-nimbus/pages.py: the app's pages: the chat (its shell, until step 2 makes it answer), the documentation, the system
+nimbus/pages.py: the app's pages: the chat (whose answers nimbus/chat.py streams), the documentation, the system
 design, the issues log, the interview guide and the to-do list, and the TypeScript app's pages, kept as *_deprecated.
 Each is a Jinja2 template rendered on the server, inside the shell with the menu on the left (templates/base.html);
 Jinja2 escapes every value put into a page but two marked safe: a doc's rendered Markdown and a menu label's <wbr>.
@@ -16,7 +16,7 @@ from markupsafe import Markup, escape
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from nimbus.config import Settings
-from nimbus.constants import TEMPLATES_DIR
+from nimbus.constants import QUESTION_MAX_CHARS, TEMPLATES_DIR
 from nimbus.docs import (
     CHAPTERS,
     DEPRECATED_PAGES,
@@ -27,6 +27,7 @@ from nimbus.docs import (
     render_markdown,
     title_of,
 )
+from nimbus.errors import CUT_OFF, STOPPED, UNREACHABLE
 
 HTTP_NOT_FOUND = 404
 API_PREFIX = "/api/"
@@ -107,8 +108,14 @@ def _render_doc(request: Request) -> HTMLResponse:
 # ③ The chat and the lists of pages.
 @router.get("/", response_class=HTMLResponse)
 def chat_page(request: Request) -> HTMLResponse:
-    """The chat: its card and its welcome. From step 2, it answers."""
-    return _render(request, "chat.html", {})
+    """The chat: its card, its welcome and its form, with the sentences the page shows by itself (chat.js)."""
+    context = {
+        "question_max_chars": QUESTION_MAX_CHARS,
+        "stopped": STOPPED,
+        "cut_off": CUT_OFF,
+        "unreachable": UNREACHABLE,
+    }
+    return _render(request, "chat.html", context)
 
 
 @router.get("/docs", response_class=HTMLResponse)

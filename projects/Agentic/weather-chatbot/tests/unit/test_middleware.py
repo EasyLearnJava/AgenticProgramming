@@ -1,6 +1,7 @@
 """
-tests/unit/test_middleware.py: what every request goes through: its id, on its log line and its response; one log line
-when it ends, without the query string; and the security headers, on every kind of response, a streamed one too.
+tests/unit/test_middleware.py: what every request goes through: its id, on its log line, its response and in its state
+for the app; one log line when it ends, without the query string; and the security headers, on every kind of response,
+a streamed one too.
 """
 
 import asyncio
@@ -11,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import PlainTextResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.types import Message, Receive, Scope, Send
 from structlog.contextvars import merge_contextvars
@@ -92,7 +93,10 @@ def test_logs_one_line_per_request_with_its_id_and_without_its_query(client: Tes
 
 
 def _app_that_streams_then_fails() -> Starlette:
-    """A small app behind both middleware: one route streams three chunks, another fails before it answers."""
+    """
+    A small app behind both middleware: one route streams three chunks, another fails before it answers, and a third
+    answers with the request's id, as the app finds it in the request's state.
+    """
 
     async def chunks() -> AsyncIterator[str]:
         for chunk in ("one ", "two ", "three"):
@@ -104,7 +108,10 @@ def _app_that_streams_then_fails() -> Starlette:
     def fail(_request: Request) -> Response:
         raise RuntimeError("boom")
 
-    app = Starlette(routes=[Route("/stream", stream), Route("/fail", fail)])
+    def request_id(request: Request) -> Response:
+        return PlainTextResponse(request.state.request_id)
+
+    app = Starlette(routes=[Route("/stream", stream), Route("/fail", fail), Route("/id", request_id)])
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     return app
@@ -114,6 +121,12 @@ def _app_that_streams_then_fails() -> Starlette:
 def small_client() -> Iterator[TestClient]:
     with TestClient(_app_that_streams_then_fails(), raise_server_exceptions=False) as test_client:
         yield test_client
+
+
+def test_the_app_finds_the_request_s_id_in_its_state(small_client: TestClient) -> None:
+    response = small_client.get("/id", headers={"x-vercel-id": VERCEL_ID})
+    assert response.text == VERCEL_ID
+    assert response.headers["x-request-id"] == VERCEL_ID
 
 
 def test_a_streamed_response_passes_through_whole_with_its_headers(small_client: TestClient) -> None:

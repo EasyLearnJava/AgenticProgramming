@@ -88,3 +88,69 @@ without parsing text.
 **16. Static files skip your middleware: how do they get security headers?**
 On Vercel, the CDN serves `public/` before any function runs, so headers the app adds never reach those files.
 `vercel.json` gives `/static/*` the same headers, and a unit test fails if the two lists ever differ.
+
+## Step 2 · The Chat Streams Its Answer
+
+**1. Why server-sent events, and not WebSockets?**
+The answer flows one way, from the server to the page, and ends when the answer does. Server-sent events are plain
+HTTP: one request, one response that keeps coming, through Vercel's edge and any proxy, with no protocol upgrade and
+nothing to keep open between questions. WebSockets pay off when both sides talk at once, as in a game or a shared
+editor.
+
+**2. Why htmx, and why version 4?**
+The server already renders the page, so it renders each event too, and htmx puts it in place: no client-side state
+and almost no JavaScript of ours. htmx 2's stream extension can only `GET` (it opens an `EventSource`), which would put
+the question in the address; htmx 4 streams the answer to the form's own `POST`, and its `<hx-partial>` lets each
+event name its own target.
+
+**3. How does the answer stream through FastAPI?**
+The route returns a `StreamingResponse` over an async generator; each `yield` is one event, written as `data:` lines
+and a blank line, and Starlette sends it as soon as it's made. The response's type is `text/event-stream` and it's
+never cached, and nothing between the app and the browser waits for the end, since the middleware is plain ASGI.
+
+**4. How does Stop work, end to end?**
+The page's script triggers `htmx:abort`; htmx aborts its `fetch`, and the browser drops the connection. The server
+tells the app with an `http.disconnect` message, and Starlette, listening for it, cancels the stream, so
+`asyncio.CancelledError` lands in the generator; it logs `chat.aborted` and stops. On the page, the answer that never
+got its end gets "Stopped.".
+
+**5. What if the server speaks ASGI 2.4?**
+ASGI 2.4 adds a second sign that the browser has gone: a send to a closed connection raises `OSError`. Relying on it,
+Starlette stops listening for `http.disconnect`, and the failed send becomes `ClientDisconnect`, which would reach the
+middleware and be logged as an error. `EventStream` takes it as the browser leaving, and closes the generator at once,
+so the answer's end is logged within its request either way; a test plays each kind of server.
+
+**6. How do you keep streamed HTML safe?**
+The server makes all of it, and Jinja2 escapes every value, so a question like `<script>` is text. The page's own
+script only ever sets `textContent`. The Content Security Policy runs only our own files, with no inline script and no
+`eval`, which also rules out `hx-on` attributes; htmx is served from our own site, checked by hash.
+
+**7. Why does each event carry HTML rather than JSON?**
+The server already has the templates and escapes every value; the browser only puts each event in place. With JSON,
+the page would need code to build the same HTML, a second copy of the templates, and its own escaping to get right.
+
+**8. How do you show errors without leaking them?**
+Each error the app expects has its own sentence; any other gets one fixed sentence, and the error's own text stays out
+of the page and the logs, which get its class. A failure's sentence ends with a ref, the last 8 letters and digits of
+the request's id, so a visitor can read it out and we can find the request's lines.
+
+**9. How does the page tell our errors from someone else's?**
+Our error pages carry `x-nimbus-error: 1`. The script lets into the page only our stream (`text/event-stream`, 200)
+or a response with that header; anything else, such as a proxy's 502 page, becomes "The chat couldn't be reached.
+Please try again.". A request that fails outright gets the same sentence.
+
+**10. How do you check the request at the edge?**
+In order, cheapest first: its type must be the form's (else 415); its declared length at most 32 KiB, refused before
+a byte is read, and its body read only that far (413); its fields strict UTF-8, at most 10, each once; then Pydantic:
+the question trimmed, 1 to 2,000 characters, and no field we don't know (400). Each broken rule has its own sentence.
+
+**11. How do you test a stream, and a disconnect?**
+In memory, `TestClient` reads a whole stream, so the tests check each event's HTML. For a disconnect, a test calls the
+app as an ASGI server would, with its own `receive` and `send`: one says the browser has gone after a few events, the
+other fails the next send; both must end with `chat.aborted`, before the request's own line, and no error. In the
+browser, Playwright presses Stop, blocks the request, and stands in another service's error page.
+
+**12. Why serve htmx from your own site instead of a CDN?**
+The policy allows scripts from our own site only, and a third-party CDN would be one more place that can change the
+code we run. The two files are npm's, copied unchanged after the package's integrity hash matched the registry's, and
+a test fails if a byte of either changes.

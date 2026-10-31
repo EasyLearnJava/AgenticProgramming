@@ -1,0 +1,6 @@
+{#
+  templates/chat_rejected.html: the answer to a request that broke a rule: our own sentence, as Nimbus's message, which
+  htmx adds to the end of the conversation.
+#}
+{% from "chat_parts.html" import error_message %}
+{{ error_message(message) }}
