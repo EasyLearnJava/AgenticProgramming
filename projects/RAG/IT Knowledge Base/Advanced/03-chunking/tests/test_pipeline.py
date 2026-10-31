@@ -65,7 +65,7 @@ def test_the_next_export_cuts_only_the_articles_that_changed(tmp_path):
     run_script("--manifest-path", manifest)
     result = run_script("--data-path", str(DATA / "sample_it_kb_next.csv"), "--manifest-path", manifest)
     assert result.returncode == 0
-    assert "\nChunks: 10 from 3 articles," in result.stdout      # VPN's longer fix is now 2 chunks: 4 + 3 + 3
+    assert "\nChunks: 10 from 3 articles," in result.stdout      # VPN 3, the laptop article 4, the new one 3
     changes = result.stdout.split("\nChanges since the last run: ", 1)[1]
     assert changes.startswith("1 added, 2 changed, 1 removed, 7 unchanged\n")
     assert "VPN Connection Timeout  (resolution changed)\n" in changes
