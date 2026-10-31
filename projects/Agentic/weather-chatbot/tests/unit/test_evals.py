@@ -5,7 +5,8 @@ the report; LangSmith's examples, and the run kept there with nothing asked twic
 """
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Sequence
+from types import SimpleNamespace
 from typing import Any
 
 import httpx2
@@ -129,6 +130,7 @@ def test_the_report_says_each_question_s_misses_then_how_many_passed() -> None:
 def test_langsmith_s_examples_are_what_s_asked_and_what_s_expected() -> None:
     [example] = to_examples([Golden(id="metric", question="q", locale="en-GB", expect=Expect(says=["°C"]))])
     assert example["inputs"] == {
+        "id": "metric",
         "question": "q",
         "locale": "en-GB",
         "time_zone": "America/Chicago",
@@ -139,16 +141,21 @@ def test_langsmith_s_examples_are_what_s_asked_and_what_s_expected() -> None:
 
 
 class LangSmithStandIn:
-    """LangSmith's client, kept here: whether the dataset is there, and what's made."""
+    """LangSmith's client, kept here: whether the dataset is there, the ids of its examples, and what's made."""
 
-    def __init__(self, *, has_it: bool) -> None:
-        """A LangSmith with the dataset, or without it."""
+    def __init__(self, *, has_it: bool, ids: Sequence[str] = ()) -> None:
+        """A LangSmith with the dataset and those examples, or without it."""
         self.has_it = has_it
+        self.ids = ids
         self.made: list[tuple[str, Any]] = []
 
     def has_dataset(self, *, dataset_name: str) -> bool:
         """Whether the dataset is there."""
         return self.has_it
+
+    def list_examples(self, *, dataset_name: str) -> Iterator[SimpleNamespace]:
+        """The dataset's examples, each with its golden's id."""
+        return (SimpleNamespace(inputs={"id": example_id}) for example_id in self.ids)
 
     def create_dataset(self, dataset_name: str, *, description: str) -> None:
         """Makes the dataset."""
@@ -156,27 +163,37 @@ class LangSmithStandIn:
 
     def create_examples(self, *, dataset_name: str, examples: list[dict[str, Any]]) -> None:
         """Adds the examples."""
-        self.made.append(("examples", len(examples)))
+        self.made.append(("examples", [example["inputs"]["id"] for example in examples]))
 
 
-@pytest.mark.parametrize(("has_it", "made"), [(False, [("dataset", DATASET), ("examples", 1)]), (True, [])])
+@pytest.mark.parametrize(
+    ("has_it", "ids", "made"),
+    [
+        (False, (), [("dataset", DATASET), ("examples", ["rain"])]),
+        (True, ("rain",), []),
+        # A golden added to golden.json since: the dataset gains its example.
+        (True, ("weather-now",), [("examples", ["rain"])]),
+    ],
+)
 def test_the_run_is_kept_in_langsmith_as_an_experiment_with_nothing_asked_twice(
-    has_it: bool, made: list[tuple[str, Any]]
+    has_it: bool, ids: tuple[str, ...], made: list[tuple[str, Any]]
 ) -> None:
     kept: dict[str, Any] = {}
 
     def evaluate(target: Callable[..., Any], **options: Any) -> None:
-        """LangSmith's evaluate, here: the target's answer for the question, and its grade."""
-        outputs = target({"question": PARIS.question, "locale": "en-US"})
-        kept.update(options, outputs=outputs, grade=options["evaluators"][0](outputs))
+        """LangSmith's evaluate, here: the target's answer for the golden, and its grade; and for one not asked."""
+        outputs = target({"id": PARIS.id, "question": PARIS.question, "locale": "en-US"})
+        gone = target({"id": "removed-since", "question": "q", "locale": "en-US"})
+        kept.update(options, outputs=outputs, grade=options["evaluators"][0](outputs), gone=gone)
 
-    client = LangSmithStandIn(has_it=has_it)
+    client = LangSmithStandIn(has_it=has_it, ids=ids)
     graded = [Graded(PARIS, answered(["get_forecast"], "Rain."), ["doesn't say /Paris/"])]
     keep_in_langsmith(client, graded, "4785bc7", evaluate)
     assert client.made == made
     assert (kept["data"], kept["experiment_prefix"], kept["client"]) == (DATASET, "nimbus-4785bc7", client)
     assert kept["outputs"] == {"tools": ["get_forecast"], "text": "Rain.", "misses": ["doesn't say /Paris/"]}
     assert kept["grade"] == {"key": "passed", "score": 0, "comment": "doesn't say /Paris/"}
+    assert kept["gone"] == {"tools": [], "text": "", "misses": ["not asked in this run"]}
 
 
 def test_langsmith_without_its_key_is_refused_before_any_question_is_asked(capsys: pytest.CaptureFixture[str]) -> None:

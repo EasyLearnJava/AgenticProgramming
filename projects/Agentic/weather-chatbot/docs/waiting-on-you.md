@@ -52,8 +52,9 @@ They live in your Axiom, Sentry and uptime accounts. Step 12's chapter has each 
 
 ## 5. The golden questions in LangSmith, and a rollback, practised (step 13)
 
-1. **The evals in LangSmith.** Put `LANGSMITH_API_KEY`, the same key as Vercel's, in `.env.local` on your computer,
-   then, from the project's folder:
+1. **The evals in LangSmith.** Put a LangSmith API key in `.env.local` on your computer, as `LANGSMITH_API_KEY`:
+   from where you saved Vercel's, or a new one from LangSmith's settings (Vercel won't show a Sensitive variable
+   again). Then, from the project's folder:
    `uv run python -m tools.evals https://weather-chatbot-hazel.vercel.app --langsmith`. The golden questions become
    the dataset `nimbus-golden`, and the run an experiment named for the build; each later run adds one beside it.
    Without the key, the tool says so before it asks anything.

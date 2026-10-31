@@ -1063,6 +1063,12 @@ MUTATIONS = (
         "return sent.status_code == 200",
         "a question works only when its answer ended well",
     ),
+    Mutation(
+        "tools/evals.py",
+        "    missing = [item.golden for item in graded if item.golden.id not in kept]",
+        "    missing = [item.golden for item in graded if not kept]",
+        "the LangSmith dataset gains a golden it lacks",
+    ),
 )
 
 

@@ -490,3 +490,9 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     by making each tag a space, so a bold word's tags left "clear ," for "clear,". **Fix:** an inline tag (bold, a
     link, code) goes where it was; any other is a space. **Check:** the test that reads the app's own stream: the
     words exactly as the model wrote them, without the bold.
+79. **LangSmith's dataset never followed `golden.json`.** *The review.* The dataset was made once, with an example
+    for each golden, and each answer was found by its question's words and language: an edited golden's answer
+    couldn't be found, so its row would fail; a removed one's example stayed; and a new golden never reached LangSmith.
+    **Fix:** each example carries its golden's id, and the answers are found by it; each run adds the examples the
+    dataset lacks; an example whose golden this run didn't ask is graded "not asked in this run". **Check:** a test of
+    a dataset that lacks a golden, and of one whose golden has gone; the mutation check's rule.

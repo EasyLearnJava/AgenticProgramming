@@ -15,7 +15,8 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 - **Axiom's and Sentry's variables** are set in Vercel (checked 2026-10-31): `AXIOM_TOKEN`, `AXIOM_DATASET` and
   `SENTRY_DSN`. The live app's start line says Axiom, Sentry and LangSmith's tracing are on, and Axiom has its lines.
 - **The TypeScript backup tag is deleted** (2026-10-31, step 13): it pointed at `c7165ac`, which `main`'s history
-  keeps; `git tag weather-chatbot-typescript-backup c7165ac` would make it again.
+  keeps; `git tag -a weather-chatbot-typescript-backup c7165ac -m "Backup of the TypeScript weather chatbot (Nimbus)
+  before the Python rewrite; delete once the rewrite is complete."` would make it again, annotated as it was.
 
 ## Next
 

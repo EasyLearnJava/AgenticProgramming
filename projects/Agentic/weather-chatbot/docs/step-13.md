@@ -52,7 +52,7 @@ question through the code → the backup tag gone.
 | `docs/technical-details.md`, `nimbus/docs.py`, `nimbus/pages.py` | The Technical details page, in the menu |
 | `tests/unit/test_evals.py`, `tests/unit/test_load_test.py` | Each, in this process: the app's own stream read, each rule, LangSmith played back |
 | `tests/e2e/conftest.py` | The browser tests' server on a selector loop: issue 75's cause, found by step 12's review |
-| `tools/mutation_check.py` | 6 more rules |
+| `tools/mutation_check.py` | 7 more rules |
 
 ## How it works
 
@@ -75,10 +75,12 @@ question's tools, its misses, and how many passed. It exits 1 if one didn't, so 
 
 ### Kept in LangSmith: `--langsmith`
 
-With LangSmith's key, before any question is asked: the dataset `nimbus-golden` is made the first time, an example
-for each question, its inputs and what's expected; then LangSmith's `evaluate` runs over it, its target the answers
-this run already has, its evaluator the grade, as a score of 1 or 0 with the misses, in an experiment named
-`nimbus-<build>`. The golden questions and their answers are ours, not a visitor's: LangSmith gets nothing else.
+With LangSmith's key, before any question is asked: the dataset `nimbus-golden` is made the first time, and on each
+run gains an example for each golden it lacks, its id, its inputs and what's expected; then LangSmith's `evaluate`
+runs over it, its target the answers this run already has, found by each golden's id, its evaluator the grade, as a
+score of 1 or 0 with the misses, in an experiment named `nimbus-<build>`. An example whose golden has since gone is
+graded "not asked in this run"; an edited golden keeps its first example's expectations there, its grade this run's.
+The golden questions and their answers are ours, not a visitor's: LangSmith gets nothing else.
 
 ### The load test: `tools/load_test.py`
 
@@ -89,11 +91,12 @@ get its 429, counted as failures: the limit working.
 
 ### Rolling back
 
-1. **On Vercel, in seconds:** the project's **Deployments**, the last production deployment that worked, its menu,
-   **Instant Rollback**: the domain points at it again, nothing rebuilt. While it's rolled back, Vercel doesn't put new
-   pushes live on its own: promote one, or undo the rollback, once the fix is in.
-2. **In git, to fix forward:** `git revert <the commit>`, then push: CI and the deploy run as for any push. Each
-   step's tag (`py-step-01` to `py-step-13`) names a commit that was checked live.
+1. **On Vercel, in seconds:** the project's **Deployments**, the production deployment just before the current one,
+   its menu, **Instant Rollback**: on Hobby, only that one can be rolled back to. The domain points at it again,
+   nothing rebuilt, with the environment variables it was built with. While it's rolled back, Vercel doesn't put new
+   pushes live on its own: press **Undo Rollback**, or promote a deployment, once the fix is in.
+2. **In git, to fix forward, or to go back further:** `git revert <the commit>`, then push: CI and the deploy run as
+   for any push. Each step's tag (`py-step-01` to `py-step-13`) names a commit that was checked live.
 3. **Practise it once,** before you need it ([Waiting on you](waiting-on-you.md)).
 
 ### The Technical details page
@@ -106,8 +109,10 @@ lanes, how it's kept safe, and its monitoring.
 ### The backup tag
 
 `weather-chatbot-typescript-backup` pointed at `c7165ac`, the TypeScript version's last commit, which `main`'s history
-keeps. Deleted, here and on GitHub; `git tag weather-chatbot-typescript-backup c7165ac` would make it again. The
-TypeScript version's pages stay, each `*_deprecated`, until you say otherwise.
+keeps; it was annotated, and the repository has no published release. Deleted, here and on GitHub;
+`git tag -a weather-chatbot-typescript-backup c7165ac -m "Backup of the TypeScript weather chatbot (Nimbus) before
+the Python rewrite; delete once the rewrite is complete."` would make it again. The TypeScript version's pages stay,
+each `*_deprecated`, until you say otherwise.
 
 ## Run it
 
@@ -170,7 +175,9 @@ The golden questions read and checked; an answer read from the app's own stream,
 grading; the questions one at a time, a pause between two; the report; LangSmith's examples, and a run kept there,
 LangSmith played back, nothing asked twice; `--langsmith` refused, without its key, before any question; the
 percentile; the summary; a request that can't be made; and a small load against the app in this process, a question
-that fails counted as failed. The mutation check breaks 6 more rules (its first 177 lines are left out above).
+that fails counted as failed. The mutation check breaks 6 more rules (its first 177 lines are left out above). The
+follow-up from the review (issue 79) added a seventh: run again, 592 unit tests passed and the mutation check caught
+184 of 184; the browser suite wasn't, as nothing it tests changed, and this computer was short of memory.
 
 ## Things to take care of, and pitfalls
 
@@ -178,7 +185,10 @@ that fails counted as failed. The mutation check breaks 6 more rules (its first 
   the model rephrases; an exact answer never does.
 - **Evals cost quota:** space them out, and ask a few questions, not hundreds.
 - **A load test against the live site is real traffic:** keep it small, and keep the questions few.
-- **After an Instant Rollback, new pushes wait:** promote one, or undo the rollback, once the fix is in.
+- **After an Instant Rollback, new pushes wait:** promote one, or undo the rollback, once the fix is in. On Hobby, it
+  goes back one deployment only; further back is a revert.
+- **Key a dataset's examples by an id of your own:** the golden questions change, and an answer looked up by its words
+  breaks when they do (issue 79).
 - **Delete a backup tag only when its commit is in the history:** check first (`git merge-base --is-ancestor`).
 
 ## Issues we hit
@@ -189,6 +199,8 @@ that fails counted as failed. The mutation check breaks 6 more rules (its first 
     calls it by a local name, as the privacy tests do.
 78. An answer's words were read with a space before a comma: a bold word's tags were made spaces. An inline tag now
     goes where it was.
+79. LangSmith's dataset never followed `golden.json`: made once, an edited golden's answer couldn't be found, and a
+    new golden never reached it. Each example carries its golden's id, and each run adds the ones missing.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 

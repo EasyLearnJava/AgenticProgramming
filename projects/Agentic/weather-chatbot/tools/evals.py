@@ -155,10 +155,10 @@ def to_report(graded: Sequence[Graded]) -> list[str]:
 
 
 def to_examples(goldens: Sequence[Golden]) -> list[dict[str, Any]]:
-    """The golden questions as LangSmith's examples: what's asked, and what's expected."""
+    """The golden questions as LangSmith's examples: what's asked, with its id, and what's expected."""
     return [
         {
-            "inputs": golden.model_dump(include={"question", "locale", "time_zone", "lane"}),
+            "inputs": golden.model_dump(include={"id", "question", "locale", "time_zone", "lane"}),
             "outputs": golden.expect.model_dump(),
             "metadata": {"id": golden.id},
         }
@@ -170,9 +170,11 @@ def keep_in_langsmith(
     client: Any, graded: Sequence[Graded], commit: str, evaluate: Callable[..., Any] | None = None
 ) -> None:
     """
-    The golden questions as LangSmith's dataset, made once; and this run as an experiment on it, named for the commit:
-    each answer, its tools and words, graded already, so nothing is asked twice. LangSmith's own evaluate, unless one is
-    given (the tests give theirs: importing LangSmith's warns on Python 3.13).
+    The golden questions as LangSmith's dataset, made once, a golden it lacks added on each run; and this run as an
+    experiment on it, named for the commit: each answer, its tools and words, graded already, found by its golden's id,
+    so nothing is asked twice. An example whose golden this run didn't ask, one since removed, is graded as not asked.
+    An edited golden keeps its first example's expectations in LangSmith; its grade is this run's. LangSmith's own
+    evaluate, unless one is given (the tests give theirs: importing LangSmith's warns on Python 3.13).
     """
     if evaluate is None:
         from langsmith import evaluate as evaluate_in_langsmith
@@ -181,12 +183,17 @@ def keep_in_langsmith(
 
     if not client.has_dataset(dataset_name=DATASET):
         client.create_dataset(DATASET, description="Nimbus's golden questions, and what each answer must do.")
-        client.create_examples(dataset_name=DATASET, examples=to_examples([item.golden for item in graded]))
-    by_question = {item.golden.question + item.golden.locale: item for item in graded}
+    kept = {example.inputs.get("id") for example in client.list_examples(dataset_name=DATASET)}
+    missing = [item.golden for item in graded if item.golden.id not in kept]
+    if missing:
+        client.create_examples(dataset_name=DATASET, examples=to_examples(missing))
+    by_id = {item.golden.id: item for item in graded}
 
     def answered(inputs: dict[str, Any]) -> dict[str, Any]:
-        """The answer this run already has for the question."""
-        item = by_question[inputs["question"] + inputs["locale"]]
+        """The answer this run already has for the golden; one it didn't ask, a miss that says so."""
+        item = by_id.get(inputs.get("id", ""))
+        if item is None:
+            return {"tools": [], "text": "", "misses": ["not asked in this run"]}
         return {"tools": item.answer.tools, "text": item.answer.text, "misses": item.misses}
 
     def passed(outputs: dict[str, Any]) -> dict[str, Any]:

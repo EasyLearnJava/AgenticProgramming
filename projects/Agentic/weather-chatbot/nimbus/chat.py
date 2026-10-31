@@ -241,7 +241,7 @@ async def read_chat_request(request: Request) -> tuple[ChatRequest, list[str]]:
     media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
     if media_type != FORM_MEDIA_TYPE:
         raise InputError("not_a_form", UNREADABLE, HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
-    # ② Its body, at most 32 KiB, and its fields: UTF-8, each one once.
+    # ② Its body, at most 256 KiB, and its fields: UTF-8, each one once.
     body = await read_body(request, CHAT_BODY_MAX_BYTES)
     try:
         pairs = parse_qsl(body.decode(), keep_blank_values=True, errors="strict", max_num_fields=CHAT_FORM_MAX_FIELDS)
