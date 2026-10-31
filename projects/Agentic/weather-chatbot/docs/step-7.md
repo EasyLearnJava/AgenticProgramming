@@ -160,6 +160,19 @@ later than its place's midnight, fetches again one that no longer reads, never k
 cache is down. The same question twice gets "from the cache" on every chip, in the route and in the browser. The
 mutation check breaks 6 more rules (its first 106 lines are left out above; each says caught).
 
+## Deploy it
+
+The push, a1e976a, was live on Vercel, and CI's checks had passed, within about two minutes. Checked on the live
+site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026, after a warm-up:
+
+- "Will it rain in Paris tomorrow?" asked Open-Meteo twice, its chips 0.5 s each. Asked again, both chips said
+  "from the cache · <0.1 s", and the second answer ended well.
+- Vercel's logs held three `upstream.cache` hits, each read in 28 to 30 ms: the second question's place and
+  forecast, and, a few seconds later in Edge, a place again, which by its time was the Delhi follow-up's. A read
+  from this process's memory takes no time (0 ms, in Run it): these came from Vercel's Runtime Cache, and no line
+  said the package had fallen back to memory.
+- Step 6's checks passed as before: the air in Delhi, the follow-up, New chat, axe, and a console with no error.
+
 ## Things to take care of, and pitfalls
 
 - **A cache that others share needs a namespace, and keys that can't collide:** a 32-bit hash can't promise that.
