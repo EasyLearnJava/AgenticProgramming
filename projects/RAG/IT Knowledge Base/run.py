@@ -40,6 +40,7 @@ COMMANDS = {
     "Advanced/01-read-the-knowledge-base": ["knowledge_base_loader.py"],
     "Advanced/02-documents-and-metadata": ["knowledge_base_loader.py"],
     "Advanced/03-chunking": ["pipeline.py"],
+    "Advanced/04-embeddings": ["pipeline.py"],
 }
 
 

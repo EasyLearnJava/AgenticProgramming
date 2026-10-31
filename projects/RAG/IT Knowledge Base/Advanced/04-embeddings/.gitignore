@@ -1,0 +1,7 @@
+# Your Gemini key: never in git
+.env
+# Written by each run: the last run's articles, to compare the next run with
+data/manifest.json
+data/manifest.json.*.tmp
+# The vectors already made, kept by text, model and size: delete it to embed every chunk again
+data/embedding_cache.sqlite3
