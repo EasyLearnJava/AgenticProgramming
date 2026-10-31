@@ -345,6 +345,57 @@ its request, stop one with Stop, and check an open chip with axe and on a phone;
 it runs play Open-Meteo back at 1.5 s a call. The mutation check breaks 26 more rules (its first 70 lines are left out
 above; each says caught).
 
+## Deploy it
+
+The push, 3baecd9, was live on Vercel within 34 seconds, while CI ran its checks, which passed in about two minutes.
+Checked on the live site, https://weather-chatbot-hazel.vercel.app, on 31 October 2026, once a health check and an
+empty question had warmed the function up:
+
+- The CDN served `chat.js` and `app.css` byte for byte the repository's, with `vercel.json`'s security headers.
+- "Will it rain in Paris tomorrow?", posted with `en-US` and `America/Chicago`, streamed through Vercel's edge as the
+  agent worked: the `geocode_location` chip 1.15 s after the question was sent, done at 1.59 s; the `get_forecast`
+  chip at 2.12 s, asking for imperial units for `en-US`, done at 2.55 s; then the words, from 3.26 s to 3.72 s: "In
+  Paris, France, tomorrow (Sunday, November 1) is forecast to be overcast with a 0% chance of rain." Sunday was the
+  visitor's tomorrow in Chicago, and every fact in it came from the forecast.
+- An empty question got 400, and JSON 415, each with our sentence and `x-nimbus-error: 1`.
+- In Edge, "How's the air in Delhi right now?" ran `geocode_location` and `get_air_quality`, each done in 0.4 s, and
+  the answer gave Delhi's US AQI, 116, and its PM2.5, 31.3 µg/m³, at 14:30 in Delhi's own time. Opened, the air's chip
+  showed its request as it went out, the point rounded to 28.65, 77.23. axe found no violation, and the console held
+  no error.
+- Vercel's logs, searched for the Paris question's id, held its seven lines, all ours: the question's length, each
+  call to Open-Meteo and each tool call, and the answer's end, with its two tool calls and the tokens of its three
+  calls to the model. None names the place, and none holds a query string:
+
+```json
+{"questionChars": 31, "event": "chat.request", "level": "info", "ts": "2026-10-31T09:28:41.911282Z",
+ "env": "production", "commit": "3baecd9", "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK",
+ "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"upstream": "open-meteo", "host": "geocoding-api.open-meteo.com", "path": "/v1/search", "status": "ok",
+ "httpStatus": 200, "ms": 422, "attempts": 1, "event": "upstream.http", "level": "info",
+ "ts": "2026-10-31T09:28:43.276763Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"tool": "geocode_location", "lane": "rest-no-auth", "status": "ok", "ms": 422, "event": "tool.call", "level": "info",
+ "ts": "2026-10-31T09:28:43.277068Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"upstream": "open-meteo", "host": "api.open-meteo.com", "path": "/v1/forecast", "status": "ok", "httpStatus": 200,
+ "ms": 415, "attempts": 1, "event": "upstream.http", "level": "info", "ts": "2026-10-31T09:28:44.235364Z",
+ "env": "production", "commit": "3baecd9", "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK",
+ "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"tool": "get_forecast", "lane": "rest-no-auth", "status": "ok", "ms": 416, "event": "tool.call", "level": "info",
+ "ts": "2026-10-31T09:28:44.236060Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"answerChars": 100, "ms": 3476, "toolCalls": 2, "tokensIn": 5150, "tokensOut": 89, "model": "gemini-3.5-flash-lite",
+ "event": "chat.done", "level": "info", "ts": "2026-10-31T09:28:45.414506Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"method": "POST", "path": "/api/chat", "status": 200, "ms": 3505, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T09:28:45.415208Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+```
+
+- LangSmith's trace of the run, `nimbus`, tagged `rest-no-auth`, holds the agent's steps: the model (0.89 s),
+  `geocode_location` (0.42 s), the model (0.54 s), `get_forecast` (0.42 s), the model (1.17 s). Opened, the agent's
+  run and its `geocode_location` run each showed "No inputs" and "No outputs": not even the place reached it.
+
 ## Things to take care of, and pitfalls
 
 - **LangGraph's tool node re-raises every error but a bad input:** a tool must turn its own failures into a

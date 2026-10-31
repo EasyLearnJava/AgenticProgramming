@@ -149,37 +149,53 @@ tools, and through them Open-Meteo.
 
 ## One request, end to end
 
-A real question on the live site, on 31 October 2026 (commit 06327e5): "What does the dew point tell me?", posted
-to `/api/chat` as the page's form posts it, with the locale `en-US` and the time zone `America/Chicago`.
+A real question on the live site, on 31 October 2026 (commit 3baecd9): "Will it rain in Paris tomorrow?", posted to
+`/api/chat` as the page's form posts it, with the locale `en-US` and the time zone `America/Chicago`.
 
 | Where | What happened |
 |---|---|
-| Vercel's edge, `cle1` (Cleveland) | Took the HTTPS request, gave it the id `cle1::dlspq-1793431665072-b0db15ba80dd`, and sent it to the function in `iad1` |
+| Vercel's edge, `cle1` (Cleveland) | Took the HTTPS request, gave it the id `cle1::swxbm-1793438921786-1986053d1d52`, and sent it to the function in `iad1` |
 | `SecurityHeadersMiddleware`, `RequestContextMiddleware` | Wrapped the response's `send`, and took Vercel's id as the request's id, in the log context and the request's state |
-| `chat.py`, `chat()` and `read_chat_request()` | Checked the form: its type, its length, its three fields, the question's 32 characters, the locale and the time zone; logged `chat.request` |
-| `prompts.py`, `to_messages()` | The system prompt: the rules, imperial units for `en-US`, and the visitor's today and tomorrow in Chicago; then the question |
-| `chat()`, then `EventStream` | Made the turn's first event, then sent it and the rest as they came: 6 events, the first 0.15 s after the question was sent |
-| `answer.py`, `stream_answer()` | Streamed Gemini's answer through LangChain, within the answer's 30 s: its first words 0.88 s after the question was sent, in 4 pieces, the last after 1.13 s; LangSmith got the run, its words hidden |
-| `stream_turn()` | Logged `chat.done`: the answer's 290 characters, in 989 ms, 294 tokens in and 63 out |
-| `RequestContextMiddleware` | Once the whole response had gone, wrote the request's line: `200`, in 990 ms |
+| `chat.py`, `chat()` and `read_chat_request()` | Checked the form: its type, its length, its three fields, the question's 31 characters, the locale and the time zone; logged `chat.request` |
+| `prompts.py`, `to_messages()` | The system prompt: the 13 rules, imperial units for `en-US`, and the visitor's today and tomorrow in Chicago; then the question |
+| `chat()`, then `EventStream` | Made the turn's first event, then sent it and the rest as they came, the first 0.25 s after the question was sent |
+| `answer.py`, `stream_weather_answer()` | Opened the answer's HTTP client, from the app's factory, and made the four tools and the agent for it |
+| `agent.py`, the agent | Called Gemini (0.89 s), which asked for `geocode_location`; ran it; called Gemini again (0.54 s), which asked for `get_forecast`; ran it; called Gemini a third time (1.17 s), which answered in words |
+| `tools.py`, `open_meteo.py` | `geocode_location`: Open-Meteo's geocoding, "Paris", in 422 ms; `get_forecast`: its forecast for 48.85, 2.35, 2 days, imperial, in 415 ms; each logged `upstream.http` and `tool.call` |
+| `stream_turn()` | A chip for each call as it started (1.15 and 2.12 s) and as it ended (1.59 and 2.55 s); the words from 3.26 s; logged `chat.done`: 100 characters, 3,476 ms, 2 tool calls, 5,150 tokens in and 89 out |
+| `RequestContextMiddleware` | Once the whole response had gone, wrote the request's line: `200`, in 3,505 ms |
 | Vercel's edge | Passed each event on as it came, with the security headers and the request's id |
 
-Searched for the id, Vercel's logs found its three lines, the question's text in none of them:
+Searched for the id, Vercel's logs found its seven lines, the question's text and the place in none of them:
 
 ```json
-{"questionChars": 32, "event": "chat.request", "level": "info", "ts": "2026-10-31T07:27:45.111247Z",
- "env": "production", "commit": "06327e5", "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ",
- "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
-{"answerChars": 290, "ms": 989, "tokensIn": 294, "tokensOut": 63, "model": "gemini-3.5-flash-lite",
- "event": "chat.done", "level": "info", "ts": "2026-10-31T07:27:46.100500Z", "env": "production", "commit": "06327e5",
- "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ", "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
-{"method": "POST", "path": "/api/chat", "status": 200, "ms": 990, "event": "http.request", "level": "info",
- "ts": "2026-10-31T07:27:46.100994Z", "env": "production", "commit": "06327e5",
- "deploymentId": "dpl_3Skpc45W95wt8KS1MyuNKwPsM2hQ", "requestId": "cle1::dlspq-1793431665072-b0db15ba80dd"}
+{"questionChars": 31, "event": "chat.request", "level": "info", "ts": "2026-10-31T09:28:41.911282Z",
+ "env": "production", "commit": "3baecd9", "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK",
+ "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"upstream": "open-meteo", "host": "geocoding-api.open-meteo.com", "path": "/v1/search", "status": "ok",
+ "httpStatus": 200, "ms": 422, "attempts": 1, "event": "upstream.http", "level": "info",
+ "ts": "2026-10-31T09:28:43.276763Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"tool": "geocode_location", "lane": "rest-no-auth", "status": "ok", "ms": 422, "event": "tool.call", "level": "info",
+ "ts": "2026-10-31T09:28:43.277068Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"upstream": "open-meteo", "host": "api.open-meteo.com", "path": "/v1/forecast", "status": "ok", "httpStatus": 200,
+ "ms": 415, "attempts": 1, "event": "upstream.http", "level": "info", "ts": "2026-10-31T09:28:44.235364Z",
+ "env": "production", "commit": "3baecd9", "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK",
+ "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"tool": "get_forecast", "lane": "rest-no-auth", "status": "ok", "ms": 416, "event": "tool.call", "level": "info",
+ "ts": "2026-10-31T09:28:44.236060Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"answerChars": 100, "ms": 3476, "toolCalls": 2, "tokensIn": 5150, "tokensOut": 89, "model": "gemini-3.5-flash-lite",
+ "event": "chat.done", "level": "info", "ts": "2026-10-31T09:28:45.414506Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
+{"method": "POST", "path": "/api/chat", "status": 200, "ms": 3505, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T09:28:45.415208Z", "env": "production", "commit": "3baecd9",
+ "deploymentId": "dpl_DNqnKzjqvAu7tccyhBGobeKH5JyK", "requestId": "cle1::swxbm-1793438921786-1986053d1d52"}
 ```
 
-[Step 1's chapter](step-1.md) explains each of these parts in its code, [step 2's](step-2.md) the chat's, and
-[step 3's](step-3.md) the model's.
+[Step 1's chapter](step-1.md) explains each of these parts in its code, [step 2's](step-2.md) the chat's,
+[step 3's](step-3.md) the model's, and [step 4's](step-4.md) the agent's and its tools'.
 
 ## What comes next
 
