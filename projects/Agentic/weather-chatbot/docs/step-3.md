@@ -316,6 +316,10 @@ runtime does. So the app now sets the standard logging up itself: another librar
 written as a line of ours, with the build's fields and the request's id, any web address's query string cut off, and
 of an exception only its class and where it went (issue 43).
 
+Checked after the fix's deploy, e86efa0: "What is a cold front?" left three lines in Vercel's logs, `chat.request`,
+`chat.done` (52 tokens out) and `http.request`, all ours, and in the half hour up to the check no line came from
+httpx or google-genai.
+
 ## Things to take care of, and pitfalls
 
 - **LangChain traces by itself** whenever `LANGSMITH_TRACING` is true, reading LangSmith's variables, not the app's
