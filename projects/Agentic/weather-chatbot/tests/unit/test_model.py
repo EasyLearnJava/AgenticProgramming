@@ -31,6 +31,8 @@ def test_the_app_says_how_it_starts_and_never_its_key(capsys: pytest.CaptureFixt
     assert started["modelSetUp"] is True
     assert started["tracing"] is False
     assert started["model"] == "gemini-3.5-flash-lite"
+    # Step 12: neither Axiom nor Sentry without their settings, and off Vercel, the package's own store.
+    assert (started["axiom"], started["sentry"], started["cacheStore"]) == (False, False, "AsyncRuntimeCache")
     assert KEY not in out
 
 

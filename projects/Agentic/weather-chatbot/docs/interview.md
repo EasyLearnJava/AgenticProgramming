@@ -402,3 +402,25 @@ requests out.
 **5. What does a weather chat need to send to whom?**
 The model gets the question and the conversation; the weather API, the place; anything else, such as the logs or a
 tracing service, gets only the shape of what happened.
+
+## Step 12 · Monitoring: Axiom, Sentry, the Health Check and the Status Dots
+
+**1. Why would an app send its own logs to a log service?**
+When its platform keeps logs only briefly and can't forward them, as Vercel's Hobby plan: the app keeps each line and
+sends a batch at the end of each request.
+
+**2. How does a serverless function send something after it has answered?**
+By handing it to the platform's `wait_until`, which keeps the function alive for it, with a time limit; it must never
+fail the request, and its own failures can't go through the logger it serves.
+
+**3. How do you keep an error tracker from collecting private data?**
+Turn off its integrations, set each category of data collection off, drop each exception's message before it's sent,
+and send only tags you chose.
+
+**4. What should a health check check?**
+Each way out the answers depend on, as cheaply as it can be checked, mapped to what users pick; 200 or 503, so a
+monitor needs only the status; cached briefly; never anything that costs.
+
+**5. Why can a status dot be a minute or two old?**
+A run's report answers its address for a minute on each copy, and the CDN keeps a 200 for another; the dot is a
+hint, so the lane can still be picked.

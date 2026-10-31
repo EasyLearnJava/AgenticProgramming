@@ -35,6 +35,7 @@ from nimbus.constants import (
     APIFY_MAX_CHARGE_USD,
     APIFY_MCP_CONNECT_SECONDS,
     APIFY_MCP_URL,
+    APIFY_ME_URL,
     APIFY_RUN_TIMEOUT_SECONDS,
     APIFY_RUN_TOOL,
     AUTH_TOOL_SECONDS,
@@ -192,6 +193,31 @@ async def run_actor_rest(http: httpx2.AsyncClient, token: SecretStr, actor_input
         raise ContractError
     log.info("upstream.http", **fields, status="ok", httpStatus=response.status_code, ms=ms, items=len(items))
     return ActorRun(items, to_rest_request(actor_input))
+
+
+async def check_apify_token(http: httpx2.AsyncClient, token: SecretStr) -> None:
+    """
+    The health check's call to Apify's REST API (step 12): the account behind the token, read, which runs nothing; a
+    token Apify refuses is AuthError. Nothing it answers is kept but its status; one upstream.http line.
+    """
+    fields = {"upstream": "apify", "host": APIFY_HOST, "path": urlsplit(APIFY_ME_URL).path}
+    started = time.perf_counter()
+    try:
+        response = await http.get(APIFY_ME_URL, headers={"authorization": f"Bearer {token.get_secret_value()}"})
+    except httpx2.HTTPError as error:
+        failure: UpstreamError = (
+            UpstreamTimeoutError() if isinstance(error, httpx2.TimeoutException) else UpstreamUnavailableError()
+        )
+        ms = to_ms(time.perf_counter() - started)
+        log.info("upstream.http", **fields, status="failed", ms=ms, errorClass=type(failure).__name__)
+        raise failure from error
+    ms = to_ms(time.perf_counter() - started)
+    if response.status_code != HTTP_OK:
+        failure = to_status_error(response.status_code)
+        failed = {"httpStatus": response.status_code, "errorClass": type(failure).__name__}
+        log.info("upstream.http", **fields, status="failed", ms=ms, **failed)
+        raise failure
+    log.info("upstream.http", **fields, status="ok", httpStatus=response.status_code, ms=ms)
 
 
 def _resolve(root: dict[str, Any], node: Any) -> Any:

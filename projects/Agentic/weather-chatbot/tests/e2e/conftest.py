@@ -80,6 +80,12 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
         vercel_git_commit_sha=None,
         vercel_deployment_id=None,
         log_level="warning",
+        apify_token=None,
+        axiom_token=None,
+        axiom_dataset=None,
+        sentry_dsn=None,
+        runtime_cache_endpoint=None,
+        runtime_cache_headers=None,
     )
     app = create_app(settings)
     # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour; and the cache.

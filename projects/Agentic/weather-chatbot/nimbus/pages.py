@@ -239,7 +239,13 @@ def interview_page(request: Request) -> HTMLResponse:
 
 @router.get("/todo", response_class=HTMLResponse)
 def todo_page(request: Request) -> HTMLResponse:
-    """The to-do list: what waits on the user, and what comes next."""
+    """The to-do list: what's done, and what comes next."""
+    return _render_doc(request)
+
+
+@router.get("/waiting-on-you", response_class=HTMLResponse)
+def waiting_on_you_page(request: Request) -> HTMLResponse:
+    """Everything only the user can do, in their own accounts, step by step (step 12)."""
     return _render_doc(request)
 
 

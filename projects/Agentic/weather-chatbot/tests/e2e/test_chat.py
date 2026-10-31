@@ -311,3 +311,39 @@ def test_the_firewall_s_429_is_said_in_our_own_words(page: Page) -> None:
     page.route("**/api/chat", lambda route: route.fulfill(status=429, content_type="text/plain", body="Too Many"))
     ask(page)
     expect(page.locator(".message-error .message-note")).to_have_text(RATE_LIMITED)
+
+
+def lane_status(page: Page, lane: str) -> Locator:
+    """A lane's health, beside it in the picker (step 12)."""
+    return page.locator(f'[data-lane-status="{lane}"]')
+
+
+def test_each_lane_s_health_shows_beside_it_once_the_page_has_asked(page: Page) -> None:
+    # Here, Open-Meteo is played back and our MCP server is this one: the lanes with no auth work.
+    page.goto("/")
+    for lane in ("rest-no-auth", "mcp-no-auth"):
+        expect(lane_status(page, lane)).to_have_attribute("data-state", "ok")
+        expect(lane_status(page, lane).locator(".lane-status-word")).to_have_text("working")
+    expect(page.locator(".lane-closed .lane-note")).to_have_text(["needs a token", "needs a token"])
+
+
+def test_a_lane_not_answering_says_so_and_can_still_be_picked(page: Page) -> None:
+    report = {"status": "down", "lanes": {"rest-no-auth": "ok", "mcp-no-auth": "down"}}
+    page.route(
+        "**/api/health",
+        lambda route: route.fulfill(status=503, content_type="application/json", body=json.dumps(report)),
+    )
+    page.goto("/")
+    expect(lane_status(page, "mcp-no-auth")).to_have_attribute("data-state", "down")
+    expect(lane_status(page, "mcp-no-auth").locator(".lane-status-word")).to_have_text("not answering")
+    expect(page.get_by_role("radio", name="MCP · no auth")).to_be_enabled()
+
+
+def test_a_health_answer_the_page_can_t_read_leaves_each_status_unknown(page: Page) -> None:
+    page.route(
+        "**/api/health",
+        lambda route: route.fulfill(status=502, content_type="text/html", body="<h1>Bad gateway</h1>"),
+    )
+    page.goto("/")
+    for lane in ("rest-no-auth", "mcp-no-auth"):
+        expect(lane_status(page, lane).locator(".lane-status-word")).to_have_text("status unknown")

@@ -1,7 +1,8 @@
 """
 nimbus/config.py: the app's settings, and the only module that reads the environment. Pydantic checks each value when
-the app starts. Vercel sets the build's own (VERCEL, VERCEL_ENV, the commit, the deployment, its names, and the secret
-that gets an automated call past its protection, if that's on), which are read from the real environment only; you set
+the app starts. Vercel sets the build's own (VERCEL, VERCEL_ENV, the commit, the deployment, its names, the secret that
+gets an automated call past its protection, if that's on, and its Runtime Cache's address), which are read from the
+real environment only; you set
 the rest, in Vercel's project settings, or in .env.local on your computer, which git never sees.
 """
 
@@ -26,6 +27,8 @@ VERCEL_FIELDS = frozenset(
         "vercel_branch_url",
         "vercel_project_production_url",
         "vercel_automation_bypass_secret",
+        "runtime_cache_endpoint",
+        "runtime_cache_headers",
     }
 )
 
@@ -67,6 +70,9 @@ class Settings(BaseSettings):
     vercel_branch_url: str | None = None
     vercel_project_production_url: str | None = None
     vercel_automation_bypass_secret: SecretStr | None = None
+    # And (step 12) its Runtime Cache's address, and the headers that let a call in, which hold a token.
+    runtime_cache_endpoint: str | None = None
+    runtime_cache_headers: SecretStr | None = None
     # ② Set by you, if you want more or fewer log lines.
     log_level: Literal["debug", "info", "warning", "error"] = "info"
     # ③ Set by you (step 3): the key for Gemini, a Secret variable in Vercel, and which Gemini model answers. Without a
@@ -84,6 +90,11 @@ class Settings(BaseSettings):
     # ⑥ Set by you (step 10): Apify's token, a Sensitive variable in Vercel, for the lanes with auth; without it,
     # they're closed.
     apify_token: SecretStr | None = None
+    # ⑦ Set by you (step 12): Axiom's token, which can only ingest, and its dataset; without both, the lines stay in
+    # Vercel's logs. And Sentry's DSN; without it, errors stay in the lines.
+    axiom_token: SecretStr | None = None
+    axiom_dataset: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.\-]*$")
+    sentry_dsn: SecretStr | None = None
 
     @classmethod
     def settings_customise_sources(

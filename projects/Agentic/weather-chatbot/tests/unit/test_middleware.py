@@ -6,10 +6,13 @@ a streamed one too.
 
 import asyncio
 import json
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Coroutine, Iterator
+from typing import Any
 
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response, StreamingResponse
@@ -18,7 +21,11 @@ from starlette.types import Message, Receive, Scope, Send
 from structlog.contextvars import merge_contextvars
 from structlog.testing import capture_logs
 
+from nimbus import middleware
+from nimbus.axiom import LogShipper
+from nimbus.config import Settings
 from nimbus.constants import CONTENT_SECURITY_POLICY, PROJECT_ROOT, SECURITY_HEADERS
+from nimbus.logger import configure_logging
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 
 VERCEL_ID = "cle1::v9h4q-1793390239541-fa4d33a7af21"
@@ -143,3 +150,49 @@ def test_a_request_that_fails_logs_its_error_class_and_500(small_client: TestCli
     assert line["status"] == 500
     assert line["errorClass"] == "RuntimeError"
     assert line["log_level"] == "error"
+
+
+def shipper_into(sent: list[httpx2.Request]) -> LogShipper:
+    """A shipper whose Axiom keeps each batch it gets, and takes it."""
+
+    def axiom(request: httpx2.Request) -> httpx2.Response:
+        sent.append(request)
+        return httpx2.Response(200, json={})
+
+    token = SecretStr("test-axiom-token-5150")
+    return LogShipper("weather-chatbot", token, lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(axiom)))
+
+
+def app_with(shipper: LogShipper, *, is_vercel: bool) -> Starlette:
+    """A small app behind the request middleware, its lines kept for Axiom: one route, which answers hello."""
+    app = Starlette(routes=[Route("/hello", lambda _request: PlainTextResponse("hello"))])
+    app.add_middleware(RequestContextMiddleware, log_shipper=shipper, is_vercel=is_vercel)
+    return app
+
+
+def test_on_a_computer_a_request_s_lines_go_to_axiom_before_its_call_ends(settings: Settings) -> None:
+    sent: list[httpx2.Request] = []
+    shipper = shipper_into(sent)
+    configure_logging(settings, shipper)
+    with TestClient(app_with(shipper, is_vercel=False)) as test_client:
+        test_client.get("/hello?q=private", headers={"x-vercel-id": VERCEL_ID})
+    [batch] = sent
+    [line] = [json.loads(line) for line in batch.content.decode().splitlines()]
+    assert (line["event"], line["path"], line["requestId"]) == ("http.request", "/hello", VERCEL_ID)
+
+
+def test_on_vercel_a_request_s_lines_are_sent_once_it_has_answered(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Vercel keeps the function alive for what's handed to wait_until; the request has answered by then.
+    sent: list[httpx2.Request] = []
+    waiting: list[Coroutine[Any, Any, None]] = []
+    monkeypatch.setattr(middleware, "wait_until", waiting.append)
+    shipper = shipper_into(sent)
+    configure_logging(settings, shipper)
+    with TestClient(app_with(shipper, is_vercel=True)) as test_client:
+        assert test_client.get("/hello").text == "hello"
+    assert sent == []
+    [sending] = waiting
+    asyncio.run(sending)
+    assert len(sent) == 1

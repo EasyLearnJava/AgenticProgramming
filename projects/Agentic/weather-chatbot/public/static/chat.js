@@ -163,6 +163,28 @@
     box.focus();
   });
 
+  // ⑩ Each lane's health (step 12), beside it in the picker: asked when the page opens, then every 5 minutes. A 503
+  // carries the same report, the lane that's down in it; an answer the page can't read leaves each status unknown.
+  const picker = document.querySelector(".lane-picker");
+  const statusWords = { ok: picker.dataset.working, down: picker.dataset.notAnswering };
+  async function showLaneHealth() {
+    let lanes = {};
+    try {
+      const response = await fetch("/api/health", { headers: { accept: "application/json" } });
+      lanes = (await response.json()).lanes || {};
+    } catch {
+      lanes = {};
+    }
+    for (const status of picker.querySelectorAll("[data-lane-status]")) {
+      const state = lanes[status.dataset.laneStatus];
+      const known = Object.hasOwn(statusWords, state);
+      status.dataset.state = known ? state : "unknown";
+      status.querySelector(".lane-status-word").textContent = known ? statusWords[state] : picker.dataset.unknown;
+    }
+  }
+  showLaneHealth();
+  setInterval(showLaneHealth, 5 * 60 * 1000);
+
   // ⑧ Your browser's language and time zone go with each question: the answer's units, and your own today.
   document.getElementById("locale").value = navigator.language || "";
   document.getElementById("time-zone").value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";

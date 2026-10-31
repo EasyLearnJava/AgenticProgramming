@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 12 · Monitoring</title>
+  <desc id="d">Each line the app logs is kept and, once the request has answered, sent to Axiom in one batch within 2 seconds while Vercel keeps the function alive; a line at error goes to Sentry as its exception's class and frames, with nothing private. The health check runs four checks at once, none of which costs, and gives each lane its status from the checks it needs: 200 when every lane that's on works, else 503; the page shows a dot and words beside each lane.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 12 · Monitoring</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">Every line kept, every error told, every lane checked: none of it private, none of it costs</text>
+
+  <!-- Row 1: the lines -->
+  <rect x="40" y="100" width="270" height="110" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">Each line, as written</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">to stdout, Vercel's hour of logs</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">and kept: 1,000 at most</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">past that, dropped and counted</text>
+  <line x1="310" y1="155" x2="343" y2="155" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="345" y="100" width="300" height="110" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="361" y="126" font-size="15" font-weight="700" fill="#053b30">Once the request has answered</text>
+  <text x="361" y="148" font-size="13" fill="#1f2937">one batch, NDJSON, within 2 s</text>
+  <text x="361" y="167" font-size="13" fill="#1f2937">wait_until keeps the function alive</text>
+  <text x="361" y="186" font-size="13" fill="#1f2937">a refusal said on stderr, dropped</text>
+  <line x1="645" y1="155" x2="678" y2="155" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="680" y="100" width="240" height="110" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="696" y="126" font-size="15" font-weight="700" fill="#7c2d12">Axiom</text>
+  <text x="696" y="148" font-size="13" fill="#1f2937">dataset weather-chatbot</text>
+  <text x="696" y="167" font-size="13" fill="#1f2937">each line at its own ts</text>
+  <text x="696" y="186" font-size="13" fill="#1f2937">dashboards, monitors: yours</text>
+
+  <!-- Row 2: the errors -->
+  <rect x="40" y="230" width="605" height="110" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="256" font-size="15" font-weight="700" fill="#053b30">A line at error, to Sentry too</text>
+  <text x="56" y="278" font-size="13" fill="#1f2937">the exception being handled: its class and frames, else the line's event</text>
+  <text x="56" y="297" font-size="13" fill="#1f2937">tags: event, requestId, lane, tool, check, errorClass, ref · a warning stays a line</text>
+  <text x="56" y="316" font-size="13" fill="#1f2937">no integrations, no message, no request, no variables, no breadcrumbs</text>
+  <line x1="645" y1="285" x2="678" y2="285" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="680" y="230" width="240" height="110" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="696" y="256" font-size="15" font-weight="700" fill="#7c2d12">Sentry</text>
+  <text x="696" y="278" font-size="13" fill="#1f2937">sent with the lines, 2 s</text>
+  <text x="696" y="297" font-size="13" fill="#1f2937">release: the commit</text>
+  <text x="696" y="316" font-size="13" fill="#1f2937">alerts: yours</text>
+
+  <!-- Row 3: the health check -->
+  <rect x="40" y="360" width="880" height="150" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="386" font-size="15" font-weight="700" fill="#053b30">/api/health: four checks at once, 8 s each, none of which costs</text>
+  <text x="56" y="410" font-size="13" fill="#1f2937">Open-Meteo: Paris, geocoded, no cache · our MCP server: our four tools offered</text>
+  <text x="56" y="429" font-size="13" fill="#1f2937">Apify's REST door: the account, read · Apify's MCP server: its tools against our pin</text>
+  <text x="56" y="453" font-size="13" fill="#1f2937">a lane works when every check it needs passes; without the token, the lanes with auth are off</text>
+  <text x="56" y="472" font-size="13" fill="#1f2937">200 when every lane that's on works, else 503 · one run a minute per address · the CDN keeps a 200 a minute</text>
+  <text x="56" y="491" font-size="13" fill="#1f2937">a token Apify refuses: AuthError, at error, so Sentry hears of it first</text>
+
+  <!-- Row 4: the dots -->
+  <rect x="40" y="530" width="880" height="110" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="556" font-size="15" font-weight="700" fill="#053b30">The lane picker: a dot and its words beside each lane</text>
+  <circle cx="64" cy="580" r="5" fill="#9ca3af"/>
+  <text x="76" y="584" font-size="13" fill="#1f2937">checking… until the page has asked, then every 5 minutes</text>
+  <circle cx="64" cy="600" r="5" fill="#15803d"/>
+  <text x="76" y="604" font-size="13" fill="#1f2937">working</text>
+  <circle cx="194" cy="600" r="5" fill="#b91c1c"/>
+  <text x="206" y="604" font-size="13" fill="#1f2937">not answering, and still a lane you can pick</text>
+  <circle cx="64" cy="620" r="5" fill="#9ca3af"/>
+  <text x="76" y="624" font-size="13" fill="#1f2937">status unknown, for an answer the page can't read</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">Send what you must after answering, never instead of it; check each way out without spending.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">Axiom's and Sentry's variables, dashboards and alerts are yours to set: Waiting on you.</text>
+</svg>

@@ -427,3 +427,23 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     "hidden"; LangSmith gives it nothing else, since inputs and outputs are emptied first, but each run's metadata,
     which passes as it is. **Check:** a test traces a refused input through the app's own client, its runs kept
     instead of sent: no payload holds the question's word or the conversation's; the mutation check's two rules.
+
+## Step 12 · Monitoring: Axiom, Sentry, the Health Check and the Status Dots
+
+Issue 60's To do is done: the Runtime Cache's store is built with an `on_error` that raises, so a cache that fails is
+one `cache.failed` warning, with the request's id; a test makes Vercel's cache answer 500, for a read and a write.
+
+69. **The vercel package's telemetry was off only by the order of imports.** *Building step 12.* The package reads
+    `VERCEL_TELEMETRY_DISABLED` once, when it's first imported; `cache.py` set it just before its own import, and
+    `middleware.py` now imports the package too, for `wait_until`. It held only because `chat.py` happens to import
+    `cache.py` first. **Fix:** set in the package's own `__init__.py`, which runs before any module of ours.
+    **Check:** the telemetry test; the mutation check's rule removing the line.
+70. **sentry-sdk 2.72 deprecates two things the plan used.** *Building step 12.* `send_default_pii` gives way to
+    `data_collection`, and using `sentry_sdk.init` as a context manager is deprecated; the tests turn every warning
+    into an error, so the first run failed. **Fix:** the options set `data_collection`, each category off (it ignores
+    `include_local_variables`, so that went too); the tests' fixture closes the client and clears it itself. **Check:**
+    a test reads the running client's resolved data collection; the mutation check's rules on it.
+71. **The unit tests' shared client reached for a real MCP server.** *Building step 12.* Once `/api/health` checked
+    our MCP server, the shared `client` fixture's app tried `testserver` through a real HTTP client: a DNS lookup, and
+    5 s, in a test that only read headers. **Fix:** the fixture's MCP client calls the app in the same process.
+    **Check:** the suite's slowest test, timed: under a second.

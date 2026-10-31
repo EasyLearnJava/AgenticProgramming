@@ -275,12 +275,14 @@ class ApifyRecordings:
         self.requests: list[httpx2.Request] = []
 
     async def __call__(self, request: httpx2.Request) -> httpx2.Response:
-        """A run's answer."""
+        """A run's answer; or, for the health check, the account behind the token (step 12)."""
         self.requests.append(request)
         if self.status == 401:
             return httpx2.Response(401, json=apify_answer("error-401-fake-token"))
         if self.status >= 400:
             return httpx2.Response(self.status, json={"error": {"type": "stand-in-error", "message": "Paris, quoted"}})
+        if request.method == "GET":
+            return httpx2.Response(200, json={"data": {"username": "stand-in"}})
         return httpx2.Response(201, json=actor_items(json.loads(request.content)))
 
 

@@ -3,12 +3,16 @@ tests/unit/test_logger.py: a log line as it reaches stdout: one JSON object, wit
 library's lines: only its warnings and errors, made ours.
 """
 
+import asyncio
 import json
 import logging
 
+import httpx2
 import pytest
 import structlog
+from pydantic import SecretStr
 
+from nimbus.axiom import LogShipper
 from nimbus.config import Settings
 from nimbus.logger import configure_logging
 
@@ -79,3 +83,21 @@ def test_the_root_logger_has_only_our_handler(settings: Settings) -> None:
     logging.getLogger().addHandler(logging.StreamHandler())
     configure_logging(settings)
     assert len(logging.getLogger().handlers) == 1
+
+
+def test_with_axiom_set_up_each_line_also_waits_to_be_sent_as_written(
+    settings: Settings, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sent: list[httpx2.Request] = []
+
+    def axiom(request: httpx2.Request) -> httpx2.Response:
+        sent.append(request)
+        return httpx2.Response(200, json={})
+
+    token = SecretStr("test-axiom-token-5150")
+    shipper = LogShipper("weather-chatbot", token, lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(axiom)))
+    configure_logging(settings, shipper)
+    structlog.get_logger().info("test.line", count=3)
+    written = capsys.readouterr().out
+    asyncio.run(shipper.send())
+    assert sent[0].content.decode() == written

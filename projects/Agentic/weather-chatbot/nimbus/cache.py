@@ -3,23 +3,21 @@ nimbus/cache.py: where Open-Meteo's answers are kept (step 7): Vercel's Runtime 
 Hobby, all of a team's projects share one cache, so each key is our namespace, then the SHA-256 of the request's
 address: never the address itself, which can name a place, nor the package's own hash, of 32 bits, which two addresses
 can share. A read or a write that fails, or takes more than 1 s, is a miss: the answer is fetched as if nothing were
-kept. On Vercel, the package's store catches the cache's own errors: it prints each in a plain line, and gives a miss
-(issue 60). Off Vercel, the package keeps the answers in this process's memory, and says so once.
+kept. On Vercel, the store is built here, as the package builds it, but with an on_error that raises, so the cache's
+own errors reach our warning, with the request's id, rather than a plain line of the package's (issue 60). Off
+Vercel, the package keeps the answers in this process's memory, and says so once.
 """
 
 import asyncio
 import hashlib
-import os
+import json
 from typing import Protocol
 
 import structlog
-
-# The vercel package sends usage events, with the team's and the project's ids, to telemetry.vercel.com when the
-# process ends, unless this is set before it's imported (issue 58): Nimbus sends nothing it doesn't need to.
-os.environ.setdefault("VERCEL_TELEMETRY_DISABLED", "1")
-
 from vercel.cache import AsyncRuntimeCache
+from vercel.cache.cache_build import AsyncBuildCache
 
+from nimbus.config import Settings
 from nimbus.constants import CACHE_NAMESPACE, CACHE_TIMEOUT_SECONDS
 
 log = structlog.get_logger()
@@ -50,14 +48,14 @@ class WeatherCache:
 
     def __init__(self, store: CacheStore, *, timeout_seconds: float = CACHE_TIMEOUT_SECONDS) -> None:
         """The store, and how long a read or a write may take (the tests pass their own)."""
-        self._store = store
+        self.store = store
         self._timeout_seconds = timeout_seconds
 
     async def get(self, address: str) -> object | None:
         """The answer kept for the address; None if there's none, or if the cache was slow or failed: a warning."""
         try:
             async with asyncio.timeout(self._timeout_seconds):
-                return await self._store.get(to_cache_key(address))
+                return await self.store.get(to_cache_key(address))
         except Exception as error:
             log.warning("cache.failed", operation="get", errorClass=type(error).__name__)
             return None
@@ -66,11 +64,28 @@ class WeatherCache:
         """Keeps the answer for the address for so many seconds; a cache that's slow or fails is a warning, no more."""
         try:
             async with asyncio.timeout(self._timeout_seconds):
-                await self._store.set(to_cache_key(address), answer, {"ttl": seconds})
+                await self.store.set(to_cache_key(address), answer, {"ttl": seconds})
         except Exception as error:
             log.warning("cache.failed", operation="set", errorClass=type(error).__name__)
 
 
-def make_weather_cache() -> WeatherCache:
-    """The cache on Vercel's Runtime Cache, which takes our keys as they are."""
+def _raise(error: Exception) -> None:
+    """The store's on_error: the cache's own error goes on, to our cache.failed warning, never to a print (issue 60)."""
+    raise error
+
+
+def make_weather_cache(settings: Settings) -> WeatherCache:
+    """
+    The cache on Vercel's Runtime Cache, which takes our keys as they are. Where Vercel gives the function its cache's
+    address and headers, the store is built from them, as the package would, with an on_error that raises; elsewhere,
+    or with headers that aren't a JSON object, the package's own.
+    """
+    endpoint, headers = settings.runtime_cache_endpoint, settings.runtime_cache_headers
+    if endpoint is not None and headers is not None:
+        try:
+            parsed = json.loads(headers.get_secret_value())
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, dict):
+            return WeatherCache(AsyncBuildCache(endpoint=endpoint, headers=parsed, on_error=_raise))
     return WeatherCache(AsyncRuntimeCache(key_hash_function=_as_given))

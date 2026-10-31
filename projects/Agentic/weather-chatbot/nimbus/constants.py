@@ -185,3 +185,19 @@ MAX_APIFY_DETAIL_CHARS: Final = 200
 # across the app, counted in the weather's cache; past either, the forecast falls back with no run.
 APIFY_RUNS_PER_ANSWER: Final = 2
 APIFY_RUNS_PER_DAY: Final = 25
+
+# ⑯ Monitoring (step 12): Axiom's US edge, where the dataset's organisation is; a batch of lines has 2 s, and at most
+# 1,000 lines wait for one. Sentry has the same 2 s to send what it has, at the same moment.
+AXIOM_INGEST_HOST: Final = "us-east-1.aws.edge.axiom.co"
+AXIOM_SEND_SECONDS: Final = 2
+AXIOM_MAX_WAITING_LINES: Final = 1000
+SENTRY_SEND_SECONDS: Final = 2
+
+# ⑰ The health check (step 12): four checks at once, 8 s each, none of which costs; Open-Meteo geocodes Paris, its
+# cache skipped; Apify's REST door reads the account behind the token. A run's report answers the same address for a
+# minute; Vercel's CDN keeps a 200 for one more, and a browser keeps nothing.
+HEALTH_CHECK_SECONDS: Final = 8
+HEALTH_PLACE: Final = "Paris"
+HEALTH_RUN_SECONDS: Final = 60
+HEALTH_CACHE_CONTROL: Final = "public, max-age=0, s-maxage=60"
+APIFY_ME_URL: Final = "https://api.apify.com/v2/users/me"

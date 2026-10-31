@@ -49,7 +49,8 @@
     </ol>
     <template id="chat-error-template">{{ error_message("") }}</template>
     <div class="chat-input-area">
-      <fieldset class="lane-picker">
+      <fieldset class="lane-picker" data-working="working" data-not-answering="not answering"
+        data-unknown="status unknown">
         <legend class="lane-picker-legend">Lane: how the tools are reached</legend>
         <div class="lane-grid">
           {%- for lane, open in lanes %}
@@ -57,7 +58,13 @@
             <input type="radio" name="lane" value="{{ lane.id }}" form="chat-form"
               {%- if lane.id == default_lane %} checked{% endif %}{% if not open %} disabled{% endif %}>
             <span class="lane-label">{{ lane.label }}</span>
-            <span class="lane-note">{{ "live" if open else "needs a token" }}</span>
+            {%- if open %}
+            <span class="lane-note lane-status" data-lane-status="{{ lane.id }}" data-state="checking">
+              <span class="lane-dot" aria-hidden="true"></span><span class="lane-status-word">checking…</span>
+            </span>
+            {%- else %}
+            <span class="lane-note">needs a token</span>
+            {%- endif %}
           </label>
           {%- endfor %}
         </div>

@@ -1,31 +1,48 @@
 """
 nimbus/middleware.py: what every request the app answers goes through. Both are plain ASGI middleware, not Starlette's
 BaseHTTPMiddleware: each message the app sends passes through as it is, so a streamed answer (step 2) streams, with
-its request's log context.
+its request's log context. Once a request has answered, its lines go to Axiom, and any error to Sentry (step 12).
 """
 
+import asyncio
 import time
+from collections.abc import Awaitable
 
+import sentry_sdk
 import structlog
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+from vercel.functions import wait_until
 
-from nimbus.constants import REQUEST_ID_HEADER, SECURITY_HEADERS, VERCEL_ID_HEADER
+from nimbus.axiom import LogShipper
+from nimbus.constants import REQUEST_ID_HEADER, SECURITY_HEADERS, SENTRY_SEND_SECONDS, VERCEL_ID_HEADER
 from nimbus.utils import to_ms, to_request_id
 
 HTTP_SERVER_ERROR = 500
+
+
+async def send_monitoring(shipper: LogShipper | None) -> None:
+    """What requests leave for monitoring, both at once, 2 s each: their lines to Axiom, any error to Sentry."""
+    sends: list[Awaitable[object]] = []
+    if shipper is not None:
+        sends.append(shipper.send())
+    if sentry_sdk.get_client().is_active():
+        sends.append(asyncio.to_thread(sentry_sdk.flush, SENTRY_SEND_SECONDS))
+    await asyncio.gather(*sends, return_exceptions=True)
 
 
 class RequestContextMiddleware:
     """
     Gives each request its id, puts the id on every line it logs, on its response and in its state, and logs one line
     when it ends: the method, the path (never the query string, which can hold what a user typed), the status and the
-    time it took.
+    time it took. Then its lines go to Axiom, and any error to Sentry.
     """
 
-    def __init__(self, app: ASGIApp) -> None:
-        """Wraps the app."""
+    def __init__(self, app: ASGIApp, log_shipper: LogShipper | None = None, *, is_vercel: bool = False) -> None:
+        """Wraps the app; the shipper that keeps its lines for Axiom, if any, and whether it runs on Vercel."""
         self.app = app
+        self.log_shipper = log_shipper
+        self.is_vercel = is_vercel
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Runs one HTTP request through the app, with its id; anything else (the app's startup) passes as it is."""
@@ -69,6 +86,13 @@ class RequestContextMiddleware:
                     log.info("http.request", **fields)
                 else:
                     log.error("http.request", **fields, errorClass=error_class)
+        # ⑤ Then what it leaves for monitoring (step 12): on Vercel, which keeps the function alive for it once the
+        # request has answered (wait_until); on a computer, before the request's call ends.
+        sending = send_monitoring(self.log_shipper)
+        if self.is_vercel:
+            wait_until(sending)
+        else:
+            await sending
 
 
 class SecurityHeadersMiddleware:

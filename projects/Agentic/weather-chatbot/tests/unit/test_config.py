@@ -64,3 +64,27 @@ def test_a_pulled_env_local_never_makes_a_computer_look_like_vercel(
     assert settings.environment == "local"
     assert settings.commit is None
     assert settings.log_level == "debug"
+
+
+def test_vercel_s_runtime_cache_address_comes_from_the_real_environment_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Like Vercel's other variables, a pulled copy in .env.local changes nothing (step 12).
+    pulled = 'RUNTIME_CACHE_ENDPOINT="https://cache.vercel.test/v1/"\nRUNTIME_CACHE_HEADERS="{}"\n'
+    (tmp_path / ".env.local").write_text(pulled, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    assert Settings().runtime_cache_endpoint is None
+    monkeypatch.setenv("RUNTIME_CACHE_ENDPOINT", "https://cache.vercel.test/v1/")
+    assert Settings().runtime_cache_endpoint == "https://cache.vercel.test/v1/"
+
+
+def test_reads_axiom_s_and_sentry_s_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AXIOM_TOKEN", "test-axiom-token-5150")
+    monkeypatch.setenv("AXIOM_DATASET", "weather-chatbot")
+    monkeypatch.setenv("SENTRY_DSN", "https://public@o0.ingest.sentry.test/0")
+    settings = Settings(_env_file=None)
+    assert settings.axiom_token is not None
+    assert settings.axiom_token.get_secret_value() == "test-axiom-token-5150"
+    assert settings.axiom_dataset == "weather-chatbot"
+    assert settings.sentry_dsn is not None
+    assert "test-axiom-token-5150" not in repr(settings)

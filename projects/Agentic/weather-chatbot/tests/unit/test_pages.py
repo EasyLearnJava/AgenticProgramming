@@ -149,7 +149,15 @@ def test_the_pages_every_step_adds_to_open_and_mark_their_link(client: TestClien
 
 
 def test_the_menu_lists_the_chat_the_documentation_then_the_pages_every_step_adds_to() -> None:
-    assert [item.href for item in MENU_ITEMS] == ["/", "/docs", "/system-design", "/issues", "/interview", "/todo"]
+    assert [item.href for item in MENU_ITEMS] == [
+        "/",
+        "/docs",
+        "/system-design",
+        "/issues",
+        "/interview",
+        "/todo",
+        "/waiting-on-you",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -217,6 +225,8 @@ def test_the_chat_page_offers_the_lanes_and_compares_one_call_through_each(clien
     assert page.count("authorization: Bearer &lt;APIFY_TOKEN&gt;") == 2
     assert '"name": "call-actor"' in page.replace("&#34;", '"')
     assert page.count("needs a token") == 2
+    # Step 12: each open lane's health, asked once the page has opened; the page itself says it's checking.
+    assert re.findall(r'data-lane-status="([a-z-]+)" data-state="checking"', page) == ["rest-no-auth", "mcp-no-auth"]
 
 
 def test_with_apify_s_token_the_lanes_with_auth_are_open(settings: Settings) -> None:

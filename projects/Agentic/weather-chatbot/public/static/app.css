@@ -668,6 +668,24 @@ body {
   font-size: 0.75rem;
 }
 
+/* Each lane's health (step 12): a dot and its words; the words say it, never the colour alone. */
+.lane-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.lane-status[data-state="ok"] .lane-dot {
+  background: #15803d;
+}
+
+.lane-status[data-state="down"] .lane-dot {
+  background: #b91c1c;
+}
+
 /* The compare view (step 9): one forecast call through each lane, side by side. */
 .compare {
   margin: 0 0 12px;

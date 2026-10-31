@@ -63,5 +63,7 @@ def client(
     app.state.chat_model = chat_model
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
     app.state.weather_cache = WeatherCache(cache_store)
+    # Our own MCP server, which the MCP lanes and the health check call, in this process too (step 12).
+    app.state.make_mcp_http_client = lambda: httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app))
     with TestClient(app) as test_client:
         yield test_client

@@ -139,12 +139,22 @@ CHAPTERS: tuple[DocPage, ...] = (
             "against prompt injection; and privacy checks, tests of what never leaves the app, on every lane."
         ),
     ),
+    DocPage(
+        slug="step-12",
+        path="/docs/step-12",
+        label="Step 12: Monitoring: Axiom, Sentry, the Health Check and the Status Dots",
+        summary=(
+            "Each line to Axiom once the request has answered; each error to Sentry, nothing private; the cache's own "
+            "errors our warning; a health check of each lane, and a dot beside each in the picker."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="system-design", path="/system-design", label="System design"),
     DocPage(slug="issues", path="/issues", label="Issues and fixes"),
     DocPage(slug="interview", path="/interview", label="Interview guide"),
     DocPage(slug="todo", path="/todo", label="To do"),
+    DocPage(slug="waiting-on-you", path="/waiting-on-you", label="Waiting on you"),
 )
 
 # ② The TypeScript app's pages, kept until the user says otherwise, each renamed *_deprecated, at its old address with

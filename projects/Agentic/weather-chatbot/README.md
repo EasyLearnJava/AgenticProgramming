@@ -67,8 +67,8 @@ Each step's chapter explains it, in order:
 | 9 | [The MCP · No Auth Lane](docs/step-9.md) | Done |
 | 10 | [The Lanes With Auth, Through Apify](docs/step-10.md) | Done |
 | 11 | [Security: Rate Limits, Prompt Injection, Privacy](docs/step-11.md) | Done |
-| 12 | Monitoring: Axiom, Sentry, LangSmith; health and status dots | Next |
-| 13 | See [PLAN.md](PLAN.md) | To come |
+| 12 | [Monitoring: Axiom, Sentry, the Health Check and the Status Dots](docs/step-12.md) | Done |
+| 13 | Evals and release: golden questions, a load test, rollback; see [PLAN.md](PLAN.md) | Next |
 
 ## Run it
 
@@ -76,8 +76,8 @@ Each step's chapter explains it, in order:
 $ uv run uvicorn main:app --reload --no-access-log
 INFO:     Will watch for changes in these directories: ['C:\\...\\weather-chatbot']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [40644] using StatReload
-INFO:     Started server process [36212]
+INFO:     Started reloader process [17732] using StatReload
+INFO:     Started server process [48100]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
@@ -86,9 +86,9 @@ Then open http://127.0.0.1:8000 (the folder's path is shortened above). Each req
 and never its query string; this one is for `/docs?q=private`:
 
 ```json
-{"method": "GET", "path": "/docs", "status": 200, "ms": 9, "event": "http.request", "level": "info",
- "ts": "2026-10-31T18:24:04.475289Z", "env": "local", "commit": null, "deploymentId": null,
- "requestId": "ee728ca90d784961"}
+{"method": "GET", "path": "/docs", "status": 200, "ms": 10, "event": "http.request", "level": "info",
+ "ts": "2026-10-31T19:22:17.670582Z", "env": "local", "commit": null, "deploymentId": null,
+ "requestId": "7629f5701b5e44e7"}
 ```
 
 ## Test it
@@ -97,16 +97,16 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-98 files already formatted
+104 files already formatted
 $ uv run mypy
-Success: no issues found in 65 source files
+Success: no issues found in 69 source files
 $ uv run pytest
-530 passed in 8.25s
+565 passed in 8.78s
 $ uv run pytest tests/e2e --browser-channel msedge
-156 passed in 118.25s (0:01:58)
+167 passed in 111.37s (0:01:51)
 $ uv run python tools/mutation_check.py
 ...
-151 of 151 caught
+176 of 176 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
@@ -140,13 +140,15 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 11](docs/step-11.md)), the
+step ([step 1](docs/step-1.md) to [step 12](docs/step-12.md)), the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Issues and fixes**
-([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)) and **To do**
-([`docs/todo.md`](docs/todo.md)). The TypeScript version's pages are kept under **Deprecated**: its steps, System
+([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)), **To do**
+([`docs/todo.md`](docs/todo.md)), and **Waiting on you** ([`docs/waiting-on-you.md`](docs/waiting-on-you.md)), every
+setting only you can change. The TypeScript version's pages are kept under **Deprecated**: its steps, System
 design, Technical details, Issues and fixes, Interview guide and To do, each named `*_deprecated`
 ([README_deprecated.md](README_deprecated.md) links them all).
 
 ## Next
 
-[Step 11's chapter](docs/step-11.md), then step 12: monitoring.
+[Step 12's chapter](docs/step-12.md), then step 13: evals and release. What's waiting on you is on
+[its own page](docs/waiting-on-you.md).
