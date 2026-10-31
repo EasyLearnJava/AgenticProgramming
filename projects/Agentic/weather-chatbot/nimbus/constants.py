@@ -147,8 +147,9 @@ AIR_QUALITY_CACHE_SECONDS: Final = 30 * 60
 
 # ⑬ Our MCP server (step 8), at /api/mcp: the same four weather tools, for any MCP client. It keeps no session, since
 # Vercel's copies share no memory, and answers in JSON, not a stream. A request's body is at most 8 KiB: a tool call's
-# input takes a few hundred bytes. On a computer, a request must name the app as 127.0.0.1 or localhost (issue 62).
+# input takes a few hundred bytes. On a computer, a request must name the app as 127.0.0.1 or localhost, with a port
+# or without one (issue 62).
 MCP_PATH: Final = "/api/mcp"
 MCP_SERVER_NAME: Final = "nimbus-weather"
 MCP_BODY_MAX_BYTES: Final = 8 * 1024
-MCP_LOCAL_HOSTS: Final = ("127.0.0.1:*", "localhost:*", "[::1]:*")
+MCP_LOCAL_HOSTS: Final = ("127.0.0.1", "localhost", "[::1]", "127.0.0.1:*", "localhost:*", "[::1]:*")

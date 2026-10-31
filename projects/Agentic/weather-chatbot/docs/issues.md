@@ -374,6 +374,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 62. **On a computer, a page that rebinds its name to 127.0.0.1 could reach the server.** *The review.* The SDK's Host
     and Origin checks were off, on the reasoning that our server is public; but on a computer, a page whose name
     points to 127.0.0.1 is same-origin with the app, so no CORS preflight stops it. **Fix:** off Vercel, the SDK
-    checks that a request names the app as 127.0.0.1 or localhost; on Vercel, its edge sends the app only our own
-    names. **Check:** unit tests: on a computer, another host gets 421; on Vercel, the host isn't checked; the
-    mutation check's "on a computer, the MCP server checks the Host".
+    checks that a request names the app as 127.0.0.1 or localhost, with a port or without one; on Vercel, its edge
+    sends the app only our own names. **Check:** unit tests: on a computer, another host gets 421, and the app's own
+    names get through; on Vercel, the host isn't checked; the mutation check's "on a computer, the MCP server checks
+    the Host".

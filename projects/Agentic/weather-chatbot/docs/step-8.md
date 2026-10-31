@@ -172,6 +172,21 @@ the security headers; a batch, 400; a page elsewhere, no CORS allowance; a GET o
 computer, a request naming another host, 421, while on Vercel the host isn't checked. The mutation check breaks 9 more
 rules (its first 112 lines are left out above; each says caught).
 
+## Deploy it
+
+The push, 041655c, was live on Vercel, and CI's checks had passed, within about two minutes. Checked on the live
+site, https://weather-chatbot-hazel.vercel.app/api/mcp, on 31 October 2026, with the SDK's own client and plain HTTP:
+
+- The client agreed on MCP 2026-07-28 and connected in 0.16 s; the server named itself `nimbus-weather`, version
+  `041655c`, the build that answered. `tools/list` took 0.13 s and gave our four tools.
+- `get_air_quality` for Delhi took 0.55 s: "US AQI 136 · European AQI 100", with the request in `_meta`. The same
+  call again took 0.10 s, from the cache: from this computer, that is the MCP hop's own cost, which step 9's compare
+  view weighs against REST's none.
+- A body over 8 KiB got 413, with the security headers; a batch, 400; a bare 2025 `tools/list`, 200 and no session;
+  a GET, 405 in 0.07 s; a preflight from a page elsewhere, 405, with no CORS allowance.
+- The chat's live check passed as in step 7: the Paris question twice, the second from the cache; Delhi's air and
+  its follow-up in Edge; New chat; axe; a console with no error.
+
 ## Things to take care of, and pitfalls
 
 - **A major version can rename what you know:** FastMCP is `MCPServer` in the SDK's version 2; its old import says so.

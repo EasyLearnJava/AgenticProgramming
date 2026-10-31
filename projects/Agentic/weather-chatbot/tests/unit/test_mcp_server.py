@@ -219,3 +219,10 @@ def test_on_vercel_the_host_is_not_checked_as_its_edge_sends_only_our_names(
     with TestClient(app) as vercel_client:
         response = vercel_client.post("/api/mcp", json=request, headers=headers)
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1:8000", "localhost", "[::1]:5173"])
+def test_on_a_computer_the_app_named_as_itself_on_any_port_is_reached(client: TestClient, host: str) -> None:
+    request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+    headers = {**JSON_RPC, "host": host, "mcp-protocol-version": "2025-11-25"}
+    assert client.post("/api/mcp", json=request, headers=headers).status_code == 200
