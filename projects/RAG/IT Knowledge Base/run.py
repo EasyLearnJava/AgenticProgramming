@@ -41,6 +41,7 @@ COMMANDS = {
     "Advanced/02-documents-and-metadata": ["knowledge_base_loader.py"],
     "Advanced/03-chunking": ["pipeline.py"],
     "Advanced/04-embeddings": ["pipeline.py"],
+    "Advanced/05-vector-store": ["pipeline.py"],
 }
 
 

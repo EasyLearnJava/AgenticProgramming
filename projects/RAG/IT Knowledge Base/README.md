@@ -29,7 +29,7 @@ The projects come in five levels:
   replaceable; every setting in `config.yaml`; errors that answer in one shape; and logs in which one trace ID follows
   each request through every layer, shown on the page under each answer. 01 is built.
 - **`Advanced/`**: the same projects done again, production grade: each checks its input, handles what goes wrong,
-  and reports it. 01 to 04 are built; 05 to 12 are planned, each with a README giving its plan, and
+  and reports it. 01 to 05 are built; 06 to 12 are planned, each with a README giving its plan, and
   [Advanced/README.md](Advanced/README.md) is the roadmap.
 - **`Expert/`**: beyond one file: reading the knowledge base from many systems, in real time. 01 is planned, in
   [its TODO](Expert/01-read-the-knowledge-base/TODO.md); no code yet.
@@ -81,7 +81,8 @@ Models and Embeddings in RAGs.
 | `02-documents-and-metadata` | Each article checked against a schema (Pydantic); typed labels with one spelling per value (`kb_settings.toml`); an ID that survives re-sorting; provenance in every Document; and only the articles added or changed since the last run passed on, removed ones listed. `data/sample_it_kb_labels.csv` has a row for each label problem, `data/sample_it_kb_next.csv` is the next export | `python knowledge_base_loader.py` |
 | `03-chunking` | The articles passed on cut into chunks along their sections (Problem, Resolution, Notes), never across one, sized in tokens with a hard ceiling; a title-and-section header on each chunk; a stable `chunk_id`, a link to its parent section; repeated paragraphs removed, fragments merged, runs with no spaces cut, each reported. `pipeline.py` runs the steps; `data/sample_it_kb_chunking.csv` has an article for each case | `python pipeline.py` |
 | `04-embeddings` | The chunks embedded by Gemini through a sensitive-data gate; a cache on disk (SQLite) so an unchanged chunk is never sent twice, two models never mixed; batches under the API's limits, two calls at a time; retries with backoff and jitter for a 429, a 5xx or a timeout, a clear stop for anything else (a used-up daily quota too); every vector checked; calls, tokens and time reported. `provider = "fake"` runs it with no key | `python pipeline.py` |
-| `05` to `12` | Planned: each folder's README gives its plan (hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
+| `05-vector-store` | The chunks' points in Qdrant (on disk in the process, no server needed), written idempotently (a point's ID from its chunk_id); a changed article's old chunks and a removed article's points deleted; a dense and a sparse vector per point; payload indexes on the labels; each load checked; `--rebuild` fills a new collection behind the alias `it_kb` and moves the alias only if it passes, `--rollback` moves it back | `python pipeline.py` |
+| `06` to `12` | Planned: each folder's README gives its plan (hybrid search and re-ranking, checked citations and injection defenses, tracing, auth and rate limits, containers and CI, an evaluation suite). See the [roadmap](Advanced/README.md) | (no code yet) |
 
 ## What you need
 

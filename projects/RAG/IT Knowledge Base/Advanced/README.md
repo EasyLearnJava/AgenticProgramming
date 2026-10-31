@@ -5,7 +5,7 @@ when everything goes right; its Advanced version handles what goes wrong in real
 report: bad data, sensitive data, failing services, slow or costly calls, wrong answers, attacks, and the day-to-day
 running of the app.
 
-> **Status:** 01 to 04 are built. 05 to 12 are planned: each folder holds a README with its plan, and no code yet.
+> **Status:** 01 to 05 are built. 06 to 12 are planned: each folder holds a README with its plan, and no code yet.
 
 ---
 
@@ -17,7 +17,7 @@ running of the app.
 | [02 · Documents and Metadata](02-documents-and-metadata/README.md) | ✅ Built | A validated schema for each article, typed and normalized labels, stable IDs, provenance, and loading only what changed |
 | [03 · Chunking](03-chunking/README.md) | ✅ Built | Chunks cut along the article's sections, sized in tokens, with stable IDs, parent links and quality checks |
 | [04 · Embeddings](04-embeddings/README.md) | ✅ Built | Batching, retries with backoff, a cache so unchanged chunks are never embedded twice, cost and latency tracking, and a sensitive-data gate before anything leaves the machine |
-| [05 · Vector Store](05-vector-store/README.md) | 📝 Planned | Idempotent upserts and deletes, payload indexes for filters, dense + sparse vectors, consistency checks, and re-indexing without downtime |
+| [05 · Vector Store](05-vector-store/README.md) | ✅ Built | Idempotent upserts and deletes, payload indexes for filters, dense + sparse vectors, consistency checks, and re-indexing without downtime |
 | [06 · Retriever](06-retriever/README.md) | 📝 Planned | Hybrid search, metadata filters, re-ranking, a "no good match" threshold, query rewriting, and retrieval measured on a labeled set |
 | [07 · Grounded Answer](07-grounded-answer/README.md) | 📝 Planned | Structured answers with checked citations, saying "I don't know" when the context doesn't cover it, prompt-injection defenses, and a token budget |
 | [08 · RAG Engine](08-rag-engine/README.md) | 📝 Planned | One settings object, timeouts and retries for every call, a cache for repeated questions, tracing of every stage, and conversation memory |
