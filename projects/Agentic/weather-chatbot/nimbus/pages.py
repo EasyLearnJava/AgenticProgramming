@@ -219,6 +219,12 @@ def chapter_page(request: Request, slug: str) -> HTMLResponse:
     return _render_doc(request)
 
 
+@router.get("/architecture", response_class=HTMLResponse)
+def architecture_page(request: Request) -> HTMLResponse:
+    """The whole design on one page: features, architecture, data flow, decisions, safety and security."""
+    return _render_doc(request)
+
+
 @router.get("/system-design", response_class=HTMLResponse)
 def system_design_page(request: Request) -> HTMLResponse:
     """The system design: how Nimbus is built so far, drawn the way a reference design for AI assistants is."""

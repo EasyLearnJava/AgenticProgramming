@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 880" width="1160" height="880" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">How Nimbus is built</title>
+  <desc id="d">Your browser loads pages made by Jinja2 and made live by htmx, keeping the conversation in a hidden field. Vercel's edge serves HTTPS, gives each request an id, serves the static files from its CDN with the security headers, applies the firewall's rules once they are set, and sends everything else to the app. The app is one Vercel Function, FastAPI on Python 3.13 in Washington, D.C.: its middleware puts the request's id on every line and the security headers on every response, and sends the lines to Axiom and the errors to Sentry once a request has answered; its routes serve the pages, the chat, our MCP server and the health check; the chat checks the form and streams the turn; the agent, a LangGraph graph, calls Gemini at most five times; the tools reach the weather on the question's lane, through the cache, Open-Meteo, our own MCP server or Apify's Actor. The MCP lanes call our own server back through the edge. Every push is checked by CI and deployed by Vercel, with a tag for each step and Instant Rollback.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1160" height="880" fill="#ffffff"/>
+  <text x="24" y="42" font-size="22" font-weight="700" fill="#053b30">How Nimbus is built</text>
+  <text x="24" y="68" font-size="14" fill="#4b5563">The browser, Vercel's edge, one function, and the services it calls; nothing else is called</text>
+
+  <!-- Your browser -->
+  <rect x="24" y="96" width="232" height="604" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="40" y="122" font-size="15" font-weight="700" fill="#053b30">Your browser</text>
+  <text x="40" y="148" font-size="13" fill="#1f2937">the chat page: HTML,</text>
+  <text x="40" y="166" font-size="13" fill="#1f2937">made by a Jinja2 template</text>
+  <text x="40" y="192" font-size="13" fill="#1f2937">htmx 4 and its stream</text>
+  <text x="40" y="210" font-size="13" fill="#1f2937">extension, hash-checked:</text>
+  <text x="40" y="228" font-size="13" fill="#1f2937">each event put in its place</text>
+  <text x="40" y="254" font-size="13" fill="#1f2937">chat.js: Stop, New chat,</text>
+  <text x="40" y="272" font-size="13" fill="#1f2937">the lanes' dots, our own</text>
+  <text x="40" y="290" font-size="13" fill="#1f2937">sentence when no answer</text>
+  <text x="40" y="308" font-size="13" fill="#1f2937">can come from us</text>
+  <text x="40" y="334" font-size="13" fill="#1f2937">the conversation: in a</text>
+  <text x="40" y="352" font-size="13" fill="#1f2937">hidden field, and nowhere</text>
+  <text x="40" y="370" font-size="13" fill="#1f2937">else; sent back with each</text>
+  <text x="40" y="388" font-size="13" fill="#1f2937">question</text>
+  <text x="40" y="414" font-size="13" fill="#1f2937">only text into the page;</text>
+  <text x="40" y="432" font-size="13" fill="#1f2937">the CSP allows no inline</text>
+  <text x="40" y="450" font-size="13" fill="#1f2937">script or style</text>
+  <text x="40" y="476" font-size="13" fill="#1f2937">the documentation:</text>
+  <text x="40" y="494" font-size="13" fill="#1f2937">thirteen chapters and</text>
+  <text x="40" y="512" font-size="13" fill="#1f2937">these pages, no script</text>
+  <text x="40" y="538" font-size="13" fill="#1f2937">each lane's dot: the page</text>
+  <text x="40" y="556" font-size="13" fill="#1f2937">asks /api/health when it</text>
+  <text x="40" y="574" font-size="13" fill="#1f2937">opens, then every 5 minutes</text>
+  <line x1="256" y1="200" x2="278" y2="200" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Vercel's edge -->
+  <rect x="280" y="96" width="232" height="604" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="296" y="122" font-size="15" font-weight="700" fill="#7c2d12">Vercel's edge</text>
+  <text x="296" y="148" font-size="13" fill="#1f2937">HTTPS · the request's id,</text>
+  <text x="296" y="166" font-size="13" fill="#1f2937">x-vercel-id, its own</text>
+  <text x="296" y="192" font-size="13" fill="#1f2937">the firewall, yours to set:</text>
+  <text x="296" y="210" font-size="13" fill="#1f2937">· our own calls: bypass</text>
+  <text x="296" y="228" font-size="13" fill="#1f2937">· /api/*: 20 a minute per</text>
+  <text x="296" y="246" font-size="13" fill="#1f2937">  address, then 429</text>
+  <text x="296" y="272" font-size="13" fill="#1f2937">the CDN: the stylesheet,</text>
+  <text x="296" y="290" font-size="13" fill="#1f2937">the scripts, the icon, with</text>
+  <text x="296" y="308" font-size="13" fill="#1f2937">the security headers</text>
+  <text x="296" y="326" font-size="13" fill="#1f2937">(vercel.json)</text>
+  <text x="296" y="352" font-size="13" fill="#1f2937">a 200 from /api/health</text>
+  <text x="296" y="370" font-size="13" fill="#1f2937">kept a minute</text>
+  <text x="296" y="396" font-size="13" fill="#1f2937">everything else, to the app</text>
+  <text x="296" y="422" font-size="13" fill="#1f2937">the function's log lines,</text>
+  <text x="296" y="440" font-size="13" fill="#1f2937">kept an hour on Hobby</text>
+  <text x="296" y="600" font-size="13" fill="#1f2937">the MCP lanes' calls to</text>
+  <text x="296" y="618" font-size="13" fill="#1f2937">/api/mcp come back through</text>
+  <text x="296" y="636" font-size="13" fill="#1f2937">here, with the bypass</text>
+  <text x="296" y="654" font-size="13" fill="#1f2937">header</text>
+  <line x1="512" y1="200" x2="534" y2="200" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="534" y1="604" x2="514" y2="604" stroke="#0f766e" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+  <line x1="514" y1="644" x2="534" y2="644" stroke="#0f766e" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+
+  <!-- The app -->
+  <rect x="536" y="96" width="400" height="604" rx="16" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="552" y="122" font-size="15" font-weight="700" fill="#053b30">The app: one Vercel Function</text>
+  <text x="552" y="142" font-size="13" fill="#4b5563">FastAPI · Python 3.13 · iad1 (Washington, D.C.)</text>
+
+  <rect x="552" y="154" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="566" y="176" font-size="14" font-weight="700" fill="#053b30">Middleware</text>
+  <text x="566" y="194" font-size="13" fill="#1f2937">the request's id on every line · security headers</text>
+  <text x="566" y="211" font-size="13" fill="#1f2937">then: lines to Axiom, errors to Sentry</text>
+
+  <rect x="552" y="226" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="566" y="248" font-size="14" font-weight="700" fill="#053b30">Routes</text>
+  <text x="566" y="266" font-size="13" fill="#1f2937">the pages and the docs · POST /api/chat</text>
+  <text x="566" y="283" font-size="13" fill="#1f2937">/api/mcp · GET /api/health</text>
+
+  <rect x="552" y="298" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="566" y="320" font-size="14" font-weight="700" fill="#053b30">The chat</text>
+  <text x="566" y="338" font-size="13" fill="#1f2937">the form checked · the turn streamed as</text>
+  <text x="566" y="355" font-size="13" fill="#1f2937">server-sent events of HTML</text>
+
+  <rect x="552" y="370" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="566" y="392" font-size="14" font-weight="700" fill="#053b30">The agent: our own LangGraph graph</text>
+  <text x="566" y="410" font-size="13" fill="#1f2937">Gemini, at most 5 calls, the last without tools</text>
+  <text x="566" y="427" font-size="13" fill="#1f2937">30 s an answer, 50 s on a lane with auth</text>
+
+  <rect x="552" y="442" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="566" y="464" font-size="14" font-weight="700" fill="#053b30">The lanes and the four tools</text>
+  <text x="566" y="482" font-size="13" fill="#1f2937">inputs checked · 8 s a call · the cache first</text>
+  <text x="566" y="499" font-size="13" fill="#1f2937">REST · our MCP server · Apify, falling back</text>
+
+  <rect x="552" y="514" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="566" y="536" font-size="14" font-weight="700" fill="#053b30">Our MCP server, and the health check</text>
+  <text x="566" y="554" font-size="13" fill="#1f2937">the same four tools, stateless, in JSON</text>
+  <text x="566" y="571" font-size="13" fill="#1f2937">four checks, each lane's status, 200 or 503</text>
+
+  <rect x="552" y="586" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="566" y="608" font-size="14" font-weight="700" fill="#053b30">Settings, errors, limits</text>
+  <text x="566" y="626" font-size="13" fill="#1f2937">config.py alone reads the environment</text>
+  <text x="566" y="643" font-size="13" fill="#1f2937">our errors, our words · every limit in one file</text>
+
+  <!-- The services -->
+  <rect x="958" y="96" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="972" y="120" font-size="14" font-weight="700" fill="#7c2d12">Gemini</text>
+  <text x="972" y="140" font-size="13" fill="#1f2937">writes the answers</text>
+  <text x="972" y="158" font-size="13" fill="#1f2937">3.5 Flash-Lite</text>
+  <rect x="958" y="178" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="972" y="202" font-size="14" font-weight="700" fill="#7c2d12">Open-Meteo</text>
+  <text x="972" y="222" font-size="13" fill="#1f2937">places, forecasts,</text>
+  <text x="972" y="240" font-size="13" fill="#1f2937">the air; no key</text>
+  <rect x="958" y="260" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="972" y="284" font-size="14" font-weight="700" fill="#7c2d12">Apify</text>
+  <text x="972" y="304" font-size="13" fill="#1f2937">the Actor's forecast,</text>
+  <text x="972" y="322" font-size="13" fill="#1f2937">REST or MCP; a token</text>
+  <rect x="958" y="342" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="972" y="366" font-size="14" font-weight="700" fill="#7c2d12">Runtime Cache</text>
+  <text x="972" y="386" font-size="13" fill="#1f2937">Open-Meteo's answers,</text>
+  <text x="972" y="404" font-size="13" fill="#1f2937">keys hashed</text>
+  <rect x="958" y="424" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="972" y="448" font-size="14" font-weight="700" fill="#7c2d12">Axiom</text>
+  <text x="972" y="468" font-size="13" fill="#1f2937">every line, kept</text>
+  <text x="972" y="486" font-size="13" fill="#1f2937">and searched</text>
+  <rect x="958" y="506" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="972" y="530" font-size="14" font-weight="700" fill="#7c2d12">Sentry</text>
+  <text x="972" y="550" font-size="13" fill="#1f2937">every error, its class</text>
+  <text x="972" y="568" font-size="13" fill="#1f2937">and frames, no words</text>
+  <rect x="958" y="588" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
+  <text x="972" y="612" font-size="14" font-weight="700" fill="#7c2d12">LangSmith</text>
+  <text x="972" y="632" font-size="13" fill="#1f2937">each run's trace,</text>
+  <text x="972" y="650" font-size="13" fill="#1f2937">its words hidden</text>
+  <line x1="936" y1="133" x2="956" y2="133" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="215" x2="956" y2="215" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="297" x2="956" y2="297" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="379" x2="956" y2="379" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="461" x2="956" y2="461" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="543" x2="956" y2="543" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="625" x2="956" y2="625" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Delivery -->
+  <rect x="24" y="724" width="1112" height="96" rx="16" fill="#fafafa" stroke="#d7e7e2"/>
+  <text x="40" y="750" font-size="15" font-weight="700" fill="#053b30">Delivery</text>
+  <text x="40" y="774" font-size="13" fill="#1f2937">every push to main: GitHub Actions runs Ruff, format, mypy, the unit tests and the browser tests with axe, from the locked dependencies, read-only</text>
+  <text x="40" y="794" font-size="13" fill="#1f2937">beside it, Vercel builds and deploys · a tag marks each step's checked commit · Instant Rollback in seconds, or a revert in git</text>
+
+  <!-- Legend -->
+  <line x1="24" y1="852" x2="64" y2="852" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="72" y="856" font-size="13" fill="#4b5563">a call</text>
+  <line x1="140" y1="852" x2="180" y2="852" stroke="#0f766e" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+  <text x="188" y="856" font-size="13" fill="#4b5563">the MCP lanes' calls to our own server, through the edge</text>
+  <rect x="620" y="842" width="14" height="14" rx="3" fill="#fff7ed" stroke="#b45309"/>
+  <text x="642" y="856" font-size="13" fill="#4b5563">Vercel's, or another service's</text>
+</svg>

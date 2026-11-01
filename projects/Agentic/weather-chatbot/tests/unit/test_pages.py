@@ -152,6 +152,7 @@ def test_the_menu_lists_the_chat_the_documentation_then_the_pages_every_step_add
     assert [item.href for item in MENU_ITEMS] == [
         "/",
         "/docs",
+        "/architecture",
         "/system-design",
         "/technical-details",
         "/issues",

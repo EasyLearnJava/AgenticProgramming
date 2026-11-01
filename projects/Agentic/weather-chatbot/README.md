@@ -6,6 +6,10 @@ production-grade app and a step-by-step tutorial at once. Each of its thirteen s
 working, and has a chapter written while it was built: the design, the code that matters, the pitfalls, the issues
 met, and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
 
+**The whole design on one page:** [Architecture and design](docs/architecture.md): what Nimbus does, how it's built,
+how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
+secure.
+
 **In one line:** your browser → Vercel → the FastAPI app: the security headers, the request's id, the router → a page
 from a Jinja2 template, JSON, or a question's answer, streamed as server-sent events of HTML that htmx puts into the
 page → back to you, with its log lines. Gemini writes the answer, through LangChain (step 3), from what the
@@ -97,16 +101,16 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-110 files already formatted
+111 files already formatted
 $ uv run mypy
 Success: no issues found in 73 source files
 $ uv run pytest
-591 passed in 16.25s
+595 passed in 8.48s
 $ uv run pytest tests/e2e --browser-channel msedge
-175 passed in 143.31s (0:02:23)
+179 passed in 119.84s (0:01:59)
 $ uv run python tools/mutation_check.py
 ...
-183 of 183 caught
+184 of 184 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
@@ -140,7 +144,8 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 13](docs/step-13.md)), the
+step ([step 1](docs/step-1.md) to [step 13](docs/step-13.md)), **Architecture and design**
+([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
 ([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)), **To do**

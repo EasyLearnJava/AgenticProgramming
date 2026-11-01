@@ -15,6 +15,8 @@ adds security: the firewall's rules, a rule against prompt injection, and privac
 the lines to Axiom, the errors to Sentry, a health check of each lane, and the status dots. Step 13 adds golden
 questions, graded against the live site, a load test and a way back. Each step added its parts to this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
+[Architecture and design](architecture.md) puts the whole design on one page: its features, its data flow, the
+decisions and why, and what keeps it safe and secure.
 
 ![How Nimbus is built after step 12](images/system-design.svg)
 
