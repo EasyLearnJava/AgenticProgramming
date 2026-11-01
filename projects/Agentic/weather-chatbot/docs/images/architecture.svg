@@ -100,7 +100,7 @@
 
   <rect x="552" y="586" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
   <text x="566" y="608" font-size="14" font-weight="700" fill="#053b30">Settings, errors, limits</text>
-  <text x="566" y="626" font-size="13" fill="#1f2937">config.py alone reads the environment</text>
+  <text x="566" y="626" font-size="13" fill="#1f2937">config.py alone reads the settings</text>
   <text x="566" y="643" font-size="13" fill="#1f2937">our errors, our words · every limit in one file</text>
 
   <!-- The services -->
@@ -126,8 +126,8 @@
   <text x="972" y="486" font-size="13" fill="#1f2937">and searched</text>
   <rect x="958" y="506" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
   <text x="972" y="530" font-size="14" font-weight="700" fill="#7c2d12">Sentry</text>
-  <text x="972" y="550" font-size="13" fill="#1f2937">every error, its class</text>
-  <text x="972" y="568" font-size="13" fill="#1f2937">and frames, no words</text>
+  <text x="972" y="550" font-size="13" fill="#1f2937">every error: its class,</text>
+  <text x="972" y="568" font-size="13" fill="#1f2937">frames and tags</text>
   <rect x="958" y="588" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
   <text x="972" y="612" font-size="14" font-weight="700" fill="#7c2d12">LangSmith</text>
   <text x="972" y="632" font-size="13" fill="#1f2937">each run's trace,</text>
@@ -143,8 +143,8 @@
   <!-- Delivery -->
   <rect x="24" y="724" width="1112" height="96" rx="16" fill="#fafafa" stroke="#d7e7e2"/>
   <text x="40" y="750" font-size="15" font-weight="700" fill="#053b30">Delivery</text>
-  <text x="40" y="774" font-size="13" fill="#1f2937">every push to main: GitHub Actions runs Ruff, format, mypy, the unit tests and the browser tests with axe, from the locked dependencies, read-only</text>
-  <text x="40" y="794" font-size="13" fill="#1f2937">beside it, Vercel builds and deploys · a tag marks each step's checked commit · Instant Rollback in seconds, or a revert in git</text>
+  <text x="40" y="774" font-size="13" fill="#1f2937">every push that touches the project, on any branch: GitHub Actions runs Ruff, format, mypy, the unit tests and the browser tests with axe, from the locked dependencies, read-only</text>
+  <text x="40" y="794" font-size="13" fill="#1f2937">beside it, Vercel builds and deploys each push, main's to production · a tag marks each step's checked commit · Instant Rollback in seconds, or a revert in git</text>
 
   <!-- Legend -->
   <line x1="24" y1="852" x2="64" y2="852" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>

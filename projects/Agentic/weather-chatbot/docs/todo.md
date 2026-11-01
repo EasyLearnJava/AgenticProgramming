@@ -34,3 +34,10 @@ The rebuild is complete (step 13); these could come after it.
   this folder hasn't changed.
 - **Visitors' feedback:** a thumb on each answer, kept with its request id, would grade answers the golden questions
   never ask.
+- **Pin CI's actions by commit:** `actions/checkout@v7` and `astral-sh/setup-uv@v10.3.0` are pinned by tag, which
+  their owners can move to other code; a commit's SHA can't move.
+- **Scan the dependencies:** `pip-audit` in CI, or GitHub's Dependabot alerts, would flag a locked version with a
+  known vulnerability; nothing does today.
+- **A limit of its own for `/api/mcp`:** our MCP server needs no key, so within the firewall's 20 a minute one address
+  could make 28,800 calls a day, past Open-Meteo's free 10,000; a lower rule for it, or a key, would hold them, and
+  the lanes' own calls, carrying the bypass, would still pass.

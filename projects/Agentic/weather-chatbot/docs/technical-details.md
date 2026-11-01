@@ -35,11 +35,11 @@ once you set them, the firewall's rules come first ([Waiting on you](waiting-on-
 ## 3. Each copy of the app, once: `nimbus/app.py`, `create_app()`
 
 Vercel starts as many copies of the function as the traffic needs; each builds the app once. `create_app()` reads the
-settings (`config.py`, the only module that reads the environment), sets up the logging (`logger.py`), with Axiom's
-shipper and Sentry when they're set up, and makes, once: the model (`model.py`: Gemini 3.5 Flash-Lite, 1,024 tokens, 20
-s and two attempts a call), LangSmith's tracer, when tracing is allowed, the cache of Open-Meteo's answers
-(`cache.py`), and our MCP server (`mcp_server.py`). It logs `app.started`, mounts the routes, and wraps them in the two
-middleware. The vercel package's telemetry is off before any of this runs (`nimbus/__init__.py`).
+settings (`config.py`, the only module that reads settings from the environment), sets up the logging (`logger.py`),
+with Axiom's shipper and Sentry when they're set up, and makes, once: the model (`model.py`: Gemini 3.5 Flash-Lite,
+1,024 tokens, 20 s and two attempts a call), LangSmith's tracer, when tracing is allowed, the cache of Open-Meteo's
+answers (`cache.py`), and our MCP server (`mcp_server.py`). It logs `app.started`, mounts the routes, and wraps them in
+the two middleware. The vercel package's telemetry is off before any of this runs (`nimbus/__init__.py`).
 
 ## 4. Every request: `nimbus/middleware.py`, `RequestContextMiddleware`
 

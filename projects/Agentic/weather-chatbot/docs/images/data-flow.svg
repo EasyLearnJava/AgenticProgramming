@@ -87,6 +87,6 @@
   <text x="84" y="958" font-size="13" fill="#1f2937">Vercel keeps the function alive (wait_until): the lines to Axiom, any error to Sentry, within 2 s; LangSmith has the run, its words hidden</text>
 
   <rect x="24" y="992" width="1112" height="54" rx="12" fill="#053b30"/>
-  <text x="44" y="1015" font-size="14" font-weight="700" fill="#ffffff">Nothing the visitor typed is logged, traced or kept on our side: Gemini gets the question; every other service gets less.</text>
+  <text x="44" y="1015" font-size="14" font-weight="700" fill="#ffffff">The question is never logged, traced or kept on our side: Gemini gets it; every other service gets less.</text>
   <text x="44" y="1035" font-size="13" fill="#defcf6">Open-Meteo: a place's name, a point rounded to about 1 km · Apify: the rounded point · the logs: a length, ids, times, classes</text>
 </svg>

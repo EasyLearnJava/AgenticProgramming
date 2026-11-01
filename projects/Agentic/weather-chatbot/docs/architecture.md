@@ -38,7 +38,7 @@ fixed.
   over; Stop ends an answer on the page.
 - **Four lanes, side by side:** the same tools reached four ways: over REST or through an MCP server, without a key or
   with Apify's. A dot beside each says whether it's working; a compare view shows the request each lane sends.
-- **Its own words when things go wrong:** never another service's error page; each failure's sentence ends with a
+- **Its own words when things go wrong:** never another service's error page; a failure while answering ends with a
   ref that finds its log lines.
 - **Accessible:** every page passes axe's checks, works with the keyboard, reads out new messages, and never scrolls
   sideways on a phone.
@@ -58,9 +58,9 @@ fixed.
 ![Nimbus's architecture: the browser, Vercel's edge, the app, and the services it calls](images/architecture.svg)
 
 **Your browser** gets each page as HTML, made by a Jinja2 template. On the chat page, htmx 4 posts each question and
-puts each event of the answer's stream into the page; its two files are kept in the project, checked against npm's
-own hashes by a test. Our script, `chat.js`, adds Stop, New chat, the status dots, and the conversation, which it
-keeps in a hidden field of the form and nowhere else.
+puts each event of the answer's stream into the page; its two files are kept in the project, pinned by a test to the
+SHA-256 of npm's own 4.0.0 files. Our script, `chat.js`, adds Stop, New chat, the status dots, and the conversation,
+which it keeps in a hidden field of the form and nowhere else.
 
 **Vercel's edge** takes the HTTPS request and gives it an id. Its CDN serves the stylesheet, the scripts and the icon
 itself, with the same security headers as the app's (`vercel.json`). Its firewall, once its two rules are set, lets
@@ -70,7 +70,7 @@ the app's own calls through and limits everyone else to 20 calls a minute to `/a
 
 | Module | What it does |
 |---|---|
-| `config.py` | The settings, checked when the app starts; the only module that reads the environment |
+| `config.py` | The settings, checked when the app starts; the only module that reads settings from the environment |
 | `middleware.py` | Each request's id on every line and on the response; one line when it ends; then its lines to Axiom and any error to Sentry; the security headers on every response |
 | `pages.py`, `docs.py` | The chat page and the documentation, from Markdown with raw HTML off |
 | `chat.py` | `POST /api/chat`: the form checked, the question's turn streamed as server-sent events of HTML |
@@ -80,7 +80,7 @@ the app's own calls through and limits everyone else to 20 calls a minute to `/a
 | `actor.py`, `apify.py` | Apify's Actor: its input, its answer checked, its two doors |
 | `mcp_server.py` | Our MCP server: the same four tools, stateless, in JSON |
 | `health.py` | `GET /api/health`: four checks, each lane's status |
-| `logger.py`, `axiom.py`, `sentry.py` | JSON lines; Axiom's batch; Sentry's events, nothing private |
+| `logger.py`, `axiom.py`, `sentry.py` | JSON lines, other libraries' among them, their query strings cut; Axiom's batch; Sentry's events, without an exception's message or a request's data |
 | `errors.py`, `utils.py`, `constants.py` | Our errors and their sentences; small helpers; every limit, in one place |
 
 **The services** it calls: Gemini, which writes the answers; Open-Meteo, for places, forecasts and the air; Apify,
@@ -122,29 +122,39 @@ and LangSmith, for monitoring. The app calls nothing else.
 |---|---|---|---|
 | REST · no auth | Open-Meteo, over HTTPS, from the app | Nothing | A failed call's chip says so, in our words, and Gemini answers with what it has |
 | MCP · no auth | Our own MCP server, on the same deployment, one connection for the answer | Nothing | A server out of reach is our sentence, pointing to REST · no auth; a failed call as on REST |
-| REST · with auth | `get_forecast` by Apify's Actor, over its REST API; the other three tools as REST · no auth | Apify's token | The forecast falls back to REST · no auth, the chip saying why |
-| MCP · with auth | `get_forecast` by the Actor, through Apify's MCP server; the other three through our own | Apify's token | The forecast falls back to MCP · no auth |
+| REST · with auth | `get_forecast` by Apify's Actor, over its REST API; the other three tools as REST · no auth | Apify's token | The forecast falls back to REST · no auth, the chip saying why, if the answer has 12 s left; else its chip fails |
+| MCP · with auth | `get_forecast` by the Actor, through Apify's MCP server; the other three through our own | Apify's token | The forecast falls back to MCP · no auth, as on REST · with auth; with our own server out of reach, it fails as MCP · no auth does |
 
 ### What goes where
 
 | Who | Gets | Never gets |
 |---|---|---|
+| Vercel, our host | Every request and response, as it passes; the visitor's address, which its firewall counts by | Nothing is hidden from it: it runs the app |
 | Gemini | The question, the conversation so far, the tools' results; the browser's language and time zone | Who asked |
 | Open-Meteo | A place's name searched; a point, rounded to about 1 km | The question, who asked |
-| Apify | A point, rounded; the days; Apify's token, in a header | The question, the name searched, who asked |
+| Apify | A point, rounded; the days; Apify's token, in a header. Each run's input and items stay in its storage | The question, the name searched, who asked |
 | Our MCP server | A tool's input | The question |
 | Vercel's Runtime Cache | Open-Meteo's answers, under a hash of their address; the day's count of Apify runs | The question, who asked |
 | Our log lines (Vercel, Axiom) | A question's length, the lane, ids, times, tokens, classes | The question, the conversation, a place's name, a token |
-| Sentry | An error's class, its frames and its tags | Its message, a request's data, a frame's variables |
+| Sentry | An error's class and frames; its line's fields as tags: our event's name, or a library's own message, its query strings cut | An exception's message (a library's line can still quote one), a request's data, a frame's variables |
 | LangSmith | Each run's names, times and lane; of a run that failed, only that it failed | The question, the answer, an error's text |
 | Your browser | The conversation, in the page's form, until New chat or the page closes | |
 
 ### What's kept, and for how long
 
-There's no database. The conversation lives in the visitor's browser and comes back with each question, as untrusted
-input. Open-Meteo's answers live in Vercel's Runtime Cache: a place for 30 days, a forecast for 30 minutes and never
-past the place's midnight, the air for 30 minutes, the weather now for 10. Vercel keeps the log lines for an hour on
-Hobby, and Axiom for its dataset's retention. Nothing a visitor types is stored on our side.
+There's no database, and no question is kept on our side. The conversation lives in the visitor's browser and comes
+back with each question, as untrusted input. What is kept, where, and for how long:
+
+| What | Where | For how long |
+|---|---|---|
+| The conversation | The visitor's browser, in the page's form | Until New chat, or the page closes |
+| Open-Meteo's answers: the places asked about, their forecasts, the air | Vercel's Runtime Cache, under a hash of the address, with nothing about who asked | A place 30 days; a forecast 30 minutes, never past the place's midnight; the air 30 minutes; the weather now 10 minutes |
+| The day's count of Apify runs | Vercel's Runtime Cache | Until midnight UTC |
+| Our log lines | Vercel; Axiom | An hour on Hobby; the Axiom dataset's retention |
+| Errors: their classes, frames and tags | Sentry | Its plan's retention |
+| Each run's trace, its words hidden | LangSmith | Its plan's retention |
+| Each Apify run: its input (a rounded point and the days) and its items | Apify's storage | Its plan's data retention |
+| What Gemini is sent, and what it writes | Google, under Gemini's free tier, whose terms let Google use them to improve its products, with people reading some | As Google's terms say |
 
 ## Technical design: the decisions, and why
 
@@ -175,10 +185,11 @@ Hobby, and Axiom for its dataset's retention. Nothing a visitor types is stored 
 - **Every wait has a limit:** an answer 30 s (50 s with auth), a call to Gemini 20 s with one retry, its first words
   10 s, a tool 8 s, a try at Open-Meteo 3 s with one retry, the cache 1 s, an Apify run 18 s, a health check 8 s, a
   send to Axiom or Sentry 2 s.
-- **Every failure has a way through:** a slow cache is a miss; a failed Apify run falls back to its twin; an MCP lane
-  that can't connect says so; the last model call has no tools, so the answer ends in words.
-- **Every failure has our words:** a refusal, a timeout, a busy model or a missing key is our sentence, with the ref
-  that finds its lines; another service's error page is never shown.
+- **Every failure has a way through:** a slow cache is a miss; a failed Apify run falls back to its twin while the
+  answer has 12 s left; an MCP lane that can't connect says so; the last model call has no tools, so the answer ends
+  in words.
+- **Every failure has our words:** a refusal, a timeout, a busy model or a missing key is our sentence, and a failure
+  while answering adds the ref that finds its lines; another service's error page is never shown.
 - **Costs are capped:** 1,024 tokens out a call to the model, 5 calls an answer; Apify's runs at $0.01 each, 2 an
   answer, 25 a day; the conversation at 16,000 characters.
 
@@ -189,7 +200,9 @@ Hobby, and Axiom for its dataset's retention. Nothing a visitor types is stored 
 - **Axiom** keeps the lines; **Sentry** gets the errors, tagged with where they came from; **LangSmith** traces each
   run; the dashboards and alerts are written out in [step 12](step-12.md).
 - **The health check** says which lanes work, for an uptime monitor and for the page's dots.
-- **One id finds everything:** the ref in an error's sentence finds its lines in Axiom and its event in Sentry.
+- **One id finds everything:** every response carries its request's id (`x-request-id`), and a failure while
+  answering shows its ref, the id's last 8 letters and digits; either finds the request's lines in Axiom and its
+  event in Sentry.
 
 ### It's tested, every way
 
@@ -199,18 +212,20 @@ Hobby, and Axiom for its dataset's retention. Nothing a visitor types is stored 
 - **A mutation check:** 184 rules, each breaking the code on purpose; a test must catch each, and does.
 - **Privacy tests:** words of their own sent through three lanes, then searched for in every log line and every
   request out.
-- **Golden questions:** 13, asked of the live site and graded by rules; 13 passed.
+- **Golden questions:** 13, asked of the live site and graded by rules; 13 passed, on build 4785bc7
+  ([step 13](step-13.md)).
 - **A load test:** 83 requests at 8 at once, none failed.
 - **An independent review** of every step before it was tagged, and a check on the live site after each deploy.
 
 ### It ships, and goes back, safely
 
-- **CI on every push** that touches the project: the locked dependencies, Ruff, format, mypy, the unit tests, the
-  browser tests; with read-only permissions.
-- **Vercel deploys every push;** a tag marks each step's checked commit (`py-step-01` to `py-step-13`).
+- **CI on every push** that touches the project, on any branch: the locked dependencies, Ruff, format, mypy, the
+  unit tests, the browser tests; with read-only permissions.
+- **Vercel deploys every push,** `main`'s to production; a tag marks each step's checked commit (`py-step-01` to
+  `py-step-13`).
 - **Rolling back:** Vercel's Instant Rollback in seconds, or a revert in git ([step 13](step-13.md)).
-- **Exact versions:** `uv.lock`, installed `--locked`; htmx's files checked against npm's hashes; the Actor's build
-  pinned.
+- **Exact versions:** `uv.lock`, installed `--locked`; htmx's files pinned by SHA-256 to npm's own; the Actor's
+  build pinned.
 
 ## Safety and security
 
@@ -223,11 +238,11 @@ Hobby, and Axiom for its dataset's retention. Nothing a visitor types is stored 
 | **The conversation carried off in an answer** | No pictures in an answer, so nothing loads by itself; a link opens only if clicked, in a new tab, with no referrer (`nofollow noopener noreferrer`): its own address is all it can carry |
 | **Clickjacking** | `frame-ancestors 'none'` and `X-Frame-Options: DENY` |
 | **Secrets leaking** | Every key a setting, read once, kept as a secret value; Apify's token only in an `Authorization` header, masked in every chip; the bypass secret and a session's id masked too; no key in code, logs or docs; every `.env` file ignored by git but the example, whose values are empty |
-| **Visitors' words leaking** | The question never logged or traced, only its length; no query string in any line; the conversation only in the browser; Sentry, LangSmith and Axiom get nothing a visitor typed; tested on three lanes. The page says that questions go to Google's Gemini |
-| **Abuse, and its cost** | The firewall's rate limit, 20 calls a minute per address to `/api/*` (yours to set); every answer capped in model calls, tokens and time; Apify's runs capped by the answer, by the day and by the run; the health check costs nothing and runs at most once a minute per address on each copy |
-| **Being turned against other hosts (SSRF)** | The app calls only fixed services, and itself; the MCP lane's own address comes from Vercel's names (on a computer, the socket's), never from a request's `Host` header; off Vercel, our MCP server takes only local hosts |
+| **Visitors' words leaking** | The question never logged or traced, only its length; no query string in any line; the conversation only in the browser; our own lines and traces carry nothing a visitor typed, tested on three lanes, while a library's error line goes as the library wrote it, its query strings cut; the cache keeps Open-Meteo's answers, never a question. The page says that questions go to Google's Gemini |
+| **Abuse, and its cost** | The firewall's rate limit, 20 calls a minute per address to `/api/*` (yours to set); every answer capped in model calls, tokens and time; Apify's runs capped by the answer, by the day and by the run; the health check costs nothing and runs at most once a minute per address on each copy. Our MCP server needs no key (Known limits) |
+| **Being turned against other hosts (SSRF)** | The app calls only fixed services, and itself: the MCP lane calls our server at one of the deployment's own names, as Vercel gives them, taking the request's host (`X-Forwarded-Host` or `Host`) only when it's one of them, else the deployment's URL (on a computer, the address the app listens on). Off Vercel, our MCP server takes only local hosts |
 | **Errors that say too much** | Our sentences only; FastAPI's API pages off; a missing page gets our own; other libraries' lines without their query strings |
-| **The supply chain** | Exact versions, locked; htmx's files hash-checked; CI with read-only permissions; the vercel package's telemetry off |
+| **The supply chain** | Exact versions, locked; htmx's files pinned by SHA-256; CI with read-only permissions; the vercel package's telemetry off. Not yet: a scan for known vulnerabilities, and CI's actions pinned by commit (Known limits) |
 | **Monitoring that harms** | Sentry's integrations and data collection off, an exception's message dropped; a failing check reaches Sentry once a copy, so its quota lasts |
 
 ## Limits and budgets
@@ -264,6 +279,12 @@ Hobby, and Axiom for its dataset's retention. Nothing a visitor types is stored 
 
 - **The firewall's rules aren't set yet,** nor the bypass secret they need: until they are, nothing limits how often
   one address asks ([Waiting on you](waiting-on-you.md)). Apify's caps hold whatever happens.
+- **Our MCP server is public and needs no key:** anyone can call its four tools, within the firewall's limit once
+  it's set. 20 calls a minute from one address is 28,800 a day, past Open-Meteo's free 10,000, a limit the whole app
+  shares; the cache takes the repeats. Open-Meteo's free API is also for non-commercial use only, as Nimbus's is.
+- **The supply chain has two gaps:** nothing scans the dependencies for known vulnerabilities (no Dependabot, no
+  `pip-audit`), and CI's actions are pinned by tag (`actions/checkout@v7`, `astral-sh/setup-uv@v10.3.0`), which can
+  move, not by commit ([To do](todo.md)).
 - **Stop never reaches the function on Vercel:** the page stops showing the answer, but Vercel doesn't tell the app,
   so the answer runs to its end, inside its caps (issue 32).
 - **The Runtime Cache's own errors** are the package's plain lines, not our warning: Vercel gives each request its
