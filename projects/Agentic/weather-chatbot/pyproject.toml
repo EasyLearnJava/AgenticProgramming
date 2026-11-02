@@ -33,9 +33,12 @@ dev = [
     "uvicorn==0.54.0",
 ]
 
-# Versions released at least two weeks before this step: a newer one waits until it has had time to settle.
+# Versions released at least two weeks before this step: a newer one waits until it has had time to settle. certifi's
+# cutoff is two weeks before 2 November, for its release that drops emSign's root CAs, under which keys were
+# compromised (issue 94).
 [tool.uv]
 exclude-newer = "2026-10-17T00:00:00Z"
+exclude-newer-package = { certifi = "2026-10-19T00:00:00Z" }
 
 [tool.ruff]
 line-length = 120

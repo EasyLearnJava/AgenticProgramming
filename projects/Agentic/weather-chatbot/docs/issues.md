@@ -609,3 +609,15 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     ran out, isn't known: those asks' durations weren't kept, and this deployment can't query Axiom yet (issue 85).
     **Fix:** none yet; asks of the live site go 40 s apart. **Check:** once the query token is set, the `chat.failed`
     lines of that hour: their `ms` says which limit ran out.
+94. **Two locked packages had known vulnerabilities.** *Checking our work* (the first audit, after step 14; on To do
+    since the Architecture page named the gap). Every version locked for Linux was checked against PyPI's
+    advisories with `pip-audit`. certifi 2026.7.22 still trusted emSign's ECC root, under which eight intermediate
+    CAs' keys were compromised (PYSEC-2026-4320): its bundle is what httpx, requests and Sentry's client trust by
+    default. pyasn1 0.6.4, which google-auth brings, decodes some ASN.1 in quadratic time (four CVEs), in a module
+    that never loads here: google-auth imports it only beside `rsa`, which isn't locked. Nothing had looked. **Fix:**
+    certifi 2026.10.18, which drops all of emSign's roots, under a cutoff of its own two weeks back
+    (`exclude-newer-package`): moving the project's own cutoff would have brought Starlette 1.9.0 and two more with
+    it. 2026.10.19, the one the advisory names, puts back the roots that weren't affected, and can be locked from 4
+    November; pyasn1 0.6.5 from 11 November ([To do](todo.md)). CI now audits the locked versions on every push and
+    every Monday, in a job of its own, the four pyasn1 CVEs ignored by name; and pins its two actions by commit, its
+    checkouts keeping no token. **Check:** the audit, here: "No known vulnerabilities found, 4 ignored"; and CI's.

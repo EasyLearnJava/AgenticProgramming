@@ -6,7 +6,7 @@ https://weather-chatbot-hazel.vercel.app/. This page is its whole design in one 
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
 secure. The other pages go deeper: [System design](system-design.md) sets it against a reference design for AI
 assistants, [Technical details](technical-details.md) follows one question through the code, each step's chapter
-tells how a part was built, and [Issues and fixes](issues.md) tells all 93 problems met on the way and how each was
+tells how a part was built, and [Issues and fixes](issues.md) tells all 94 problems met on the way and how each was
 fixed.
 
 ## At a glance
@@ -237,8 +237,9 @@ back with each question, as untrusted input. What is kept, where, and for how lo
   that leaves the project as it was at the last deploy, unless that deploy is 10 or more commits back. A tag marks
   each step's checked commit (`py-step-01` to `py-step-14`).
 - **Rolling back:** Vercel's Instant Rollback in seconds, or a revert in git ([step 13](step-13.md)).
-- **Exact versions:** `uv.lock`, installed `--locked`; htmx's files pinned by SHA-256 to npm's own; the Actor's
-  build pinned.
+- **Exact versions:** `uv.lock`, installed `--locked`, each version it locks for Linux checked against PyPI's
+  advisories on every push and every Monday (issue 94); htmx's files pinned by SHA-256 to npm's own; CI's actions
+  pinned by commit; the Actor's build pinned.
 
 ## Safety and security
 
@@ -255,7 +256,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 | **Abuse, and its cost** | The firewall's rate limit, 20 calls a minute per address to `/api/*` (yours to set); every answer capped in model calls, tokens and time; Apify's runs capped by the answer, by the day and by the run; the health check costs nothing and runs at most once a minute per address on each copy. Our MCP server needs no key (Known limits) |
 | **Being turned against other hosts (SSRF)** | The app calls only fixed services, and itself: the MCP lane calls our server at one of the deployment's own names, as Vercel gives them, taking the request's host (`X-Forwarded-Host` or `Host`) only when it's one of them, else the deployment's URL (on a computer, the address the app listens on). Off Vercel, our MCP server takes only local hosts |
 | **Errors that say too much** | Our sentences only; FastAPI's API pages off; a missing page gets our own; other libraries' lines without their query strings |
-| **The supply chain** | Exact versions, locked; htmx's files pinned by SHA-256; CI with read-only permissions; the vercel package's telemetry off. Not yet: a scan for known vulnerabilities, and CI's actions pinned by commit (Known limits) |
+| **The supply chain** | Exact versions, locked, each checked against PyPI's advisories on every push and every Monday; htmx's files pinned by SHA-256; CI's actions pinned by commit, with read-only permissions and no token kept; the vercel package's telemetry off. Not yet: pyasn1's fix, until it's two weeks old (Known limits) |
 | **Monitoring that harms** | Sentry's integrations and data collection off, an exception's message dropped; a failing check reaches Sentry once a copy, so its quota lasts |
 
 ## Limits and budgets
@@ -298,9 +299,10 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **Our MCP server is public and needs no key:** anyone can call its four tools, within the firewall's limit once
   it's set. 20 calls a minute from one address is 28,800 a day, past Open-Meteo's free 10,000, a limit the whole app
   shares; the cache takes the repeats. Open-Meteo's free API is also for non-commercial use only, as Nimbus's is.
-- **The supply chain has two gaps:** nothing scans the dependencies for known vulnerabilities (no Dependabot, no
-  `pip-audit`), and CI's actions are pinned by tag (`actions/checkout@v7`, `astral-sh/setup-uv@v10.3.0`), which can
-  move, not by commit ([To do](todo.md)).
+- **One package's known vulnerabilities wait:** pyasn1 0.6.4, which google-auth brings, has four, each a slow
+  decoding of ASN.1, in a module that never loads here (it needs `rsa`, which isn't locked). 0.6.5 fixes them, and
+  can be locked from 11 November, once it's two weeks old; until then CI's audit ignores the four by name
+  ([To do](todo.md), issue 94).
 - **Stop never reaches the function on Vercel:** the page stops showing the answer, but Vercel doesn't tell the app,
   so the answer runs to its end, inside its caps (issue 32).
 - **The Runtime Cache's own errors** are the package's plain lines, not our warning: Vercel gives each request its
