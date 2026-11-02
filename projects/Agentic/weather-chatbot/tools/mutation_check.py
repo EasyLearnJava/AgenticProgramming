@@ -60,6 +60,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "tools/load_test.py": ("test_load_test.py",),
     "templates/chat.html": ("test_pages.py", "test_chat.py"),
     "templates/base.html": ("test_pages.py",),
+    "templates/activity.html": ("test_observability.py",),
     "vercel.json": ("test_deploy.py", "test_middleware.py"),
 }
 
@@ -1107,26 +1108,26 @@ MUTATIONS = (
     # Step 14: the Observability pages and the menu's groups.
     Mutation(
         "nimbus/observability.py",
-        "        f\"project {', '.join(to_named(name) for name in ACTIVITY_FIELDS)}\",\n",
+        "        f\"project {', '.join(to_named(name) for name in TIMELINE_FIELDS)}\",\n",
         "",
-        "Activity reads only the fields it names",
+        "a timeline reads only the fields it names",
     ),
     Mutation(
         "nimbus/observability.py",
-        "    if show not in ACTIVITY_FILTERS:",
+        "    if show not in ACTIVITY_VIEWS:",
         "    if False:",
-        "a filter we don't have is a 404",
+        "a view we don't have is a 404",
     ),
     Mutation(
         "nimbus/observability.py",
-        "end - timedelta(days=OBSERVABILITY_DAYS)",
-        "end - timedelta(days=OBSERVABILITY_DAYS + 1)",
+        "    start, end = now - timedelta(days=OBSERVABILITY_DAYS), now",
+        "    start, end = now - timedelta(days=OBSERVABILITY_DAYS + 1), now",
         "the pages look back 7 days",
     ),
     Mutation(
         "nimbus/observability.py",
-        "        or now - run.started >= OBSERVABILITY_RUN_SECONDS\n",
-        "        or True\n",
+        "    if run is None or run.task.get_loop() is not asyncio.get_running_loop():",
+        "    if True:",
         "a query runs once a minute on each copy",
     ),
     Mutation(
@@ -1192,9 +1193,9 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/observability.py",
-        '    "all": to_in("event", (*QUESTION_EVENTS, *TOOL_EVENTS)),',
-        '    "all": to_in("event", ACTIVITY_EVENTS),',
-        "Activity's all leaves out the health checks",
+        '    "health": \'event == "health.done"\',\n}',
+        '    "health": \'event == "health.check"\',\n}',
+        "Activity's health view picks each run by its last line",
     ),
     Mutation(
         "nimbus/observability.py",
@@ -1251,6 +1252,140 @@ MUTATIONS = (
         "then exit 0; else exit 1; fi",
         "then exit 0; else exit $?; fi",
         "git's own error never fails the deploy",
+    ),
+    # Step 15: Activity by request, each row a timeline; the other pages' rows link to their requests.
+    Mutation(
+        "nimbus/observability.py",
+        "if REQUEST_ID_PATTERN.fullmatch(request_id)))",
+        "if request_id))",
+        "an id that isn't one never reaches the timeline's query",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    if request_ids:\n",
+        "    if True:\n",
+        "a view with no requests asks once",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "to_ref(request_id), steps))",
+        "request_id, steps))",
+        "a request is shown only by its ref",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "        found = sorted(lines.get(request_id, []), key=lambda item: item[1].at)",
+        "        found = lines.get(request_id, [])",
+        "a timeline's lines go in the order they were written",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    if len(given) > 1:",
+        "    if False:",
+        "a link narrows to one thing at a time",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    if value not in known:",
+        "    if False:",
+        "a link's value must be one of ours",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '    if narrowing is not None and show != "questions":',
+        "    if False:",
+        "only the questions are narrowed by a link",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    if found is None or not (now - timedelta(days=OBSERVABILITY_DAYS)).date() <= found <= now.date():",
+        "    if found is None:",
+        "a day the 7 days don't reach is a 404",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    return max(start, midnight), min(end, midnight + timedelta(days=1))",
+        "    return midnight, midnight + timedelta(days=1)",
+        "a day is the 7 days' part of it",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '    key = apl if day is None else f"{apl} @ {day.isoformat()}"',
+        "    key = apl",
+        "a day's query is never another day's",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    for old in [key for key, kept in runs.items() if now - kept.started >= OBSERVABILITY_RUN_SECONDS]:",
+        "    for old in []:",
+        "runs past their minute are let go",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '    return to_activity_href("questions", **{kind: value}) if value in NARROWINGS[kind][0] else ""',
+        '    return to_activity_href("questions", **{kind: value})',
+        "a value that isn't ours gets no link",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '            if to_words(row, "event") == "health.check" and to_words(row, "status") == "down"',
+        '            if to_words(row, "event") == "health.check"',
+        "a health run's row names only the checks that weren't answering",
+    ),
+    Mutation(
+        "templates/activity.html",
+        "{% for since, line in item.steps %}",
+        "{% for since, line in [] %}",
+        "each request opens onto its timeline",
+    ),
+    # Step 15, after the reviews.
+    Mutation(
+        "nimbus/observability.py",
+        '        "lane_closed",\n',
+        "",
+        "each refusal code the app writes is a link's",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '        f"where isnotempty(requestId) and ({where})",',
+        '        f"where {where}",',
+        "a line outside any request picks none",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    if is_cut:\n",
+        "    if False:\n",
+        "at the cap, the oldest request found is left out",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '    if row.tone not in ("ok", "idle") or not problems:',
+        "    if True:",
+        "an answer that came despite a line that went wrong says so",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '        if to_words(row, "fellBack").lower() == "false":',
+        "        if False:",
+        "a forecast that couldn't fall back says so",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '"errors" if to_number(row, "down") else "health"',
+        '"health"',
+        "a day with failures links to its errors",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    return sorted(requests, key=lambda request: request.at, reverse=True)",
+        "    return requests",
+        "the requests go by when each began",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "    name = f\"activity-{show}{f'-{narrowing.kind}' if narrowing else ''}{'-day' if on_day else ''}\"",
+        '    name = f"activity-{show}"',
+        "each narrowing and day has a query name of its own",
     ),
 )
 

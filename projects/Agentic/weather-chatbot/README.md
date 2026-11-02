@@ -2,7 +2,7 @@
 
 Nimbus answers questions about the weather anywhere, and shows each tool call behind an answer and the path it took.
 Its first version was built in TypeScript; this is its rebuild in Python, with FastAPI, LangGraph and Jinja2, as a
-production-grade app and a step-by-step tutorial at once. Each of its fourteen steps adds one idea, ends deployed and
+production-grade app and a step-by-step tutorial at once. Each of its fifteen steps adds one idea, ends deployed and
 working, and has a chapter written while it was built: the design, the code that matters, the pitfalls, the issues
 met, and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
 
@@ -76,6 +76,7 @@ Each step's chapter explains it, in order:
 | 12 | [Monitoring: Axiom, Sentry, the Health Check and the Status Dots](docs/step-12.md) | Done |
 | 13 | [Evals and Release: Golden Questions, a Load Test, Rollback](docs/step-13.md) | Done |
 | 14 | [Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups](docs/step-14.md) | Done |
+| 15 | [Activity by Request, and Rows That Lead to It](docs/step-15.md) | Done |
 
 ## Run it
 
@@ -147,7 +148,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 14](docs/step-14.md)), **Architecture and design**
+step ([step 1](docs/step-1.md) to [step 15](docs/step-15.md)), **Architecture and design**
 ([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
 ([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**
@@ -160,6 +161,6 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 
 ## Next
 
-The rebuild is complete: thirteen steps, each live and checked, and a fourteenth that reads the app's lines back
-onto its Observability pages. What's waiting on you is on
+The rebuild is complete: thirteen steps, each live and checked; a fourteenth reads the app's lines back onto its
+Observability pages, and a fifteenth tells each request's story there. What's waiting on you is on
 [its own page](docs/waiting-on-you.md); what could come next, on [To do](docs/todo.md).

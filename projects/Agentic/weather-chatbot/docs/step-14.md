@@ -342,5 +342,5 @@ The token stays on the server; the page needs no script; and one rendering, kept
 
 ## What's next
 
-Step 14 adds what the rebuild left for later; what could come next is on [To do](todo.md), and what's yours to set
-is on [Waiting on you](waiting-on-you.md).
+[Step 15](step-15.md) turns Activity into each request's story, and every row of the other pages into a way to it.
+What could come next is on [To do](todo.md), and what's yours to set is on [Waiting on you](waiting-on-you.md).

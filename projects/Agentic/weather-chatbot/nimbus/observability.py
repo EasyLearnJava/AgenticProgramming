@@ -1,20 +1,24 @@
 """
-nimbus/observability.py: the Observability pages (step 14). Activity: the latest lines, a filter at a time.
-Performance: how long answers and tools take, each lane, the cache. Evaluations: the golden questions' last run, and how
-live answers end. Health: the checks now, how often they passed, and our MCP server. Their numbers come from Axiom,
-asked with a token that can only query, over the last 7 days; each query names the fields it reads, never a request's
-id, its path, or anything a visitor typed, which the lines never hold anyway (step 11). A page's queries answer it for a
-minute on each copy of the app, and Vercel's CDN keeps the page a minute more; a page Axiom couldn't answer is never
-kept.
+nimbus/observability.py: the Observability pages (step 14). Activity: the latest requests, a view at a time, each
+opening onto its timeline (step 15). Performance: how long answers and tools take, each lane, the cache. Evaluations:
+the golden questions' last run, and how live answers end. Health: the checks now, how often they passed, and our MCP
+server. Their numbers come from Axiom, asked with a token that can only query, over the last 7 days; each query names
+the fields it reads. A request's id is read only to put its lines together, and a page shows only its ref, the 8
+characters an error's sentence ends with; never a request's path, or anything a visitor typed, which the lines never
+hold anyway (step 11). A row of Performance, Evaluations or Health links to the requests behind it. A page's queries
+answer it for a minute on each copy of the app, and Vercel's CDN keeps the page a minute more; a page Axiom couldn't
+answer is never kept.
 """
 
 import asyncio
+import re
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Container, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from http import HTTPStatus
 from typing import Final
+from urllib.parse import urlencode
 
 import structlog
 from fastapi import APIRouter, HTTPException, Request
@@ -25,32 +29,38 @@ from starlette.datastructures import State
 from nimbus.axiom_query import AxiomQuery, Row
 from nimbus.config import Settings
 from nimbus.constants import (
-    ACTIVITY_LINES,
+    ACTIVITY_REQUEST_LINES,
+    ACTIVITY_REQUESTS,
     MCP_PATH,
     NO_STORE,
     OBSERVABILITY_CACHE_CONTROL,
     OBSERVABILITY_DAYS,
     OBSERVABILITY_RUN_SECONDS,
+    REQUEST_ID_PATTERN,
 )
-from nimbus.errors import AXIOM_NOT_CONNECTED, ObservabilityError
+from nimbus.errors import AXIOM_NOT_CONNECTED, NimbusError, ObservabilityError
 from nimbus.goldens import LastRun, read_goldens, read_last_run
 from nimbus.health import to_report
 from nimbus.lanes import LANES
 from nimbus.pages import render_page
 from nimbus.tools import WEATHER_TOOLS
-from nimbus.utils import to_ms
+from nimbus.utils import to_ms, to_ref
 
 router = APIRouter()
 log = structlog.get_logger()
 
 MS_PER_SECOND = 1000
+HTTP_CLIENT_ERROR = 400
+HTTP_SERVER_ERROR = 500
 LANE_LABELS: Final = {lane.id: lane.label for lane in LANES}
+TOOL_NAMES: Final = frozenset(tool.name for tool in WEATHER_TOOLS)
 CHECK_LABELS: Final = {
     "open-meteo": "Open-Meteo",
     "our-mcp": "Our MCP server",
     "apify-rest": "Apify's REST API",
     "apify-mcp": "Apify's MCP server",
 }
+UPSTREAM_LABELS: Final = {"open-meteo": "Open-Meteo", "apify": "Apify"}
 STATUS_WORDS: Final = {"ok": "working", "down": "not answering", "off": "off"}
 # A failure that needs a look: Axiom refused our token, or our query. Each is an error once on each copy of the app,
 # which reaches Sentry; then a warning, as the health check's (issue 74).
@@ -60,33 +70,55 @@ NEEDS_A_LOOK: Final = frozenset({"axiom_refused", "axiom_bad_query"})
 TOKEN_FAULTS: Final = frozenset({"axiom_refused"})
 
 
-# ① The queries: each over the dataset, each naming the fields it reads. _time, event, level, status and ms are on every
-# request's own line (http.request), so the dataset has them once the app has answered once; any other comes from
-# rarer lines, which a young dataset may never have had, and Axiom refuses a query that names a field it has never
-# seen: those are read through column_ifexists, which gives a default instead. status holds a number on some lines
-# (http.request's 200) and words on others, so it's compared as words. Activity's filters, each a where clause of our
-# own, are chosen by name, never written from the address; "all" leaves the health checks to their own filter, since
-# every page's dots and every uptime ping add one.
+# ① The queries: each over the dataset, each naming the fields it reads. _time, requestId, event, level, status and ms
+# are on every request's own line (http.request), so the dataset has them once the app has answered once; any other
+# comes from rarer lines, which a young dataset may never have had, and Axiom refuses a query that names a field it has
+# never seen: those are read through column_ifexists, which gives a default instead. status holds a number on some
+# lines (http.request's 200) and words on others, so it's compared as words.
 QUESTION_EVENTS: Final = ("chat.request", "chat.done", "chat.aborted", "chat.failed", "chat.rejected")
+ENDING_EVENTS: Final = QUESTION_EVENTS[1:]
 TOOL_EVENTS: Final = ("tool.call", "lane.fallback")
-ACTIVITY_EVENTS: Final = (*QUESTION_EVENTS, *TOOL_EVENTS, "health.done")
-EVERY_LINES_FIELDS: Final = frozenset({"_time", "event", "level", "status", "ms"})
+# What a request's timeline shows (step 15): its question and how it ended; each tool call, and what each asked of
+# Open-Meteo, of our cache or of Apify; a fallback; a call our MCP server answered, in that call's own request; a
+# health run's checks; and the request's own line, last.
+TIMELINE_EVENTS: Final = (
+    *QUESTION_EVENTS,
+    *TOOL_EVENTS,
+    "mcp.call",
+    "lane.connect",
+    "upstream.cache",
+    "upstream.http",
+    "upstream.mcp",
+    "cache.failed",
+    "health.check",
+    "health.done",
+    "http.request",
+)
+EVERY_LINES_FIELDS: Final = frozenset({"_time", "requestId", "event", "level", "status", "ms"})
 STATUS: Final = "tostring(status)"
-ACTIVITY_FIELDS: Final = (
+# The fields a timeline reads: never a path, a host, a question's length or a deployment. The request's id puts the
+# lines together, and only its ref is shown.
+TIMELINE_FIELDS: Final = (
     "_time",
+    "requestId",
     "event",
     "level",
-    "lane",
-    "tool",
     "status",
     "ms",
+    "lane",
+    "tool",
+    "check",
+    "upstream",
     "errorClass",
+    "causeClass",
     "code",
+    "attempts",
     "toolCalls",
     "tokensIn",
     "tokensOut",
     "fromLane",
     "toLane",
+    "fellBack",
 )
 
 
@@ -107,23 +139,81 @@ def to_named(name: str) -> str:
     return name if field == name else f"{name} = {field}"
 
 
-ACTIVITY_FILTERS: Final[Mapping[str, str]] = {
-    "all": to_in("event", (*QUESTION_EVENTS, *TOOL_EVENTS)),
-    "questions": to_in("event", QUESTION_EVENTS),
-    "tools": to_in("event", TOOL_EVENTS),
-    "health": 'event == "health.done"',
+# Activity's views (step 15), each a where clause of our own, chosen by name, never written from the address: the lines
+# that pick its requests. A question's first line (a refusal comes before the question is taken); any line that went
+# wrong, a question's or a health run's; a health run's last line, which every page's dots and every uptime ping add,
+# so they have a view of their own.
+ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
+    "questions": to_in("event", ("chat.request", "chat.rejected")),
     "errors": (
-        f'{to_in("event", ACTIVITY_EVENTS)} and (level == "error" or {STATUS} in ("failed", "down") '
+        f'{to_in("event", TIMELINE_EVENTS)} and (level == "error" or {STATUS} in ("failed", "down") '
         'or event == "lane.fallback")'
     ),
+    "health": 'event == "health.done"',
 }
-ACTIVITY_TABS: Final = (
-    ("all", "All"),
-    ("questions", "Questions"),
-    ("tools", "Tools"),
-    ("health", "Health"),
-    ("errors", "Errors"),
+ACTIVITY_TABS: Final = (("questions", "Questions"), ("errors", "Errors"), ("health", "Health"))
+DAY_PATTERN: Final = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
+NO_REASON: Final = "none given"
+
+
+def to_error_classes(base: type[Exception]) -> frozenset[str]:
+    """The names of an error class and of every class under it."""
+    return frozenset({base.__name__}).union(*(to_error_classes(child) for child in base.__subclasses__()))
+
+
+# A link's narrowings (step 15), each by its name: the values it takes, all ours, checked before anything is asked, so
+# a query never holds a visitor's words; the words it says; and the line that picks a question by it. How a question
+# ended; the code of each refusal the app writes (each InputError's, a test checks); the class of each error of ours.
+ENDED_WORDS: Final = {"done": "answered", "aborted": "stopped", "failed": "failed", "rejected": "refused"}
+REFUSAL_CODES: Final = frozenset(
+    {
+        "body_too_large",
+        "form_unreadable",
+        "history_too_long",
+        "history_unreadable",
+        "lane_closed",
+        "lane_needs_token",
+        "not_a_form",
+        "question_empty",
+        "question_too_long",
+    }
 )
+ERROR_CLASSES: Final = to_error_classes(NimbusError)
+NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
+    "tool": (
+        TOOL_NAMES,
+        "Questions that called {label}",
+        f'event == "tool.call" and {to_field("tool")} == "{{value}}"',
+    ),
+    "asked": (
+        LANE_LABELS,
+        "Questions asked on {label}",
+        f'event == "chat.request" and {to_field("lane")} == "{{value}}"',
+    ),
+    "lane": (
+        LANE_LABELS,
+        "Questions whose tools ran on {label}",
+        f'event == "tool.call" and {to_field("lane")} == "{{value}}"',
+    ),
+    "ended": (ENDED_WORDS, "Questions {label}", 'event == "chat.{value}"'),
+    "refused": (
+        REFUSAL_CODES,
+        "Questions refused for {label}",
+        f'event == "chat.rejected" and {to_field("code")} == "{{value}}"',
+    ),
+    "failed": (
+        ERROR_CLASSES,
+        "Questions that failed with {label}",
+        f'event == "chat.failed" and {to_field("errorClass")} == "{{value}}"',
+    ),
+    "fellback": (
+        ERROR_CLASSES,
+        "Questions whose forecast fell back after {label}",
+        f'event == "lane.fallback" and {to_field("errorClass")} == "{{value}}"',
+    ),
+}
+# Evaluations' reasons, each event's by the narrowing that finds its questions.
+REASON_LINKS: Final = {"chat.rejected": "refused", "chat.failed": "failed", "lane.fallback": "fellback"}
 ANSWERS: Final = (
     'where event == "chat.done"',
     "summarize answers = count(), p50 = percentile(ms, 50), p95 = percentile(ms, 95), p99 = percentile(ms, 99), "
@@ -160,14 +250,81 @@ def to_apl(dataset: str, steps: Sequence[str]) -> str:
     return " | ".join((f"['{dataset}']", *steps))
 
 
-def to_activity_query(show: str) -> tuple[str, ...]:
-    """Activity's query for a filter: its lines, the latest first, at most 50, with only the fields it shows."""
+def to_requests_query(where: str) -> tuple[str, ...]:
+    """
+    Activity's first query: the latest 50 requests the lines picked belong to, each by its id, the latest first; a
+    line written outside any request has no id, and is left out.
+    """
     return (
-        f"where {ACTIVITY_FILTERS[show]}",
-        "sort by _time desc",
-        f"take {ACTIVITY_LINES}",
-        f"project {', '.join(to_named(name) for name in ACTIVITY_FIELDS)}",
+        f"where isnotempty(requestId) and ({where})",
+        "summarize started = min(_time) by requestId",
+        "sort by started desc",
+        f"take {ACTIVITY_REQUESTS}",
     )
+
+
+def to_timeline_query(request_ids: Sequence[str]) -> tuple[str, ...]:
+    """
+    Activity's second: every line of those requests a timeline shows, the latest 2,000 if there are more, so a cap
+    reached cuts the oldest requests, never the ones shown first; with only its fields. Each is put in order after.
+    """
+    return (
+        f"where {to_in('requestId', request_ids)} and {to_in('event', TIMELINE_EVENTS)}",
+        "sort by _time desc",
+        f"take {ACTIVITY_REQUEST_LINES}",
+        f"project {', '.join(to_named(name) for name in TIMELINE_FIELDS)}",
+    )
+
+
+@dataclass(frozen=True)
+class Narrowing:
+    """What a link from another page narrows Activity's questions to: its name, its words, and the lines it picks."""
+
+    kind: str
+    words: str
+    where: str
+
+
+def to_narrowing(links: Mapping[str, str | None]) -> Narrowing | None:
+    """
+    The questions a link asks for, by the narrowing it names: those that called a tool, were asked on a lane, had
+    their tools run on one, ended one way, were refused for a code, failed with an error, or fell back after one; None
+    for all. A value that isn't one of ours, or two narrowings at once, is a 404.
+    """
+    given = [(kind, value) for kind, value in links.items() if value is not None]
+    if not given:
+        return None
+    if len(given) > 1:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
+    [(kind, value)] = given
+    known, words, where = NARROWINGS[kind]
+    if value not in known:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
+    label = LANE_LABELS.get(value) or ENDED_WORDS.get(value) or value
+    return Narrowing(kind, words.format(label=label), where.format(value=value))
+
+
+def to_day(day: str | None, now: datetime) -> date | None:
+    """
+    The day a link from Health asks for, in UTC, as YYYY-MM-DD; None for the last 7 days. A day that isn't one, or
+    that the 7 days before now don't reach, is a 404.
+    """
+    if day is None:
+        return None
+    try:
+        found = date.fromisoformat(day) if DAY_PATTERN.fullmatch(day) else None
+    except ValueError:
+        found = None
+    if found is None or not (now - timedelta(days=OBSERVABILITY_DAYS)).date() <= found <= now.date():
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
+    return found
+
+
+def to_activity_href(show: str, **narrowed: str | None) -> str:
+    """Activity's address for a view and what a link narrows it to, the questions' view without its name."""
+    given = {"show": show if show != "questions" else None, **narrowed}
+    query = urlencode({name: value for name, value in given.items() if value is not None})
+    return f"/activity?{query}" if query else "/activity"
 
 
 def make_axiom_query(settings: Settings) -> AxiomQuery | None:
@@ -186,19 +343,27 @@ class QueryRun:
     task: asyncio.Task[list[Row]]
 
 
-async def run_query(state: State, name: str, apl: str) -> list[Row]:
+def to_window(day: date | None, now: datetime) -> tuple[datetime, datetime]:
+    """The time a query looks over: the 7 days before now; or, for a day, the part of it they reach, in UTC."""
+    start, end = now - timedelta(days=OBSERVABILITY_DAYS), now
+    if day is None:
+        return start, end
+    midnight = datetime(day.year, day.month, day.day, tzinfo=UTC)
+    return max(start, midnight), min(end, midnight + timedelta(days=1))
+
+
+async def run_query(state: State, name: str, apl: str, day: date | None) -> list[Row]:
     """
-    The query's rows over the last 7 days, and one observability.query line: its name, how it went, its time; a
-    failure by its class and code, at error when it needs a look and is new on this copy, else a warning: a query that
-    keeps failing would send Sentry an event every minute, and use up its free quota. failing keeps each query's
-    failure, until it answers; a refused token, once for every query, until any answers.
+    The query's rows over the last 7 days, or the day's part of them, and one observability.query line: its name, how
+    it went, its time; a failure by its class and code, at error when it needs a look and is new on this copy, else a
+    warning: a query that keeps failing would send Sentry an event every minute, and use up its free quota. failing
+    keeps each query's failure, until it answers; a refused token, once for every query, until any answers.
     """
     axiom: AxiomQuery = state.axiom_query
     failing: dict[str, str] = state.observability_failures
     started = time.perf_counter()
-    end = datetime.now(UTC)
     try:
-        rows = await axiom.run(apl, end - timedelta(days=OBSERVABILITY_DAYS), end)
+        rows = await axiom.run(apl, *to_window(day, datetime.now(UTC)))
     except ObservabilityError as error:
         ms = to_ms(time.perf_counter() - started)
         key = error.code if error.code in TOKEN_FAULTS else name
@@ -216,22 +381,22 @@ async def run_query(state: State, name: str, apl: str) -> list[Row]:
     return rows
 
 
-async def ask(request: Request, name: str, apl: str) -> list[Row]:
+async def ask(request: Request, name: str, apl: str, day: date | None = None) -> list[Row]:
     """
-    The query's rows: from the run of the same query that started within the last minute on this copy of the app,
-    waited for if it's still going; else a new run. A failed run answers for its minute too, so an Axiom that's
-    failing isn't asked again at every visit.
+    The query's rows: from the run of the same query over the same time that started within the last minute on this
+    copy of the app, waited for if it's still going; else a new run. A failed run answers for its minute too, so an
+    Axiom that's failing isn't asked again at every visit. Runs past their minute are let go first: a timeline's query
+    names its requests, so a new one comes every minute.
     """
     state = request.app.state
     runs: dict[str, QueryRun] = state.observability_runs
-    run = runs.get(apl)
     now = time.monotonic()
-    if (
-        run is None
-        or now - run.started >= OBSERVABILITY_RUN_SECONDS
-        or run.task.get_loop() is not asyncio.get_running_loop()
-    ):
-        run = runs[apl] = QueryRun(now, asyncio.create_task(run_query(state, name, apl)))
+    for old in [key for key, kept in runs.items() if now - kept.started >= OBSERVABILITY_RUN_SECONDS]:
+        del runs[old]
+    key = apl if day is None else f"{apl} @ {day.isoformat()}"
+    run = runs.get(key)
+    if run is None or run.task.get_loop() is not asyncio.get_running_loop():
+        run = runs[key] = QueryRun(now, asyncio.create_task(run_query(state, name, apl, day)))
     # Shielded: a visitor who goes away doesn't stop the run the others wait for.
     return await asyncio.shield(run.task)
 
@@ -249,15 +414,18 @@ class Answers:
         return self.notice == AXIOM_NOT_CONNECTED
 
 
-async def ask_axiom(request: Request, queries: Mapping[str, Sequence[str]]) -> Answers:
-    """Each query's rows, all at once; none, with its sentence, when Axiom isn't connected or one query failed."""
+async def ask_axiom(request: Request, queries: Mapping[str, Sequence[str]], day: date | None = None) -> Answers:
+    """
+    Each query's rows, all at once, over the last 7 days or a day of them; none, with its sentence, when Axiom isn't
+    connected or one query failed.
+    """
     state = request.app.state
     dataset = state.settings.axiom_dataset
     if state.axiom_query is None or dataset is None:
         return Answers({}, AXIOM_NOT_CONNECTED)
     names = list(queries)
     found = await asyncio.gather(
-        *(ask(request, name, to_apl(dataset, queries[name])) for name in names), return_exceptions=True
+        *(ask(request, name, to_apl(dataset, queries[name]), day) for name in names), return_exceptions=True
     )
     failure = next((item for item in found if isinstance(item, BaseException)), None)
     if failure is not None:
@@ -320,18 +488,22 @@ class Tile:
 
 @dataclass(frozen=True)
 class Bar:
-    """A line of a breakdown: what it is, its value in words, its share of the largest or the whole, and a note."""
+    """
+    A line of a breakdown: what it is, its value in words, its share of the largest or the whole, a note, and the
+    address of the requests behind it on Activity, if it has one (step 15).
+    """
 
     label: str
     value: str
     share: float
     note: str = ""
+    href: str = ""
 
 
-# ④ Activity: a line each, in words, grouped by day.
+# ④ Activity: each request a row, its timeline under it, each line in words, the requests grouped by day.
 @dataclass(frozen=True)
 class ActivityLine:
-    """One line of Activity: when, what happened, the rest in words, and how it went: ok, warn, bad or idle."""
+    """One line of a timeline: when, what happened, the rest in words, and how it went: ok, warn, bad or idle."""
 
     at: datetime
     what: str
@@ -339,12 +511,8 @@ class ActivityLine:
     tone: str
 
 
-def to_activity_line(row: Row) -> ActivityLine | None:
-    """A line of Activity from Axiom's row; None for an event Activity doesn't show, or one with no time."""
-    at = to_moment(row, "_time")
-    if at is None:
-        return None
-    event, took = to_words(row, "event"), to_duration(to_number(row, "ms"))
+def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityLine | None:
+    """A line about a question and its answer, in words; None for another event."""
     lane, error_class = to_lane_label(to_words(row, "lane")), to_words(row, "errorClass")
     if event == "chat.request":
         return ActivityLine(at, "Question", f"on {lane}", "idle")
@@ -356,7 +524,8 @@ def to_activity_line(row: Row) -> ActivityLine | None:
     if event == "chat.aborted":
         return ActivityLine(at, "Stopped", f"after {took}", "idle")
     if event == "chat.failed":
-        return ActivityLine(at, "Failed", f"{error_class} after {took}", "bad")
+        cause = to_words(row, "causeClass")
+        return ActivityLine(at, "Failed", f"{error_class}{f' ({cause})' if cause else ''} after {took}", "bad")
     if event == "chat.rejected":
         return ActivityLine(at, "Refused", to_words(row, "code"), "warn")
     if event == "tool.call":
@@ -366,20 +535,156 @@ def to_activity_line(row: Row) -> ActivityLine | None:
         return ActivityLine(at, tool, f"on {lane} in {took}", "ok")
     if event == "lane.fallback":
         moved = f"{to_lane_label(to_words(row, 'fromLane'))} to {to_lane_label(to_words(row, 'toLane'))}"
+        # With too little time left, the line is written and the forecast fails instead (auth_lanes.py).
+        if to_words(row, "fellBack").lower() == "false":
+            return ActivityLine(at, "Couldn't fall back", f"{moved}, too little time left: {error_class}", "bad")
         return ActivityLine(at, "Fell back", f"{moved}: {error_class}", "warn")
-    if event == "health.done":
-        status = to_words(row, "status")
-        return ActivityLine(
-            at, "Health check", f"{STATUS_WORDS.get(status, status)} in {took}", "ok" if status == "ok" else "bad"
-        )
     return None
 
 
-def to_days(lines: Sequence[ActivityLine]) -> list[tuple[str, list[ActivityLine]]]:
-    """The lines grouped by their day in UTC, in the order they came: the latest first."""
-    days: dict[str, list[ActivityLine]] = {}
-    for line in lines:
-        days.setdefault(f"{line.at:%A} {line.at.day} {line.at:%B %Y}", []).append(line)
+def to_call_line(row: Row, at: datetime, event: str, took: str) -> ActivityLine | None:
+    """A line about a call out (Open-Meteo, our cache, Apify), a health check, or the request's end; None otherwise."""
+    status, error_class = to_words(row, "status"), to_words(row, "errorClass")
+    upstream = UPSTREAM_LABELS.get(to_words(row, "upstream"), to_words(row, "upstream"))
+    failed = f"failed: {error_class}, after {took}"
+    if event == "upstream.cache":
+        if status == "hit":
+            return ActivityLine(at, upstream, f"from our cache in {took}", "ok")
+        return ActivityLine(at, upstream, f"our cache's copy was {status}", "warn")
+    if event == "upstream.http":
+        tries = round(to_number(row, "attempts"))
+        again = f", {tries} tries" if tries > 1 else ""
+        return ActivityLine(at, upstream, f"fetched in {took}{again}" if status == "ok" else failed, ok_or_bad(status))
+    if event in ("upstream.mcp", "lane.connect"):
+        what = f"{upstream}'s MCP server"
+        done = f"connected in {took}" if event == "lane.connect" else f"answered in {took}"
+        return ActivityLine(at, what, done if status == "ok" else failed, ok_or_bad(status))
+    if event == "mcp.call":
+        tool = to_words(row, "tool")
+        detail = f"{tool} in {took}" if status == "ok" else f"{tool} {failed}"
+        return ActivityLine(at, "Our MCP server", detail, ok_or_bad(status))
+    if event == "cache.failed":
+        return ActivityLine(at, "Our cache", f"failed: {error_class}", "warn")
+    if event == "health.check":
+        detail = f"not answering: {error_class}, after {took}" if status == "down" else f"working in {took}"
+        return ActivityLine(at, f"{to_check_label(row)} check", detail, "bad" if status == "down" else "ok")
+    if event == "health.done":
+        return ActivityLine(at, "Health check", f"{STATUS_WORDS.get(status, status)} in {took}", ok_or_bad(status))
+    if event == "http.request":
+        # A number on this line, though Axiom may send the column as words, since other lines hold words in it.
+        code = round(to_number(row, "status")) or (int(status) if status.isdigit() else 0)
+        tone = "bad" if code >= HTTP_SERVER_ERROR else "warn" if code >= HTTP_CLIENT_ERROR else "ok"
+        return ActivityLine(at, "Request ended", f"{code} in {took}", tone)
+    return None
+
+
+def ok_or_bad(status: str) -> str:
+    """A tone from a status: ok when it's ok, else bad."""
+    return "ok" if status == "ok" else "bad"
+
+
+def to_check_label(row: Row) -> str:
+    """A health check's name in words, from its line; a name we don't know, as it is."""
+    return CHECK_LABELS.get(to_words(row, "check"), to_words(row, "check"))
+
+
+def to_activity_line(row: Row) -> ActivityLine | None:
+    """A line of a timeline from Axiom's row; None for an event a timeline doesn't show, or one with no time."""
+    at = to_moment(row, "_time")
+    if at is None:
+        return None
+    event, took = to_words(row, "event"), to_duration(to_number(row, "ms"))
+    return to_question_line(row, at, event, took) or to_call_line(row, at, event, took)
+
+
+@dataclass(frozen=True)
+class ActivityRequest:
+    """
+    One request on Activity: when its first line was written, its row (what it was and how it ended), its ref, and
+    its timeline, each line with its time since the first.
+    """
+
+    at: datetime
+    summary: ActivityLine
+    ref: str
+    steps: list[tuple[str, ActivityLine]]
+
+
+def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLine:
+    """
+    A request's row: a health run, by how it ended and each check that wasn't answering; a question, by how it ended
+    and the lane it was asked on; a call to our MCP server, by its tool; else the request's own end. A row whose end
+    went well, though a line on the way didn't, says how many didn't, and isn't green.
+    """
+    first = lines[0]
+    by_event = {to_words(row, "event"): (row, line) for row, line in zip(rows, lines, strict=True)}
+    if "health.done" in by_event:
+        _row, done = by_event["health.done"]
+        down = [
+            f"{to_check_label(row)} ({to_words(row, 'errorClass')})"
+            for row in rows
+            if to_words(row, "event") == "health.check" and to_words(row, "status") == "down"
+        ]
+        detail = f"{done.detail}: {', '.join(down)}" if down else done.detail
+        return ActivityLine(first.at, "Health check", detail, done.tone)
+    question = by_event.get("chat.request")
+    on = f" · {question[1].detail}" if question else ""
+    ending = next((by_event[event][1] for event in ENDING_EVENTS if event in by_event), None)
+    if ending is not None:
+        return with_problems(ActivityLine(first.at, ending.what, f"{ending.detail}{on}", ending.tone), lines)
+    if question is not None:
+        return ActivityLine(first.at, "Question", f"{question[1].detail}, with no ending in its lines", "idle")
+    if "mcp.call" in by_event:
+        call = by_event["mcp.call"][1]
+        return with_problems(ActivityLine(first.at, call.what, call.detail, call.tone), lines)
+    if "http.request" in by_event:
+        end = by_event["http.request"][1]
+        return with_problems(ActivityLine(first.at, "Request", end.detail, end.tone), lines)
+    return ActivityLine(first.at, "Request", "with no end in its lines", "idle")
+
+
+def with_problems(row: ActivityLine, lines: Sequence[ActivityLine]) -> ActivityLine:
+    """A row whose end went well, with the count of its lines that didn't, and their tone; any other, as it is."""
+    problems = [line for line in lines if line.tone in ("warn", "bad") and line.what != "Request ended"]
+    if row.tone not in ("ok", "idle") or not problems:
+        return row
+    return ActivityLine(row.at, row.what, f"{row.detail} · {to_count(len(problems), 'line')} went wrong", "warn")
+
+
+def to_request_ids(rows: Sequence[Row]) -> list[str]:
+    """The requests the first query found, the latest first, each once; an id that isn't one is left out."""
+    found = (to_words(row, "requestId") for row in rows)
+    return list(dict.fromkeys(request_id for request_id in found if REQUEST_ID_PATTERN.fullmatch(request_id)))
+
+
+def to_activity_requests(request_ids: Sequence[str], rows: Sequence[Row]) -> list[ActivityRequest]:
+    """
+    Each request the first query found, the latest begun first, with every line of its own the second query found,
+    in the order they were written; a request none of whose lines a timeline shows is left out.
+    """
+    lines: dict[str, list[tuple[Row, ActivityLine]]] = {}
+    for row in rows:
+        line = to_activity_line(row)
+        if line is not None:
+            lines.setdefault(to_words(row, "requestId"), []).append((row, line))
+    requests = []
+    for request_id in request_ids:
+        found = sorted(lines.get(request_id, []), key=lambda item: item[1].at)
+        if not found:
+            continue
+        rows_of, lines_of = [row for row, _line in found], [line for _row, line in found]
+        start = lines_of[0].at
+        steps = [(f"+{to_duration((line.at - start) / timedelta(milliseconds=1))}", line) for line in lines_of]
+        requests.append(ActivityRequest(start, to_summary(rows_of, lines_of), to_ref(request_id), steps))
+    # By when each began: the first query found each by the line that picked it, which may come later.
+    return sorted(requests, key=lambda request: request.at, reverse=True)
+
+
+def to_days(requests: Sequence[ActivityRequest]) -> list[tuple[str, list[ActivityRequest]]]:
+    """The requests grouped by the day they began, in UTC, in the order they came: the latest first."""
+    days: dict[str, list[ActivityRequest]] = {}
+    for request in requests:
+        days.setdefault(f"{request.at:%A} {request.at.day} {request.at:%B %Y}", []).append(request)
     return list(days.items())
 
 
@@ -403,13 +708,22 @@ def to_endings(rows: Sequence[Row]) -> list[Bar]:
     )
     whole = sum(counts.get(event, 0) for _label, event, _note in endings)
     return [
-        Bar(label, f"{round(counts.get(event, 0)):,}", to_share(counts.get(event, 0), whole), note)
+        Bar(
+            label,
+            f"{round(counts.get(event, 0)):,}",
+            to_share(counts.get(event, 0), whole),
+            note,
+            to_narrowed_href("ended", event.removeprefix("chat.")),
+        )
         for label, event, note in endings
     ]
 
 
 def to_tool_bars(rows: Sequence[Row], key: str) -> list[Bar]:
-    """Tool calls by a field (tool or lane): each one's average time and slowest, its calls and failures."""
+    """
+    Tool calls by a field (tool or lane): each one's average time and slowest, its calls and failures, and a link to
+    the questions behind it, when it's a tool or a lane of ours.
+    """
     totals: dict[str, list[float]] = {}
     for row in rows:
         calls, failed, total_ms, slowest = totals.setdefault(to_words(row, key), [0.0, 0.0, 0.0, 0.0])
@@ -427,9 +741,15 @@ def to_tool_bars(rows: Sequence[Row], key: str) -> list[Bar]:
             f"{to_duration(averages[name])} average · slowest {to_duration(slowest)}",
             to_share(averages[name], longest),
             f"{to_count(calls, 'call')}, {round(failed):,} failed",
+            to_narrowed_href(key, name),
         )
         for name, (calls, failed, _total_ms, slowest) in sorted(totals.items(), key=lambda item: -averages[item[0]])
     ]
+
+
+def to_narrowed_href(kind: str, value: str) -> str:
+    """The address of the questions a narrowing picks by a value; none for a value that isn't one of ours."""
+    return to_activity_href("questions", **{kind: value}) if value in NARROWINGS[kind][0] else ""
 
 
 def to_cache_bars(rows: Sequence[Row]) -> list[Bar]:
@@ -448,15 +768,18 @@ def to_cache_bars(rows: Sequence[Row]) -> list[Bar]:
 
 
 def to_reasons(rows: Sequence[Row], event: str, key: str) -> list[Bar]:
-    """Why lines of one event happened, by a field (a refusal's code, a failure's class): the most common first."""
+    """
+    Why lines of one event happened, by a field (a refusal's code, a failure's class): the most common first, each
+    with a link to the questions it happened to, by that event; none for a reason not given, or not one of ours.
+    """
     counts: dict[str, float] = {}
     for row in rows:
         if to_words(row, "event") == event:
-            reason = to_words(row, key) or "none given"
+            reason = to_words(row, key) or NO_REASON
             counts[reason] = counts.get(reason, 0) + to_number(row, "lines")
     whole = sum(counts.values())
     return [
-        Bar(name, f"{round(count):,}", to_share(count, whole))
+        Bar(name, f"{round(count):,}", to_share(count, whole), href=to_narrowed_href(REASON_LINKS[event], name))
         for name, count in sorted(counts.items(), key=lambda item: -item[1])
     ]
 
@@ -479,21 +802,69 @@ def respond(request: Request, template: str, context: Mapping[str, object], is_k
 
 
 @router.get("/activity", response_class=HTMLResponse)
-async def activity_page(request: Request, show: str = "all") -> HTMLResponse:
-    """The latest 50 lines of a filter, in words, the latest first, by day; a filter we don't have is a 404."""
-    # Checked here rather than by a Literal, whose 422 would be FastAPI's JSON: an address with no page is our 404 page.
-    if show not in ACTIVITY_FILTERS:
+async def activity_page(
+    request: Request,
+    show: str = "questions",
+    tool: str | None = None,
+    asked: str | None = None,
+    lane: str | None = None,
+    ended: str | None = None,
+    refused: str | None = None,
+    failed: str | None = None,
+    fellback: str | None = None,
+    day: str | None = None,
+) -> HTMLResponse:
+    """
+    The latest 50 requests of a view, the latest begun first, by day, each opening onto its timeline (step 15); the
+    questions narrowed to what a link asks for, and any view to a day. A view we don't have, or a link we didn't
+    make, is a 404, and asks nothing.
+    """
+    # ① Checked here rather than by a Literal, whose 422 would be FastAPI's JSON: an address with no page is our 404.
+    if show not in ACTIVITY_VIEWS:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
-    answers = await ask_axiom(request, {f"activity-{show}": to_activity_query(show)})
-    lines = [line for row in answers.rows.get(f"activity-{show}", []) if (line := to_activity_line(row)) is not None]
+    links = {"tool": tool, "asked": asked, "lane": lane, "ended": ended}
+    narrowing = to_narrowing({**links, "refused": refused, "failed": failed, "fellback": fellback})
+    if narrowing is not None and show != "questions":
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
+    on_day = to_day(day, datetime.now(UTC))
+    # ② The requests the view's lines pick, over its time; then every line of theirs a timeline shows. Each query is
+    # named by its view, its narrowing and whether it's a day's, so one's failure is never another's (issue 84).
+    where = narrowing.where if narrowing is not None else ACTIVITY_VIEWS[show]
+    name = f"activity-{show}{f'-{narrowing.kind}' if narrowing else ''}{'-day' if on_day else ''}"
+    answers = await ask_axiom(request, {name: to_requests_query(where)}, on_day)
+    request_ids = to_request_ids(answers.rows.get(name, []))
+    is_full = len(request_ids) >= ACTIVITY_REQUESTS
+    if request_ids:
+        answers = await ask_axiom(request, {"activity-lines": to_timeline_query(request_ids)})
+    lines = answers.rows.get("activity-lines", [])
+    # ③ At the cap, the oldest request found may have lost its first lines: it's left out, and the page says so.
+    is_cut = len(lines) >= ACTIVITY_REQUEST_LINES
+    if is_cut:
+        oldest = min(lines, key=lambda row: to_moment(row, "_time") or datetime.max.replace(tzinfo=UTC))
+        request_ids = [request_id for request_id in request_ids if request_id != to_words(oldest, "requestId")]
+    requests = to_activity_requests(request_ids, lines)
+    narrowed = [narrowing.words] if narrowing is not None else []
+    if on_day is not None:
+        narrowed.append(to_day_words(on_day))
     context = {
         "title": "Activity",
         "show": show,
-        "tabs": ACTIVITY_TABS,
-        "days": to_days(lines),
+        "tabs": [(label, to_activity_href(view, day=day), view == show) for view, label in ACTIVITY_TABS],
+        "narrowed": narrowed,
+        "everything": to_activity_href(show),
+        "days": to_days(requests),
         "answers": answers,
+        "is_cut": is_cut,
+        "is_full": is_full,
+        "lines_cap": ACTIVITY_REQUEST_LINES,
+        "requests_cap": ACTIVITY_REQUESTS,
     }
     return respond(request, "activity.html", context, answers.notice is None)
+
+
+def to_day_words(day: date) -> str:
+    """A day as Activity says what it's narrowed to: "On Monday 2 November 2026"."""
+    return f"On {day:%A} {day.day} {day:%B %Y}"
 
 
 @router.get("/performance", response_class=HTMLResponse)
@@ -503,12 +874,9 @@ async def performance_page(request: Request) -> HTMLResponse:
         request, {"answers": ANSWERS, "endings": ENDINGS, "tool-calls": TOOL_CALLS, "weather-answers": WEATHER_ANSWERS}
     )
     [summary] = answers.rows.get("answers") or [{}]
-    questions = {
-        to_lane_label(lane): count
-        for lane, count in to_counts(
-            [row for row in answers.rows.get("endings", []) if to_words(row, "event") == "chat.request"], "lane"
-        ).items()
-    }
+    questions = to_counts(
+        [row for row in answers.rows.get("endings", []) if to_words(row, "event") == "chat.request"], "lane"
+    )
     tiles = [
         Tile("Answers", f"{round(to_number(summary, 'answers')):,}", "ended well"),
         Tile("P50", to_duration(to_number(summary, "p50")), "half took less"),
@@ -529,7 +897,10 @@ async def performance_page(request: Request) -> HTMLResponse:
         "tiles": tiles,
         "tools": to_tool_bars(tool_calls, "tool"),
         "lanes": to_tool_bars(tool_calls, "lane"),
-        "questions": [Bar(lane, f"{round(count):,}", to_share(count, whole)) for lane, count in questions.items()],
+        "questions": [
+            Bar(to_lane_label(lane), f"{round(count):,}", to_share(count, whole), href=to_narrowed_href("lane", lane))
+            for lane, count in questions.items()
+        ],
         "weather": to_cache_bars(answers.rows.get("weather-answers", [])),
         "days": OBSERVABILITY_DAYS,
     }
@@ -574,6 +945,11 @@ async def health_page(request: Request) -> HTMLResponse:
             f"{moment:%A} {moment.day} {moment:%B}" if (moment := to_moment(row, "day")) else "unknown day",
             f"{round(to_number(row, 'runs') - to_number(row, 'down')):,} of {round(to_number(row, 'runs')):,} passed",
             to_share(to_number(row, "runs") - to_number(row, "down"), to_number(row, "runs")),
+            # Step 15: the day's runs on Activity; on a day with failures, its errors, where they aren't buried under
+            # the runs that passed.
+            href=to_activity_href("errors" if to_number(row, "down") else "health", day=f"{moment:%Y-%m-%d}")
+            if moment
+            else "",
         )
         for row in answers.rows.get("health-days", [])[:OBSERVABILITY_DAYS]
     ]

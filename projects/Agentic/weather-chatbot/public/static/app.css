@@ -914,6 +914,82 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Step 15: each request on Activity a row that opens onto its timeline; the arrow is drawn, and turns when open. */
+.obs-request {
+  border-top: 1px solid var(--line);
+}
+
+.obs-request:first-child {
+  border-top: 0;
+}
+
+.obs-details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.obs-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.obs-details > .obs-line {
+  grid-template-columns: auto auto minmax(0, 10rem) minmax(0, 1fr) auto;
+  border-top: 0;
+}
+
+.obs-details > summary::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 8px 2px 0;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+}
+
+.obs-details > .obs-line::before {
+  margin-right: 4px;
+}
+
+.obs-details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.obs-steps {
+  margin: 0 0 4px 3px;
+  padding: 0 0 0 20px;
+  border-left: 2px solid var(--line);
+  list-style: none;
+}
+
+.obs-step {
+  display: grid;
+  grid-template-columns: auto 4.5rem minmax(0, 10rem) minmax(0, 1fr);
+  gap: 2px 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  font-size: 0.9rem;
+}
+
+.obs-step-since {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.obs-ref {
+  margin: 4px 0 10px 25px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.obs-narrowed {
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
 /* A line's dot, and a status's: the words beside it say how it went, never the colour alone. */
 .obs-dot {
   display: inline-block;
@@ -975,5 +1051,26 @@ body {
 
   .obs-line-detail {
     grid-column: 2 / -1;
+  }
+
+  .obs-details > .obs-line {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+  }
+
+  .obs-details > .obs-line .obs-line-time {
+    grid-column: 4;
+  }
+
+  .obs-details > .obs-line .obs-line-detail {
+    grid-column: 3 / -1;
+  }
+
+  .obs-step {
+    grid-template-columns: auto 4rem minmax(0, 1fr);
+  }
+
+  .obs-step .obs-line-what,
+  .obs-step .obs-line-detail {
+    grid-column: 3;
   }
 }

@@ -1,7 +1,8 @@
 {#
   templates/observability_parts.html: what the Observability pages share (step 14): the notice when Axiom can't
   answer, a row of numbers, and a breakdown, each line a meter: a bar the browser draws, since the Content Security
-  Policy refuses an inline style, with its words beside it, never the bar alone.
+  Policy refuses an inline style, with its words beside it, never the bar alone. A line with requests behind it names
+  them with a link to Activity (step 15).
 #}
 {% macro notice(answers) -%}
   <p class="obs-notice" role="note">
@@ -30,7 +31,11 @@
     <ul class="obs-bars">
       {% for bar in bars %}
       <li class="obs-bar">
+        {% if bar.href %}
+        <a class="obs-bar-label" id="{{ id }}-{{ loop.index }}" href="{{ bar.href }}">{{ bar.label }}</a>
+        {% else %}
         <span class="obs-bar-label" id="{{ id }}-{{ loop.index }}">{{ bar.label }}</span>
+        {% endif %}
         <span class="obs-bar-value">{{ bar.value }}</span>
         <meter class="obs-meter" min="0" max="1" value="{{ '%.3f' | format(bar.share) }}"
           aria-labelledby="{{ id }}-{{ loop.index }}"></meter>

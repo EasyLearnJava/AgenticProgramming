@@ -466,3 +466,25 @@ them; or a class for each step of width.
 
 **5. Why render the pages on the server rather than query from the browser?**
 The token stays on the server; the page needs no script; and one rendering, kept by the CDN, serves every visitor.
+
+## Step 15 · Activity by Request, and Rows That Lead to It
+
+**1. How do you show one request's story from logs written line by line?**
+Give every line the request's id when it's written, then ask for the requests a view picks by that id, and for every
+line of theirs, in the order they were written; group them by the id, and time each from the first.
+
+**2. A request's id is the key that groups its lines. Why not show it?**
+The page is public: a short ref, the one an error's message already gives the visitor, finds their request, and
+nobody learns another's whole id.
+
+**3. How do you let a link narrow a query without letting a visitor write it?**
+Take only values from your own lists: a pattern that keeps a value inside its quotes still lets every new word cost a
+query, and puts it on the page. One narrowing at a time; anything else a 404 before anything is asked. And check what
+came back from the first query before it goes into the second.
+
+**4. Why use a `<details>` element for an expanding row rather than a script?**
+It opens with a click, a tap or the keyboard, screen readers announce it as open or closed, it works with no script
+under a strict Content Security Policy, and the server renders it once for every visitor.
+
+**5. What goes wrong when a cache is keyed by a query that names its data?**
+Each new set of data is a new key, so the cache grows without end; let entries past their time go before adding one.

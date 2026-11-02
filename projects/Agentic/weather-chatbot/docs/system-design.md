@@ -1,6 +1,6 @@
 # System Design
 
-How Nimbus is built after step 14, drawn the way the TypeScript version's
+How Nimbus is built after step 15, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
@@ -14,12 +14,14 @@ Step 10 opens the lanes with auth: the forecast through Apify's Actor, falling b
 adds security: the firewall's rules, a rule against prompt injection, and privacy checks. Step 12 adds monitoring:
 the lines to Axiom, the errors to Sentry, a health check of each lane, and the status dots. Step 13 adds golden
 questions, graded against the live site, a load test and a way back. Step 14 reads the lines back from Axiom onto
-four Observability pages, and groups the menu's links. Each step added its parts to this page.
+four Observability pages, and groups the menu's links. Step 15 puts each request's lines back together on
+Activity, a row that opens onto its timeline, and makes every row of the other pages a link to its requests.
+Each step added its parts to this page.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 [Architecture and design](architecture.md) puts the whole design on one page: its features, its data flow, the
 decisions and why, and what keeps it safe and secure.
 
-![How Nimbus is built after step 14](images/system-design.svg)
+![How Nimbus is built after step 15](images/system-design.svg)
 
 ## The four bands
 
@@ -140,7 +142,8 @@ tools, and through them Open-Meteo.
   as its exception's class and frames, tagged, nothing private; and `/api/health` checks each lane's way out, none of
   it costing, for an uptime monitor and the lane picker's status dots. From step 14, four Observability pages read
   the lines back from Axiom, with a second token that can only query: Activity, Performance, Evaluations and Health,
-  each query naming the fields it reads, once a minute on each copy, each page kept a minute by the CDN.
+  each query naming the fields it reads, once a minute on each copy, each page kept a minute by the CDN. From
+  step 15, Activity shows each request, its lines put together by its id, shown only by its ref.
 - **Evaluation** (09): Ruff, mypy in strict mode, unit tests, and browser tests on every page and of the chat, with
   axe's accessibility checks, which CI runs on every push that touches the project; and a mutation check, which breaks
   each rule on purpose to show a test catches it, run before each commit. From step 13, thirteen golden questions,
@@ -241,6 +244,6 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 
 ## What comes next
 
-The rebuild is complete: thirteen steps, each live and checked, and a fourteenth that reads the app's lines back
-onto its Observability pages. What's yours to set is on
+The rebuild is complete: thirteen steps, each live and checked; a fourteenth reads the app's lines back onto its
+Observability pages, and a fifteenth tells each request's story there. What's yours to set is on
 [Waiting on you](waiting-on-you.md); what could come next, on [To do](todo.md).

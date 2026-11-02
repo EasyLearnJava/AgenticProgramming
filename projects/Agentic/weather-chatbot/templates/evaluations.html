@@ -1,7 +1,8 @@
 {#
   templates/evaluations.html: Evaluations (step 14): the golden questions (step 13), what each answer must do, and how
-  each did in the last run kept in the repository; then, from Axiom over the last 7 days, how live answers ended, and
-  why one was refused, failed or fell back.
+  each did in the last run kept in the repository, opening onto the tools it called and what it missed (step 15); then,
+  from Axiom over the last 7 days, how live answers ended, and why one was refused, failed or fell back, each a link
+  to those questions on Activity.
 #}
 {% extends "base.html" %}
 {% from "observability_parts.html" import notice, tiles as show_tiles, breakdown %}
@@ -44,8 +45,18 @@
           </td>
           <td>
             {% if result is none %}not run
-            {% elif result.passed %}<span class="obs-pass">passed</span>
-            {% else %}<span class="obs-fail">failed:</span> {{ result.misses | join("; ") }}{% endif %}
+            {% else %}
+            <details class="obs-details">
+              <summary>
+                {%- if result.passed %}<span class="obs-pass">passed</span>
+                {%- else %}<span class="obs-fail">failed:</span> {{ result.misses | join("; ") }}{% endif -%}
+              </summary>
+              <p class="obs-bar-note">
+                {%- if result.tools %}It called {{ result.tools | join(", then ") }}.
+                {%- else %}It called no tool.{% endif -%}
+              </p>
+            </details>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

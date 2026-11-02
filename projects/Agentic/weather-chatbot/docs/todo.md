@@ -44,9 +44,12 @@ The rebuild is complete (step 13); these could come after it.
   its cutoff in `exclude-newer-package` to `2026-10-21T00:00:00Z`, and the audit's `--exclude-newer` in CI with it.
   pyasn1's fixes 0.6.4's four slow decodings of ASN.1: give it a cutoff of its own, `2026-10-28T00:00:00Z`, then
   take its four `--ignore-vuln` out of CI's audit.
-- **Which health check fails (issue 95):** one run in three failed, and Activity says only "not answering". One
-  query in Axiom, the `health.check` lines that are `down`, by `check` and `errorClass`, would say which; then
-  Activity's health rows could name the lanes that were down, from each `health.done` line's `lanes`.
+- **Which health check fails (issue 95):** one run in three failed. Since step 15, each failed run's row on
+  Activity names the checks that weren't answering, and its timeline each check's error: read the live ones.
+- **A question's MCP calls in its timeline (issue 104):** on the MCP lanes, a tool runs in our MCP server's own
+  request, so the question's timeline lacks its fetches. Our MCP lane could send the question's id in a header,
+  which the server logs as `parentRequestId` only from our own calls (the bypass secret says so), and the
+  timeline's query could ask for both.
 - **A limit of its own for `/api/mcp`:** our MCP server needs no key, so within the firewall's 20 a minute one address
   could make 28,800 calls a day, past Open-Meteo's free 10,000; a lower rule for it, or a key, would hold them, and
   the lanes' own calls, carrying the bypass, would still pass.

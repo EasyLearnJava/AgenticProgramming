@@ -1,7 +1,7 @@
 {#
   templates/performance.html: Performance (step 14): over the last 7 days, how long answers took (p50, p95, p99), the
   tool calls and tokens an answer; each tool's time and each lane's; the questions on each lane; and Open-Meteo's
-  answers, from our cache or fetched.
+  answers, from our cache or fetched. Each tool and each lane links to its questions on Activity (step 15).
 #}
 {% extends "base.html" %}
 {% from "observability_parts.html" import notice, tiles as show_tiles, breakdown %}

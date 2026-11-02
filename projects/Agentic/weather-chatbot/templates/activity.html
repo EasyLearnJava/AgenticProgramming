@@ -1,6 +1,9 @@
 {#
-  templates/activity.html: Activity (step 14): the latest 50 lines of a filter, the latest first, by day, each in
-  words: what happened, how long it took, and how it went; times in UTC. The filters are links, the current one marked.
+  templates/activity.html: Activity (steps 14 and 15): the latest 50 requests of a view, the latest first, by day, each
+  a row that says what it was and how it ended, and opens onto its timeline: every line of its own a timeline shows,
+  each with its time since the first, and the request's ref. The views are links, the current one marked; a link from another page says
+  what it narrowed the list to, with a way back to all of it. A row is a details element: it opens with a click, a tap
+  or the keyboard, with no script of ours.
 #}
 {% extends "base.html" %}
 {% from "observability_parts.html" import notice %}
@@ -8,29 +11,53 @@
 {% block content %}
 <main class="doc obs">
   <h1>{{ title }}</h1>
-  <p class="obs-lead">The app's latest lines in Axiom, from the last 7 days: questions, how each answer ended, each tool
-    call and each fallback; the health checks under Health. Never a question's words, or who asked. Times in UTC.</p>
-  <nav class="obs-tabs" aria-label="Filters">
-    {% for name, label in tabs %}
-    <a class="obs-tab" href="/activity{% if name != 'all' %}?show={{ name }}{% endif %}"
-      {%- if name == show %} aria-current="page"{% endif %}>{{ label }}</a>
+  <p class="obs-lead">The app's latest requests in Axiom, from the last 7 days: each question, from its first line to
+    its last, and each health run, under Health. Open a row to see its timeline. Never a question's words, or who
+    asked. Times in UTC.</p>
+  <nav class="obs-tabs" aria-label="Views">
+    {% for label, href, is_current in tabs %}
+    <a class="obs-tab" href="{{ href }}"{% if is_current %} aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
+  {% if narrowed %}
+  <p class="obs-narrowed">{{ narrowed | join(" · ") }}. <a href="{{ everything }}">Show them all</a></p>
+  {% endif %}
   {% if answers.notice %}
   {{ notice(answers) }}
   {% elif not days %}
-  <p class="obs-empty">No lines in the last 7 days.</p>
+  <p class="obs-empty">{% if narrowed %}None like these.{% else %}No requests in the last 7 days.{% endif %}</p>
   {% else %}
-  {% for day, lines in days %}
+  {% if is_cut %}
+  <p class="obs-about">The latest requests whose lines fit in {{ "{:,}".format(lines_cap) }}; older ones aren't
+    shown.</p>
+  {% elif is_full %}
+  <p class="obs-about">The latest {{ requests_cap }}; older ones aren't shown.</p>
+  {% endif %}
+  {% for day, requests in days %}
   <section class="obs-card" aria-labelledby="day-{{ loop.index }}">
     <h2 id="day-{{ loop.index }}">{{ day }}</h2>
     <ul class="obs-lines">
-      {% for line in lines %}
-      <li class="obs-line" data-tone="{{ line.tone }}">
-        <span class="obs-dot" aria-hidden="true"></span>
-        <span class="obs-line-what">{{ line.what }}</span>
-        <span class="obs-line-detail">{{ line.detail }}</span>
-        <time class="obs-line-time" datetime="{{ line.at.isoformat() }}">{{ line.at.strftime("%H:%M:%S") }}</time>
+      {% for item in requests %}
+      <li class="obs-request">
+        <details class="obs-details">
+          <summary class="obs-line" data-tone="{{ item.summary.tone }}">
+            <span class="obs-dot" aria-hidden="true"></span>
+            <span class="obs-line-what">{{ item.summary.what }}</span>
+            <span class="obs-line-detail">{{ item.summary.detail }}</span>
+            <time class="obs-line-time" datetime="{{ item.at.isoformat() }}">{{ item.at.strftime("%H:%M:%S") }}</time>
+          </summary>
+          <ol class="obs-steps">
+            {% for since, line in item.steps %}
+            <li class="obs-step" data-tone="{{ line.tone }}">
+              <span class="obs-dot" aria-hidden="true"></span>
+              <span class="obs-step-since">{{ since }}</span>
+              <span class="obs-line-what">{{ line.what }}</span>
+              <span class="obs-line-detail">{{ line.detail }}</span>
+            </li>
+            {% endfor %}
+          </ol>
+          <p class="obs-ref">Ref {{ item.ref }}: the one an error's sentence ends with.</p>
+        </details>
       </li>
       {% endfor %}
     </ul>

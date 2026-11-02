@@ -20,7 +20,7 @@ fixed.
 | **Hosting** | One Vercel Function in `iad1` (Washington, D.C.), on the Hobby plan; Vercel's CDN for the files |
 | **State** | No database: the conversation stays in the visitor's browser; the weather, in Vercel's Runtime Cache |
 | **Monitoring** | JSON log lines with each request's id, to Axiom, and read back onto the Observability pages; errors to Sentry; a health check of each lane |
-| **Checks** | 696 unit tests, 205 browser tests with accessibility checks, 214 mutation rules, 13 golden questions |
+| **Checks** | 730 unit tests, 210 browser tests with accessibility checks, 236 mutation rules, 13 golden questions |
 
 ## What it does
 
@@ -44,7 +44,8 @@ fixed.
   sideways on a phone.
 - **What it's doing, in the open:** Activity, Performance, Evaluations and Health, read back from its own lines in
   Axiom: what happened, how long it took, how answers ended, which checks pass; never a question's words, or who
-  asked (step 14).
+  asked (step 14). Each request a row that opens onto its timeline, and every row of the other pages a link to
+  its requests (step 15).
 - **Its own documentation:** in the menu, its links in groups, from each step's chapter to this page.
 
 ### For an operator or a developer
@@ -141,7 +142,7 @@ and LangSmith, for monitoring, Axiom's lines read back for the Observability pag
 | Our MCP server | A tool's input | The question |
 | Vercel's Runtime Cache | Open-Meteo's answers, under a hash of their address; the day's count of Apify runs | The question, who asked |
 | Our log lines (Vercel, Axiom) | A question's length, the lane, ids, times, tokens, classes | The question, the conversation, a place's name, a token |
-| Anyone who opens the Observability pages | Times, counts, lanes, tools, how answers ended, error classes, the input rules broken | A request's id or path, a question's length, anything a visitor typed, a token, an account's name |
+| Anyone who opens the Observability pages | Times, counts, lanes, tools, how answers ended, error classes, the input rules broken, each request's timeline and its ref | A request's whole id or its path, a question's length, anything a visitor typed, a token, an account's name |
 | Sentry | An error's class and frames; its line's fields as tags: our event's name, or a library's own message, its query strings cut | An exception's message (a library's line can still quote one), a request's data, a frame's variables |
 | LangSmith | Each run's names, times and lane; of a run that failed, only that it failed | The question, the answer, an error's text |
 | Your browser | The conversation, in the page's form, until New chat or the page closes | |
@@ -206,9 +207,10 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **Axiom** keeps the lines; **Sentry** gets the errors, tagged with where they came from; **LangSmith** traces each
   run; the dashboards and alerts are written out in [step 12](step-12.md).
 - **The health check** says which lanes work, for an uptime monitor and for the page's dots.
-- **The Observability pages** read the lines back, for anyone: the latest 50, a filter at a time; answer times'
-  p50, p95 and p99, each tool's and each lane's; how answers ended and why; each day's health runs. Each query
-  names the fields it reads, and runs once a minute on each copy ([step 14](step-14.md)).
+- **The Observability pages** read the lines back, for anyone: the latest 50 requests of a view, each opening onto
+  its timeline ([step 15](step-15.md)); answer times' p50, p95 and p99, each tool's and each lane's; how answers
+  ended and why; each day's health runs; each of those rows a link to its requests. Each query names the fields
+  it reads, and runs once a minute on each copy ([step 14](step-14.md)).
 - **One id finds everything:** every response carries its request's id (`x-request-id`), and a failure while
   answering shows its ref, the id's last 8 letters and digits; either finds the request's lines in Axiom and its
   event in Sentry.
@@ -216,10 +218,10 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 ### It's tested, every way
 
 - **Static checks:** Ruff and mypy in strict mode, in CI on every push.
-- **Unit tests,** 696, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
+- **Unit tests,** 730, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
   and Axiom's query door.
-- **Browser tests,** 205, on every page and through the chat, each page checked by axe and at a phone's width.
-- **A mutation check:** 214 rules, each breaking the code on purpose; a test must catch each, and does.
+- **Browser tests,** 210, on every page and through the chat, each page checked by axe and at a phone's width.
+- **A mutation check:** 236 rules, each breaking the code on purpose; a test must catch each, and does.
 - **Privacy tests:** words of their own sent through three lanes, then searched for in every log line and every
   request out.
 - **Golden questions:** 13, asked of the live site and graded by rules; 13 passed, on build 4785bc7
@@ -278,7 +280,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 | An MCP request | 8 KiB; connecting 6 s (Apify's, 5 s) |
 | The health check | 8 s a check; a run answers its address for a minute |
 | Monitoring | A batch of at most 1,000 lines; 2 s to send |
-| The Observability pages | 5 s a query; each query once a minute on each copy; the last 7 days; Activity's latest 50 lines |
+| The Observability pages | 5 s a query; each query once a minute on each copy; the last 7 days; Activity's latest 50 requests, 2,000 lines at most |
 
 ## Running and operating it
 

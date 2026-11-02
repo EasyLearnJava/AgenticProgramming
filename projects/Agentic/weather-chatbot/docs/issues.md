@@ -639,6 +639,57 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     18:38:55: a run answers its own address on its copy for a minute, so that one ran on another copy or through
     another address. Each `health.done` line keeps its `lanes`, and each failed check writes a `health.check` line
     with its `check` and `errorClass` (a warning, or an error the first time a copy meets one that needs a look), but
-    Activity shows neither. The TypeScript app's lines leave the 7 days by 7 November. **Fix:** none yet. **Check:**
-    none yet; one query in Axiom, `health.check` lines whose `status` is `down`, counted by `check` and `errorClass`,
-    says which check fails.
+    Activity showed neither. The TypeScript app's lines leave the 7 days by 7 November. **Fix:** step 15: each health
+    run is a row on Activity naming the checks that weren't answering, with their errors, and opens onto each check's
+    line. **Check:** to come: the live site's failed runs, read once step 15 is deployed.
+
+## Step 15 · Activity by Request, and Rows That Lead to It
+
+96. **A health check's line read the same as the call it made.** *Looking at the page* (a screenshot of a health
+    run's timeline, opened). "Open-Meteo working in 420 ms", the check, sat under "Open-Meteo fetched in 400 ms", the
+    geocoding it asked for, and nothing told them apart. **Fix:** a check's line names itself a check: "Open-Meteo
+    check working in 420 ms"; the run's row still names the check alone. **Check:** the test of a health run's
+    timeline, which finds the fetch before the check, each in its words.
+97. **The minute's memo would have grown without end.** *Building step 15.* Step 14 keeps each query's run on the
+    app's state, keyed by its APL, and a run older than a minute was only replaced when the same query came again.
+    Activity's second query names its requests, so each minute brings new words, and the old ones would have stayed
+    for as long as the copy lived. **Fix:** `ask()` lets go of every run past its minute before it keeps a new one.
+    **Check:** a test that a minute after Activity, Performance's visit leaves only its own runs; the mutation check's
+    rule.
+98. **A link's reason could be any word.** *The review* (both reviewers). `?reason=` took any word of
+    `[A-Za-z][A-Za-z0-9_]{0,63}`: it couldn't leave the query's quotes, but it reached the query and the page ("fallen
+    back for CallUsAt5551234"), and each new word was a query of its own, past the CDN and the minute's memo, which
+    the firewall's limit on `/api/*` doesn't cover: a loop of made-up words could spend the query token's cost caps,
+    and every Observability page would say Axiom didn't answer. **Fix:** a link's values are ours only: the refusal
+    codes the app writes, a list a test reads from each `InputError` in the code, and the classes of our errors.
+    **Check:** a well-made code we don't write is a 404 with nothing asked; the test of the list; the mutation
+    check's rules.
+99. **A row's link brought in more than its row counted.** *The review* (both reviewers). A reason's link took
+    refusals, failures and fallbacks with the same name, so "Why answers failed: UpstreamTimeoutError 1" opened
+    fallbacks too; a lane's took the questions asked on it and those whose tools ran there, and on a lane with auth
+    the three tools other than the forecast always run on the twin. **Fix:** `?refused=`, `?failed=` and
+    `?fellback=`, each by its own event; `?asked=` for the questions asked on a lane, `?lane=` for those whose tools
+    ran on it. **Check:** each link's where clause and words, written out in a test.
+100. **A row could hide what went wrong.** *The review* (both reviewers). A question that fell back, or had a tool
+     call fail, and still answered was a green "Answered" in Errors, with nothing to say why it was there; a call to
+     our MCP server whose fetch failed was a green "Request 200". **Fix:** a row whose end went well, though a line
+     on the way didn't, says how many didn't and is a warning; a call to our MCP server is a row by its tool, its
+     `mcp.call` line in the timeline. **Check:** the fixture's fallback is "2 lines went wrong"; a test of a call to
+     our server; the mutation check's rule.
+101. **At the cap, a request could start halfway.** *The review* (both reviewers). The timeline's query takes 2,000
+     lines; when that's reached, the oldest request kept may have lost its first lines, its row its lane, its "+0
+     ms" a tool call, and the page said nothing. **Fix:** at the cap, the oldest request found is left out, and the
+     page says older ones aren't shown; it says so too when 50 were found. **Check:** a test with the cap at the
+     fixture's 27 lines; the mutation check's rule.
+102. **A Health day's link buried its failures.** *The review* (both reviewers). Every page's dots and every uptime
+     ping add a health run, so a day's runs pass the 50 shown, and its link opened them all, passed and failed
+     alike. **Fix:** a day with failures links to its errors. **Check:** the test of Health's links.
+103. **A forecast that couldn't fall back read "Fell back".** *The review* (reviewer A). `auth_lanes.py` writes its
+     `lane.fallback` line before it knows there's time for the twin, with `fellBack` false when there isn't, and
+     then the forecast fails. **Fix:** the timeline reads `fellBack`; false is "Couldn't fall back", with too little
+     time left. **Check:** a test of the line; the mutation check's rule.
+104. **On the MCP lanes, a question's timeline lacks its fetches.** *The review* (both reviewers). A tool on MCP · no
+     auth, or a twin's on MCP · with auth, runs in our MCP server's own request, with an id of its own, so the
+     question's timeline shows the tool call and not what it asked of Open-Meteo. **Fix:** none yet: the server's
+     request is a row of its own (issue 100), and joining the two is on To do: the lane could send the question's
+     id, which the server would log only from our own calls. **Check:** none yet.

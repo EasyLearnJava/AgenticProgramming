@@ -10,7 +10,7 @@ CDN, one that didn't never kept, without Axiom's words; a refused token at error
 import html
 import json
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -24,21 +24,25 @@ from starlette.datastructures import State
 from structlog.testing import capture_logs
 
 from nimbus import observability
-from nimbus.axiom_query import AxiomQuery
+from nimbus.axiom_query import AxiomQuery, Row
 from nimbus.config import Settings
 from nimbus.constants import NO_STORE, OBSERVABILITY_CACHE_CONTROL
 from nimbus.errors import AXIOM_NOT_CONNECTED, AXIOM_UNANSWERED
 from nimbus.goldens import GoldenResult, LastRun, read_goldens, read_last_run
 from nimbus.observability import (
-    ACTIVITY_FIELDS,
-    ACTIVITY_FILTERS,
+    ACTIVITY_VIEWS,
+    TIMELINE_EVENTS,
+    TIMELINE_FIELDS,
     WEATHER_ANSWERS,
     make_axiom_query,
     to_activity_line,
+    to_activity_requests,
     to_count,
     to_duration,
     to_named,
+    to_request_ids,
     to_share,
+    to_window,
 )
 from tests.fakes import AXIOM_WORDS, AxiomRecordings, OpenMeteoRecordings
 
@@ -87,77 +91,381 @@ def test_without_the_query_token_each_page_says_axiom_isnt_connected_and_asks_no
     assert f'href="{path}" aria-current="page"' in page.text
 
 
-def test_activity_shows_each_line_in_words_by_day_the_latest_first(observed: TestClient) -> None:
-    words = text_of(observed.get("/activity").text)
+def test_activity_shows_each_request_as_a_row_that_opens_onto_its_timeline_by_day_the_latest_first(
+    observed: TestClient,
+) -> None:
+    page = observed.get("/activity")
+    words = text_of(page.text)
     for said in (
+        # Each request's row: how it ended, and the lane it was asked on; an answer that came despite a line that
+        # went wrong says how many did.
         "Sunday 1 November 2026",
-        "Answered in 5.8 s · 2 tool calls · 5,150 tokens in, 96 out 14:05:12",
-        "get_forecast on REST · no auth in 412 ms",
-        "geocode_location failed on MCP · no auth: UpstreamTimeoutError, after 8.0 s",
-        "Question on REST · no auth",
+        "Answered in 5.8 s · 2 tool calls · 5,150 tokens in, 96 out · on REST · no auth 14:05:06",
+        "Failed ModelBusyError (ClientError) after 9.5 s · on MCP · no auth 13:00:00",
         "Saturday 31 October 2026",
-        "Fell back REST · with auth to REST · no auth: AuthError",
-        "Health check not answering in 590 ms",
-        "Refused question_too_long",
-        "Failed ModelBusyError after 1.2 s",
-        "Stopped after 2.1 s",
+        "Answered in 4.2 s · 1 tool call · 4,000 tokens in, 80 out · on REST · with auth · 2 lines went wrong 09:00:00",
+        "Health check not answering in 590 ms: Apify's MCP server (UpstreamTimeoutError) 08:00:00",
+        "Refused question_too_long 07:00:00",
+        "Stopped after 2.1 s · on REST · no auth 05:00:00",
+        # And its timeline: every line of its own, each with its time since the first.
+        "+0 ms Question on REST · no auth",
+        "+1.1 s Open-Meteo from our cache in 28 ms",
+        "+1.2 s geocode_location on REST · no auth in 30 ms",
+        "+4.5 s Open-Meteo fetched in 380 ms, 2 tries",
+        "+4.6 s get_forecast on REST · no auth in 412 ms",
+        "+6.0 s Answered in 5.8 s",
+        "+6.0 s Request ended 200 in 5.8 s",
+        "Ref 0a1b2c3d",
+        "+8.3 s geocode_location failed on MCP · no auth: UpstreamTimeoutError, after 8.0 s",
+        "+300 ms Apify failed: AuthError, after 300 ms",
+        "+310 ms Fell back REST · with auth to REST · no auth: AuthError",
+        "+0 ms Apify's REST API check working in 150 ms",
+        "+440 ms Apify's MCP server check not answering: UpstreamTimeoutError, after 590 ms",
+        "+441 ms Health check not answering in 590 ms",
+        "+450 ms Request ended 503 in 600 ms",
+        "+3 ms Request ended 422 in 3 ms",
     ):
         assert said in words
     assert words.index("Sunday 1 November 2026") < words.index("Saturday 31 October 2026")
-    assert "app.started" not in words
+    assert words.index("+250 ms Open-Meteo fetched in 400 ms") < words.index(
+        "+270 ms Open-Meteo check working in 420 ms"
+    )
+    assert page.text.count('<details class="obs-details">') == 6
+    assert page.text.count('<summary class="obs-line" data-tone="warn">') == 2
+    assert "observability.query" not in words
 
 
-def test_the_filters_are_these_where_clauses_and_all_leaves_out_the_health_checks() -> None:
-    chat = '"chat.request", "chat.done", "chat.aborted", "chat.failed", "chat.rejected"'
+def test_activity_asks_for_the_requests_then_their_lines_never_an_id_that_isnt_one(
+    observed: TestClient, axiom: AxiomRecordings
+) -> None:
+    observed.get("/activity")
+    picked, lines = axiom.queries
+    assert picked.endswith(
+        f"| where isnotempty(requestId) and ({ACTIVITY_VIEWS['questions']}) | summarize started = min(_time) "
+        "by requestId | sort by started desc | take 50"
+    )
+    ids = '"cle1::iad1::never-shown-0a1b2c3d", "iad1::mcp-11112222", "iad1::fallback-77778888", '
+    assert f"| where requestId in ({ids}" in lines
+    assert '"iad1::no-lines-bbbbcccc") and event in ("chat.request", ' in lines
+    assert "or true" not in lines
+    assert "| sort by _time desc | take 2000 | project _time, requestId, event, level, status, ms, " in lines
+
+
+def test_a_view_with_no_requests_asks_once_and_says_so(observed: TestClient, axiom: AxiomRecordings) -> None:
+    axiom.rows = {}
+    page = observed.get("/activity?show=errors")
+    assert len(axiom.requests) == 1
+    assert "No requests in the last 7 days." in text_of(page.text)
+    assert page.headers["cache-control"] == OBSERVABILITY_CACHE_CONTROL
+
+
+def test_the_views_are_these_where_clauses_and_health_runs_have_their_own() -> None:
+    events = ", ".join(f'"{event}"' for event in TIMELINE_EVENTS)
     assert {
-        "all": f'event in ({chat}, "tool.call", "lane.fallback")',
-        "questions": f"event in ({chat})",
-        "tools": 'event in ("tool.call", "lane.fallback")',
-        "health": 'event == "health.done"',
+        "questions": 'event in ("chat.request", "chat.rejected")',
         "errors": (
-            f'event in ({chat}, "tool.call", "lane.fallback", "health.done") and (level == "error" '
-            'or tostring(status) in ("failed", "down") or event == "lane.fallback")'
+            f'event in ({events}) and (level == "error" or tostring(status) in ("failed", "down") '
+            'or event == "lane.fallback")'
         ),
-    } == ACTIVITY_FILTERS
+        "health": 'event == "health.done"',
+    } == ACTIVITY_VIEWS
+    assert {"health.check", "health.done", "http.request", "upstream.http", "lane.fallback"} <= set(TIMELINE_EVENTS)
 
 
 def test_a_field_not_every_line_has_is_read_with_its_default_so_a_young_dataset_never_fails(
     observed: TestClient, axiom: AxiomRecordings
 ) -> None:
     observed.get("/activity")
-    [apl] = axiom.queries
-    assert "lane = column_ifexists('lane', '')" in apl
-    assert "fromLane = column_ifexists('fromLane', '')" in apl
-    assert "project _time, event, level, " in apl
+    _picked, lines = axiom.queries
+    assert "lane = column_ifexists('lane', '')" in lines
+    assert "fromLane = column_ifexists('fromLane', '')" in lines
+    assert "project _time, requestId, event, level, status, ms, lane = " in lines
     assert "isempty(column_ifexists('check', ''))" in " ".join(WEATHER_ANSWERS)
 
 
-def test_activity_names_only_its_own_fields_and_never_shows_another(
+def test_a_timeline_names_only_its_own_fields_and_shows_a_request_only_by_its_ref(
     observed: TestClient, axiom: AxiomRecordings
 ) -> None:
     page = observed.get("/activity")
     assert "never-shown" not in page.text
-    [apl] = axiom.queries
-    assert apl.endswith(f"| project {', '.join(to_named(name) for name in ACTIVITY_FIELDS)}")
-    assert not {"requestId", "path", "questionChars", "historyMessages", "deploymentId"} & set(ACTIVITY_FIELDS)
+    assert "Ref 0a1b2c3d" in text_of(page.text)
+    _picked, lines = axiom.queries
+    assert lines.endswith(f"| project {', '.join(to_named(name) for name in TIMELINE_FIELDS)}")
+    never = {"path", "host", "method", "questionChars", "historyMessages", "answerChars", "deploymentId", "model"}
+    assert not never & set(TIMELINE_FIELDS)
 
 
-@pytest.mark.parametrize("show", list(ACTIVITY_FILTERS))
-def test_each_filter_asks_its_own_where_and_marks_its_tab(
+@pytest.mark.parametrize("show", list(ACTIVITY_VIEWS))
+def test_each_view_asks_its_own_where_and_marks_its_tab(
     observed: TestClient, axiom: AxiomRecordings, show: str
 ) -> None:
-    href = "/activity" if show == "all" else f"/activity?show={show}"
+    href = "/activity" if show == "questions" else f"/activity?show={show}"
     page = observed.get(href)
     assert page.status_code == 200
-    [apl] = axiom.queries
-    assert f"| where {ACTIVITY_FILTERS[show]} |" in apl
+    assert f"| where isnotempty(requestId) and ({ACTIVITY_VIEWS[show]}) | summarize started" in axiom.queries[0]
     assert f'href="{escape(href)}" aria-current="page"' in page.text
 
 
-def test_a_filter_we_dont_have_is_a_404_and_asks_nothing(observed: TestClient, axiom: AxiomRecordings) -> None:
-    page = observed.get("/activity?show=everything")
+@pytest.mark.parametrize(
+    ("address", "words", "where"),
+    [
+        (
+            "/activity?tool=get_forecast",
+            "Questions that called get_forecast",
+            "event == \"tool.call\" and column_ifexists('tool', '') == \"get_forecast\"",
+        ),
+        (
+            "/activity?asked=mcp-no-auth",
+            "Questions asked on MCP · no auth",
+            "event == \"chat.request\" and column_ifexists('lane', '') == \"mcp-no-auth\"",
+        ),
+        (
+            "/activity?lane=rest-no-auth",
+            "Questions whose tools ran on REST · no auth",
+            "event == \"tool.call\" and column_ifexists('lane', '') == \"rest-no-auth\"",
+        ),
+        ("/activity?ended=failed", "Questions failed", 'event == "chat.failed"'),
+        (
+            "/activity?refused=question_too_long",
+            "Questions refused for question_too_long",
+            "event == \"chat.rejected\" and column_ifexists('code', '') == \"question_too_long\"",
+        ),
+        (
+            "/activity?failed=AnswerTimeoutError",
+            "Questions that failed with AnswerTimeoutError",
+            "event == \"chat.failed\" and column_ifexists('errorClass', '') == \"AnswerTimeoutError\"",
+        ),
+        (
+            "/activity?fellback=AuthError",
+            "Questions whose forecast fell back after AuthError",
+            "event == \"lane.fallback\" and column_ifexists('errorClass', '') == \"AuthError\"",
+        ),
+    ],
+)
+def test_each_link_narrows_the_questions_to_its_lines_and_says_so(
+    observed: TestClient, axiom: AxiomRecordings, address: str, words: str, where: str
+) -> None:
+    page = observed.get(address)
+    assert page.status_code == 200
+    assert f"| where isnotempty(requestId) and ({where}) | summarize started" in axiom.queries[0]
+    assert f"{words}. Show them all" in text_of(page.text)
+    assert '<a href="/activity">Show them all</a>' in page.text
+    assert 'href="/activity" aria-current="page"' in page.text
+
+
+def test_a_day_narrows_the_requests_to_its_part_of_the_7_days_and_its_views_keep_it(
+    observed: TestClient, axiom: AxiomRecordings
+) -> None:
+    today = datetime.now(UTC).date()
+    page = observed.get(f"/activity?show=health&day={today.isoformat()}")
+    assert page.status_code == 200
+    picked, lines = (json.loads(request.content) for request in axiom.requests)
+    start, end = (datetime.fromisoformat(picked[name]) for name in ("startTime", "endTime"))
+    assert start == datetime(today.year, today.month, today.day, tzinfo=UTC)
+    assert abs(datetime.now(UTC) - end) < timedelta(minutes=1)
+    assert datetime.fromisoformat(lines["endTime"]) - datetime.fromisoformat(lines["startTime"]) == timedelta(days=7)
+    assert f"On {today:%A} {today.day} {today:%B %Y}. Show them all" in text_of(page.text)
+    assert f'href="/activity?show=errors&amp;day={today.isoformat()}"' in page.text
+
+
+def test_a_days_query_answers_only_that_day_though_its_words_are_another_days(
+    observed: TestClient, axiom: AxiomRecordings
+) -> None:
+    today = datetime.now(UTC).date()
+    observed.get(f"/activity?show=health&day={today.isoformat()}")
+    observed.get(f"/activity?show=health&day={(today - timedelta(days=1)).isoformat()}")
+    picked = [
+        json.loads(request.content) for request in axiom.requests if "summarize started" in request.content.decode()
+    ]
+    assert len(picked) == 2
+    assert picked[0]["apl"] == picked[1]["apl"]
+    assert picked[0]["startTime"] != picked[1]["startTime"]
+
+
+def test_a_day_the_7_days_reach_into_is_their_part_of_it() -> None:
+    now = datetime(2026, 11, 2, 18, 30, tzinfo=UTC)
+    assert to_window(None, now) == (now - timedelta(days=7), now)
+    assert to_window(date(2026, 11, 1), now) == (datetime(2026, 11, 1, tzinfo=UTC), datetime(2026, 11, 2, tzinfo=UTC))
+    assert to_window(date(2026, 10, 26), now) == (now - timedelta(days=7), datetime(2026, 10, 27, tzinfo=UTC))
+    assert to_window(date(2026, 11, 2), now) == (datetime(2026, 11, 2, tzinfo=UTC), now)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "show=everything",
+        "show=all",
+        "show=tools",
+        "tool=get_weather_of_mars",
+        "asked=rest-no-tokens",
+        "lane=rest-no-tokens",
+        "ended=done-ish",
+        'refused=x" or true or "',
+        "refused=CallUsAt5551234",
+        "failed=",
+        "fellback=ValueError",
+        "tool=get_forecast&lane=rest-no-auth",
+        "show=health&tool=get_forecast",
+        "day=2 November",
+        "day=2026-13-01",
+        "day=2020-01-01",
+        "day=2999-01-01",
+    ],
+)
+def test_a_view_or_a_link_we_dont_make_is_a_404_and_asks_nothing(
+    observed: TestClient, axiom: AxiomRecordings, query: str
+) -> None:
+    page = observed.get(f"/activity?{query}")
     assert page.status_code == 404
     assert axiom.requests == []
+
+
+def test_runs_past_their_minute_are_let_go_so_a_timelines_queries_dont_pile_up(
+    observed: TestClient, axiom: AxiomRecordings
+) -> None:
+    observed.get("/activity")
+    runs = state_of(observed).observability_runs
+    assert len(runs) == 2
+    for run in runs.values():
+        run.started -= 61
+    observed.get("/performance")
+    assert len(runs) == 4
+    assert not any("requestId in" in key for key in runs)
+
+
+@pytest.mark.parametrize(
+    ("row", "said"),
+    [
+        (
+            {"event": "lane.connect", "upstream": "apify", "status": "ok", "ms": 900},
+            ("Apify's MCP server", "connected in 900 ms", "ok"),
+        ),
+        (
+            {"event": "lane.connect", "upstream": "apify", "status": "failed", "ms": 50, "errorClass": "AuthError"},
+            ("Apify's MCP server", "failed: AuthError, after 50 ms", "bad"),
+        ),
+        (
+            {"event": "upstream.mcp", "upstream": "apify", "status": "ok", "ms": 3600},
+            ("Apify's MCP server", "answered in 3.6 s", "ok"),
+        ),
+        (
+            {"event": "upstream.cache", "upstream": "open-meteo", "status": "unreadable"},
+            ("Open-Meteo", "our cache's copy was unreadable", "warn"),
+        ),
+        (
+            {"event": "upstream.http", "upstream": "open-meteo", "status": "ok", "ms": 120, "attempts": 1},
+            ("Open-Meteo", "fetched in 120 ms", "ok"),
+        ),
+        ({"event": "cache.failed", "errorClass": "TimeoutError"}, ("Our cache", "failed: TimeoutError", "warn")),
+        ({"event": "http.request", "status": 200, "ms": 12}, ("Request ended", "200 in 12 ms", "ok")),
+        ({"event": "http.request", "status": 404, "ms": 2}, ("Request ended", "404 in 2 ms", "warn")),
+        ({"event": "http.request", "status": 500, "ms": 2}, ("Request ended", "500 in 2 ms", "bad")),
+        (
+            {"event": "chat.failed", "errorClass": "AnswerTimeoutError", "ms": 10000},
+            ("Failed", "AnswerTimeoutError after 10.0 s", "bad"),
+        ),
+        # Axiom may send a column that holds numbers and words as words.
+        ({"event": "http.request", "status": "200", "ms": 12}, ("Request ended", "200 in 12 ms", "ok")),
+        (
+            {"event": "mcp.call", "tool": "get_forecast", "status": "ok", "ms": 430},
+            ("Our MCP server", "get_forecast in 430 ms", "ok"),
+        ),
+        (
+            {"event": "mcp.call", "tool": "geocode_location", "status": "failed", "ms": 8000, "errorClass": "X"},
+            ("Our MCP server", "geocode_location failed: X, after 8.0 s", "bad"),
+        ),
+        # With too little time left, the forecast fails instead of falling back, though the line is written.
+        (
+            {"event": "lane.fallback", "fromLane": "rest-with-auth", "toLane": "rest-no-auth", "fellBack": False},
+            ("Couldn't fall back", "REST · with auth to REST · no auth, too little time left: ", "bad"),
+        ),
+    ],
+)
+def test_each_line_a_timeline_shows_says_what_happened_in_words(row: dict[str, object], said: tuple[str, ...]) -> None:
+    line = to_activity_line({"_time": "2026-11-01T00:00:00Z", **row})
+    assert line is not None
+    assert (line.what, line.detail, line.tone) == said
+
+
+def test_a_request_with_no_ending_in_its_lines_says_so() -> None:
+    rows: list[Row] = [
+        {"_time": "2026-11-01T00:00:00Z", "requestId": "iad1::q", "event": "chat.request", "lane": "rest-no-auth"},
+        {"_time": "2026-11-01T00:00:01Z", "requestId": "iad1::h", "event": "upstream.http", "status": "ok"},
+    ]
+    # The latest begun first: the lone line came a second after the question.
+    lone, question = to_activity_requests(["iad1::q", "iad1::h"], rows)
+    assert (question.summary.what, question.summary.detail) == (
+        "Question",
+        "on REST · no auth, with no ending in its lines",
+    )
+    assert (lone.summary.what, lone.summary.detail, lone.summary.tone) == (
+        "Request",
+        "with no end in its lines",
+        "idle",
+    )
+    assert to_request_ids([{"requestId": "iad1::q"}, {"requestId": "iad1::q"}, {"requestId": ""}]) == ["iad1::q"]
+
+
+def test_a_call_to_our_mcp_server_is_a_row_of_its_own_by_its_tool_and_says_what_went_wrong() -> None:
+    rows: list[Row] = [
+        {"_time": "2026-11-01T00:00:00Z", "requestId": "iad1::m", "event": "upstream.http", "status": "failed"},
+        {"_time": "2026-11-01T00:00:01Z", "requestId": "iad1::m", "event": "mcp.call", "tool": "get_forecast"},
+        {"_time": "2026-11-01T00:00:02Z", "requestId": "iad1::m", "event": "http.request", "status": 200},
+    ]
+    [call] = to_activity_requests(["iad1::m"], rows)
+    assert (call.summary.what, call.summary.tone) == ("Our MCP server", "bad")
+    rows[1]["status"] = "ok"
+    [call] = to_activity_requests(["iad1::m"], rows)
+    assert (call.summary.what, call.summary.detail, call.summary.tone) == (
+        "Our MCP server",
+        "get_forecast in 0 ms · 1 line went wrong",
+        "warn",
+    )
+
+
+def test_at_the_cap_the_oldest_request_found_is_left_out_and_the_page_says_so(
+    observed: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(observability, "ACTIVITY_REQUEST_LINES", 27)
+    words = text_of(observed.get("/activity").text)
+    assert "The latest requests whose lines fit in 27; older ones aren't shown." in words
+    assert "Stopped after 2.1 s" not in words
+    assert "Refused question_too_long" in words
+
+
+def test_a_timeline_axiom_couldnt_answer_says_so_and_is_never_kept(
+    observed: TestClient, axiom: AxiomRecordings
+) -> None:
+    axiom.failing = {"where requestId in (": 503}
+    page = observed.get("/activity")
+    assert len(axiom.requests) == 2
+    assert str(escape(AXIOM_UNANSWERED)) in page.text
+    assert page.headers["cache-control"] == NO_STORE
+
+
+def test_each_narrowing_and_day_has_a_query_name_of_its_own_so_a_failure_is_its_own(observed: TestClient) -> None:
+    today = datetime.now(UTC).date().isoformat()
+    with capture_logs() as lines:
+        observed.get("/activity?tool=get_forecast")
+        observed.get(f"/activity?show=health&day={today}")
+    names = [line["query"] for line in lines if line["event"] == "observability.query"]
+    # The second timeline names the same requests, so its query's run of a moment ago answers it.
+    assert names == ["activity-questions-tool", "activity-lines", "activity-health-day"]
+
+
+def test_a_narrowed_view_with_no_requests_says_none_like_these(observed: TestClient, axiom: AxiomRecordings) -> None:
+    axiom.rows = {}
+    assert "None like these." in text_of(observed.get("/activity?tool=get_forecast").text)
+
+
+def test_the_refusal_codes_a_link_takes_are_the_ones_the_app_writes() -> None:
+    written = {
+        code
+        for path in Path(observability.__file__).parent.glob("*.py")
+        for code in re.findall(r'InputError\(\s*"([a-z_]+)"', path.read_text(encoding="utf-8"))
+    }
+    assert written == observability.REFUSAL_CODES
+    assert {"AnswerTimeoutError", "AuthError", "ObservabilityError"} <= observability.ERROR_CLASSES
 
 
 def test_each_query_is_over_the_dataset_and_the_last_7_days(observed: TestClient, axiom: AxiomRecordings) -> None:
@@ -212,6 +520,9 @@ def test_evaluations_shows_each_golden_its_last_run_and_how_answers_ended(
         assert golden.question in words
     assert "call geocode_location, then get_forecast" in words
     assert "failed: doesn't say /16 days/" in words
+    # Step 15: each result opens onto the tools it called.
+    assert "passed It called geocode_location, then get_forecast." in words
+    assert "failed: doesn't say /16 days/ It called no tool." in words
     for said in (
         "Answered 11 ended well",
         "Stopped 1",
@@ -222,6 +533,41 @@ def test_evaluations_shows_each_golden_its_last_run_and_how_answers_ended(
         "AuthError 3",
     ):
         assert said in words
+
+
+def test_each_row_with_questions_or_health_runs_behind_it_links_to_them_on_activity(
+    observed: TestClient, axiom: AxiomRecordings
+) -> None:
+    performance = observed.get("/performance").text
+    assert '<a class="obs-bar-label" id="tools-1" href="/activity?tool=get_forecast">get_forecast</a>' in performance
+    assert 'id="lanes-1" href="/activity?lane=mcp-no-auth">MCP · no auth</a>' in performance
+    assert 'id="questions-1" href="/activity?asked=rest-no-auth">REST · no auth</a>' in performance
+    assert '<span class="obs-bar-label" id="weather-1">From our cache</span>' in performance
+    reasons = [
+        *axiom.rows["by event, code ="],
+        {"event": "chat.rejected", "code": None, "errorClass": None, "lines": 1},
+    ]
+    axiom.rows = {**axiom.rows, "by event, code =": reasons}
+    evaluations = observed.get("/evaluations").text
+    for href in (
+        "ended=done",
+        "ended=aborted",
+        "ended=failed",
+        "ended=rejected",
+        "refused=question_too_long",
+        "failed=ModelBusyError",
+    ):
+        assert f'href="/activity?{href}"' in evaluations
+    assert 'href="/activity?fellback=AuthError">AuthError</a>' in evaluations
+    assert '<span class="obs-bar-label" id="refusals-2">none given</span>' in evaluations
+    health = observed.get("/health").text
+    assert 'id="history-1" href="/activity?show=errors&amp;day=2026-11-01">Sunday 1 November</a>' in health
+
+
+def test_a_name_that_isnt_one_of_ours_gets_no_link() -> None:
+    rows = [{"tool": "get_tides", "lane": "rest-by-pigeon", "calls": 1, "failed": 0, "totalMs": 5, "slowestMs": 5}]
+    assert [bar.href for bar in observability.to_tool_bars(rows, "tool")] == [""]
+    assert [bar.href for bar in observability.to_tool_bars(rows, "lane")] == [""]
 
 
 def test_evaluations_without_a_run_kept_says_how_to_keep_one(
@@ -389,9 +735,10 @@ def test_the_query_token_and_only_it_asks_axiom(settings: Settings) -> None:
 def test_a_query_that_answers_is_one_line_with_its_rows(observed: TestClient) -> None:
     with capture_logs() as lines:
         observed.get("/activity")
-    [queried] = [line for line in lines if line["event"] == "observability.query"]
-    assert (queried["query"], queried["status"], queried["rows"]) == ("activity-all", "ok", 10)
-    assert isinstance(queried["ms"], int)
+    picked, timeline = [line for line in lines if line["event"] == "observability.query"]
+    assert (picked["query"], picked["status"], picked["rows"]) == ("activity-questions", "ok", 8)
+    assert (timeline["query"], timeline["status"], timeline["rows"]) == ("activity-lines", "ok", 27)
+    assert isinstance(picked["ms"], int)
 
 
 @pytest.mark.parametrize(
@@ -416,6 +763,6 @@ def test_a_share_of_nothing_is_none() -> None:
 
 
 def test_a_line_activity_doesnt_show_or_with_no_time_is_left_out() -> None:
-    assert to_activity_line({"_time": "2026-11-01T00:00:00Z", "event": "http.request"}) is None
+    assert to_activity_line({"_time": "2026-11-01T00:00:00Z", "event": "observability.query"}) is None
     assert to_activity_line({"event": "chat.done"}) is None
     assert to_activity_line({"_time": "not a time", "event": "chat.done"}) is None

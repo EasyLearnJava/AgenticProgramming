@@ -166,6 +166,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "open, nothing private on them; each query once a minute; and the menu's links in groups."
         ),
     ),
+    DocPage(
+        slug="step-15",
+        path="/docs/step-15",
+        label="Step 15: Activity by Request, and Rows That Lead to It",
+        summary=(
+            "Each request on Activity a row that opens onto its timeline, from its first line to its last, shown only "
+            "by its ref; every tool, lane, ending, reason and day on the other pages a link to its requests."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="architecture", path="/architecture", label="Architecture and design"),

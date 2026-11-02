@@ -15,8 +15,15 @@ from playwright.sync_api import ConsoleMessage, Page, expect
 from nimbus.docs import ALL_DOCS
 
 # Every page: the chat, the two lists, each documentation page in the registry, and the Observability pages, one of
-# Activity's filters among them (step 14).
-OBSERVABILITY = ["/activity", "/activity?show=errors", "/performance", "/evaluations", "/health"]
+# Activity's views among them (step 14), and a link's narrowing (step 15).
+OBSERVABILITY = [
+    "/activity",
+    "/activity?show=errors",
+    "/activity?tool=get_forecast",
+    "/performance",
+    "/evaluations",
+    "/health",
+]
 PAGES = ["/", "/docs", "/docs_deprecated", *(doc.path for doc in ALL_DOCS.values()), *OBSERVABILITY]
 PHONE_WIDTH = 360
 COMPUTER_WIDTH = 1280
@@ -45,17 +52,35 @@ def test_the_menu_shows_its_groups_and_folds_the_deprecated_pages_until_opened(p
     expect(folded).to_be_visible()
 
 
-def test_the_observability_pages_show_their_numbers_and_filters(page: Page) -> None:
+def test_the_observability_pages_show_their_numbers_and_views(page: Page) -> None:
     page.goto("/")
     page.get_by_role("link", name="Performance", exact=True).click()
     expect(page.get_by_role("heading", level=1, name="Performance")).to_be_visible()
     expect(page.get_by_role("meter", name="get_forecast")).to_have_attribute("value", "1.000")
     page.get_by_role("link", name="Activity", exact=True).click()
-    page.get_by_role("navigation", name="Filters").get_by_role("link", name="Errors").click()
+    page.get_by_role("navigation", name="Views").get_by_role("link", name="Errors").click()
     expect(page).to_have_url(re.compile(r"/activity\?show=errors$"))
     expect(page.get_by_role("link", name="Errors")).to_have_attribute("aria-current", "page")
     page.get_by_role("link", name="MCP server", exact=True).click()
     expect(page.get_by_role("heading", name="Our MCP server")).to_be_in_viewport()
+
+
+def test_a_row_elsewhere_links_to_its_questions_and_each_opens_onto_its_timeline(page: Page) -> None:
+    page.goto("/performance")
+    page.get_by_role("link", name="get_forecast", exact=True).click()
+    expect(page).to_have_url(re.compile(r"/activity\?tool=get_forecast$"))
+    expect(page.get_by_text("Questions that called get_forecast.")).to_be_visible()
+    step = page.get_by_text("+4.6 s", exact=True)
+    expect(step).to_be_hidden()
+    page.locator("summary").filter(has_text="Answered in 5.8 s").click()
+    expect(step).to_be_visible()
+    expect(page.get_by_text("Ref 0a1b2c3d")).to_be_visible()
+    page.get_by_role("link", name="Show them all").click()
+    expect(page).to_have_url(re.compile(r"/activity$"))
+    # A day's link, not followed: the recorded day leaves the 7 days, and its page is then a 404.
+    page.goto("/health")
+    day = page.get_by_role("link", name="Sunday 1 November")
+    expect(day).to_have_attribute("href", "/activity?show=errors&day=2026-11-01")
 
 
 def test_a_deprecated_page_says_so_and_keeps_its_diagram(page: Page) -> None:

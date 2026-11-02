@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" width="960" height="760" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 15 · Activity by Request, and Rows That Lead to It</title>
+  <desc id="d">A visitor opens Activity: a view, or a link from another page that narrows its questions to values of ours, or a day. Anything we didn't make is a 404 before anything is asked. A first query finds the latest 50 requests the view's lines pick, by their ids; a second finds every line of those requests a timeline shows, in the order they were written, naming only its fields. Each request is a row saying what it was and how it ended, which opens onto its timeline, each line with its time since the first, and the request's ref. Performance's tools and lanes, Evaluations' endings, refusals, failures and fallbacks, and Health's days each link to their requests on Activity; each golden question opens onto the tools it called.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="744" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 15 · Activity by request</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">Each request from its first line to its last, and every row elsewhere a way in</text>
+
+  <!-- Row 1: the request path -->
+  <rect x="40" y="100" width="200" height="140" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">A visitor</text>
+  <text x="56" y="148" font-size="13" fill="#1f2937">opens /activity, a view,</text>
+  <text x="56" y="167" font-size="13" fill="#1f2937">or a link: ?tool=, ?asked=,</text>
+  <text x="56" y="186" font-size="13" fill="#1f2937">?lane=, ?ended=, ?failed= …</text>
+  <text x="56" y="210" font-size="13" fill="#1f2937">anything we didn't make:</text>
+  <text x="56" y="229" font-size="13" fill="#1f2937">a 404, nothing asked</text>
+  <line x1="240" y1="170" x2="273" y2="170" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="275" y="100" width="300" height="140" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="291" y="126" font-size="15" font-weight="700" fill="#7c2d12">1. The requests</text>
+  <text x="291" y="148" font-size="13" fill="#1f2937">where isnotempty(requestId) and (…)</text>
+  <text x="291" y="167" font-size="13" fill="#1f2937">| summarize started = min(_time)</text>
+  <text x="291" y="186" font-size="13" fill="#1f2937">    by requestId</text>
+  <text x="291" y="205" font-size="13" fill="#1f2937">| sort by started desc | take 50</text>
+  <text x="291" y="228" font-size="13" fill="#1f2937">over 7 days, or a day's part of them</text>
+  <line x1="575" y1="170" x2="608" y2="170" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="610" y="100" width="310" height="140" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="626" y="126" font-size="15" font-weight="700" fill="#7c2d12">2. Their lines</text>
+  <text x="626" y="148" font-size="13" fill="#1f2937">where requestId in (&lt;ids, each checked&gt;)</text>
+  <text x="626" y="167" font-size="13" fill="#1f2937">  and event in (&lt;the timeline's 16&gt;)</text>
+  <text x="626" y="186" font-size="13" fill="#1f2937">| sort by _time desc | take 2000</text>
+  <text x="626" y="205" font-size="13" fill="#1f2937">| project &lt;its 20 fields, never a path&gt;</text>
+  <text x="626" y="228" font-size="13" fill="#1f2937">none found: asked once, "No requests"</text>
+
+  <!-- Row 2: a request's row, open -->
+  <rect x="40" y="260" width="880" height="236" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="286" font-size="15" font-weight="700" fill="#053b30">Each request a row, opening onto its timeline (a &lt;details&gt;: a click, a tap or the keyboard; no script)</text>
+  <path d="M60 304l5 5l5 -5" fill="none" stroke="#6b7280" stroke-width="2"/>
+  <circle cx="84" cy="306" r="4" fill="#15803d"/>
+  <text x="96" y="311" font-size="13" font-weight="700" fill="#1f2937">Answered</text>
+  <text x="200" y="311" font-size="13" fill="#1f2937">in 5.8 s · 2 tool calls · 5,150 tokens in, 96 out · on REST · no auth</text>
+  <text x="840" y="311" font-size="13" fill="#4b5563">14:05:06</text>
+  <line x1="66" y1="322" x2="66" y2="462" stroke="#d7e7e2" stroke-width="2"/>
+  <circle cx="84" cy="334" r="4" fill="#6b7280"/>
+  <text x="96" y="338" font-size="13" fill="#4b5563">+0 ms</text>
+  <text x="170" y="338" font-size="13" font-weight="700" fill="#1f2937">Question</text>
+  <text x="330" y="338" font-size="13" fill="#1f2937">on REST · no auth</text>
+  <circle cx="84" cy="356" r="4" fill="#15803d"/>
+  <text x="96" y="360" font-size="13" fill="#4b5563">+1.1 s</text>
+  <text x="170" y="360" font-size="13" font-weight="700" fill="#1f2937">Open-Meteo</text>
+  <text x="330" y="360" font-size="13" fill="#1f2937">from our cache in 28 ms</text>
+  <circle cx="84" cy="378" r="4" fill="#15803d"/>
+  <text x="96" y="382" font-size="13" fill="#4b5563">+1.2 s</text>
+  <text x="170" y="382" font-size="13" font-weight="700" fill="#1f2937">geocode_location</text>
+  <text x="330" y="382" font-size="13" fill="#1f2937">on REST · no auth in 30 ms</text>
+  <circle cx="84" cy="400" r="4" fill="#15803d"/>
+  <text x="96" y="404" font-size="13" fill="#4b5563">+4.5 s</text>
+  <text x="170" y="404" font-size="13" font-weight="700" fill="#1f2937">Open-Meteo</text>
+  <text x="330" y="404" font-size="13" fill="#1f2937">fetched in 380 ms, 2 tries</text>
+  <circle cx="84" cy="422" r="4" fill="#15803d"/>
+  <text x="96" y="426" font-size="13" fill="#4b5563">+4.6 s</text>
+  <text x="170" y="426" font-size="13" font-weight="700" fill="#1f2937">get_forecast</text>
+  <text x="330" y="426" font-size="13" fill="#1f2937">on REST · no auth in 412 ms</text>
+  <circle cx="84" cy="444" r="4" fill="#15803d"/>
+  <text x="96" y="448" font-size="13" fill="#4b5563">+6.0 s</text>
+  <text x="170" y="448" font-size="13" font-weight="700" fill="#1f2937">Answered, then Request ended</text>
+  <text x="400" y="448" font-size="13" fill="#1f2937">200 in 5.8 s</text>
+  <text x="96" y="478" font-size="12" fill="#4b5563">Ref 0a1b2c3d: the 8 characters an error's sentence ends with; the request's id puts its lines together, and is never shown</text>
+  <text x="600" y="338" font-size="13" fill="#1f2937">A health run's row names each check</text>
+  <text x="600" y="357" font-size="13" fill="#1f2937">that wasn't answering, and its error:</text>
+  <text x="600" y="380" font-size="13" fill="#b91c1c">not answering in 590 ms: Apify's MCP</text>
+  <text x="600" y="399" font-size="13" fill="#b91c1c">server (UpstreamTimeoutError)</text>
+  <text x="600" y="422" font-size="13" fill="#1f2937">its timeline, each of the four checks</text>
+
+  <!-- Row 3: the ways in -->
+  <rect x="40" y="516" width="430" height="148" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="542" font-size="15" font-weight="700" fill="#053b30">Every row with requests behind it, a link</text>
+  <text x="56" y="566" font-size="13" fill="#1f2937">Performance: each tool → ?tool=get_forecast</text>
+  <text x="56" y="585" font-size="13" fill="#1f2937">  each lane → ?lane=, ?asked=rest-no-auth</text>
+  <text x="56" y="604" font-size="13" fill="#1f2937">Evaluations: each ending → ?ended=failed</text>
+  <text x="56" y="623" font-size="13" fill="#1f2937">  each failure → ?failed=AnswerTimeoutError</text>
+  <text x="56" y="642" font-size="13" fill="#1f2937">Health: a day with failures → ?show=errors&amp;day=…</text>
+  <rect x="490" y="516" width="430" height="148" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="506" y="542" font-size="15" font-weight="700" fill="#053b30">Each value one of ours, never a visitor's words</text>
+  <text x="506" y="566" font-size="13" fill="#1f2937">a tool or a lane from our lists; an ending of four;</text>
+  <text x="506" y="585" font-size="13" fill="#1f2937">a refusal code the app writes, a class of our</text>
+  <text x="506" y="604" font-size="13" fill="#1f2937">errors; a day the 7 days reach; one at a time</text>
+  <text x="506" y="623" font-size="13" fill="#1f2937">a row that answered though a line went wrong</text>
+  <text x="506" y="642" font-size="13" fill="#1f2937">says how many did, and isn't green</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="684" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="708" font-size="14" font-weight="700" fill="#ffffff">A request's id ties its lines together; show the story, never the id.</text>
+  <text x="60" y="727" font-size="13" fill="#defcf6">Two queries a view, each once a minute on each copy; runs past their minute let go, since a timeline's names its requests.</text>
+</svg>

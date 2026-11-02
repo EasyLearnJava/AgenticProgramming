@@ -2,7 +2,7 @@
 
 Nimbus is a weather chatbot: ask about the weather anywhere, and see each tool call behind the answer and the lane it
 took. Its first version was built in TypeScript (Next.js and AI SDK); this plan rebuilds it in Python, as a
-production-grade app and a tutorial at once: fourteen steps, each one adding one idea, each ending deployed and
+production-grade app and a tutorial at once: fifteen steps, each one adding one idea, each ending deployed and
 working, and each with a chapter written while it's built. The first version's plan is kept as
 [PLAN_deprecated.md](PLAN_deprecated.md).
 
@@ -50,6 +50,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 | 12 | Monitoring: Axiom, Sentry, LangSmith; `/api/health` with each lane's check, and the status dots | |
 | 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; Technical details; the backup deleted | |
 | 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token (done) |
+| 15 | Activity by request: each a row that opens onto its timeline, shown only by its ref; every tool, lane, ending, reason and day on the other pages a link to its requests | |
 
 ## 3. A chapter's sections
 
