@@ -2,7 +2,7 @@
 
 Everything only you can do: settings in your own accounts, which the app's code never changes and the build never
 sees. Each says what to do, why, and where, step by step, with the step that needs it. Once one is done, it moves to
-[To do](todo.md)'s Done list.
+[To do](todo.md)'s Done list; one that has to be done again later stays here, marked done, with its steps.
 
 ## 1. Vercel's firewall: a bypass, then a rate limit (step 11)
 
@@ -63,9 +63,12 @@ They live in your Axiom, Sentry and uptime accounts. Step 12's chapter has each 
 
 ## 6. Axiom: a token that can only query, for the Observability pages (step 14)
 
+**Done on 2 November 2026:** the live pages read Axiom ([To do](todo.md)'s Done list). The steps stay here for when
+the token expires, a year at most: make a new one the same way, and change the variable.
+
 Activity, Performance, Evaluations and Health's history read the app's lines back from Axiom. Until this is set, each
-says "This deployment can't read Axiom yet", and Health still shows the checks now. The token the app already has
-can only ingest, and stays as it is.
+says "This deployment can't read Axiom yet", and Health still shows the checks now; once the token has expired, each
+says Axiom didn't answer. The token the app already has can only ingest, and stays as it is.
 
 1. **The token.** In Axiom, **Settings → API tokens → New API token**, an **advanced** one: dataset access to
    `weather-chatbot` only, with **query** and nothing else; an expiry, a year at most; and, if your plan offers them,

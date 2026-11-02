@@ -247,15 +247,24 @@ site, https://weather-chatbot-hazel.vercel.app, on 2 November 2026, after warmin
 
 - `/api/health` named the build, `ac9f985`, every lane working.
 - Activity, its errors filter, Performance, Evaluations and Health each answered `200` in about 0.15 s, with
-  `no-store`, and said "This deployment can't read Axiom yet": the query token isn't set
+  `no-store`, and said "This deployment can't read Axiom yet": the query token wasn't set yet
   ([Waiting on you](waiting-on-you.md), part 6). `/activity?show=everything` answered `404`.
 - Health said "Now: working", with our MCP server at `https://weather-chatbot-hazel.vercel.app/api/mcp`.
 - The menu had its six groups, Deprecated folded, and the source's link marked as leaving the site; this chapter
   opened with its own title.
 - The golden questions, under Run it: 12 of 13, kept in `evals/last-run.json`.
 
-Still to check once the query token is set: each page's queries against the live dataset, which the tests played
-back but Axiom itself hasn't answered yet (issue 85), and the name of Axiom's table of totals.
+Then, on 2 November 2026 at 18:38 UTC, with `AXIOM_QUERY_TOKEN` set and production redeployed (still `2c8fbce`):
+
+- Activity and its four filters, Performance, Evaluations and Health each answered `200`, with neither "can't read
+  Axiom yet" nor "Axiom didn't answer", and showed rows: all 11 queries ran against the live dataset (issue 85).
+  The name of Axiom's table of totals is still unseen: a page reads the first table that isn't it, and each showed
+  its query's own rows.
+- Separate queries agree: Performance's 95 answers (`ANSWERS`) are Evaluations' 95 answered (`ENDINGS`), and
+  Evaluations' 13 failed are its 12 `AnswerTimeoutError` and 1 `UpstreamTimeoutError` (`REASONS`), the same 13 as
+  Activity's errors filter (issue 93).
+- The last 7 days still hold the TypeScript app's lines of 30 October, until 7 November: Health's history counts
+  them (issue 95).
 
 ## Things to take care of, and pitfalls
 

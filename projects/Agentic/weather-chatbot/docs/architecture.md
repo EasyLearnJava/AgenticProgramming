@@ -285,12 +285,12 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **On your computer:** `uv sync`, then `uv run uvicorn main:app --reload --no-access-log`, and open
   http://127.0.0.1:8000; [step 1](step-1.md) has the rest.
 - **Deploying:** push to `main`; CI and Vercel's build run side by side.
-- **Watching:** the Observability pages, once their token is set; Axiom's dashboard and Sentry's alerts, once set
-  up; an uptime monitor on `/api/health`.
+- **Watching:** the Observability pages; Axiom's dashboard and Sentry's alerts, once set up; an uptime monitor on
+  `/api/health`.
 - **Going back:** [step 13](step-13.md)'s rollback.
 - **What only you can do:** [Waiting on you](waiting-on-you.md): the firewall's rules, Apify's usage limit, two
-  variables, the dashboards and alerts, the evals in LangSmith, a rollback, practised, and the Observability pages'
-  query token.
+  variables, the dashboards and alerts, the evals in LangSmith, a rollback, practised, and a new query token for the
+  Observability pages before theirs expires.
 
 ## Known limits
 
@@ -310,7 +310,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **Gemini's free tier** may use what it gets to improve Google's products; the page says so. Its quota, not Vercel,
   is where heavy use stops first.
 - **One region,** Washington, D.C.; on Hobby, a rollback goes back one deployment, and Vercel keeps logs for an hour.
-- **The Observability pages show nothing from Axiom until their query token is set**
-  ([Waiting on you](waiting-on-you.md)); once it is, their numbers can be two minutes old: a minute on each copy, a
-  minute more at the CDN.
+- **The Observability pages' numbers can be two minutes old:** a minute on each copy, a minute more at the CDN. Their
+  query token expires within a year; then they say Axiom didn't answer until a new one is set
+  ([Waiting on you](waiting-on-you.md), part 6).
 - **No accounts:** the weather is public, so anyone can ask; no feedback on answers yet ([To do](todo.md)).

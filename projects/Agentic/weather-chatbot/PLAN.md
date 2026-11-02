@@ -49,7 +49,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 | 11 | Security: rate-limit rules, prompt-injection rules, privacy checks | The firewall's rules |
 | 12 | Monitoring: Axiom, Sentry, LangSmith; `/api/health` with each lane's check, and the status dots | |
 | 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; Technical details; the backup deleted | |
-| 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token |
+| 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token (done) |
 
 ## 3. A chapter's sections
 

@@ -542,8 +542,8 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     400 for good. `status` is also a number on some lines and words on others. **Fix:** `_time`, `event`, `level`,
     `status` and `ms`, which every request's own line has, are read as they are; every other field through
     `column_ifexists` with a default; `status` compared as `tostring(status)`. **Check:** the tests of the queries as
-    sent; the mutation check's rule. Each query is still to be run against the live dataset, once its token is set
-    ([Waiting on you](waiting-on-you.md)).
+    sent; the mutation check's rule. On 2 November, with the token set, all 11 ran against the live dataset and
+    each page showed its rows ([step 14](step-14.md)'s Deploy it).
 86. **The health check's own geocoding counted as fetched.** *The review* (reviewer A). Each health run geocodes
     Paris with no cache, on purpose, and its `upstream.http` line looked like a tool's: with an uptime monitor every 5
     minutes, about 2,000 fetches a week would have made the cache's share look near nothing. **Fix:** each line a check
@@ -607,9 +607,12 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     429: google-genai tries one once more after 1 to 2 s, whatever wait Gemini asks for, and the second reaches the
     page as "busy" (`ModelBusyError`). So Gemini didn't start answering in time: a call's first chunk has 10 s, an
     answer 30 s, and the last of the 12 had its place found before it stopped. Why Gemini was slow, and which limit
-    ran out, isn't known: those asks' durations weren't kept, and this deployment can't query Axiom yet (issue 85).
-    **Fix:** none yet; asks of the live site go 40 s apart. **Check:** once the query token is set, the `chat.failed`
-    lines of that hour: their `ms` says which limit ran out.
+    ran out, wasn't known then: the live check's own record didn't keep the asks' durations, and the deployment
+    couldn't query Axiom yet. **Fix:** none yet; asks of the live site go 40 s apart. **Check:** with the query token
+    set (2 November), Activity's errors filter shows the 12 `chat.failed` lines, 14:00:37 to 14:05:24 UTC: 11 ended
+    after 10.0 to 10.1 s, the first chunk's limit, and the last after 19.6 s, its place found first, so most likely
+    the next call's first chunk. So Gemini took more than 10 s to start answering 11 times for certain, most likely
+    12; why it was slow isn't known.
 94. **Two locked packages had known vulnerabilities.** *Checking our work* (the first audit, after step 14; on To do
     since the Architecture page named the gap). Every version locked for Linux was checked against PyPI's
     advisories with `pip-audit`. certifi 2026.7.22 still trusted emSign's ECC root, under which eight intermediate
@@ -625,3 +628,17 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     on 078915f, passed, its checks beside it; and on 17045bf, live with the new certifi, a question was answered
     through Gemini, whose client trusts certifi's bundle by default. The health check's four calls out came back ok
     too, though none uses certifi: httpx2 trusts the system's certificates.
+95. **One health run in three failed, and no page says which check.** *Testing the real API* (the first look at the
+    Observability pages with the query token, 2 November at 18:38 UTC). Health's last 7 days: 30 of 39 runs passed
+    on 2 November, 0 of 2 on the 1st, 12 of 21 on 31 October, and 21 of 32 on the 30th. The 30th's are the
+    TypeScript app's: their times stop at milliseconds, and they begin at 16:55 UTC, 2 minutes after its logs to
+    Axiom (047a079), while this app's begin at 19:33 UTC on the 31st, a minute after step 12. This app's own: 42 of
+    62 passed, its 20 failures "not answering" after 423 to 893 ms. On 2 November each of the 9 failures came within
+    15 s of another run, two of them in the same second; on the 31st and the 1st, some came 2 to 13 minutes from any
+    other. One failed at 18:37:34, between two asked by hand that found all four checks working, at 18:37:19 and
+    18:38:55: a run answers its own address on its copy for a minute, so that one ran on another copy or through
+    another address. Each `health.done` line keeps its `lanes`, and each failed check writes a `health.check` line
+    with its `check` and `errorClass` (a warning, or an error the first time a copy meets one that needs a look), but
+    Activity shows neither. The TypeScript app's lines leave the 7 days by 7 November. **Fix:** none yet. **Check:**
+    none yet; one query in Axiom, `health.check` lines whose `status` is `down`, counted by `check` and `errorClass`,
+    says which check fails.
