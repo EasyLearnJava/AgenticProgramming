@@ -1,6 +1,7 @@
-# The weather chatbot's checks, on every push, on any branch, that touches projects/Agentic/weather-chatbot: Ruff
-# (lint and format), mypy, the unit tests, then the browser tests against the real app in Chromium. Python and every
-# package come from uv, exactly as uv.lock pins them.
+# The weather chatbot's checks, on every push, on any branch, that touches projects/Agentic/weather-chatbot: the
+# locked versions against PyPI's advisories; and, beside them, Ruff (lint and format), mypy, the unit tests, then the
+# browser tests against the real app in Chromium. The advisories again every Monday, since a new one comes without a
+# push. Python and every package come from uv, exactly as uv.lock pins them.
 name: Weather chatbot
 
 on:
@@ -8,22 +9,54 @@ on:
     paths:
       - "projects/Agentic/weather-chatbot/**"
       - ".github/workflows/weather-chatbot.yml"
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  # Every version locked for Linux, with its hashes, against PyPI's advisories: one with a known vulnerability fails
+  # the audit (issue 94), a job of its own, so the checks' results still show. pip-audit, and what it needs, no newer
+  # than certifi's cutoff, so its own requests trusts the fixed bundle. The four ignored are pyasn1 0.6.4's, slow
+  # decodings of ASN.1 in a module that never loads here (google-auth imports it beside rsa, which isn't locked);
+  # 0.6.5 fixes them, and waits until it's two weeks old, from 11 November (To do).
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: projects/Agentic/weather-chatbot
+    steps:
+      # Each action pinned by its commit, which, unlike a tag, its owners can't move to other code; the tag it was is
+      # beside it. The checkout keeps no token: nothing here pushes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.9.18"
+          enable-cache: false
+      - run: uv export --frozen --format requirements-txt --no-emit-project -o "$RUNNER_TEMP/requirements.txt"
+      - run: >-
+          uvx --exclude-newer 2026-10-19T00:00:00Z pip-audit==2.10.1 -r "$RUNNER_TEMP/requirements.txt" --disable-pip
+          --progress-spinner off --ignore-vuln CVE-2026-119194 --ignore-vuln CVE-2026-119195
+          --ignore-vuln CVE-2026-119196 --ignore-vuln CVE-2026-119197
   check:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
         working-directory: projects/Agentic/weather-chatbot
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # uv's own action, pinned to a release at least two weeks old, and uv itself, pinned to the version that wrote
       # uv.lock; uv installs the Python in .python-version.
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.18"
           enable-cache: true
