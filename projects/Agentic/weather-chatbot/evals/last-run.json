@@ -1,6 +1,6 @@
 {
-  "commit": "ac9f985",
-  "ran_at": "2026-11-02T07:03:38.680252Z",
+  "commit": "8cee038",
+  "ran_at": "2026-11-02T14:30:08.415387Z",
   "results": [
     {
       "id": "rain-tomorrow",
@@ -97,12 +97,12 @@
     },
     {
       "id": "storm-safety",
-      "passed": false,
-      "tools": [],
-      "misses": [
-        "called [], not ['get_forecast'] in that order",
-        "doesn't say /National Hurricane Center|weather service|local (?:officials|authorities|emergency)/"
-      ]
+      "passed": true,
+      "tools": [
+        "geocode_location",
+        "get_forecast"
+      ],
+      "misses": []
     }
   ]
 }

@@ -588,5 +588,16 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     saying or knowing ("say", "tell", "promise", "sure", "assume"), or "whether" or "if" just before it. A denial a
     comma cuts off from its claim still reads as a miss, the safe side: a person reads each miss. A test reads each
     part of the rule, another grades the golden on 8 claims and 9 denials, and the mutation check has 5 more rules.
-    The kept run stays as it went, 12 of 13. **Check:** still to be done once this is live: the storm question asked
-    30 times of the live site. At the old rate, 2 misses in 10, 30 asks would all pass about once in 800 tries.
+    **Check:** on the live site, 8cee038, the storm question passed all 30 asks it answered, 26 of them 40 s apart;
+    at the old rate, 2 misses in 10, that happens about once in 800 tries. 12 more, 15 s apart, never answered (issue
+    93). Then
+    the golden questions, 13 of 13, kept in `evals/last-run.json` for the Evaluations page in place of ac9f985's 12.
+93. **Asked every 15 s, the live site stopped answering.** *Testing the real API* (issue 92's check, on 8cee038,
+    2 November at about 14:00 UTC). After 3 answers, 12 asks in a row ended with "The assistant took too long to
+    answer"; one asked 90 s later answered in 6 s, and 26 more, 40 s apart, all answered, in 2.4 to 8.7 s. It wasn't a
+    429: google-genai tries one once more after 1 to 2 s, whatever wait Gemini asks for, and the second reaches the
+    page as "busy" (`ModelBusyError`). So Gemini didn't start answering in time: a call's first chunk has 10 s, an
+    answer 30 s, and the last of the 12 had its place found before it stopped. Why Gemini was slow, and which limit
+    ran out, isn't known: those asks' durations weren't kept, and this deployment can't query Axiom yet (issue 85).
+    **Fix:** none yet; asks of the live site go 40 s apart. **Check:** once the query token is set, the `chat.failed`
+    lines of that hour: their `ms` says which limit ran out.

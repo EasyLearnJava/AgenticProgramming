@@ -6,7 +6,7 @@ https://weather-chatbot-hazel.vercel.app/. This page is its whole design in one 
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
 secure. The other pages go deeper: [System design](system-design.md) sets it against a reference design for AI
 assistants, [Technical details](technical-details.md) follows one question through the code, each step's chapter
-tells how a part was built, and [Issues and fixes](issues.md) tells all 92 problems met on the way and how each was
+tells how a part was built, and [Issues and fixes](issues.md) tells all 93 problems met on the way and how each was
 fixed.
 
 ## At a glance
@@ -223,8 +223,9 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **Privacy tests:** words of their own sent through three lanes, then searched for in every log line and every
   request out.
 - **Golden questions:** 13, asked of the live site and graded by rules; 13 passed, on build 4785bc7
-  ([step 13](step-13.md)); 12 on build ac9f985; the storm question missed twice in ten asks, and rule 9 is
-  firmer since (issue 92); the last run kept is on the Evaluations page ([step 14](step-14.md)).
+  ([step 13](step-13.md)); 12 on build ac9f985, and the storm question missed twice in ten asks on it and on
+  7369b57; with rule 9 firmer, 13 on build 8cee038, and the storm question passed all 30 asks it answered (issue
+  92). The last run kept is on the Evaluations page ([step 14](step-14.md)).
 - **A load test:** 83 requests at 8 at once, none failed.
 - **An independent review** of every step before it was tagged, and a check on the live site after each deploy.
 
