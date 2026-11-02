@@ -131,7 +131,8 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     builds, and no longer with another project's next push. A test runs the command in `sh` in a repository of its
     own, and the mutation check has 4 more rules. The two reviewers found that the test, started from PowerShell,
     ran WSL's bash, which the variables don't reach: it now runs git's own `sh` (`git var GIT_SHELL_PATH`). **Check:**
-    still to be done: `/api/health`'s commit, after a push that changes only another project.
+    078915f changed only CI's workflow, outside this folder: Vercel's status for Nimbus read "Canceled by Ignored
+    Build Step", and `/api/health` still named 17045bf; 1de58df and 17045bf, which changed the folder, each built.
 
 ## Step 2 · The Chat Streams Its Answer
 
@@ -620,4 +621,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     it. 2026.10.19, the one the advisory names, puts back the roots that weren't affected, and can be locked from 4
     November; pyasn1 0.6.5 from 11 November ([To do](todo.md)). CI now audits the locked versions on every push and
     every Monday, in a job of its own, the four pyasn1 CVEs ignored by name; and pins its two actions by commit, its
-    checkouts keeping no token. **Check:** the audit, here: "No known vulnerabilities found, 4 ignored"; and CI's.
+    checkouts keeping no token. **Check:** the audit, here: "No known vulnerabilities found, 4 ignored"; CI's first,
+    on 078915f, passed, its checks beside it; and on 17045bf, live with the new certifi, a question was answered
+    through Gemini, whose client trusts certifi's bundle by default. The health check's four calls out came back ok
+    too, though none uses certifi: httpx2 trusts the system's certificates.
