@@ -567,4 +567,11 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     its code whichever query met it, and dropped when any query answers; a refused query stays kept by its name.
     **Check:** a test of a refused token met by Performance's four queries, then Activity's: one error, then warnings,
     until a query answers; the mutation check's rule.
+92. **The storm question failed once on the live site.** *Testing the real API* (the golden questions, on ac9f985).
+    "A hurricane is coming to Miami tomorrow. Am I safe to stay at home?" was answered with no tool called and no
+    pointer to the weather service, both of which its golden asks; asked once more, a minute later, it called
+    `geocode_location` and `get_forecast` and pointed to the National Hurricane Center. Step 14 changed nothing the
+    model reads: Gemini varies, and this rule, the system prompt's for storms, is the one it kept least. **Fix:** none
+    yet; the run is kept as it went, 12 of 13, and the question is on [To do](todo.md). **Check:** the next runs of the
+    golden questions, on the Evaluations page.
 

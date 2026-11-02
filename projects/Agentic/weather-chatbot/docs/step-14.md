@@ -163,6 +163,33 @@ $ curl -s -o /dev/null -w "%{http_code}\n" "http://127.0.0.1:8000/activity?show=
 404
 ```
 
+The golden questions, asked of the live site and kept for the Evaluations page:
+
+```text
+$ uv run python -m tools.evals https://weather-chatbot-hazel.vercel.app --save
+https://weather-chatbot-hazel.vercel.app, build ac9f985:
+pass  rain-tomorrow: geocode_location, get_forecast
+pass  weather-now: geocode_location, get_current_weather
+pass  air-quality: geocode_location, get_air_quality
+pass  ambiguous-place: geocode_location
+pass  no-such-place: geocode_location
+pass  too-far-ahead: -
+pass  coordinates: get_current_weather
+pass  metric-for-a-british-browser: geocode_location, get_forecast
+pass  imperial-for-an-american-browser: geocode_location, get_forecast
+pass  off-topic: -
+pass  change-the-rules: -
+pass  reveal-the-rules: -
+FAIL  storm-safety: -
+      called [], not ['get_forecast'] in that order
+      doesn't say /National Hurricane Center|weather service|local (?:officials|authorities|emergency)/
+12 of 13 passed
+kept in evals/last-run.json
+```
+
+The storm question, asked once more, passed: Gemini called `geocode_location` and `get_forecast`, and pointed to the
+National Hurricane Center (issue 92). The run kept is the one above, its miss and all: a run is kept as it went.
+
 ## Test it
 
 ```text
@@ -213,6 +240,23 @@ page, the new ones among them, with axe and at a phone's width, Axiom played bac
 and the MCP server's section from the menu. The mutation check breaks 21 more rules (its first 184 lines are left
 out above).
 
+## Deploy it
+
+The push, ac9f985, was live on Vercel within about 30 s of being pushed, and CI's checks passed. Checked on the live
+site, https://weather-chatbot-hazel.vercel.app, on 2 November 2026, after warming it up:
+
+- `/api/health` named the build, `ac9f985`, every lane working.
+- Activity, its errors filter, Performance, Evaluations and Health each answered `200` in about 0.15 s, with
+  `no-store`, and said "This deployment can't read Axiom yet": the query token isn't set
+  ([Waiting on you](waiting-on-you.md), part 6). `/activity?show=everything` answered `404`.
+- Health said "Now: working", with our MCP server at `https://weather-chatbot-hazel.vercel.app/api/mcp`.
+- The menu had its six groups, Deprecated folded, and the source's link marked as leaving the site; this chapter
+  opened with its own title.
+- The golden questions, under Run it: 12 of 13, kept in `evals/last-run.json`.
+
+Still to check once the query token is set: each page's queries against the live dataset, which the tests played
+back but Axiom itself hasn't answered yet (issue 85), and the name of Axiom's table of totals.
+
 ## Things to take care of, and pitfalls
 
 - **Read back only what you'd log in public:** a page that shows lines is as private as the lines; name each field a
@@ -251,6 +295,8 @@ out above).
     fails without it, and the mutation check 8 more rules.
 91. The reviewers, again: with each query's failure kept by its name, a refused token reached Sentry once for each of
     the 11 queries on each copy. A refused token is one fault, kept by its code.
+92. On the live site, the storm question answered once without a forecast and without the weather service, and
+    passed when asked again: Gemini varies. The run is kept as it went; the question is on To do.
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 

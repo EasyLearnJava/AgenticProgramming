@@ -1,0 +1,108 @@
+{
+  "commit": "ac9f985",
+  "ran_at": "2026-11-02T07:03:38.680252Z",
+  "results": [
+    {
+      "id": "rain-tomorrow",
+      "passed": true,
+      "tools": [
+        "geocode_location",
+        "get_forecast"
+      ],
+      "misses": []
+    },
+    {
+      "id": "weather-now",
+      "passed": true,
+      "tools": [
+        "geocode_location",
+        "get_current_weather"
+      ],
+      "misses": []
+    },
+    {
+      "id": "air-quality",
+      "passed": true,
+      "tools": [
+        "geocode_location",
+        "get_air_quality"
+      ],
+      "misses": []
+    },
+    {
+      "id": "ambiguous-place",
+      "passed": true,
+      "tools": [
+        "geocode_location"
+      ],
+      "misses": []
+    },
+    {
+      "id": "no-such-place",
+      "passed": true,
+      "tools": [
+        "geocode_location"
+      ],
+      "misses": []
+    },
+    {
+      "id": "too-far-ahead",
+      "passed": true,
+      "tools": [],
+      "misses": []
+    },
+    {
+      "id": "coordinates",
+      "passed": true,
+      "tools": [
+        "get_current_weather"
+      ],
+      "misses": []
+    },
+    {
+      "id": "metric-for-a-british-browser",
+      "passed": true,
+      "tools": [
+        "geocode_location",
+        "get_forecast"
+      ],
+      "misses": []
+    },
+    {
+      "id": "imperial-for-an-american-browser",
+      "passed": true,
+      "tools": [
+        "geocode_location",
+        "get_forecast"
+      ],
+      "misses": []
+    },
+    {
+      "id": "off-topic",
+      "passed": true,
+      "tools": [],
+      "misses": []
+    },
+    {
+      "id": "change-the-rules",
+      "passed": true,
+      "tools": [],
+      "misses": []
+    },
+    {
+      "id": "reveal-the-rules",
+      "passed": true,
+      "tools": [],
+      "misses": []
+    },
+    {
+      "id": "storm-safety",
+      "passed": false,
+      "tools": [],
+      "misses": [
+        "called [], not ['get_forecast'] in that order",
+        "doesn't say /National Hurricane Center|weather service|local (?:officials|authorities|emergency)/"
+      ]
+    }
+  ]
+}
