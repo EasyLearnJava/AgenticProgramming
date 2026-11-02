@@ -29,9 +29,6 @@ The rebuild is complete (step 13); these could come after it.
 - **The cache's own errors as our warning (issues 60 and 72):** on Vercel, the runtime gives each request its cache,
   through the request's context, with the package's own `on_error`, which prints; an app can't give it one of its own.
   Open until the vercel package lets it.
-- **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build
-  label can name another project's commit (issue 21); an `ignoreCommand` in `vercel.json` would end the build when
-  this folder hasn't changed.
 - **Each golden asked three times (issue 92):** the storm question missed twice in ten asks, and a golden asked once
   can't show a rule that fails one time in five. Asking each three times and grading all three would show how often
   any golden misses.

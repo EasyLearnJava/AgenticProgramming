@@ -20,7 +20,7 @@ fixed.
 | **Hosting** | One Vercel Function in `iad1` (Washington, D.C.), on the Hobby plan; Vercel's CDN for the files |
 | **State** | No database: the conversation stays in the visitor's browser; the weather, in Vercel's Runtime Cache |
 | **Monitoring** | JSON log lines with each request's id, to Axiom, and read back onto the Observability pages; errors to Sentry; a health check of each lane |
-| **Checks** | 692 unit tests, 205 browser tests with accessibility checks, 210 mutation rules, 13 golden questions |
+| **Checks** | 696 unit tests, 205 browser tests with accessibility checks, 214 mutation rules, 13 golden questions |
 
 ## What it does
 
@@ -216,10 +216,10 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 ### It's tested, every way
 
 - **Static checks:** Ruff and mypy in strict mode, in CI on every push.
-- **Unit tests,** 692, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
+- **Unit tests,** 696, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
   and Axiom's query door.
 - **Browser tests,** 205, on every page and through the chat, each page checked by axe and at a phone's width.
-- **A mutation check:** 210 rules, each breaking the code on purpose; a test must catch each, and does.
+- **A mutation check:** 214 rules, each breaking the code on purpose; a test must catch each, and does.
 - **Privacy tests:** words of their own sent through three lanes, then searched for in every log line and every
   request out.
 - **Golden questions:** 13, asked of the live site and graded by rules; 13 passed, on build 4785bc7
@@ -233,8 +233,9 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 
 - **CI on every push** that touches the project, on any branch: the locked dependencies, Ruff, format, mypy, the
   unit tests, the browser tests; with read-only permissions.
-- **Vercel deploys every push,** `main`'s to production; a tag marks each step's checked commit (`py-step-01` to
-  `py-step-14`).
+- **Vercel deploys every push that changes the project,** `main`'s to production: its ignore step skips a push
+  that leaves the project as it was at the last deploy, unless that deploy is 10 or more commits back. A tag marks
+  each step's checked commit (`py-step-01` to `py-step-14`).
 - **Rolling back:** Vercel's Instant Rollback in seconds, or a revert in git ([step 13](step-13.md)).
 - **Exact versions:** `uv.lock`, installed `--locked`; htmx's files pinned by SHA-256 to npm's own; the Actor's
   build pinned.

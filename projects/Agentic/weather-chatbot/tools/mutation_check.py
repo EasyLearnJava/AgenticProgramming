@@ -60,6 +60,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "tools/load_test.py": ("test_load_test.py",),
     "templates/chat.html": ("test_pages.py", "test_chat.py"),
     "templates/base.html": ("test_pages.py",),
+    "vercel.json": ("test_deploy.py", "test_middleware.py"),
 }
 
 
@@ -1230,6 +1231,26 @@ MUTATIONS = (
         "if table.name != TOTALS_TABLE",
         "if True",
         "never Axiom's table of totals",
+    ),
+    # After step 14: Vercel's ignore step (issue 21).
+    Mutation(
+        "vercel.json",
+        r"[ \"$VERCEL_GIT_PREVIOUS_SHA\" != \"$VERCEL_GIT_COMMIT_SHA\" ] && ",
+        "",
+        "a redeploy builds",
+    ),
+    Mutation("vercel.json", "HEAD -- . 2>", "HEAD 2>", "only a change to this project builds it"),
+    Mutation(
+        "vercel.json",
+        r"--quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD",
+        "--quiet HEAD~1 HEAD",
+        "every commit of a push counts, not its last only",
+    ),
+    Mutation(
+        "vercel.json",
+        "then exit 0; else exit 1; fi",
+        "then exit 0; else exit $?; fi",
+        "git's own error never fails the deploy",
     ),
 )
 

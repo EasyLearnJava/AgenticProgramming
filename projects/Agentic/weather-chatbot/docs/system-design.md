@@ -149,11 +149,14 @@ tools, and through them Open-Meteo.
 - **Reliability and scale** (09): Vercel Functions start as many copies of the app as the traffic needs, each request,
   an answer's stream included, stopping at 300 s at most, Vercel's default (`vercel.json` sets no limit); the static
   files don't need the app at all.
-- **Release and recovery** (09): every push to `main` deploys to production, side by side with CI, so a failing CI
-  doesn't hold the deployment back. Any push means any: one that changes only another project in the repository
-  deploys Nimbus again too, and the menu's build label then names that commit. Each step is tagged (`py-step-01`,
-  `py-step-02`, and so on), Vercel can roll back to an earlier deployment in seconds (step 13 writes it out), and the
-  TypeScript version's code is kept in the history, at `c7165ac`.
+- **Release and recovery** (09): every push to `main` that changes the project deploys to production, side by side
+  with CI, so a failing CI doesn't hold the deployment back. `vercel.json`'s ignore step skips a push that leaves the
+  project as it was at the last deploy; a new branch's first push, a redeploy, and a push whose last deploy is 10 or
+  more commits back build all the same. The menu's build label names the commit deployed, which, in a push of
+  several commits, can be another project's. A changed variable reaches the site with a redeploy, and no longer with
+  another project's next push. Each step is tagged (`py-step-01`, `py-step-02`, and so on), Vercel can roll back to
+  an earlier deployment in seconds (step 13 writes it out), and the TypeScript version's code is kept in the
+  history, at `c7165ac`.
 
 ## Compared with the reference
 

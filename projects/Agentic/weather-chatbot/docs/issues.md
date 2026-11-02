@@ -121,9 +121,17 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     writing the System design). `/api/health` answered `"commit":"f1a9163"`, a commit that changed only another
     project in the repository: Vercel builds this project on every push to `main`, whatever the push changes, and the
     menu's build label names that push's commit. Nothing is wrong with the app, but each such push is a deploy, and
-    the label no longer says which commit last changed Nimbus. **Fix:** the System design says so; skipping those
-    deploys (an `ignoreCommand` in `vercel.json` that ends the build when this folder hasn't changed) is on To do.
-    **Check:** `/api/health`'s commit, after a push that changes only another project.
+    the label no longer says which commit last changed Nimbus. **Fix:** after step 14, an `ignoreCommand` in
+    `vercel.json` skips the build when this folder is as it was at the last deploy (`git diff --quiet` from
+    `VERCEL_GIT_PREVIOUS_SHA`), and builds on a redeploy, on the first deploy, and when that commit is older than
+    Vercel's clone of 10 commits, where git's own error, 128, would fail every deploy (seen on another project of
+    the repository on 30 October). The label still names the commit deployed: in a push of several commits, its last,
+    which can be another project's; and a skipped push leaves the last deploy where it was, so after 10 commits
+    elsewhere the next push builds all the same. A changed variable now reaches the site with a redeploy, which
+    builds, and no longer with another project's next push. A test runs the command in `sh` in a repository of its
+    own, and the mutation check has 4 more rules. The two reviewers found that the test, started from PowerShell,
+    ran WSL's bash, which the variables don't reach: it now runs git's own `sh` (`git var GIT_SHELL_PATH`). **Check:**
+    still to be done: `/api/health`'s commit, after a push that changes only another project.
 
 ## Step 2 · The Chat Streams Its Answer
 

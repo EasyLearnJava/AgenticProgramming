@@ -28,7 +28,7 @@ with the menu in groups (14). The full roadmap is in [PLAN.md](PLAN.md).
 How to build an AI agent app the way it's run in production: FastAPI, Jinja2 and HTMX for the pages; LangChain and
 LangGraph for the agent; MCP for its tools; Pydantic at every edge; structured logs with a request id; security
 headers and an enforced Content Security Policy; tests in memory, in a real browser and for accessibility, with a
-mutation check; and CI and deploys to Vercel on every push.
+mutation check; and CI and deploys to Vercel on every push that changes it.
 
 ## Before you start
 
@@ -108,7 +108,7 @@ $ uv run ruff format --check .
 $ uv run mypy
 Success: no issues found in 78 source files
 $ uv run pytest
-692 passed in 12.59s
+696 passed in 31.99s
 $ uv run pytest tests/e2e --browser-channel msedge
 205 passed in 143.87s (0:02:23)
 $ uv run python tools/mutation_check.py
