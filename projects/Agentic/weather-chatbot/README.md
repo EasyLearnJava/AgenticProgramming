@@ -108,12 +108,12 @@ $ uv run ruff format --check .
 $ uv run mypy
 Success: no issues found in 78 source files
 $ uv run pytest
-690 passed in 11.13s
+692 passed in 12.59s
 $ uv run pytest tests/e2e --browser-channel msedge
 205 passed in 143.87s (0:02:23)
 $ uv run python tools/mutation_check.py
 ...
-205 of 205 caught
+210 of 210 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all

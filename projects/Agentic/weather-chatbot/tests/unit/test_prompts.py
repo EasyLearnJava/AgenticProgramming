@@ -34,6 +34,20 @@ def test_the_rules_are_thirteen_each_on_one_line_and_name_the_tools_as_they_are(
     assert "Forecasts go up to 16 days ahead." in prompt
 
 
+def test_a_storm_still_gets_its_forecast_then_who_warns_by_their_real_names() -> None:
+    prompt = to_system_prompt(NOW, "en-US", "UTC")
+    # Rule 9 (issue 92): once no tool was called, once a "National Hurricane Service" was named.
+    for words in (
+        "9. For severe storms, floods or extreme heat, still answer as rules 2 to 8 say:",
+        "find the place, call get_forecast (get_current_weather for the weather now) and give the weather.",
+        "the national weather service of the place's country, and local emergency officials;",
+        "in the US, the National Weather Service, and for hurricanes the National Hurricane Center.",
+        'Name a service only when you are sure of its name, else say "the national weather service".',
+        "For any storm, flood or heat, never say the user is safe.",
+    ):
+        assert words in prompt
+
+
 @pytest.mark.parametrize(
     ("locale", "units"),
     [

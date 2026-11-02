@@ -20,7 +20,7 @@ fixed.
 | **Hosting** | One Vercel Function in `iad1` (Washington, D.C.), on the Hobby plan; Vercel's CDN for the files |
 | **State** | No database: the conversation stays in the visitor's browser; the weather, in Vercel's Runtime Cache |
 | **Monitoring** | JSON log lines with each request's id, to Axiom, and read back onto the Observability pages; errors to Sentry; a health check of each lane |
-| **Checks** | 690 unit tests, 205 browser tests with accessibility checks, 205 mutation rules, 13 golden questions |
+| **Checks** | 692 unit tests, 205 browser tests with accessibility checks, 210 mutation rules, 13 golden questions |
 
 ## What it does
 
@@ -216,15 +216,15 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 ### It's tested, every way
 
 - **Static checks:** Ruff and mypy in strict mode, in CI on every push.
-- **Unit tests,** 690, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
+- **Unit tests,** 692, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
   and Axiom's query door.
 - **Browser tests,** 205, on every page and through the chat, each page checked by axe and at a phone's width.
-- **A mutation check:** 205 rules, each breaking the code on purpose; a test must catch each, and does.
+- **A mutation check:** 210 rules, each breaking the code on purpose; a test must catch each, and does.
 - **Privacy tests:** words of their own sent through three lanes, then searched for in every log line and every
   request out.
 - **Golden questions:** 13, asked of the live site and graded by rules; 13 passed, on build 4785bc7
-  ([step 13](step-13.md)); 12 on build ac9f985, the storm question once without its forecast (issue 92); the last
-  run kept is on the Evaluations page ([step 14](step-14.md)).
+  ([step 13](step-13.md)); 12 on build ac9f985; the storm question missed twice in ten asks, and rule 9 is
+  firmer since (issue 92); the last run kept is on the Evaluations page ([step 14](step-14.md)).
 - **A load test:** 83 requests at 8 at once, none failed.
 - **An independent review** of every step before it was tagged, and a check on the live site after each deploy.
 

@@ -32,9 +32,9 @@ The rebuild is complete (step 13); these could come after it.
 - **Skip the deploys other projects' pushes start:** Vercel deploys Nimbus on every push to `main`, so its build
   label can name another project's commit (issue 21); an `ignoreCommand` in `vercel.json` would end the build when
   this folder hasn't changed.
-- **The storm question, kept every time (issue 92):** it failed once in step 14's live run and passed when asked
-  again. A firmer line in the system prompt, or the golden asked three times and graded on all three, would show
-  whether the rule holds.
+- **Each golden asked three times (issue 92):** the storm question missed twice in ten asks, and a golden asked once
+  can't show a rule that fails one time in five. Asking each three times and grading all three would show how often
+  any golden misses.
 - **Visitors' feedback:** a thumb on each answer, kept with its request id, would grade answers the golden questions
   never ask.
 - **Pin CI's actions by commit:** `actions/checkout@v7` and `astral-sh/setup-uv@v10.3.0` are pinned by tag, which

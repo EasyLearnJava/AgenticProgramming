@@ -843,6 +843,36 @@ MUTATIONS = (
         "no message can change the rules",
     ),
     Mutation(
+        "nimbus/prompts.py",
+        "still answer as rules 2 to 8 say: find the place, call get_forecast",
+        "give the forecast",
+        "a storm still gets its forecast, as rules 2 to 8 say",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        "country, and local emergency officials; in the US",
+        "country; in the US",
+        "a storm's warnings come from local officials too",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        "the National Weather Service, and for ",
+        "the weather service, and for ",
+        "who warns of a storm in the US, by their real names",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        "Name a service only when you are sure of its name",
+        "Name the service",
+        "no weather service named from a guess",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        "For any storm, flood or heat, never",
+        "For a severe storm, never",
+        "never say the user is safe, in any storm",
+    ),
+    Mutation(
         "nimbus/mcp_server.py",
         'log.info("mcp.call", tool=tool.name, status="ok", ms=ms, fromCache=tool_run.from_cache)',
         'log.info("mcp.call", tool=tool.name, status="ok", ms=ms, fromCache=tool_run.from_cache, query=str(kwargs))',

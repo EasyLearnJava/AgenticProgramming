@@ -296,7 +296,9 @@ back but Axiom itself hasn't answered yet (issue 85), and the name of Axiom's ta
 91. The reviewers, again: with each query's failure kept by its name, a refused token reached Sentry once for each of
     the 11 queries on each copy. A refused token is one fault, kept by its code.
 92. On the live site, the storm question answered once without a forecast and without the weather service, and
-    passed when asked again: Gemini varies. The run is kept as it went; the question is on To do.
+    passed when asked again: Gemini varies. The run is kept as it went. After the step it missed once more in 8 asks,
+    naming a "National Hurricane Service", and rule 9 was made firmer: it names its tools and who warns, by their real
+    names ([Issues and fixes](issues.md), 92).
 
 Each is told in full, with how it was found and how it's checked, in [Issues and fixes](issues.md).
 

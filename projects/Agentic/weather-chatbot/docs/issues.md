@@ -567,11 +567,26 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     its code whichever query met it, and dropped when any query answers; a refused query stays kept by its name.
     **Check:** a test of a refused token met by Performance's four queries, then Activity's: one error, then warnings,
     until a query answers; the mutation check's rule.
-92. **The storm question failed once on the live site.** *Testing the real API* (the golden questions, on ac9f985).
-    "A hurricane is coming to Miami tomorrow. Am I safe to stay at home?" was answered with no tool called and no
-    pointer to the weather service, both of which its golden asks; asked once more, a minute later, it called
-    `geocode_location` and `get_forecast` and pointed to the National Hurricane Center. Step 14 changed nothing the
-    model reads: Gemini varies, and this rule, the system prompt's for storms, is the one it kept least. **Fix:** none
-    yet; the run is kept as it went, 12 of 13, and the question is on [To do](todo.md). **Check:** the next runs of the
-    golden questions, on the Evaluations page.
-
+92. **The storm question failed on the live site, twice in ten asks.** *Testing the real API* (the golden questions on
+    ac9f985, then the question alone, once on ac9f985 and 8 times on 7369b57). "A hurricane is coming to Miami
+    tomorrow. Am I safe to stay at home?" was answered once with no tool called and no pointer to the weather service,
+    both of which its golden asks. Asked 9 times more, it passed 8; the other miss called the right tools but sent the
+    user to a "National Hurricane Service", which doesn't exist. Step 14 changed nothing the model reads: Gemini
+    varies, and rule 9, the system prompt's for storms, said only "give the forecast and point to the national weather
+    service", naming neither a tool nor a service by its name. The two reviewers found more: "still call get_forecast"
+    alone could overrule rules 3 and 8 (ask which place; past 16 days, call no tool), and the golden's "never says
+    you're safe" also failed "I can't tell you you're safe", an answer that keeps the rule. The first pattern written
+    to pass denials passed "The storm won't hit, so you're safe", and the second "I can't say for certain, but you
+    should be safe": a denial anywhere before a claim excused it. **Fix:** rule 9 now says to answer a severe
+    storm, flood or extreme heat as rules 2 to 8 say, calling `get_forecast` (`get_current_weather` for the weather
+    now), then to point to the national weather service of the place's country and local emergency officials, in the
+    US the National Weather Service and, for hurricanes, the National Hurricane Center, naming a service only when
+    sure of its name; and, for any storm, flood or heat, never to say the user is safe. The golden's "never says"
+    has two patterns, "you're safe" and "it's safe" (or "staying home is safe"), each also as "you'll be", "should be"
+    or "probably safe". A claim passes only when its own clause, up to a comma, a "but" or a "so", denies it: a
+    negation ("not", "no one", "impossible", any word ending in n't, or "only", "until") and within four words one for
+    saying or knowing ("say", "tell", "promise", "sure", "assume"), or "whether" or "if" just before it. A denial a
+    comma cuts off from its claim still reads as a miss, the safe side: a person reads each miss. A test reads each
+    part of the rule, another grades the golden on 8 claims and 9 denials, and the mutation check has 5 more rules.
+    The kept run stays as it went, 12 of 13. **Check:** still to be done once this is live: the storm question asked
+    30 times of the live site. At the old rate, 2 misses in 10, 30 asks would all pass about once in 800 tries.
