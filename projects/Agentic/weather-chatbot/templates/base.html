@@ -1,14 +1,23 @@
 {#
-  templates/base.html: the shell every page shares: the menu on the left (the new app's pages, then the TypeScript
-  app's, kept as *_deprecated), and the page beside it. The current page's link is marked for screen readers too.
+  templates/base.html: the shell every page shares: the menu on the left, its links in groups under their headings
+  (step 14), the TypeScript app's pages, kept as *_deprecated, folded unless one is open; and the page beside it. The
+  current page's link is marked for screen readers too; a link that leaves the site says so.
 #}
 {% macro menu_link(item, path) -%}
   {%- set current = to_aria_current(path, item.href) -%}
   <li>
-    <a class="side-menu-link" href="{{ item.href }}"{% if current %} aria-current="{{ current }}"{% endif %}>
+    <a class="side-menu-link" href="{{ item.href }}"
+      {%- if current %} aria-current="{{ current }}"{% endif %}
+      {%- if item.is_external %} rel="external noopener"{% endif %}>
       {{- item.label | menu_label -}}
+      {%- if item.is_external %}<span class="visually-hidden"> (leaves this site)</span>{% endif -%}
     </a>
   </li>
+{%- endmacro %}
+{% macro menu_items(group, path) -%}
+  <ul class="side-menu-items" aria-labelledby="menu-{{ group.slug }}">
+    {% for item in group.items %}{{ menu_link(item, path) }}{% endfor %}
+  </ul>
 {%- endmacro %}
 <!doctype html>
 <html lang="en">
@@ -26,13 +35,17 @@
     <div class="shell">
       <nav class="side-menu" aria-label="Main">
         <p class="side-menu-brand">Nimbus</p>
-        <ul class="side-menu-items">
-          {% for item in menu_items %}{{ menu_link(item, request.url.path) }}{% endfor %}
-        </ul>
-        <p class="side-menu-group" id="menu-deprecated">Deprecated</p>
-        <ul class="side-menu-items" aria-labelledby="menu-deprecated">
-          {% for item in deprecated_menu_items %}{{ menu_link(item, request.url.path) }}{% endfor %}
-        </ul>
+        {% for group in menu_groups %}
+        {% if group.is_folded %}
+        <details class="side-menu-fold"{% if holds_page(group, request.url.path) %} open{% endif %}>
+          <summary class="side-menu-group" id="menu-{{ group.slug }}">{{ group.title }}</summary>
+          {{ menu_items(group, request.url.path) }}
+        </details>
+        {% else %}
+        <p class="side-menu-group" id="menu-{{ group.slug }}">{{ group.title }}</p>
+        {{ menu_items(group, request.url.path) }}
+        {% endif %}
+        {% endfor %}
         <p class="side-menu-build">{{ build_label }}</p>
       </nav>
       <div class="shell-content">{% block content %}{% endblock %}</div>

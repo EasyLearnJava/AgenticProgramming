@@ -201,3 +201,17 @@ HEALTH_PLACE: Final = "Paris"
 HEALTH_RUN_SECONDS: Final = 60
 HEALTH_CACHE_CONTROL: Final = "public, max-age=0, s-maxage=60"
 APIFY_ME_URL: Final = "https://api.apify.com/v2/users/me"
+
+# ⑱ The Observability pages (step 14): Axiom's query door, on the same edge as its ingest, asked with a token that
+# can only query; each query has 5 s. The pages look back 7 days, and Activity shows the latest 50 lines. A page's
+# queries answer it for a minute on each copy of the app, and Vercel's CDN keeps the page a minute more, as the health
+# check's. The golden questions (step 13), and their last run, kept beside them; the source, on GitHub.
+AXIOM_QUERY_URL: Final = f"https://{AXIOM_INGEST_HOST}/v1/query/_apl?format=tabular"
+AXIOM_QUERY_SECONDS: Final = 5
+OBSERVABILITY_DAYS: Final = 7
+ACTIVITY_LINES: Final = 50
+OBSERVABILITY_RUN_SECONDS: Final = 60
+OBSERVABILITY_CACHE_CONTROL: Final = HEALTH_CACHE_CONTROL
+GOLDEN_FILE: Final = PROJECT_ROOT / "evals" / "golden.json"
+LAST_RUN_FILE: Final = PROJECT_ROOT / "evals" / "last-run.json"
+SOURCE_URL: Final = "https://github.com/EasyLearnJava/AgenticProgramming/tree/main/projects/Agentic/weather-chatbot"

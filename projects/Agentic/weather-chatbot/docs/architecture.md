@@ -6,7 +6,7 @@ https://weather-chatbot-hazel.vercel.app/. This page is its whole design in one 
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
 secure. The other pages go deeper: [System design](system-design.md) sets it against a reference design for AI
 assistants, [Technical details](technical-details.md) follows one question through the code, each step's chapter
-tells how a part was built, and [Issues and fixes](issues.md) tells all 80 problems met on the way and how each was
+tells how a part was built, and [Issues and fixes](issues.md) tells all 91 problems met on the way and how each was
 fixed.
 
 ## At a glance
@@ -16,11 +16,11 @@ fixed.
 | **Stack** | Python 3.13, FastAPI, Jinja2 and htmx 4, LangChain and LangGraph, Pydantic; uv, exact versions locked |
 | **Model** | Gemini 3.5 Flash-Lite, through LangChain; LangSmith traces each run, its words hidden |
 | **Weather** | Open-Meteo's geocoding, forecast and air-quality APIs, which need no key; Apify's Actor, behind a token |
-| **Interfaces** | The chat page; the documentation; an MCP server at `/api/mcp`; a health check at `/api/health` |
+| **Interfaces** | The chat page; four Observability pages; the documentation; an MCP server at `/api/mcp`; a health check at `/api/health` |
 | **Hosting** | One Vercel Function in `iad1` (Washington, D.C.), on the Hobby plan; Vercel's CDN for the files |
 | **State** | No database: the conversation stays in the visitor's browser; the weather, in Vercel's Runtime Cache |
-| **Monitoring** | JSON log lines with each request's id, to Axiom; errors to Sentry; a health check of each lane |
-| **Checks** | 595 unit tests, 179 browser tests with accessibility checks, 184 mutation rules, 13 golden questions |
+| **Monitoring** | JSON log lines with each request's id, to Axiom, and read back onto the Observability pages; errors to Sentry; a health check of each lane |
+| **Checks** | 690 unit tests, 205 browser tests with accessibility checks, 205 mutation rules, 13 golden questions |
 
 ## What it does
 
@@ -42,14 +42,18 @@ fixed.
   ref that finds its log lines.
 - **Accessible:** every page passes axe's checks, works with the keyboard, reads out new messages, and never scrolls
   sideways on a phone.
-- **Its own documentation:** in the menu, from each step's chapter to this page.
+- **What it's doing, in the open:** Activity, Performance, Evaluations and Health, read back from its own lines in
+  Axiom: what happened, how long it took, how answers ended, which checks pass; never a question's words, or who
+  asked (step 14).
+- **Its own documentation:** in the menu, its links in groups, from each step's chapter to this page.
 
 ### For an operator or a developer
 
 - **An MCP server** at `/api/mcp`: the same four weather tools, for any MCP client.
 - **A health check** at `/api/health`: each way out checked, each lane's status, `200` or `503`.
 - **Monitoring:** every line in Axiom, every error in Sentry, every model run in LangSmith; the dashboards and alerts
-  written out, ready to set up.
+  written out, ready to set up; and the lines read back onto the Observability pages, with a token that can only
+  query.
 - **Tools:** `run_tool` (one weather tool on its own, on any lane), `call_mcp` (a call to any MCP server), `evals`
   (the golden questions), `load_test`, and `mutation_check`.
 
@@ -72,7 +76,7 @@ the app's own calls through and limits everyone else to 20 calls a minute to `/a
 |---|---|
 | `config.py` | The settings, checked when the app starts; the only module that reads settings from the environment |
 | `middleware.py` | Each request's id on every line and on the response; one line when it ends; then its lines to Axiom and any error to Sentry; the security headers on every response |
-| `pages.py`, `docs.py` | The chat page and the documentation, from Markdown with raw HTML off |
+| `pages.py`, `docs.py` | The chat page, the menu in groups, and the documentation, from Markdown with raw HTML off |
 | `chat.py` | `POST /api/chat`: the form checked, the question's turn streamed as server-sent events of HTML |
 | `answer.py`, `agent.py`, `prompts.py`, `model.py` | The agent: our own LangGraph graph, the system prompt, Gemini, the answer made safe HTML |
 | `lanes.py`, `mcp_lane.py`, `auth_lanes.py` | How the tools are reached: REST, our MCP server, or Apify, with a fallback |
@@ -80,12 +84,13 @@ the app's own calls through and limits everyone else to 20 calls a minute to `/a
 | `actor.py`, `apify.py` | Apify's Actor: its input, its answer checked, its two doors |
 | `mcp_server.py` | Our MCP server: the same four tools, stateless, in JSON |
 | `health.py` | `GET /api/health`: four checks, each lane's status |
+| `observability.py`, `axiom_query.py`, `goldens.py` | The Observability pages: each query once a minute, only the fields it names; Axiom's query door; the golden questions and their last run |
 | `logger.py`, `axiom.py`, `sentry.py` | JSON lines, other libraries' among them, their query strings cut; Axiom's batch; Sentry's events, without an exception's message or a request's data |
 | `errors.py`, `utils.py`, `constants.py` | Our errors and their sentences; small helpers; every limit, in one place |
 
 **The services** it calls: Gemini, which writes the answers; Open-Meteo, for places, forecasts and the air; Apify,
 whose Actor gives the forecast on the lanes with auth; Vercel's Runtime Cache, for Open-Meteo's answers; Axiom, Sentry
-and LangSmith, for monitoring. The app calls nothing else.
+and LangSmith, for monitoring, Axiom's lines read back for the Observability pages. The app calls nothing else.
 
 ## Data flow
 
@@ -136,6 +141,7 @@ and LangSmith, for monitoring. The app calls nothing else.
 | Our MCP server | A tool's input | The question |
 | Vercel's Runtime Cache | Open-Meteo's answers, under a hash of their address; the day's count of Apify runs | The question, who asked |
 | Our log lines (Vercel, Axiom) | A question's length, the lane, ids, times, tokens, classes | The question, the conversation, a place's name, a token |
+| Anyone who opens the Observability pages | Times, counts, lanes, tools, how answers ended, error classes, the input rules broken | A request's id or path, a question's length, anything a visitor typed, a token, an account's name |
 | Sentry | An error's class and frames; its line's fields as tags: our event's name, or a library's own message, its query strings cut | An exception's message (a library's line can still quote one), a request's data, a frame's variables |
 | LangSmith | Each run's names, times and lane; of a run that failed, only that it failed | The question, the answer, an error's text |
 | Your browser | The conversation, in the page's form, until New chat or the page closes | |
@@ -200,6 +206,9 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **Axiom** keeps the lines; **Sentry** gets the errors, tagged with where they came from; **LangSmith** traces each
   run; the dashboards and alerts are written out in [step 12](step-12.md).
 - **The health check** says which lanes work, for an uptime monitor and for the page's dots.
+- **The Observability pages** read the lines back, for anyone: the latest 50, a filter at a time; answer times'
+  p50, p95 and p99, each tool's and each lane's; how answers ended and why; each day's health runs. Each query
+  names the fields it reads, and runs once a minute on each copy ([step 14](step-14.md)).
 - **One id finds everything:** every response carries its request's id (`x-request-id`), and a failure while
   answering shows its ref, the id's last 8 letters and digits; either finds the request's lines in Axiom and its
   event in Sentry.
@@ -207,9 +216,10 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 ### It's tested, every way
 
 - **Static checks:** Ruff and mypy in strict mode, in CI on every push.
-- **Unit tests,** 595, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server.
-- **Browser tests,** 179, on every page and through the chat, each page checked by axe and at a phone's width.
-- **A mutation check:** 184 rules, each breaking the code on purpose; a test must catch each, and does.
+- **Unit tests,** 690, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
+  and Axiom's query door.
+- **Browser tests,** 205, on every page and through the chat, each page checked by axe and at a phone's width.
+- **A mutation check:** 205 rules, each breaking the code on purpose; a test must catch each, and does.
 - **Privacy tests:** words of their own sent through three lanes, then searched for in every log line and every
   request out.
 - **Golden questions:** 13, asked of the live site and graded by rules; 13 passed, on build 4785bc7
@@ -222,7 +232,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **CI on every push** that touches the project, on any branch: the locked dependencies, Ruff, format, mypy, the
   unit tests, the browser tests; with read-only permissions.
 - **Vercel deploys every push,** `main`'s to production; a tag marks each step's checked commit (`py-step-01` to
-  `py-step-13`).
+  `py-step-14`).
 - **Rolling back:** Vercel's Instant Rollback in seconds, or a revert in git ([step 13](step-13.md)).
 - **Exact versions:** `uv.lock`, installed `--locked`; htmx's files pinned by SHA-256 to npm's own; the Actor's
   build pinned.
@@ -264,16 +274,19 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 | An MCP request | 8 KiB; connecting 6 s (Apify's, 5 s) |
 | The health check | 8 s a check; a run answers its address for a minute |
 | Monitoring | A batch of at most 1,000 lines; 2 s to send |
+| The Observability pages | 5 s a query; each query once a minute on each copy; the last 7 days; Activity's latest 50 lines |
 
 ## Running and operating it
 
 - **On your computer:** `uv sync`, then `uv run uvicorn main:app --reload --no-access-log`, and open
   http://127.0.0.1:8000; [step 1](step-1.md) has the rest.
 - **Deploying:** push to `main`; CI and Vercel's build run side by side.
-- **Watching:** Axiom's dashboard and Sentry's alerts, once set up; an uptime monitor on `/api/health`.
+- **Watching:** the Observability pages, once their token is set; Axiom's dashboard and Sentry's alerts, once set
+  up; an uptime monitor on `/api/health`.
 - **Going back:** [step 13](step-13.md)'s rollback.
 - **What only you can do:** [Waiting on you](waiting-on-you.md): the firewall's rules, Apify's usage limit, two
-  variables, the dashboards and alerts, the evals in LangSmith, a rollback, practised.
+  variables, the dashboards and alerts, the evals in LangSmith, a rollback, practised, and the Observability pages'
+  query token.
 
 ## Known limits
 
@@ -292,4 +305,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 - **Gemini's free tier** may use what it gets to improve Google's products; the page says so. Its quota, not Vercel,
   is where heavy use stops first.
 - **One region,** Washington, D.C.; on Hobby, a rollback goes back one deployment, and Vercel keeps logs for an hour.
+- **The Observability pages show nothing from Axiom until their query token is set**
+  ([Waiting on you](waiting-on-you.md)); once it is, their numbers can be two minutes old: a minute on each copy, a
+  minute more at the CDN.
 - **No accounts:** the weather is public, so anyone can ask; no feedback on answers yet ([To do](todo.md)).

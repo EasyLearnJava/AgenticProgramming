@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">Step 14 · Observability</title>
+  <desc id="d">The menu's links in groups: App, Observability, Learn, Project, Links, and the deprecated pages folded. A visitor opens an Observability page; Vercel's CDN answers if it kept the page in the last minute; else the page's queries run, each once a minute on each copy of the app, posted to Axiom's query door with a token that can only query, over the last 7 days, each naming the fields it reads. The rows become words, numbers and meters; a page that answered is kept a minute, one that didn't never. Evaluations also reads the golden questions and their last run from the repository; Health also runs the four checks.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect x="8" y="8" width="944" height="724" rx="20" fill="#ffffff" stroke="#d7e7e2"/>
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#053b30">Step 14 · Observability</text>
+  <text x="40" y="78" font-size="14" fill="#4b5563">The app's own lines, read back: on pages anyone can open, never anything private</text>
+
+  <!-- Row 1: the menu -->
+  <rect x="40" y="100" width="880" height="96" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="126" font-size="15" font-weight="700" fill="#053b30">The menu, in groups</text>
+  <text x="56" y="150" font-size="13" fill="#1f2937">App: Chat · Observability: Activity, Performance, Evaluations, Health · Learn: Documentation, the design pages</text>
+  <text x="56" y="170" font-size="13" fill="#1f2937">Project: Issues and fixes, To do, Waiting on you · Links: the source, /api/health, our MCP server · Deprecated: folded</text>
+
+  <!-- Row 2: the request path -->
+  <rect x="40" y="216" width="200" height="120" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="242" font-size="15" font-weight="700" fill="#053b30">A visitor</text>
+  <text x="56" y="264" font-size="13" fill="#1f2937">opens /performance</text>
+  <text x="56" y="283" font-size="13" fill="#1f2937">or /activity?show=errors:</text>
+  <text x="56" y="302" font-size="13" fill="#1f2937">a filter we don't have</text>
+  <text x="56" y="321" font-size="13" fill="#1f2937">is a 404, nothing asked</text>
+  <line x1="240" y1="276" x2="273" y2="276" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="275" y="216" width="190" height="120" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="291" y="242" font-size="15" font-weight="700" fill="#053b30">Vercel's CDN</text>
+  <text x="291" y="264" font-size="13" fill="#1f2937">keeps a page that</text>
+  <text x="291" y="283" font-size="13" fill="#1f2937">answered for a minute</text>
+  <text x="291" y="302" font-size="13" fill="#1f2937">(s-maxage=60); one</text>
+  <text x="291" y="321" font-size="13" fill="#1f2937">that didn't, never</text>
+  <line x1="465" y1="276" x2="498" y2="276" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="500" y="216" width="190" height="120" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="516" y="242" font-size="15" font-weight="700" fill="#053b30">The page's queries</text>
+  <text x="516" y="264" font-size="13" fill="#1f2937">all at once, each once</text>
+  <text x="516" y="283" font-size="13" fill="#1f2937">a minute on each copy;</text>
+  <text x="516" y="302" font-size="13" fill="#1f2937">the last 7 days; 5 s</text>
+  <text x="516" y="321" font-size="13" fill="#1f2937">each, a failure too</text>
+  <line x1="690" y1="276" x2="723" y2="276" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="725" y="216" width="195" height="120" rx="12" fill="#fff7ed" stroke="#b45309"/>
+  <text x="741" y="242" font-size="15" font-weight="700" fill="#7c2d12">Axiom's query door</text>
+  <text x="741" y="264" font-size="13" fill="#1f2937">/v1/query/_apl, US edge</text>
+  <text x="741" y="283" font-size="13" fill="#1f2937">a token that can only</text>
+  <text x="741" y="302" font-size="13" fill="#1f2937">query weather-chatbot</text>
+  <text x="741" y="321" font-size="13" fill="#1f2937">tabular: a table back</text>
+
+  <!-- Row 3: the queries -->
+  <rect x="40" y="356" width="880" height="118" rx="12" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
+  <text x="56" y="382" font-size="15" font-weight="700" fill="#053b30">Each query names what it reads: never a request's id, its path, or anything a visitor typed</text>
+  <text x="56" y="406" font-size="13" fill="#1f2937">Activity: the latest 50 lines of a filter, project _time, event, lane, tool, status, ms, errorClass, code, tokens …</text>
+  <text x="56" y="425" font-size="13" fill="#1f2937">Performance: chat.done's p50, p95, p99 · tool.call by tool and lane · questions by lane · the cache's hits</text>
+  <text x="56" y="444" font-size="13" fill="#1f2937">Evaluations: how answers ended, and why one was refused, failed or fell back · Health: runs and downs, by day</text>
+  <text x="56" y="463" font-size="13" fill="#1f2937">a refused query: an error once on each copy, which Sentry hears, then a warning; a refused token, once for all</text>
+
+  <!-- Row 4: the pages -->
+  <rect x="40" y="494" width="430" height="150" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="56" y="520" font-size="15" font-weight="700" fill="#053b30">The rows, as a page shows them</text>
+  <text x="56" y="544" font-size="13" fill="#1f2937">numbers in a row; each breakdown a &lt;meter&gt; the browser</text>
+  <text x="56" y="563" font-size="13" fill="#1f2937">draws, its words beside it: no inline style to refuse</text>
+  <rect x="56" y="580" width="250" height="8" rx="4" fill="#e5e7eb"/>
+  <rect x="56" y="580" width="188" height="8" rx="4" fill="#15803d"/>
+  <text x="316" y="589" font-size="13" fill="#1f2937">From our cache 30</text>
+  <text x="56" y="614" font-size="13" fill="#1f2937">no token yet: "This deployment can't read Axiom yet"</text>
+  <text x="56" y="633" font-size="13" fill="#1f2937">Axiom down: "Axiom didn't answer just now", never its words</text>
+  <rect x="490" y="494" width="430" height="150" rx="12" fill="#fcfffe" stroke="#0f766e"/>
+  <text x="506" y="520" font-size="15" font-weight="700" fill="#053b30">Beside Axiom's numbers</text>
+  <text x="506" y="544" font-size="13" fill="#1f2937">Evaluations: the golden questions, and the last run</text>
+  <text x="506" y="563" font-size="13" fill="#1f2937">tools.evals --save kept in evals/last-run.json</text>
+  <text x="506" y="587" font-size="13" fill="#1f2937">Health: the four checks now, as /api/health runs them</text>
+  <text x="506" y="606" font-size="13" fill="#1f2937">and our MCP server: its address and its four tools</text>
+  <text x="506" y="630" font-size="13" fill="#1f2937">no link to any dashboard of yours: they stay private</text>
+
+  <!-- Takeaway -->
+  <rect x="40" y="664" width="880" height="56" rx="12" fill="#053b30"/>
+  <text x="60" y="688" font-size="14" font-weight="700" fill="#ffffff">Read your own logs back with a token that can only read, and show only what you'd log in public.</text>
+  <text x="60" y="707" font-size="13" fill="#defcf6">The query token is yours to make, with Axiom's own cost caps: Waiting on you.</text>
+</svg>

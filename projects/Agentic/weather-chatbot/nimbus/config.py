@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     axiom_token: SecretStr | None = None
     axiom_dataset: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.\-]*$")
     sentry_dsn: SecretStr | None = None
+    # ⑧ Set by you (step 14): a second Axiom token, which can only query the dataset, for the Observability pages;
+    # without it and the dataset, they say Axiom isn't connected.
+    axiom_query_token: SecretStr | None = None
 
     @classmethod
     def settings_customise_sources(

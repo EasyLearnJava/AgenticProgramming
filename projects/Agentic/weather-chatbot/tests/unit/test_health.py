@@ -13,6 +13,7 @@ from typing import cast
 
 import httpx2
 import pytest
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -209,3 +210,14 @@ def test_a_check_that_keeps_failing_reaches_sentry_once_on_each_copy() -> None:
     assert levels() == ["info"]
     checks["apify-rest"] = refused
     assert levels() == ["error"]
+
+
+def test_each_line_a_check_writes_names_its_check_and_no_other_line_does() -> None:
+    seen: dict[str, object] = {}
+
+    async def check() -> None:
+        seen.update(structlog.contextvars.get_contextvars())
+
+    asyncio.run(run_check("open-meteo", check, {}))
+    assert seen == {"check": "open-meteo"}
+    assert "check" not in structlog.contextvars.get_contextvars()

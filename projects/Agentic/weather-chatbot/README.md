@@ -2,7 +2,7 @@
 
 Nimbus answers questions about the weather anywhere, and shows each tool call behind an answer and the path it took.
 Its first version was built in TypeScript; this is its rebuild in Python, with FastAPI, LangGraph and Jinja2, as a
-production-grade app and a step-by-step tutorial at once. Each of its thirteen steps adds one idea, ends deployed and
+production-grade app and a step-by-step tutorial at once. Each of its fourteen steps adds one idea, ends deployed and
 working, and has a chapter written while it was built: the design, the code that matters, the pitfalls, the issues
 met, and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
 
@@ -20,7 +20,8 @@ weather tools found: an agent calls them, and they call Open-Meteo (step 4).
 Step by step: a FastAPI app with Nimbus's pages and docs (step 1); a chat that streams its answer with HTMX (2); answers
 from Gemini through LangChain (3); a LangGraph agent with four weather tools (4, 5); chat memory kept in the browser (6)
 and a weather cache (7); our own MCP server (8) and a lane through it (9); two lanes through Apify, with fallbacks (10);
-then security (11), monitoring (12), and evals and the release (13). The full roadmap is in [PLAN.md](PLAN.md).
+then security (11), monitoring (12), evals and the release (13), and the Observability pages, read back from Axiom,
+with the menu in groups (14). The full roadmap is in [PLAN.md](PLAN.md).
 
 ## What you'll learn
 
@@ -41,11 +42,12 @@ mutation check; and CI and deploys to Vercel on every push.
 | File or folder | What it holds |
 |---|---|
 | `main.py` | The entry point: `app = create_app()`, which Vercel and Uvicorn both look for |
-| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `model.py`, `prompts.py`, `agent.py`, `answer.py`, `tools.py`, `open_meteo.py`, `weather.py`, `chips.py`, `errors.py`, `utils.py` |
-| `templates/` | The Jinja2 templates: the shell with the menu, the chat and the HTML of its answer's events, a list of pages, a page, the 404 page |
+| `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `model.py`, `prompts.py`, `agent.py`, `answer.py`, `tools.py`, `open_meteo.py`, `weather.py`, `chips.py`, `cache.py`, `mcp_server.py`, `lanes.py`, `mcp_lane.py`, `auth_lanes.py`, `actor.py`, `apify.py`, `axiom.py`, `sentry.py`, `observability.py`, `axiom_query.py`, `goldens.py`, `errors.py`, `utils.py` |
+| `templates/` | The Jinja2 templates: the shell with the menu in groups, the chat and the HTML of its answer's events, a list of pages, a page, the Observability pages, the 404 page |
 | `public/static/` | The stylesheet, the icon, htmx 4 and its stream extension, and our `chat.js`, served by Vercel's CDN |
 | `docs/` | The chapters (`step-N.md`), the system design, the issues log, the interview guide, the to-do list, the TypeScript version's pages (`*_deprecated.md`), and their pictures (`images/`) |
 | `tests/unit/`, `tests/e2e/`, `tests/fixtures/` | The tests: the app called in memory, and the app in a real browser; Open-Meteo's recorded answers |
+| `evals/` | The golden questions (`golden.json`), and their last run, kept (`last-run.json`) |
 | `tools/mutation_check.py`, `tools/run_tool.py` | Breaks each of the app's rules on purpose, and checks a test fails; runs one weather tool on its own |
 | `pyproject.toml`, `uv.lock`, `.python-version` | The packages, pinned to exact versions; the tools' settings; Python 3.13 |
 | `vercel.json` | The CDN's files' security headers; the tests and tools left out of the function Vercel builds |
@@ -73,6 +75,7 @@ Each step's chapter explains it, in order:
 | 11 | [Security: Rate Limits, Prompt Injection, Privacy](docs/step-11.md) | Done |
 | 12 | [Monitoring: Axiom, Sentry, the Health Check and the Status Dots](docs/step-12.md) | Done |
 | 13 | [Evals and Release: Golden Questions, a Load Test, Rollback](docs/step-13.md) | Done |
+| 14 | [Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups](docs/step-14.md) | Done |
 
 ## Run it
 
@@ -101,20 +104,20 @@ and never its query string; this one is for `/docs?q=private`:
 $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
-111 files already formatted
+117 files already formatted
 $ uv run mypy
-Success: no issues found in 73 source files
+Success: no issues found in 78 source files
 $ uv run pytest
-595 passed in 8.48s
+690 passed in 11.13s
 $ uv run pytest tests/e2e --browser-channel msedge
-179 passed in 119.84s (0:01:59)
+205 passed in 143.87s (0:02:23)
 $ uv run python tools/mutation_check.py
 ...
-184 of 184 caught
+205 of 205 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
-24 pages and in the chat (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints
+42 pages and in the chat (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints
 its platform line and each test's dot, and the mutation check a line per rule (each chapter lists its own).
 
 ## When things go wrong
@@ -144,17 +147,19 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 13](docs/step-13.md)), **Architecture and design**
+step ([step 1](docs/step-1.md) to [step 14](docs/step-14.md)), **Architecture and design**
 ([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
 ([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)), **To do**
 ([`docs/todo.md`](docs/todo.md)), and **Waiting on you** ([`docs/waiting-on-you.md`](docs/waiting-on-you.md)), every
-setting only you can change. The TypeScript version's pages are kept under **Deprecated**: its steps, System
+setting only you can change. The menu groups them (step 14), beside the Observability pages: Activity,
+Performance, Evaluations and Health. The TypeScript version's pages are kept under **Deprecated**: its steps, System
 design, Technical details, Issues and fixes, Interview guide and To do, each named `*_deprecated`
 ([README_deprecated.md](README_deprecated.md) links them all).
 
 ## Next
 
-The rebuild is complete: thirteen steps, each live and checked. What's waiting on you is on
+The rebuild is complete: thirteen steps, each live and checked, and a fourteenth that reads the app's lines back
+onto its Observability pages. What's waiting on you is on
 [its own page](docs/waiting-on-you.md); what could come next, on [To do](docs/todo.md).

@@ -1,0 +1,45 @@
+{#
+  templates/observability_parts.html: what the Observability pages share (step 14): the notice when Axiom can't
+  answer, a row of numbers, and a breakdown, each line a meter: a bar the browser draws, since the Content Security
+  Policy refuses an inline style, with its words beside it, never the bar alone.
+#}
+{% macro notice(answers) -%}
+  <p class="obs-notice" role="note">
+    {{- answers.notice -}}
+    {%- if answers.has_no_token %} The token's steps are on <a href="/waiting-on-you">Waiting on you</a>.{% endif -%}
+  </p>
+{%- endmacro %}
+
+{% macro tiles(items) -%}
+  <ul class="obs-tiles">
+    {% for tile in items %}
+    <li class="obs-tile">
+      <span class="obs-tile-label">{{ tile.label }}</span>
+      <span class="obs-tile-value">{{ tile.value }}</span>
+      {% if tile.note %}<span class="obs-tile-note">{{ tile.note }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{%- endmacro %}
+
+{% macro breakdown(id, title, about, bars, empty) -%}
+  <section class="obs-card" aria-labelledby="{{ id }}">
+    <h2 id="{{ id }}">{{ title }}</h2>
+    <p class="obs-about">{{ about }}</p>
+    {% if bars %}
+    <ul class="obs-bars">
+      {% for bar in bars %}
+      <li class="obs-bar">
+        <span class="obs-bar-label" id="{{ id }}-{{ loop.index }}">{{ bar.label }}</span>
+        <span class="obs-bar-value">{{ bar.value }}</span>
+        <meter class="obs-meter" min="0" max="1" value="{{ '%.3f' | format(bar.share) }}"
+          aria-labelledby="{{ id }}-{{ loop.index }}"></meter>
+        {% if bar.note %}<span class="obs-bar-note">{{ bar.note }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="obs-empty">{{ empty }}</p>
+    {% endif %}
+  </section>
+{%- endmacro %}

@@ -49,6 +49,9 @@ APIFY_UNREACHABLE = "Apify can't be reached"
 APIFY_UNEXPECTED = "Apify answered in a way we didn't expect"
 APIFY_ANSWER_RUNS_USED = "This answer's two Actor runs are used up"
 APIFY_DAY_RUNS_USED = "Today's Actor runs are used up"
+# ⑨ What an Observability page says when Axiom can't answer it (step 14): no token to ask with, or no answer now.
+AXIOM_NOT_CONNECTED = "This deployment can't read Axiom yet: it needs a token that can query its dataset."
+AXIOM_UNANSWERED = "Axiom didn't answer just now, so there's nothing to show. Please try again in a minute."
 
 
 class NimbusError(Exception):
@@ -170,6 +173,18 @@ class RunsUsedUpError(UpstreamError):
         """The error, with whose runs are used up, the answer's or the day's, for the chip."""
         super().__init__("apify_runs_used_up", WEATHER_UNREACHABLE, HTTPStatus.TOO_MANY_REQUESTS)
         self.reason = reason
+
+
+class ObservabilityError(NimbusError):
+    """
+    Axiom couldn't answer an Observability page's query (step 14): it refused the token, its limit was reached, it
+    couldn't be reached or took too long, it refused the query, or answered in a way we can't read; the code says which
+    (502).
+    """
+
+    def __init__(self, code: str) -> None:
+        """The error, with its code and the page's sentence."""
+        super().__init__(code, AXIOM_UNANSWERED, HTTPStatus.BAD_GATEWAY)
 
 
 def to_user_message(error: BaseException) -> str:

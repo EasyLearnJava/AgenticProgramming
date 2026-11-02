@@ -445,3 +445,24 @@ revert, and put a new deployment live.
 
 **5. Why keep golden questions in LangSmith?**
 Each run is an experiment beside the last, named for its build, so a regression shows by question and by commit.
+
+## Step 14 · Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups
+
+**1. Why give a dashboard its own token, and what should it be allowed to do?**
+Only what it does: query the one dataset, with an expiry and the service's cost caps. The token that writes logs can't
+read them, and this one can't write; a leak of either does less.
+
+**2. How do you keep a public page of your logs from showing private data?**
+Log nothing private to begin with; then name each field a query reads, never all of them, and test that a field the
+query didn't name never reaches the page.
+
+**3. How do you stop a public dashboard from running up your log service's bill?**
+Ask each query at most once a minute on each copy, a failure too; let the CDN keep the page; turn a made-up filter
+away before asking; and set the service's own cost caps on the token.
+
+**4. How do you draw a bar chart under a Content Security Policy with no inline styles?**
+With `<meter>` elements, which the browser draws from their value and screen readers announce, their words beside
+them; or a class for each step of width.
+
+**5. Why render the pages on the server rather than query from the browser?**
+The token stays on the server; the page needs no script; and one rendering, kept by the CDN, serves every visitor.

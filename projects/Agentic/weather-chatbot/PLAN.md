@@ -2,7 +2,7 @@
 
 Nimbus is a weather chatbot: ask about the weather anywhere, and see each tool call behind the answer and the lane it
 took. Its first version was built in TypeScript (Next.js and AI SDK); this plan rebuilds it in Python, as a
-production-grade app and a tutorial at once: thirteen steps, each one adding one idea, each ending deployed and
+production-grade app and a tutorial at once: fourteen steps, each one adding one idea, each ending deployed and
 working, and each with a chapter written while it's built. The first version's plan is kept as
 [PLAN_deprecated.md](PLAN_deprecated.md).
 
@@ -21,7 +21,7 @@ working, and each with a chapter written while it's built. The first version's p
 | MCP | The official `mcp` SDK (FastMCP) for our server; `langchain-mcp-adapters` for the MCP lanes |
 | Settings | pydantic-settings: one module reads the environment |
 | State between requests | No database: each chat stays in the browser, sent back with every question (step 6); Open-Meteo's answers in Vercel's Runtime Cache, through the `vercel` package (step 7) |
-| Logs | structlog, JSON lines with a request id; Axiom (from step 12) |
+| Logs | structlog, JSON lines with a request id; Axiom (from step 12), read back onto the Observability pages (step 14) |
 | Errors, traces | Sentry; LangSmith for the model's runs (from step 3), then the agent's (from step 4) |
 | Tests | pytest; Playwright for Python with axe; mutation checks |
 | Lint, types | Ruff; mypy in strict mode |
@@ -49,6 +49,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 | 11 | Security: rate-limit rules, prompt-injection rules, privacy checks | The firewall's rules |
 | 12 | Monitoring: Axiom, Sentry, LangSmith; `/api/health` with each lane's check, and the status dots | |
 | 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; Technical details; the backup deleted | |
+| 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token |
 
 ## 3. A chapter's sections
 

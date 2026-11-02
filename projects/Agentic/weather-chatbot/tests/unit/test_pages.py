@@ -1,7 +1,8 @@
 """
-tests/unit/test_pages.py: the pages, through the app: each opens inside the shell, its menu link marked; the chat's
-form posts to the chat and loads only our own scripts, none inline; the lists name every page; a missing page gets the
-app's own 404 page, and a missing API, JSON.
+tests/unit/test_pages.py: the pages, through the app: each opens inside the shell, its menu link marked; the menu in
+its groups (step 14), the deprecated one folded unless it holds the page, a link that leaves the site saying so; the
+chat's form posts to the chat and loads only our own scripts, none inline; the lists name every page; a missing page
+gets the app's own 404 page, and a missing API, JSON.
 """
 
 import json
@@ -15,10 +16,10 @@ from pydantic import SecretStr
 
 from nimbus.app import create_app
 from nimbus.config import Settings
-from nimbus.constants import QUESTION_MAX_CHARS
+from nimbus.constants import QUESTION_MAX_CHARS, SOURCE_URL
 from nimbus.docs import CHAPTERS, DEPRECATED_PAGES, DEPRECATED_STEPS, PAGES, DocPage, read_markdown, title_of
 from nimbus.errors import CUT_OFF, RATE_LIMITED, STOPPED, UNREACHABLE
-from nimbus.pages import DEPRECATED_MENU_ITEMS, MENU_ITEMS, to_aria_current, to_menu_label
+from nimbus.pages import MENU_GROUPS, holds_page, to_aria_current, to_menu_label
 
 DEPRECATED_NOTE = "Deprecated: this page describes the earlier TypeScript version of Nimbus."
 
@@ -107,11 +108,31 @@ def test_only_the_chat_page_loads_scripts(client: TestClient) -> None:
     assert "<script" not in client.get("/docs/step-1").text
 
 
-def test_every_page_has_the_whole_menu(client: TestClient) -> None:
+def test_every_page_has_the_whole_menu_each_group_under_its_heading(client: TestClient) -> None:
     page = client.get("/todo")
-    for item in (*MENU_ITEMS, *DEPRECATED_MENU_ITEMS):
-        assert f'href="{item.href}"' in page.text
-        assert str(to_menu_label(item.label)) in page.text
+    for group in MENU_GROUPS:
+        assert f'id="menu-{group.slug}">{group.title}<' in page.text
+        assert f'<ul class="side-menu-items" aria-labelledby="menu-{group.slug}">' in page.text
+        for item in group.items:
+            assert f'href="{escape(item.href)}"' in page.text
+            assert str(to_menu_label(item.label)) in page.text
+
+
+def test_the_deprecated_group_is_folded_unless_it_holds_the_page(client: TestClient) -> None:
+    assert '<details class="side-menu-fold">' in client.get("/todo").text
+    assert '<details class="side-menu-fold" open>' in client.get("/issues_deprecated").text
+    assert '<details class="side-menu-fold" open>' in client.get("/docs_deprecated/step-2_deprecated").text
+    [deprecated] = [group for group in MENU_GROUPS if group.is_folded]
+    assert holds_page(deprecated, "/docs_deprecated/step-2_deprecated")
+    assert not holds_page(deprecated, "/docs/step-2")
+
+
+def test_a_link_that_leaves_the_site_says_so(client: TestClient) -> None:
+    page = client.get("/")
+    link = f'<a class="side-menu-link" href="{SOURCE_URL}" rel="external noopener">Source on GitHub'
+    assert link in page.text
+    assert '<span class="visually-hidden"> (leaves this site)</span></a>' in page.text
+    assert [item.href for group in MENU_GROUPS for item in group.items if item.is_external] == [SOURCE_URL]
 
 
 def test_a_menu_label_may_break_before_deprecated_and_is_escaped() -> None:
@@ -148,18 +169,27 @@ def test_the_pages_every_step_adds_to_open_and_mark_their_link(client: TestClien
     assert f'href="{doc.path}" aria-current="page"' in page.text
 
 
-def test_the_menu_lists_the_chat_the_documentation_then_the_pages_every_step_adds_to() -> None:
-    assert [item.href for item in MENU_ITEMS] == [
-        "/",
-        "/docs",
-        "/architecture",
-        "/system-design",
-        "/technical-details",
-        "/issues",
-        "/interview",
-        "/todo",
-        "/waiting-on-you",
+def test_the_menu_lists_its_groups_each_with_its_links() -> None:
+    assert [(group.title, [item.href for item in group.items]) for group in MENU_GROUPS[:-1]] == [
+        ("App", ["/"]),
+        ("Observability", ["/activity", "/performance", "/evaluations", "/health"]),
+        ("Learn", ["/docs", "/architecture", "/system-design", "/technical-details", "/interview"]),
+        ("Project", ["/issues", "/todo", "/waiting-on-you"]),
+        ("Links", [SOURCE_URL, "/api/health", "/health#mcp-server"]),
     ]
+    deprecated = MENU_GROUPS[-1]
+    assert (deprecated.title, deprecated.is_folded) == ("Deprecated", True)
+    assert [item.href for item in deprecated.items] == ["/docs_deprecated", *(doc.path for doc in DEPRECATED_PAGES)]
+
+
+def test_each_page_every_step_adds_to_is_in_one_group() -> None:
+    for doc in PAGES:
+        assert sum(doc.path in [item.href for item in group.items] for group in MENU_GROUPS) == 1, doc.slug
+
+
+@pytest.mark.parametrize("href", [item.href for group in MENU_GROUPS for item in group.items if not item.is_external])
+def test_no_link_in_the_menu_is_broken(client: TestClient, href: str) -> None:
+    assert client.get(href.partition("#")[0]).status_code != 404
 
 
 @pytest.mark.parametrize(

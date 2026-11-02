@@ -15,11 +15,13 @@ import httpx2
 import pytest
 import uvicorn
 from playwright.sync_api import BrowserContext
+from pydantic import SecretStr
 
 from nimbus.app import create_app
+from nimbus.axiom_query import AxiomQuery
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
-from tests.fakes import PARIS_STEPS, FakeCacheStore, FakeModel, OpenMeteoRecordings
+from tests.fakes import PARIS_STEPS, AxiomRecordings, FakeCacheStore, FakeModel, OpenMeteoRecordings
 
 STARTUP_SECONDS = 10
 POLL_SECONDS = 0.05
@@ -85,7 +87,8 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
         log_level="warning",
         apify_token=None,
         axiom_token=None,
-        axiom_dataset=None,
+        axiom_dataset="weather-chatbot",
+        axiom_query_token=None,
         sentry_dsn=None,
     )
     app = create_app(settings)
@@ -93,6 +96,10 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
     app.state.chat_model = chat_model
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
     app.state.weather_cache = WeatherCache(cache_store)
+    # And Axiom's query door, played back with its recorded rows, for the Observability pages (step 14).
+    axiom = AxiomRecordings()
+    token = SecretStr("xaat-query-test")
+    app.state.axiom_query = AxiomQuery(token, lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(axiom)))
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)
     # On a selector loop: on Windows, the default loop, the proactor, can lose its listening socket when a browser

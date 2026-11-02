@@ -1,0 +1,68 @@
+{#
+  templates/health.html: Health (step 14): the four checks now, as /api/health finds them, and each lane; how many
+  health runs passed each day, from Axiom; and our MCP server: its address and its tools. A dot never says it alone.
+#}
+{% extends "base.html" %}
+{% from "observability_parts.html" import notice, breakdown %}
+{% block title %}{{ title }} · Nimbus{% endblock %}
+{% block content %}
+<main class="doc obs">
+  <h1>{{ title }}</h1>
+  <p class="obs-lead">Whether each way out works now, how often it did, and how to reach our MCP server. As JSON, for a
+    monitor: <a href="/api/health">/api/health</a>.</p>
+
+  <section class="obs-card" aria-labelledby="now">
+    <h2 id="now">Now: {{ status_words[report.status] }}</h2>
+    <p class="obs-about">Checked at
+      <time datetime="{{ report.checked_at.isoformat() }}">{{ report.checked_at.strftime("%H:%M:%S UTC") }}</time>;
+      a run answers for a minute.</p>
+    <table class="obs-table">
+      <caption class="visually-hidden">Each check, its status and its time</caption>
+      <thead><tr><th scope="col">Check</th><th scope="col">Status</th><th scope="col">Time</th></tr></thead>
+      <tbody>
+        {% for name, result in report.checks.items() %}
+        <tr>
+          <td>{{ check_labels.get(name, name) }}</td>
+          <td><span class="obs-status" data-tone="{{ result.status }}"><span class="obs-dot" aria-hidden="true"></span>
+            {{- status_words[result.status] -}}
+            {%- if result.error_class %}: {{ result.error_class }}{% endif %}</span></td>
+          <td>{% if result.ms is not none %}{{ result.ms }} ms{% else %}not run{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <table class="obs-table">
+      <caption class="visually-hidden">Each lane and its status</caption>
+      <thead><tr><th scope="col">Lane</th><th scope="col">Status</th></tr></thead>
+      <tbody>
+        {% for lane, status in report.lanes.items() %}
+        <tr>
+          <td>{{ lane_labels.get(lane, lane) }}</td>
+          <td><span class="obs-status" data-tone="{{ status }}"><span class="obs-dot" aria-hidden="true"></span>
+            {{- status_words[status] }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if answers.notice %}
+  {{ notice(answers) }}
+  {% else %}
+  {{ breakdown("history", "The last " ~ history_days ~ " days", "Health runs that found every lane working, each day.",
+    days, "No health runs in the last " ~ history_days ~ " days.") }}
+  {% endif %}
+
+  <section class="obs-card" aria-labelledby="mcp-server">
+    <h2 id="mcp-server">Our MCP server</h2>
+    <p class="obs-about">The agent's four weather tools, for any MCP client: streamable HTTP, stateless, JSON answers,
+      no key. The MCP lanes use it too (steps 8 and 9).</p>
+    <p><code class="obs-address">{{ mcp_url }}</code></p>
+    <ul class="obs-tools">
+      {% for tool in mcp_tools %}
+      <li><code>{{ tool.name }}</code>: {{ tool.description }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+</main>
+{% endblock %}

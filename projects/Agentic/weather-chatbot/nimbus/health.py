@@ -94,8 +94,11 @@ async def run_check(name: CheckName, check: Check, failing: dict[CheckName, str]
         return CheckResult("off")
     started = time.perf_counter()
     try:
+        # Each line the check writes names it (step 14): its geocoding skips the cache, and Performance's count of
+        # Open-Meteo's answers from the cache leaves it out.
         async with asyncio.timeout(HEALTH_CHECK_SECONDS):
-            await check()
+            with structlog.contextvars.bound_contextvars(check=name):
+                await check()
     except Exception as error:
         failure = to_failure(error)
         ms = to_ms(time.perf_counter() - started)

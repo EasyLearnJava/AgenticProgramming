@@ -1,0 +1,68 @@
+{#
+  templates/evaluations.html: Evaluations (step 14): the golden questions (step 13), what each answer must do, and how
+  each did in the last run kept in the repository; then, from Axiom over the last 7 days, how live answers ended, and
+  why one was refused, failed or fell back.
+#}
+{% extends "base.html" %}
+{% from "observability_parts.html" import notice, tiles as show_tiles, breakdown %}
+{% block title %}{{ title }} · Nimbus{% endblock %}
+{% block content %}
+<main class="doc obs">
+  <h1>{{ title }}</h1>
+  <p class="obs-lead">Two ways to see whether Nimbus answers well: the golden questions, asked of the live site and
+    graded by rules, and how the visitors' own answers ended.</p>
+
+  <section class="obs-card" aria-labelledby="goldens">
+    <h2 id="goldens">The golden questions</h2>
+    {% if last_run %}
+    <p class="obs-about">The last run: {{ passed }} of {{ last_run.results | length }} passed, answered by build
+      {{ last_run.commit or "unknown" }}, on
+      <time datetime="{{ last_run.ran_at.isoformat() }}">{{ last_run.ran_at.strftime("%d %B %Y, %H:%M UTC") }}</time>.
+      Run them with <code>uv run python -m tools.evals &lt;address&gt; --save</code>.</p>
+    {% else %}
+    <p class="obs-about">No run kept yet:
+      <code>uv run python -m tools.evals &lt;address&gt; --save</code> keeps one.</p>
+    {% endif %}
+    <table class="obs-table">
+      <caption class="visually-hidden">Each golden question, what its answer must do, and how it did</caption>
+      <thead>
+        <tr>
+          <th scope="col">Question</th><th scope="col">Its tool calls</th>
+          <th scope="col" class="obs-col-result">Last run</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for golden, result in goldens %}
+        <tr>
+          <td>{{ golden.question }}
+            <span class="obs-bar-note">(from a browser in {{ golden.locale }})</span></td>
+          <td>
+            {% if golden.expect.tools %}call {{ golden.expect.tools | join(", then ") }}{% endif %}
+            {%- if golden.expect.tools and golden.expect.no_tools %}; {% endif %}
+            {%- if golden.expect.no_tools %}never call {{ golden.expect.no_tools | join(", ") }}{% endif %}
+            {%- if not golden.expect.tools and not golden.expect.no_tools %}answer without a tool{% endif %}
+          </td>
+          <td>
+            {% if result is none %}not run
+            {% elif result.passed %}<span class="obs-pass">passed</span>
+            {% else %}<span class="obs-fail">failed:</span> {{ result.misses | join("; ") }}{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if answers.notice %}
+  {{ notice(answers) }}
+  {% else %}
+  {{ breakdown("endings", "How answers ended", "Each question's end, over the last " ~ days ~ " days.", endings,
+    "No answers in the last " ~ days ~ " days.") }}
+  {{ breakdown("refusals", "Why questions were refused", "The input rule each refusal broke.", refusals,
+    "None refused.") }}
+  {{ breakdown("failures", "Why answers failed", "The error each failure ended with.", failures, "None failed.") }}
+  {{ breakdown("fallbacks", "Why a lane with auth fell back", "Apify's error, before the twin answered.", fallbacks,
+    "None fell back.") }}
+  {% endif %}
+</main>
+{% endblock %}

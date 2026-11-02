@@ -502,3 +502,69 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     until then. **Fix:** it waits for the new question's own turn, as the tests that ask twice already did; the turn
     and its busy answer come in one event, so no answer busy then means the answer ended. **Check:** CI's browser
     suite.
+
+## Step 14 · Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups
+
+81. **The Evaluations page couldn't have imported the golden questions.** *Building step 14.* Their models, and the
+    function that reads `golden.json`, lived in `tools/evals.py`, and `vercel.json` leaves `tools/**` out of the
+    function: a page importing them would have passed every test on a computer and failed to start on Vercel.
+    **Fix:** they moved to `nimbus/goldens.py`, which the evals import too, with the last run's own models.
+    **Check:** the page's tests read the golden questions through the app's own module; mypy finds no import of
+    `tools` under `nimbus/`.
+82. **The evals command on Evaluations was too faint to read.** *Checking our work* (axe, in the browser tests). The
+    command `uv run python -m tools.evals <address> --save` sat in code inside muted words: muted grey on the code's
+    tinted background is 4.39:1, under axe's 4.5:1. **Fix:** code inside the pages' muted words keeps the body's
+    colour. **Check:** the browser suite's axe test of every page.
+83. **The test of `--save` couldn't run the evals twice.** *Checking our work.* Each run opened the app's lifespan,
+    and our MCP server's session manager runs once per instance: the second said "`.run()` can only be called once".
+    **Fix:** both runs, without `--save` and with it, share one lifespan. **Check:** the test, both runs answering.
+84. **A query failing beside others that answered reached Sentry every minute.** *The review* (both reviewers, each by
+    running it). The failures seen on a copy were one set of codes, and any query that answered emptied it: on
+    Performance, a query Axiom refused while the other three answered was "new" each minute, an error each time,
+    one Sentry event a minute on each copy, the quota burn issue 74 fixed for the health check. And two queries
+    failing with the same code would have reached Sentry once between them. **Fix:** each query's failure is kept by
+    its name, as the health check keeps each check's, and dropped when that query answers. **Check:** a test of one
+    query failing, then failing again, answering, and failing once more: an error, a warning, then an error; the
+    mutation check's rule.
+85. **A query naming a field the dataset has never had would have been refused.** *The review* (both reviewers, from
+    Axiom's documentation: `column_ifexists` exists so a query "continues running" when a field is missing). Activity
+    named `fromLane` and `toLane`, which only a fallback writes, and the others `code`, `tool`, `upstream`, the
+    tokens: a young dataset, such as a reader's following the chapter, may have none of them, and Axiom would answer
+    400 for good. `status` is also a number on some lines and words on others. **Fix:** `_time`, `event`, `level`,
+    `status` and `ms`, which every request's own line has, are read as they are; every other field through
+    `column_ifexists` with a default; `status` compared as `tostring(status)`. **Check:** the tests of the queries as
+    sent; the mutation check's rule. Each query is still to be run against the live dataset, once its token is set
+    ([Waiting on you](waiting-on-you.md)).
+86. **The health check's own geocoding counted as fetched.** *The review* (reviewer A). Each health run geocodes
+    Paris with no cache, on purpose, and its `upstream.http` line looked like a tool's: with an uptime monitor every 5
+    minutes, about 2,000 fetches a week would have made the cache's share look near nothing. **Fix:** each line a check
+    writes carries its `check`, and the count of Open-Meteo's answers leaves those out. **Check:** a test that a
+    check's lines name it, and no other line does; the query's test; two mutation rules.
+87. **Activity's "All" would have been mostly health checks.** *The review* (both reviewers). Every page's dots and
+    every uptime ping write a `health.done`, so the latest 50 lines could cover hours with no question in them.
+    **Fix:** "All" leaves them to the Health filter. **Check:** the test of each filter's where clause, written out;
+    the mutation check's rule.
+88. **An unreadable `evals/last-run.json` would have been a 500.** *The review* (reviewer B). A bad merge, say, and the
+    public Evaluations page would have failed. **Fix:** it's read as no run kept, and one `evals.unreadable` line
+    says so. **Check:** a test with a broken file; a test that the file kept in the repository reads.
+89. **Two addresses could have named a preview and its team.** *The review* (reviewer B for the evals' address,
+    reviewer A for the MCP server's). Evaluations printed the address the evals asked, and Health showed our MCP
+    server where the MCP lanes find it, which, asked through any name but the deployment's own, is the deployment's
+    URL. The second round found the address still kept in `evals/last-run.json`, which the public repository keeps.
+    **Fix:** Evaluations names the build that answered, and the run kept has no address; Health shows the production
+    address. **Check:** the tests of both pages, and of the run kept: no address in it.
+90. **Three tests couldn't fail as their names said, and three rules had none.** *The review* (both reviewers). The
+    notice's link was found anywhere on the page, where the menu has it too; the errors filter was compared with
+    itself; a link "never current" could never be; and the query token's wiring was never built from settings, a
+    Health page with a lane down had no test, nor did a failure after a recovery. **Fix:** each has a test that fails
+    without what it checks, the filters written out; the mutation check has 8 more rules, 20 for the step. **Check:**
+    the mutation check: each of them caught. Also from the review: a Health page could show 8 days, "1 tool calls",
+    the Waiting on you page's "about once a minute" (it's each of 11 queries, on each copy), and Axiom's table of
+    totals read as the query's: each fixed.
+91. **A refused token reached Sentry once for each query.** *The review's second round* (both reviewers). With each
+    query's failure kept by its name (issue 84), an expired or refused token was a new failure for each of the 11
+    queries on each copy: up to 11 Sentry events where one says it all. **Fix:** a refused token is one fault, kept by
+    its code whichever query met it, and dropped when any query answers; a refused query stays kept by its name.
+    **Check:** a test of a refused token met by Performance's four queries, then Activity's: one error, then warnings,
+    until a query answers; the mutation check's rule.
+

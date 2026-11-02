@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 880" width="1160" height="880" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
   <title id="t">How Nimbus is built</title>
-  <desc id="d">Your browser loads pages made by Jinja2 and made live by htmx, keeping the conversation in a hidden field. Vercel's edge serves HTTPS, gives each request an id, serves the static files from its CDN with the security headers, applies the firewall's rules once they are set, and sends everything else to the app. The app is one Vercel Function, FastAPI on Python 3.13 in Washington, D.C.: its middleware puts the request's id on every line and the security headers on every response, and sends the lines to Axiom and the errors to Sentry once a request has answered; its routes serve the pages, the chat, our MCP server and the health check; the chat checks the form and streams the turn; the agent, a LangGraph graph, calls Gemini at most five times; the tools reach the weather on the question's lane, through the cache, Open-Meteo, our own MCP server or Apify's Actor. The MCP lanes call our own server back through the edge. Every push is checked by CI and deployed by Vercel, with a tag for each step and Instant Rollback.</desc>
+  <desc id="d">Your browser loads pages made by Jinja2 and made live by htmx, keeping the conversation in a hidden field. Vercel's edge serves HTTPS, gives each request an id, serves the static files from its CDN with the security headers, applies the firewall's rules once they are set, and sends everything else to the app. The app is one Vercel Function, FastAPI on Python 3.13 in Washington, D.C.: its middleware puts the request's id on every line and the security headers on every response, and sends the lines to Axiom and the errors to Sentry once a request has answered; its routes serve the pages, the chat, our MCP server, the health check and the Observability pages, which read the lines back from Axiom with a token that can only query; the chat checks the form and streams the turn; the agent, a LangGraph graph, calls Gemini at most five times; the tools reach the weather on the question's lane, through the cache, Open-Meteo, our own MCP server or Apify's Actor. The MCP lanes call our own server back through the edge. Every push is checked by CI and deployed by Vercel, with a tag for each step and Instant Rollback.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
@@ -30,7 +30,7 @@
   <text x="40" y="432" font-size="13" fill="#1f2937">the CSP allows no inline</text>
   <text x="40" y="450" font-size="13" fill="#1f2937">script or style</text>
   <text x="40" y="476" font-size="13" fill="#1f2937">the documentation:</text>
-  <text x="40" y="494" font-size="13" fill="#1f2937">thirteen chapters and</text>
+  <text x="40" y="494" font-size="13" fill="#1f2937">fourteen chapters and</text>
   <text x="40" y="512" font-size="13" fill="#1f2937">these pages, no script</text>
   <text x="40" y="538" font-size="13" fill="#1f2937">each lane's dot: the page</text>
   <text x="40" y="556" font-size="13" fill="#1f2937">asks /api/health when it</text>
@@ -50,8 +50,8 @@
   <text x="296" y="290" font-size="13" fill="#1f2937">the scripts, the icon, with</text>
   <text x="296" y="308" font-size="13" fill="#1f2937">the security headers</text>
   <text x="296" y="326" font-size="13" fill="#1f2937">(vercel.json)</text>
-  <text x="296" y="352" font-size="13" fill="#1f2937">a 200 from /api/health</text>
-  <text x="296" y="370" font-size="13" fill="#1f2937">kept a minute</text>
+  <text x="296" y="352" font-size="13" fill="#1f2937">/api/health's 200, and an</text>
+  <text x="296" y="370" font-size="13" fill="#1f2937">Observability page: a minute</text>
   <text x="296" y="396" font-size="13" fill="#1f2937">everything else, to the app</text>
   <text x="296" y="422" font-size="13" fill="#1f2937">the function's log lines,</text>
   <text x="296" y="440" font-size="13" fill="#1f2937">kept an hour on Hobby</text>
@@ -76,7 +76,7 @@
   <rect x="552" y="226" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
   <text x="566" y="248" font-size="14" font-weight="700" fill="#053b30">Routes</text>
   <text x="566" y="266" font-size="13" fill="#1f2937">the pages and the docs · POST /api/chat</text>
-  <text x="566" y="283" font-size="13" fill="#1f2937">/api/mcp · GET /api/health</text>
+  <text x="566" y="283" font-size="13" fill="#1f2937">/api/mcp · /api/health · 4 Observability pages</text>
 
   <rect x="552" y="298" width="368" height="64" rx="10" fill="#fcfffe" stroke="#0f766e"/>
   <text x="566" y="320" font-size="14" font-weight="700" fill="#053b30">The chat</text>
@@ -122,8 +122,8 @@
   <text x="972" y="404" font-size="13" fill="#1f2937">keys hashed</text>
   <rect x="958" y="424" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
   <text x="972" y="448" font-size="14" font-weight="700" fill="#7c2d12">Axiom</text>
-  <text x="972" y="468" font-size="13" fill="#1f2937">every line, kept</text>
-  <text x="972" y="486" font-size="13" fill="#1f2937">and searched</text>
+  <text x="972" y="468" font-size="13" fill="#1f2937">every line, kept; read</text>
+  <text x="972" y="486" font-size="13" fill="#1f2937">back, a query token</text>
   <rect x="958" y="506" width="178" height="74" rx="10" fill="#fff7ed" stroke="#b45309"/>
   <text x="972" y="530" font-size="14" font-weight="700" fill="#7c2d12">Sentry</text>
   <text x="972" y="550" font-size="13" fill="#1f2937">every error: its class,</text>

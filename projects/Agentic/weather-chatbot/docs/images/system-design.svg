@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1160" width="1160" height="1160" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
-  <title id="t">How Nimbus is built after step 12</title>
-  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages, the docs and their pictures, the health check or our MCP server, which offers the same four weather tools to any MCP client, with no session; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, on the lane the question took: on REST · no auth they call Open-Meteo with no key, on MCP · no auth our own MCP server, at an address of this deployment's own; on the lanes with auth, the forecast through Apify's Actor, behind its token, falling back to the twin; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: no database, only log lines kept, settings read only by config.py, the docs as Markdown and the static files on the CDN, and Open-Meteo's answers in Vercel's Runtime Cache, each key our namespace and a SHA-256, each kind for its own time. D, production operations: JSON log lines in Vercel's logs, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI.</desc>
+  <title id="t">How Nimbus is built after step 14</title>
+  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages (from step 14, the Observability pages too, read back from Axiom), the docs and their pictures, the health check or our MCP server, which offers the same four weather tools to any MCP client, with no session; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, on the lane the question took: on REST · no auth they call Open-Meteo with no key, on MCP · no auth our own MCP server, at an address of this deployment's own; on the lanes with auth, the forecast through Apify's Actor, behind its token, falling back to the twin; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: no database, only log lines kept, settings read only by config.py, the docs as Markdown and the static files on the CDN, and Open-Meteo's answers in Vercel's Runtime Cache, each key our namespace and a SHA-256, each kind for its own time. D, production operations: JSON log lines in Vercel's logs and Axiom, read back on the Observability pages, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
@@ -100,9 +100,9 @@
 
   <rect x="250" y="498" width="208" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
   <text x="266" y="524" font-size="15" font-weight="700" fill="#053b30">Pages</text>
-  <text x="266" y="548" font-size="13" fill="#374151">pages.py · Jinja2</text>
-  <text x="266" y="566" font-size="13" fill="#374151">the chat's page, the lists,</text>
-  <text x="266" y="584" font-size="13" fill="#374151">the 404 page · escaping on</text>
+  <text x="266" y="548" font-size="13" fill="#374151">pages.py · observability.py</text>
+  <text x="266" y="566" font-size="13" fill="#374151">the chat, the lists, the 404,</text>
+  <text x="266" y="584" font-size="13" fill="#374151">4 pages read from Axiom</text>
 
   <rect x="476" y="498" width="208" height="104" rx="10" fill="#fcfcfc" stroke="#7c3aed" stroke-width="1.5"/>
   <text x="492" y="524" font-size="15" font-weight="700" fill="#053b30">Docs</text>
@@ -186,9 +186,9 @@
 
   <rect x="24" y="996" width="270" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
   <text x="40" y="1022" font-size="15" font-weight="700" fill="#053b30">Observability</text>
-  <text x="40" y="1046" font-size="13" fill="#374151">JSON lines → Vercel's logs, Axiom</text>
-  <text x="40" y="1064" font-size="13" fill="#374151">errors → Sentry · /api/health</text>
-  <text x="40" y="1082" font-size="13" fill="#374151">LangSmith: each run, words hidden</text>
+  <text x="40" y="1046" font-size="13" fill="#374151">JSON lines → Vercel's logs, Axiom,</text>
+  <text x="40" y="1064" font-size="13" fill="#374151">read back on 4 pages · Sentry</text>
+  <text x="40" y="1082" font-size="13" fill="#374151">/api/health · LangSmith, hidden</text>
 
   <rect x="310" y="996" width="270" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
   <text x="326" y="1022" font-size="15" font-weight="700" fill="#053b30">Evaluation</text>

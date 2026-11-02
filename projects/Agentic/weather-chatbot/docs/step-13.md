@@ -250,5 +250,6 @@ Each run is an experiment beside the last, named for its build, so a regression 
 
 ## What's next
 
-The rebuild is complete: thirteen steps, each live and checked. What's left is yours to set
-([Waiting on you](waiting-on-you.md)), and what could come next is on [To do](todo.md).
+The rebuild is complete: thirteen steps, each live and checked. Step 14 reads the app's own lines back, onto
+four Observability pages, and groups the menu. What's left is yours to set ([Waiting on you](waiting-on-you.md)), and
+what could come next is on [To do](todo.md).

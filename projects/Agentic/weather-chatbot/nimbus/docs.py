@@ -157,6 +157,15 @@ CHAPTERS: tuple[DocPage, ...] = (
             "roll back; the Technical details page; the TypeScript backup tag deleted."
         ),
     ),
+    DocPage(
+        slug="step-14",
+        path="/docs/step-14",
+        label="Step 14: Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups",
+        summary=(
+            "The app's own lines read back from Axiom with a token that can only query, onto four pages anyone can "
+            "open, nothing private on them; each query once a minute; and the menu's links in groups."
+        ),
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="architecture", path="/architecture", label="Architecture and design"),

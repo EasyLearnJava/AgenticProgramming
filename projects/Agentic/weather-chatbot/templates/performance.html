@@ -1,0 +1,30 @@
+{#
+  templates/performance.html: Performance (step 14): over the last 7 days, how long answers took (p50, p95, p99), the
+  tool calls and tokens an answer; each tool's time and each lane's; the questions on each lane; and Open-Meteo's
+  answers, from our cache or fetched.
+#}
+{% extends "base.html" %}
+{% from "observability_parts.html" import notice, tiles as show_tiles, breakdown %}
+{% block title %}{{ title }} · Nimbus{% endblock %}
+{% block content %}
+<main class="doc obs">
+  <h1>{{ title }}</h1>
+  <p class="obs-lead">How long answers and their tools took, over the last {{ days }} days, from the app's lines in
+    Axiom. An answer's time runs from its question to its last word.</p>
+  {% if answers.notice %}
+  {{ notice(answers) }}
+  {% else %}
+  {{ show_tiles(tiles) }}
+  {{ breakdown("tools", "Each tool", "Its average time, its slowest, and how many calls failed.", tools,
+    "No tool calls in the last " ~ days ~ " days.") }}
+  {{ breakdown("lanes", "Each lane's tool calls",
+    "The same, by the lane that answered: a forecast that fell back counts on its twin.",
+    lanes, "No tool calls in the last " ~ days ~ " days.") }}
+  {{ breakdown("questions", "Questions on each lane", "The lane each question was asked on.", questions,
+    "No questions in the last " ~ days ~ " days.") }}
+  {{ breakdown("weather", "Open-Meteo's answers",
+    "From our cache, or asked of Open-Meteo, as each tool needed them; never the health check's own.",
+    weather, "No weather asked for in the last " ~ days ~ " days.") }}
+  {% endif %}
+</main>
+{% endblock %}

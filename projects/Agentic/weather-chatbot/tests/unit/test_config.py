@@ -76,3 +76,11 @@ def test_reads_axiom_s_and_sentry_s_settings(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.axiom_dataset == "weather-chatbot"
     assert settings.sentry_dsn is not None
     assert "test-axiom-token-5150" not in repr(settings)
+
+
+def test_reads_the_observability_pages_query_token_and_never_shows_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AXIOM_QUERY_TOKEN", "xaat-query-token-5150")
+    settings = Settings(_env_file=None)
+    assert settings.axiom_query_token is not None
+    assert settings.axiom_query_token.get_secret_value() == "xaat-query-token-5150"
+    assert "xaat-query-token-5150" not in repr(settings)

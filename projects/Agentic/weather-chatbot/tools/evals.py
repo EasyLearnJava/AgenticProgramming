@@ -3,55 +3,36 @@ tools/evals.py: the golden questions (step 13), asked of a running Nimbus, each 
 called, and what its words say or never say. A question is asked as the page asks it, with the browser's language and
 time zone, on a lane; its tools are read from the chips, its words from the finished answer. With --langsmith, and
 LangSmith's key in your settings, the questions are kept in LangSmith as the dataset nimbus-golden, and the run as an
-experiment named for the commit that answered, each question's grade beside it. From the project's folder, in bash:
+experiment named for the commit that answered, each question's grade beside it. With --save, the run is kept in
+evals/last-run.json, which the Evaluations page shows (step 14). From the project's folder, in bash:
 
-    uv run python -m tools.evals https://weather-chatbot-hazel.vercel.app
+    uv run python -m tools.evals https://weather-chatbot-hazel.vercel.app --save
     uv run python -m tools.evals http://127.0.0.1:8000 --langsmith
 """
 
 import asyncio
 import html
-import json
 import re
 import sys
 import urllib.parse
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
 import httpx2
-from pydantic import BaseModel, Field
 
 from nimbus.config import Settings
-from nimbus.constants import PROJECT_ROOT
+from nimbus.constants import LAST_RUN_FILE
+from nimbus.goldens import Golden, GoldenResult, LastRun, read_goldens
 
-GOLDEN_FILE: Final = PROJECT_ROOT / "evals" / "golden.json"
 DATASET: Final = "nimbus-golden"
 # Gemini's free tier takes 15 requests a minute: an answer is up to three calls, so the questions wait between them.
 PAUSE_SECONDS: Final = 8
 ANSWER_SECONDS: Final = 90
-USAGE = "usage: uv run python -m tools.evals <the app's address> [--langsmith]"
-
-
-class Expect(BaseModel):
-    """What a golden answer must do: tools it calls, in order among its calls; tools it never calls; words it says."""
-
-    tools: list[str] = Field(default_factory=list)
-    no_tools: list[str] = Field(default_factory=list)
-    says: list[str] = Field(default_factory=list)
-    never_says: list[str] = Field(default_factory=list)
-
-
-class Golden(BaseModel):
-    """One golden question: its id, its words, the browser's language and time zone, the lane, and what's expected."""
-
-    id: str
-    question: str
-    locale: str = "en-US"
-    time_zone: str = "America/Chicago"
-    lane: str = "rest-no-auth"
-    expect: Expect
+USAGE = "usage: uv run python -m tools.evals <the app's address> [--langsmith] [--save]"
+FLAGS: Final = frozenset({"--langsmith", "--save"})
 
 
 @dataclass(frozen=True)
@@ -62,11 +43,6 @@ class Answer:
     text: str
     failed: bool
     request_id: str
-
-
-def read_goldens(path: Path = GOLDEN_FILE) -> list[Golden]:
-    """The golden questions, checked as they're read."""
-    return [Golden.model_validate(item) for item in json.loads(path.read_text(encoding="utf-8"))]
 
 
 def to_text(fragment: str) -> str:
@@ -154,6 +130,20 @@ def to_report(graded: Sequence[Graded]) -> list[str]:
     return lines
 
 
+def to_last_run(graded: Sequence[Graded], commit: str | None, ran_at: datetime) -> LastRun:
+    """The run, as evals/last-run.json keeps it: the build that answered, when, and each result."""
+    results = [
+        GoldenResult(id=item.golden.id, passed=not item.misses, tools=item.answer.tools, misses=item.misses)
+        for item in graded
+    ]
+    return LastRun(commit=commit, ran_at=ran_at, results=results)
+
+
+def save_last_run(last_run: LastRun, path: Path = LAST_RUN_FILE) -> None:
+    """Keeps the run in its file, as indented JSON with LF line endings, for git and the Evaluations page."""
+    path.write_text(last_run.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
+
+
 def to_examples(goldens: Sequence[Golden]) -> list[dict[str, Any]]:
     """The golden questions as LangSmith's examples: what's asked, with its id, and what's expected."""
     return [
@@ -203,10 +193,18 @@ def keep_in_langsmith(
     evaluate(answered, data=DATASET, evaluators=[passed], experiment_prefix=f"nimbus-{commit}", client=client)
 
 
-async def run(base: str, settings: Settings, *, langsmith: bool, make_client: Callable[[], httpx2.AsyncClient]) -> int:
+async def run(
+    base: str,
+    settings: Settings,
+    *,
+    langsmith: bool,
+    make_client: Callable[[], httpx2.AsyncClient],
+    save: Callable[[LastRun], None] | None = None,
+) -> int:
     """
-    Asks every golden question, prints how each went, and keeps the run in LangSmith if asked: 0 when every answer
-    passed, 1 when one didn't, 2 when LangSmith is asked for without its key, before any question is asked.
+    Asks every golden question, prints how each went, keeps the run in LangSmith if asked, and in its file if a save
+    is given: 0 when every answer passed, 1 when one didn't, 2 when LangSmith is asked for without its key, before any
+    question is asked.
     """
     if langsmith and settings.langsmith_api_key is None:
         print("--langsmith needs LANGSMITH_API_KEY in your environment or .env.local")
@@ -219,6 +217,9 @@ async def run(base: str, settings: Settings, *, langsmith: bool, make_client: Ca
         )
     print(f"{base}, build {health.get('commit')}:")
     print("\n".join(to_report(graded)))
+    if save is not None:
+        save(to_last_run(graded, health.get("commit"), datetime.now(UTC)))
+        print("kept in evals/last-run.json")
     if langsmith and settings.langsmith_api_key is not None:
         from langsmith import Client
 
@@ -229,17 +230,17 @@ async def run(base: str, settings: Settings, *, langsmith: bool, make_client: Ca
 
 
 def main() -> int:
-    """The app's address, from the command line; then --langsmith, if given."""
+    """The app's address, from the command line; then --langsmith and --save, if given."""
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
-    arguments = sys.argv[1:]
-    langsmith = arguments[-1:] == ["--langsmith"]
-    if langsmith:
-        arguments = arguments[:-1]
+    flags = {argument for argument in sys.argv[1:] if argument in FLAGS}
+    arguments = [argument for argument in sys.argv[1:] if argument not in FLAGS]
     if len(arguments) != 1:
         print(USAGE)
         return 2
     client = lambda: httpx2.AsyncClient(timeout=ANSWER_SECONDS)  # noqa: E731 - one line, read once
-    return asyncio.run(run(arguments[0].rstrip("/"), Settings(), langsmith=langsmith, make_client=client))
+    save = save_last_run if "--save" in flags else None
+    base = arguments[0].rstrip("/")
+    return asyncio.run(run(base, Settings(), langsmith="--langsmith" in flags, make_client=client, save=save))
 
 
 if __name__ == "__main__":

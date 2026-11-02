@@ -1,0 +1,41 @@
+{#
+  templates/activity.html: Activity (step 14): the latest 50 lines of a filter, the latest first, by day, each in
+  words: what happened, how long it took, and how it went; times in UTC. The filters are links, the current one marked.
+#}
+{% extends "base.html" %}
+{% from "observability_parts.html" import notice %}
+{% block title %}{{ title }} · Nimbus{% endblock %}
+{% block content %}
+<main class="doc obs">
+  <h1>{{ title }}</h1>
+  <p class="obs-lead">The app's latest lines in Axiom, from the last 7 days: questions, how each answer ended, each tool
+    call and each fallback; the health checks under Health. Never a question's words, or who asked. Times in UTC.</p>
+  <nav class="obs-tabs" aria-label="Filters">
+    {% for name, label in tabs %}
+    <a class="obs-tab" href="/activity{% if name != 'all' %}?show={{ name }}{% endif %}"
+      {%- if name == show %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if answers.notice %}
+  {{ notice(answers) }}
+  {% elif not days %}
+  <p class="obs-empty">No lines in the last 7 days.</p>
+  {% else %}
+  {% for day, lines in days %}
+  <section class="obs-card" aria-labelledby="day-{{ loop.index }}">
+    <h2 id="day-{{ loop.index }}">{{ day }}</h2>
+    <ul class="obs-lines">
+      {% for line in lines %}
+      <li class="obs-line" data-tone="{{ line.tone }}">
+        <span class="obs-dot" aria-hidden="true"></span>
+        <span class="obs-line-what">{{ line.what }}</span>
+        <span class="obs-line-detail">{{ line.detail }}</span>
+        <time class="obs-line-time" datetime="{{ line.at.isoformat() }}">{{ line.at.strftime("%H:%M:%S") }}</time>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+  {% endif %}
+</main>
+{% endblock %}

@@ -744,3 +744,236 @@ body {
   color: var(--warn);
   font-size: 0.8rem;
 }
+
+/* The menu's groups (step 14): a heading over each, and the TypeScript app's pages folded, a click to open. */
+.side-menu-fold {
+  margin: 0;
+}
+
+.side-menu-fold > summary {
+  cursor: pointer;
+}
+
+.side-menu-fold > .side-menu-items {
+  margin-top: 4px;
+}
+
+/* The Observability pages (step 14): wider than a chapter, a row of numbers, cards of breakdowns, each line a
+ * meter the browser draws, its words beside it. */
+.obs {
+  max-width: 980px;
+}
+
+.obs-lead,
+.obs-about,
+.obs-empty {
+  color: var(--muted);
+}
+
+.obs-about {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+}
+
+/* Code in muted words keeps the body's colour: muted on the code's own background is too faint to read. */
+.obs-about code,
+.obs-empty code {
+  color: var(--user-text);
+}
+
+.obs-notice {
+  margin: 16px 0;
+  padding: 10px 14px;
+  border-left: 4px solid var(--warn);
+  border-radius: 8px;
+  background: var(--code-bg);
+}
+
+.obs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.obs-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.obs-tab[aria-current] {
+  background: var(--bg-mid);
+  color: var(--bot-text);
+  font-weight: 600;
+}
+
+.obs-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.obs-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.obs-tile-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.obs-tile-value {
+  color: var(--bot-text);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.obs-tile-note,
+.obs-bar-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.obs-card {
+  margin: 16px 0;
+  padding: 4px 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.obs-card h2 {
+  margin-top: 12px;
+}
+
+.obs-bars,
+.obs-lines,
+.obs-tools {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.obs-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 6px 0;
+}
+
+.obs-bar-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.obs-meter,
+.obs-bar-note {
+  grid-column: 1 / -1;
+}
+
+.obs-meter {
+  width: 100%;
+  height: 8px;
+}
+
+.obs-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 10rem) minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.obs-line:first-child {
+  border-top: 0;
+}
+
+.obs-line-what {
+  font-weight: 600;
+}
+
+.obs-line-detail,
+.obs-line-time {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.obs-line-time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A line's dot, and a status's: the words beside it say how it went, never the colour alone. */
+.obs-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+[data-tone="ok"] > .obs-dot {
+  background: #15803d;
+}
+
+[data-tone="warn"] > .obs-dot {
+  background: var(--warn);
+}
+
+[data-tone="bad"] > .obs-dot,
+[data-tone="down"] > .obs-dot {
+  background: #b91c1c;
+}
+
+.obs-table {
+  margin-bottom: 16px;
+}
+
+.obs-col-result {
+  width: 9rem;
+}
+
+.obs-pass {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.obs-fail {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.obs-tools li {
+  margin: 0 0 8px;
+}
+
+@media (max-width: 720px) {
+  .side-menu-fold {
+    flex-basis: 100%;
+  }
+
+  .obs-line {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .obs-line-time {
+    grid-row: 1;
+    grid-column: 3;
+  }
+
+  .obs-line-detail {
+    grid-column: 2 / -1;
+  }
+}

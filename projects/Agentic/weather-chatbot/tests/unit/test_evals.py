@@ -1,11 +1,14 @@
 """
 tests/unit/test_evals.py: the golden questions (step 13): read and checked; an answer read from the stream as the app
 sends it, its tools and its words; each rule of the grading; the questions asked one at a time, a pause between two;
-the report; LangSmith's examples, and the run kept there with nothing asked twice; --langsmith without its key.
+the report; LangSmith's examples, and the run kept there with nothing asked twice; --langsmith without its key; and
+(step 14) a run kept in its file with --save, as the Evaluations page reads it.
 """
 
 import asyncio
 from collections.abc import Callable, Iterator, Sequence
+from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -15,20 +18,20 @@ import pytest
 from nimbus.app import create_app
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
+from nimbus.goldens import Expect, Golden, LastRun, read_goldens, read_last_run
 from tests.fakes import ANSWER, PARIS_STEPS, FakeCacheStore, FakeModel, OpenMeteoRecordings
 from tools.evals import (
     DATASET,
     Answer,
-    Expect,
-    Golden,
     Graded,
     ask,
     grade,
     keep_in_langsmith,
-    read_goldens,
     run,
     run_goldens,
+    save_last_run,
     to_examples,
+    to_last_run,
     to_report,
 )
 
@@ -203,3 +206,53 @@ def test_langsmith_without_its_key_is_refused_before_any_question_is_asked(capsy
     result = asyncio.run(run("http://testserver", Settings(_env_file=None), langsmith=True, make_client=never))
     assert result == 2
     assert "LANGSMITH_API_KEY" in capsys.readouterr().out
+
+
+def test_a_run_is_kept_as_the_evaluations_page_reads_it(tmp_path: Path) -> None:
+    graded = [
+        Graded(PARIS, answered(["geocode_location", "get_forecast"], "Rain in Paris."), []),
+        Graded(Golden(id="far", question="q", expect=Expect()), answered([]), ["doesn't say /16 days/"]),
+    ]
+    ran_at = datetime(2026, 11, 1, 15, 4, 5, tzinfo=UTC)
+    kept = tmp_path / "last-run.json"
+    save_last_run(to_last_run(graded, "4785bc7", ran_at), kept)
+    assert b"\r\n" not in kept.read_bytes()
+    last_run = read_last_run(kept)
+    assert last_run is not None
+    assert (last_run.commit, last_run.ran_at) == ("4785bc7", ran_at)
+    assert "http" not in kept.read_text(encoding="utf-8")
+    assert [(result.id, result.passed, result.tools, result.misses) for result in last_run.results] == [
+        ("rain", True, ["geocode_location", "get_forecast"], []),
+        ("far", False, [], ["doesn't say /16 days/"]),
+    ]
+
+
+def test_no_run_kept_reads_as_none(tmp_path: Path) -> None:
+    assert read_last_run(tmp_path / "last-run.json") is None
+
+
+def test_save_keeps_the_run_it_asked_and_only_with_save(
+    settings: Settings, chat_model: FakeModel, open_meteo: OpenMeteoRecordings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = create_app(settings)
+    chat_model.tool_steps = PARIS_STEPS
+    app.state.chat_model = chat_model
+    app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
+    app.state.weather_cache = WeatherCache(FakeCacheStore())
+    app.state.make_mcp_http_client = lambda: httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app))
+    monkeypatch.setattr("tools.evals.read_goldens", lambda: [PARIS])
+    kept: list[LastRun] = []
+
+    async def go() -> list[int]:
+        # Without --save, then with it: one app, whose MCP server's session manager runs once.
+        async with app.router.lifespan_context(app):
+            make = lambda: httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app))  # noqa: E731
+            unsaved = await run("http://testserver", settings, langsmith=False, make_client=make)
+            assert kept == []
+            saved = await run("http://testserver", settings, langsmith=False, make_client=make, save=kept.append)
+            return [unsaved, saved]
+
+    assert asyncio.run(go()) == [0, 0]
+    [last_run] = kept
+    assert last_run.commit == "c7165ac"
+    assert [(result.id, result.passed) for result in last_run.results] == [("rain", True)]

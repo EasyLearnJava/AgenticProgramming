@@ -1,8 +1,9 @@
 """
 nimbus/pages.py: the app's pages: the chat (whose answers nimbus/chat.py streams), the documentation, the system
 design, the issues log, the interview guide and the to-do list, and the TypeScript app's pages, kept as *_deprecated.
-Each is a Jinja2 template rendered on the server, inside the shell with the menu on the left (templates/base.html);
-Jinja2 escapes every value put into a page but two marked safe: a doc's rendered Markdown and a menu label's <wbr>.
+Each is a Jinja2 template rendered on the server, inside the shell with the menu on the left (templates/base.html),
+its links in groups (step 14); the Observability pages are nimbus/observability.py's. Jinja2 escapes every value put
+into a page but two marked safe: a doc's rendered Markdown and a menu label's <wbr>.
 """
 
 from collections.abc import Mapping
@@ -25,6 +26,7 @@ from nimbus.constants import (
     HISTORY_MAX_MESSAGES,
     MCP_PATH,
     QUESTION_MAX_CHARS,
+    SOURCE_URL,
     TEMPLATES_DIR,
 )
 from nimbus.docs import (
@@ -49,10 +51,25 @@ API_PREFIX = "/api/"
 
 @dataclass(frozen=True)
 class MenuItem:
-    """A link in the left menu."""
+    """A link in the left menu: where it goes, its words, and whether it leaves the site (step 14)."""
 
     href: str
     label: str
+    is_external: bool = False
+
+
+@dataclass(frozen=True)
+class MenuGroup:
+    """A group of the menu's links, under its heading; a folded one stays shut unless its links hold the page."""
+
+    title: str
+    items: tuple[MenuItem, ...]
+    is_folded: bool = False
+
+    @property
+    def slug(self) -> str:
+        """The heading's id in the page: its title in lower case."""
+        return self.title.lower()
 
 
 @dataclass(frozen=True)
@@ -64,16 +81,45 @@ class ListEntry:
     summary: str = ""
 
 
-# ① The menu: the chat, the documentation and the pages every step adds to, then the TypeScript app's pages, each
-# renamed *_deprecated. Both lists come from the docs' registry, so a page can't be in one and not the other.
-MENU_ITEMS: tuple[MenuItem, ...] = (
-    MenuItem("/", "Chat"),
-    MenuItem("/docs", "Documentation"),
-    *(MenuItem(doc.path, doc.label) for doc in PAGES),
-)
-DEPRECATED_MENU_ITEMS: tuple[MenuItem, ...] = (
-    MenuItem("/docs_deprecated", "Documentation_deprecated"),
-    *(MenuItem(doc.path, doc.label) for doc in DEPRECATED_PAGES),
+# ① The menu, in groups (step 14): the chat; the Observability pages; the pages to learn from; the project's own;
+# links for a developer; and the TypeScript app's pages, each renamed *_deprecated, folded. The pages every step adds
+# to come from the docs' registry, by their slugs; a test checks each is in one group.
+DOC_ITEMS: dict[str, MenuItem] = {doc.slug: MenuItem(doc.path, doc.label) for doc in PAGES}
+MENU_GROUPS: tuple[MenuGroup, ...] = (
+    MenuGroup("App", (MenuItem("/", "Chat"),)),
+    MenuGroup(
+        "Observability",
+        (
+            MenuItem("/activity", "Activity"),
+            MenuItem("/performance", "Performance"),
+            MenuItem("/evaluations", "Evaluations"),
+            MenuItem("/health", "Health"),
+        ),
+    ),
+    MenuGroup(
+        "Learn",
+        (
+            MenuItem("/docs", "Documentation"),
+            *(DOC_ITEMS[slug] for slug in ("architecture", "system-design", "technical-details", "interview")),
+        ),
+    ),
+    MenuGroup("Project", tuple(DOC_ITEMS[slug] for slug in ("issues", "todo", "waiting-on-you"))),
+    MenuGroup(
+        "Links",
+        (
+            MenuItem(SOURCE_URL, "Source on GitHub", is_external=True),
+            MenuItem("/api/health", "Health check (JSON)"),
+            MenuItem("/health#mcp-server", "MCP server"),
+        ),
+    ),
+    MenuGroup(
+        "Deprecated",
+        (
+            MenuItem("/docs_deprecated", "Documentation_deprecated"),
+            *(MenuItem(doc.path, doc.label) for doc in DEPRECATED_PAGES),
+        ),
+        is_folded=True,
+    ),
 )
 
 
@@ -86,22 +132,26 @@ def to_aria_current(path: str, href: str) -> str | None:
     return None
 
 
+def holds_page(group: MenuGroup, path: str) -> bool:
+    """Whether one of the group's links is the page at the address, or a section it's in: a folded group opens then."""
+    return any(to_aria_current(path, item.href) is not None for item in group.items)
+
+
 def to_menu_label(label: str) -> Markup:
     """A menu label, escaped, that may break before "_deprecated": "Documentation_deprecated" is wider than the menu."""
     return escape(label).replace("_deprecated", Markup("<wbr>_deprecated"))
 
 
-# ② The templates, with what every page's shell needs: the menu, how to mark its current link, and its labels.
+# ② The templates, with what every page's shell needs: the menu's groups, how to mark its current link, whether a
+# group holds the page, and its labels.
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
-templates.env.globals.update(
-    menu_items=MENU_ITEMS, deprecated_menu_items=DEPRECATED_MENU_ITEMS, to_aria_current=to_aria_current
-)
+templates.env.globals.update(menu_groups=MENU_GROUPS, to_aria_current=to_aria_current, holds_page=holds_page)
 templates.env.filters["menu_label"] = to_menu_label
 
 router = APIRouter()
 
 
-def _render(request: Request, template: str, context: Mapping[str, object], status_code: int = 200) -> HTMLResponse:
+def render_page(request: Request, template: str, context: Mapping[str, object], status_code: int = 200) -> HTMLResponse:
     """A page: its template, with the build's label for the menu's last line."""
     settings: Settings = request.app.state.settings
     return templates.TemplateResponse(
@@ -116,7 +166,7 @@ def _render_doc(request: Request) -> HTMLResponse:
         raise HTTPException(status_code=HTTP_NOT_FOUND)
     markdown = read_markdown(doc.slug)
     context = {"title": title_of(markdown), "html": render_markdown(markdown), "is_deprecated": doc.is_deprecated}
-    return _render(request, "doc.html", context)
+    return render_page(request, "doc.html", context)
 
 
 # ③ The chat and the lists of pages.
@@ -142,7 +192,7 @@ def chat_page(request: Request) -> HTMLResponse:
         "default_lane": REST_NO_AUTH.id,
         "compare": to_compare_cells(request),
     }
-    return _render(request, "chat.html", context)
+    return render_page(request, "chat.html", context)
 
 
 @dataclass(frozen=True)
@@ -199,7 +249,7 @@ def docs_index(request: Request) -> HTMLResponse:
         "One chapter per step of the Python rebuild, written as the step is built: what it adds, the design, the code "
         "that matters, how to run and check it, the pitfalls, the issues we hit, and interview questions."
     )
-    return _render(request, "docs_index.html", {"title": "Documentation", "intro": intro, "entries": entries})
+    return render_page(request, "docs_index.html", {"title": "Documentation", "intro": intro, "entries": entries})
 
 
 @router.get("/docs_deprecated", response_class=HTMLResponse)
@@ -208,7 +258,7 @@ def deprecated_docs_index(request: Request) -> HTMLResponse:
     entries = [ListEntry(doc.path, title_of(read_markdown(doc.slug))) for doc in DEPRECATED_STEPS]
     intro = "The pages of Nimbus's first version, built in TypeScript in nine steps, kept for reference."
     context = {"title": "Documentation_deprecated", "intro": intro, "entries": entries}
-    return _render(request, "docs_index.html", context)
+    return render_page(request, "docs_index.html", context)
 
 
 # ④ The documentation pages, each found by its address: a chapter, the four pages every step adds to, and the
@@ -279,5 +329,5 @@ async def http_error_response(request: Request, error: Exception) -> Response:
     if not isinstance(error, StarletteHTTPException):
         raise error
     if error.status_code == HTTP_NOT_FOUND and not request.url.path.startswith(API_PREFIX):
-        return _render(request, "not_found.html", {}, status_code=HTTP_NOT_FOUND)
+        return render_page(request, "not_found.html", {}, status_code=HTTP_NOT_FOUND)
     return await http_exception_handler(request, error)

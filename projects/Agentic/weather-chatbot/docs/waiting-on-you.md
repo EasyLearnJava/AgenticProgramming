@@ -60,3 +60,22 @@ They live in your Axiom, Sentry and uptime accounts. Step 12's chapter has each 
    Without the key, the tool says so before it asks anything.
 2. **A rollback, once.** In Vercel, roll production back to the deployment before the current one, as step 13's
    chapter says; check the site; then undo the rollback, so new pushes go live again.
+
+## 6. Axiom: a token that can only query, for the Observability pages (step 14)
+
+Activity, Performance, Evaluations and Health's history read the app's lines back from Axiom. Until this is set, each
+says "This deployment can't read Axiom yet", and Health still shows the checks now. The token the app already has
+can only ingest, and stays as it is.
+
+1. **The token.** In Axiom, **Settings → API tokens → New API token**, an **advanced** one: dataset access to
+   `weather-chatbot` only, with **query** and nothing else; an expiry, a year at most; and, if your plan offers them,
+   an hourly and a daily cap on its query cost. Size the caps on the pages' 11 queries: each copy of the app runs each
+   at most once a minute, while someone opens its page, and Vercel may run a few copies at once; a cap that's reached
+   makes every page say Axiom didn't answer until it resets. Copy the token once: Axiom won't show it again. A
+   personal token won't do: Axiom's edge takes API tokens only.
+2. **The variable.** In Vercel, the project's **Settings → Environment Variables**: `AXIOM_QUERY_TOKEN`, for
+   Production, **Sensitive**. Then **Deployments**, the latest production one, **Redeploy**: a deployment keeps the
+   variables it was built with.
+3. **Check it.** Open https://weather-chatbot-hazel.vercel.app/performance: numbers, not the notice. The app's start
+   line in Vercel's logs says `"axiomQuery": true`. When the token expires, the pages say Axiom didn't answer, and
+   Sentry hears of it once on each copy of the app: make a new one, and change the variable.

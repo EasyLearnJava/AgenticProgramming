@@ -1,7 +1,7 @@
 """
-nimbus/app.py: builds the app: its settings and logging, the pages, the chat and the health check, our MCP server,
-the files served beside them, and the middleware every request goes through. main.py calls create_app() once, when the
-server starts.
+nimbus/app.py: builds the app: its settings and logging, the pages, the chat and the health check, the
+Observability pages, our MCP server, the files served beside them, and the middleware every request goes through.
+main.py calls create_app() once, when the server starts.
 """
 
 from collections.abc import AsyncIterator
@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from nimbus import chat, health, pages
+from nimbus import chat, health, observability, pages
 from nimbus.answer import make_http_client
 from nimbus.apify import make_apify_http_client
 from nimbus.axiom import make_log_shipper
@@ -64,18 +64,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # that's failing on this copy, so it reaches Sentry once.
     app.state.health_runs = {}
     app.state.health_failures = {}
+    # And the Observability pages' way to ask Axiom (step 14), when its query token is set: each query's run, answering
+    # for a minute on this copy, and each query's failure seen here, so each reaches Sentry once.
+    app.state.axiom_query = observability.make_axiom_query(settings)
+    app.state.observability_runs = {}
+    app.state.observability_failures = {}
     structlog.get_logger().info(
         "app.started",
         model=settings.gemini_model,
         modelSetUp=app.state.chat_model is not None,
         tracing=app.state.tracer is not None,
         axiom=log_shipper is not None,
+        axiomQuery=app.state.axiom_query is not None,
         sentry=sentry_on,
     )
-    # ③ The routes: the pages, the chat and the health check; and our MCP server's, with the same tools (step 8).
+    # ③ The routes: the pages, the chat and the health check, the Observability pages (step 14); and our MCP server's,
+    # with the same tools (step 8).
     app.include_router(pages.router)
     app.include_router(chat.router)
     app.include_router(health.router)
+    app.include_router(observability.router)
     app.state.mcp_server = make_mcp_server(app.state)
     app.router.routes.extend(to_routes(app.state.mcp_server, settings))
     # ④ The files beside them: the docs' pictures, and, on a computer only, the stylesheet. On Vercel, its CDN serves
