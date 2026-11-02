@@ -898,7 +898,7 @@ async def performance_page(request: Request) -> HTMLResponse:
         "tools": to_tool_bars(tool_calls, "tool"),
         "lanes": to_tool_bars(tool_calls, "lane"),
         "questions": [
-            Bar(to_lane_label(lane), f"{round(count):,}", to_share(count, whole), href=to_narrowed_href("lane", lane))
+            Bar(to_lane_label(lane), f"{round(count):,}", to_share(count, whole), href=to_narrowed_href("asked", lane))
             for lane, count in questions.items()
         ],
         "weather": to_cache_bars(answers.rows.get("weather-answers", [])),
