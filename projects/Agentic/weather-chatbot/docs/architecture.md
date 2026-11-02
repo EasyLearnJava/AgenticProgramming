@@ -20,7 +20,7 @@ fixed.
 | **Hosting** | One Vercel Function in `iad1` (Washington, D.C.), on the Hobby plan; Vercel's CDN for the files |
 | **State** | No database: the conversation stays in the visitor's browser; the weather, in Vercel's Runtime Cache |
 | **Monitoring** | JSON log lines with each request's id, to Axiom, and read back onto the Observability pages; errors to Sentry; a health check of each lane |
-| **Checks** | 730 unit tests, 210 browser tests with accessibility checks, 236 mutation rules, 13 golden questions |
+| **Checks** | 750 unit tests, 210 browser tests with accessibility checks, 236 mutation rules, 13 golden questions |
 
 ## What it does
 
@@ -218,7 +218,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 ### It's tested, every way
 
 - **Static checks:** Ruff and mypy in strict mode, in CI on every push.
-- **Unit tests,** 730, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
+- **Unit tests,** 750, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
   and Axiom's query door.
 - **Browser tests,** 210, on every page and through the chat, each page checked by axe and at a phone's width.
 - **A mutation check:** 236 rules, each breaking the code on purpose; a test must catch each, and does.

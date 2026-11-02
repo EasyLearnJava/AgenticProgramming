@@ -44,8 +44,9 @@ The rebuild is complete (step 13); these could come after it.
   its cutoff in `exclude-newer-package` to `2026-10-21T00:00:00Z`, and the audit's `--exclude-newer` in CI with it.
   pyasn1's fixes 0.6.4's four slow decodings of ASN.1: give it a cutoff of its own, `2026-10-28T00:00:00Z`, then
   take its four `--ignore-vuln` out of CI's audit.
-- **Which health check fails (issue 95):** one run in three failed. Since step 15, each failed run's row on
-  Activity names the checks that weren't answering, and its timeline each check's error: read the live ones.
+- **Why our MCP server's health check fails (issue 95):** one run in three failed, and step 15's Activity shows
+  which check: all 23 of this app's failures were "Our MCP server (McpLaneError)", in well under a second, the
+  other three checks working. Find why its call to our own server fails, and fix it.
 - **A question's MCP calls in its timeline (issue 104):** on the MCP lanes, a tool runs in our MCP server's own
   request, so the question's timeline lacks its fetches. Our MCP lane could send the question's id in a header,
   which the server logs as `parentRequestId` only from our own calls (the bypass secret says so), and the

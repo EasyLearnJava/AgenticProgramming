@@ -641,7 +641,9 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     with its `check` and `errorClass` (a warning, or an error the first time a copy meets one that needs a look), but
     Activity showed neither. The TypeScript app's lines leave the 7 days by 7 November. **Fix:** step 15: each health
     run is a row on Activity naming the checks that weren't answering, with their errors, and opens onto each check's
-    line. **Check:** to come: the live site's failed runs, read once step 15 is deployed.
+    line. **Check:** on step 15's live site, 2 November: all 23 of this app's failed runs in Errors named "Our MCP
+    server (McpLaneError)"; the two opened failed that check after 139 and 344 ms, the other three working. Why our
+    MCP server's check fails one run in three is still open ([To do](todo.md)).
 
 ## Step 15 · Activity by Request, and Rows That Lead to It
 

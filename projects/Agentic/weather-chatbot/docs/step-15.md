@@ -181,7 +181,25 @@ the step's first 15 were each caught before the reviews.
 
 ## Deploy it
 
-To be checked on the live site once pushed.
+The push, 0479637, was live on Vercel within about a minute; CI's unit tests failed on it: Performance's questions on
+each lane linked to `?lane=` (the questions whose tools ran there), not `?asked=`. 731f95c fixed it, and CI's checks
+passed: Ruff, mypy, the unit tests, the browser tests, and the audit. The unit tests, run here: `750 passed in
+12.95s`. Checked on the live site, https://weather-chatbot-hazel.vercel.app, on 2 November 2026 at about 20:05 UTC
+(0479637) and 20:10 UTC (731f95c):
+
+- Activity, its Errors and Health views, Performance, Evaluations and Health each answered `200`, kept a minute by
+  the CDN, with no Axiom notice: both of Activity's queries ran against the live dataset. Activity showed 50 requests
+  with 303 timeline lines, Health's view 50 runs with 450, and "The latest 50; older ones aren't shown". A question's
+  timeline read "+0 ms Question on REST · no auth", "+1.2 s Open-Meteo fetched in 423 ms", "+1.3 s geocode_location
+  on REST · no auth in 481 ms", through "+3.8 s Request ended 200 in 3.8 s", and "Ref 1f96c633".
+- Each link landed on its row's own number: `?asked=mcp-no-auth` 9 questions, as Performance's MCP · no auth 9;
+  `?failed=AnswerTimeoutError` 12 and `?failed=UpstreamTimeoutError` 1, as Evaluations' failures;
+  `?refused=form_unreadable` 4; Health's Sunday 1 November, its 2 runs. Health's days with failures linked to their
+  errors. `?refused=CallUsAt5551234`, `?tool=get_tides` and `?day=2020-01-01` answered `404`.
+- Issue 95's answer: of this app's failed health runs in Errors, all 23 named the same check, "Our MCP server
+  (McpLaneError)"; the 11 that name no check are the TypeScript app's, of 30 October. The two opened, at 20:04 UTC,
+  just after 0479637 went live, failed that check after 139 and 344 ms while the other three worked.
+- One page fetched just after a deploy was the CDN's copy from the build before, for up to its minute.
 
 ## Things to take care of, and pitfalls
 
