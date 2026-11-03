@@ -19,6 +19,7 @@ from nimbus.errors import (
     WEATHER_UNREACHABLE,
 )
 from nimbus.lanes import get_lane
+from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.park_tools import PARK_GUIDANCE_UNAVAILABLE, KnowledgeCallRecord
 from nimbus.tools import ToolCallRecord
 
@@ -73,7 +74,7 @@ class ToolChip:
     name: str
     args: dict[str, Any]
     status: ChipStatus = "running"
-    record: ToolCallRecord | KnowledgeCallRecord | None = None
+    record: ToolCallRecord | KnowledgeCallRecord | AlertsCallRecord | None = None
     output: str | None = None
     error: str | None = None
 
@@ -91,6 +92,8 @@ class ToolChip:
             self.status = "done"
             self.record = event.record
             self.output = event.content
+            if isinstance(event.record, AlertsCallRecord) and event.record.report.status == "unavailable":
+                self.status = "failed"
 
     def stop(self) -> None:
         """The answer ended before this call did."""
@@ -135,6 +138,9 @@ class ToolChip:
         """
         if self.record is None:
             return None
+        if isinstance(self.record, AlertsCallRecord):
+            cached = " · cached" if self.record.report.cached else ""
+            return f"NPS alerts{cached} · {to_duration_text(self.record.ms)}"
         if isinstance(self.record, KnowledgeCallRecord):
             return f"Park guidance · {to_duration_text(self.record.ms)}"
         lane = get_lane(self.record.lane).label
@@ -163,3 +169,8 @@ class ToolChip:
     def knowledge_record(self) -> KnowledgeCallRecord | None:
         """The provenance record for a destination lookup or guidance retrieval."""
         return self.record if isinstance(self.record, KnowledgeCallRecord) else None
+
+    @property
+    def alerts_record(self) -> AlertsCallRecord | None:
+        """Public official notices, distinct from a guidance-index or weather-wire artifact."""
+        return self.record if isinstance(self.record, AlertsCallRecord) else None

@@ -1,0 +1,41 @@
+{# Public notice text is escaped. Indexing, fetching, missing data and partial results are kept distinct. #}
+{% macro notices(report) -%}
+<section class="nps-report" aria-label="Official NPS notices">
+  {% if report.status == 'not_configured' %}
+  <p>Park alerts are not configured on this server. Weather and preparation guidance remain available.</p>
+  {% elif report.status == 'unavailable' %}
+  <p>The NPS notice check could not be completed. This does not mean there are no notices.</p>
+  {% elif report.status == 'unsupported' %}
+  <p>This notice checker supports Zion, Grand Canyon and Yosemite.</p>
+  {% else %}
+  <p>Fetched {{ report.fetched_at.strftime('%d %b %Y, %H:%M:%S UTC') if report.fetched_at else 'time unavailable' }}
+    {% if report.cached %} · Cached result{% endif %}</p>
+  {% if not report.complete %}
+  <p class="nps-notice">Incomplete check: showing {{ report.notices|length }} of {{ report.total }} reported notices.
+    Check the official park website for additional information.</p>
+  {% endif %}
+  {% if report.status == 'no_alerts' %}
+  <p>No notices were returned by NPS for {{ report.park_name }}. This is not an opening or safety guarantee.</p>
+  {% endif %}
+  <div class="nps-notices">
+    {% for item in report.notices %}
+    <article class="nps-card">
+      <p class="nps-category">{{ item.category }}</p>
+      <p><strong>{{ item.title }}</strong></p>
+      <p class="nps-description">{{ item.description }}</p>
+      {% if item.last_indexed %}<p class="nps-indexed">Last indexed by NPS: {{ item.last_indexed }}
+        (time zone not supplied)</p>{% endif %}
+      <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">
+        {{ 'Official park website' if item.source_is_fallback else 'Official notice information' }} ↗
+        <span class="visually-hidden"> (opens in a new tab)</span></a>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <p class="nps-scope">Park-level notices are not an opening or safety guarantee. Individual notices may apply to
+    one area; do not assume every notice describes a selected trail. NPS API updates may lag the website by about
+    two hours.</p>
+  <a href="{{ report.source_url }}" target="_blank" rel="noopener noreferrer">{{ report.park_name }} official website ↗
+    <span class="visually-hidden"> (opens in a new tab)</span></a>
+</section>
+{%- endmacro %}

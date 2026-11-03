@@ -9,7 +9,10 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 
 from nimbus.utils import (
+    checked_form_fields,
+    checked_source_url,
     hide_error_text,
+    is_same_origin,
     new_request_id,
     new_turn_id,
     to_frames,
@@ -22,6 +25,60 @@ from nimbus.utils import (
 )
 
 HEX = set("0123456789abcdef")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "http://www.nps.gov/x",
+        "https://www.nps.gov:444/x",
+        "https://www.nps.gov/?private=yes",
+        "https://user@www.nps.gov/x",
+        "https://www.nps.gov.attacker.example/x",
+        "https://www.nps.gov/\nx",
+    ],
+)
+def test_shared_source_policy_rejects_unapproved_addresses(value: str) -> None:
+    with pytest.raises(ValueError, match="Park sources"):
+        checked_source_url(value)
+
+
+def test_shared_source_policy_normalizes_default_port_case_unicode_and_fragments() -> None:
+    assert checked_source_url("HTTPS://WWW.NPS.GOV:443/zion/café closure.htm#more info") == (
+        "https://www.nps.gov/zion/caf%C3%A9%20closure.htm#more%20info"
+    )
+
+
+@pytest.mark.parametrize(
+    ("origin", "expected"),
+    [
+        (None, True),
+        ("https://example.org", True),
+        ("https://EXAMPLE.org:443", True),
+        ("http://example.org", False),
+        ("https://elsewhere.example", False),
+        ("null", False),
+        ("https://example.org:invalid", False),
+        ("https://user@example.org", False),
+        ("https://example.org/?private=yes", False),
+        ("https://example.org/path", False),
+    ],
+)
+def test_shared_origin_validation(origin: str | None, expected: bool) -> None:
+    assert is_same_origin(origin, "https://example.org/api/parks/alerts") is expected
+
+
+@pytest.mark.parametrize("body", [b"", b"park=zion&park=yosemite", b"a=1&b=2", b"park=%FF", b"park=\xff"])
+def test_shared_form_parser_rejects_ambiguous_or_invalid_input(body: bytes) -> None:
+    with pytest.raises(ValueError, match=r"Empty or duplicate|Max number|decode"):
+        checked_form_fields(body, max_fields=1)
+
+
+def test_shared_form_parser_decodes_values_without_stripping_or_logging_them() -> None:
+    assert checked_form_fields(b"q=wind+and+rain&destination=zion", max_fields=3) == {
+        "q": "wind and rain",
+        "destination": "zion",
+    }
 
 
 def test_a_new_request_id_is_16_hex_characters_and_new_each_time() -> None:

@@ -57,6 +57,8 @@ TOOL_NAMES: Final = frozenset(tool.name for tool in WEATHER_TOOLS) | {
     "resolve_destination",
     "search_park_guidance",
     "retrieval_playground",
+    "get_park_alerts",
+    "park_alerts",
 }
 CHECK_LABELS: Final = {
     "open-meteo": "Open-Meteo",
@@ -90,6 +92,7 @@ TIMELINE_EVENTS: Final = (
     *QUESTION_EVENTS,
     *TOOL_EVENTS,
     "knowledge.call",
+    "nps.alerts",
     "lane.open.failed",
     "mcp.call",
     "lane.connect",
@@ -126,6 +129,9 @@ TIMELINE_FIELDS: Final = (
     "fromLane",
     "toLane",
     "fellBack",
+    "cached",
+    "reason",
+    "complete",
 )
 
 
@@ -154,7 +160,7 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
     "questions": to_in("event", ("chat.request", "chat.rejected")),
     "errors": (
         f'{to_in("event", TIMELINE_EVENTS)} and (level == "error" or {STATUS} in ("failed", "down") '
-        'or event == "lane.fallback")'
+        f'or event == "lane.fallback" or (event == "nps.alerts" and {STATUS} == "partial"))'
     ),
     "health": 'event == "health.done"',
 }
@@ -190,7 +196,7 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
     "tool": (
         TOOL_NAMES,
         "Questions that called {label}",
-        f'{to_in("event", ("tool.call", "knowledge.call"))} and {to_field("tool")} == "{{value}}"',
+        f'{to_in("event", ("tool.call", "knowledge.call", "nps.alerts"))} and {to_field("tool")} == "{{value}}"',
     ),
     "asked": (
         LANE_LABELS,
@@ -308,6 +314,8 @@ def to_narrowing(links: Mapping[str, str | None]) -> Narrowing | None:
     if value not in known:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
     label = LANE_LABELS.get(value) or ENDED_WORDS.get(value) or value
+    if kind == "tool" and value == "park_alerts":
+        return Narrowing(kind, "Park alert checks", where.format(value=value))
     return Narrowing(kind, words.format(label=label), where.format(value=value))
 
 
@@ -544,6 +552,28 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
         status = to_words(row, "status")
         detail = f"{status.replace('_', ' ')} in {took}"
         return ActivityLine(at, to_words(row, "tool"), detail, "bad" if status in {"failed", "unavailable"} else "ok")
+    if event == "nps.alerts":
+        status = to_words(row, "status")
+        source = "cached result" if to_words(row, "cached").lower() == "true" else "live fetch"
+        if status in {"not_configured", "unsupported"}:
+            source = "not requested"
+        reasons = {
+            "authentication_failed": "authentication failed",
+            "rate_limited": "NPS rate limit",
+            "upstream_error": "NPS server error",
+            "timeout": "timeout",
+            "network_error": "network error",
+            "invalid_response": "invalid response",
+            "invalid_record": "some records could not be read",
+        }
+        reason = reasons.get(to_words(row, "reason"), "")
+        detail = f"{status.replace('_', ' ')} · {source}{f' · {reason}' if reason else ''} in {took}"
+        tone = (
+            "bad"
+            if status in {"failed", "unavailable"}
+            else ("warn" if status in {"not_configured", "partial", "unsupported"} else "ok")
+        )
+        return ActivityLine(at, to_words(row, "tool"), detail, tone)
     if event == "lane.open.failed":
         return ActivityLine(at, "Weather connection", f"failed on {lane}: {error_class}", "bad")
     if event == "lane.fallback":

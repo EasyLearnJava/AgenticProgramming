@@ -9,6 +9,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
+
+from markdown_it.common.normalize_url import normalizeLink
 
 from nimbus.constants import LIBRARY_LOG_MAX_FRAMES, NEW_REQUEST_ID_CHARS, REQUEST_ID_PATTERN
 
@@ -23,6 +26,57 @@ SSE_LINE_BREAK = re.compile(r"\r\n|\r|\n")
 WEB_ADDRESS = re.compile(r"https?://[^\s\"'<>]*", re.IGNORECASE)
 # The punctuation that ends a sentence rather than a query string ("...?id=1: timeout").
 SENTENCE_END = ".,:;!?)]"
+
+
+def checked_source_url(value: str) -> str:
+    """A canonical public HTTPS NPS URL, with optional fragment and default port, but no credentials or query."""
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("Park sources cannot contain control characters")
+    parts = urlsplit(value)
+    if (
+        parts.scheme != "https"
+        or parts.hostname not in {"www.nps.gov", "nps.gov", "home.nps.gov"}
+        or parts.username
+        or parts.password
+        or parts.port not in (None, 443)
+        or parts.query
+    ):
+        raise ValueError("Park sources must be public HTTPS pages on NPS domains")
+    # Canonicalize just as Markdown does, so citation allowlists match the rendered href, including Unicode paths.
+    return normalizeLink(parts._replace(scheme="https", netloc=parts.hostname).geturl())
+
+
+def is_same_origin(origin: str | None, destination: str) -> bool:
+    """Allow nonbrowser callers or the same HTTP origin; reject malformed origins without echoing their text."""
+    if not origin:
+        return True
+    try:
+        supplied, target = urlsplit(origin), urlsplit(destination)
+        if (
+            supplied.scheme not in {"http", "https"}
+            or not supplied.hostname
+            or supplied.username
+            or supplied.password
+            or supplied.query
+            or supplied.fragment
+            or supplied.path not in {"", "/"}
+        ):
+            return False
+        return (supplied.scheme, supplied.hostname, supplied.port or (443 if supplied.scheme == "https" else 80)) == (
+            target.scheme,
+            target.hostname,
+            target.port or (443 if target.scheme == "https" else 80),
+        )
+    except ValueError:
+        return False
+
+
+def checked_form_fields(body: bytes, *, max_fields: int) -> dict[str, str]:
+    """Decode a bounded UTF-8 form, rejecting empty submissions, too many fields and duplicate field names."""
+    pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True, errors="strict", max_num_fields=max_fields)
+    if not pairs or len(dict(pairs)) != len(pairs):
+        raise ValueError("Empty or duplicate form fields")
+    return dict(pairs)
 
 
 def new_request_id() -> str:

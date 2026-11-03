@@ -21,6 +21,7 @@ from nimbus.app import create_app
 from nimbus.axiom_query import AxiomQuery
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
+from nimbus.nps_alerts import NpsAlertsService
 from tests.fakes import PARIS_STEPS, AxiomRecordings, FakeCacheStore, FakeModel, OpenMeteoRecordings
 
 STARTUP_SECONDS = 10
@@ -90,12 +91,38 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
         axiom_dataset="weather-chatbot",
         axiom_query_token=None,
         sentry_dsn=None,
+        nps_api_key=None,
     )
     app = create_app(settings)
     # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour; and the cache.
     app.state.chat_model = chat_model
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
     app.state.weather_cache = WeatherCache(cache_store)
+
+    # Synthetic notices exercise the server-side integration without any real credential or NPS call.
+    def notices(request: httpx2.Request) -> httpx2.Response:
+        """Three predictable outcomes, with the requested park code only and an explicitly synthetic notice."""
+        code = request.url.params["parkCode"]
+        if code == "grca":
+            return httpx2.Response(503)
+        rows = [
+            {
+                "id": "synthetic",
+                "parkCode": code,
+                "category": "Caution",
+                "title": "Synthetic maintenance",
+                "description": "Test fixture: maintenance in a named area. This is not a real current notice.",
+                "url": "https://www.nps.gov/zion/index.htm",
+                "lastIndexedDate": "2026-11-03 08:00:00.0",
+            }
+        ]
+        return httpx2.Response(
+            200, json={"total": "1" if code == "zion" else "0", "data": rows if code == "zion" else []}
+        )
+
+    app.state.nps_alerts = NpsAlertsService(
+        SecretStr("synthetic-nps-key"), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(notices))
+    )
     # And Axiom's query door, played back with its recorded rows, for the Observability pages (step 14).
     axiom = AxiomRecordings()
     token = SecretStr("xaat-query-test")

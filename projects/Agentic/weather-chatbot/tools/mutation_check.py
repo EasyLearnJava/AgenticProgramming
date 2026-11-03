@@ -27,6 +27,11 @@ NOT_COPIED: Final = shutil.ignore_patterns(
 TESTS_TIMEOUT_SECONDS: Final = 600
 # The test files that guard each module: a rule in it runs these. A module not here, the constants included, runs all.
 TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
+    "nimbus/nps_alerts.py": ("test_nps_alerts.py", "test_nps_integration.py", "test_nps_review.py"),
+    "nimbus/alerts_page.py": ("test_nps_alerts.py", "test_nps_integration.py", "test_nps_review.py"),
+    "nimbus/forms.py": ("test_nps_review.py", "test_park_hardening.py", "test_retrieval.py"),
+    "nimbus/park_tools.py": ("test_park_integration.py", "test_nps_integration.py"),
+    "templates/nps_alert_parts.html": ("test_nps_alerts.py", "test_nps_integration.py"),
     "nimbus/parks.py": ("test_parks.py", "test_retrieval.py", "test_park_hardening.py"),
     "nimbus/park_embeddings.py": ("test_park_embeddings.py", "test_park_hardening.py"),
     "nimbus/knowledge.py": ("test_knowledge.py", "test_retrieval.py", "test_park_hardening.py"),
@@ -1560,20 +1565,20 @@ MUTATIONS = (
         "hardening questions are submitted in a POST body",
     ),
     Mutation(
-        "nimbus/knowledge.py",
-        "if len(dict(pairs)) != len(pairs):",
-        "if False:",
+        "nimbus/utils.py",
+        "if not pairs or len(dict(pairs)) != len(pairs):",
+        "if not pairs:",
         "hardening duplicate retrieval fields are rejected",
     ),
     Mutation(
-        "nimbus/knowledge.py",
-        "if len(body) > 16_384:",
+        "nimbus/forms.py",
+        "if len(body) > max_bytes:",
         "if len(body) > 1_000_000:",
         "hardening retrieval body bytes stay bounded",
     ),
     Mutation(
-        "nimbus/knowledge.py",
-        "if not is_same_origin:",
+        "nimbus/forms.py",
+        'if not is_same_origin(request.headers.get("origin"), str(request.url)):',
         "if False:",
         "hardening foreign browser origins cannot submit inference",
     ),
@@ -1623,6 +1628,206 @@ MUTATIONS = (
 )
 
 
+MUTATIONS += (
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "if self._key is None:",
+        "if False:",
+        "nps missing keys are explicit without network access",
+    ),
+    Mutation(
+        "nimbus/alerts_page.py",
+        "gate: RetrievalGate = request.app.state.alerts_gate",
+        "gate: RetrievalGate = RetrievalGate()",
+        "nps rate limits persist between selector submissions",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        'headers={"X-Api-Key": self._key.get_secret_value()},',
+        "headers={},",
+        "nps credentials authenticate only in the header",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py", "if park_id not in PARKS:", "if False:", "nps unknown parks never initiate a request"
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "follow_redirects=False",
+        "follow_redirects=True",
+        "nps redirects cannot move authenticated requests",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "if cached and cached[0] > self._clock():",
+        "if cached:",
+        "nps expired notices cannot survive a failed refresh",
+    ),
+    Mutation("nimbus/nps_alerts.py", "MAX_PAGES = 3", "MAX_PAGES = 4", "nps pagination remains bounded"),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "MAX_RESPONSE_BYTES = 1_000_000",
+        "MAX_RESPONSE_BYTES = 2_000_000",
+        "nps response byte budget rejects oversized valid JSON",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "asyncio.timeout(NPS_TIMEOUT_SECONDS)",
+        "asyncio.timeout(60)",
+        "nps deadlines bound upstream work",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "if item.park_code != code:",
+        "if False:",
+        "nps foreign park notices are rejected",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "if task is None or task.get_loop() is not asyncio.get_running_loop():",
+        "if True:",
+        "nps concurrent visitors share an in-flight check",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "if response.status_code != 200:",
+        "if False:",
+        "nps upstream failures never become empty success",
+    ),
+    Mutation(
+        "nimbus/utils.py",
+        'parts.scheme != "https"',
+        'parts.scheme not in {"https", "http"}',
+        "nps public source links require HTTPS",
+    ),
+    Mutation("nimbus/utils.py", "or parts.query", "or False", "nps query strings cannot enter public links"),
+    Mutation(
+        "nimbus/park_tools.py",
+        "if budget + size > 12000:",
+        "if budget + size > 120000:",
+        "nps model context has a serialized character budget",
+    ),
+    Mutation(
+        "nimbus/park_tools.py", "report.notices[:8]", "report.notices[:80]", "nps model context caps notice count"
+    ),
+    Mutation(
+        "nimbus/forms.py",
+        'if not is_same_origin(request.headers.get("origin"), str(request.url)):',
+        "if False:",
+        "nps execution rejects foreign browser origins",
+    ),
+    Mutation("nimbus/alerts_page.py", "max_bytes=1024", "max_bytes=10240", "nps selector body remains bounded"),
+    Mutation(
+        "nimbus/answer.py",
+        "[*weather_tools, *knowledge_tools, *notice_tools]",
+        "[*weather_tools, *knowledge_tools]",
+        "nps notice tool composes in every lane",
+    ),
+    Mutation(
+        "templates/nps_alert_parts.html",
+        "{{ item.title }}",
+        "{{ item.title|safe }}",
+        "nps notice titles are always escaped",
+    ),
+)
+
+
+for _notice_module in ("nimbus/answer.py", "nimbus/chat.py", "nimbus/chips.py", "nimbus/prompts.py"):
+    TESTS_FOR[_notice_module] += ("test_nps_integration.py",)
+
+MUTATIONS += (
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "(300 if report.complete else 60)",
+        "300",
+        "nps review failed and partial caches expire at sixty seconds",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        'reason = reason or "invalid_response"',
+        'records.clear()\n            reason = reason or "invalid_response"',
+        "nps review later page failures preserve earlier records",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        "invalid_records += 1\n                            continue",
+        'raise ValueError("Invalid record")',
+        "nps review invalid records preserve valid records",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py", "reason=report.reason,", "reason=None,", "nps review fixed failure reasons reach logs"
+    ),
+    Mutation(
+        "nimbus/alerts_page.py",
+        'tool="park_alerts"',
+        'tool="get_park_alerts"',
+        "nps review page and chat calls have distinct names",
+    ),
+    Mutation(
+        "nimbus/alerts_page.py",
+        "else service.configuration_report(fields.park)",
+        'else await service.get(fields.park, tool="park_alerts")',
+        "nps review plain views never log executed checks",
+    ),
+    Mutation(
+        "nimbus/alerts_page.py",
+        "except HTTPException as error:\n",
+        "except HTTPException as error:\n        raise\n",
+        "nps review form errors render usable HTML",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        'reason = "network_error"',
+        'reason = "invalid_response"',
+        "nps review network errors differ from invalid responses",
+    ),
+    Mutation(
+        "nimbus/nps_alerts.py",
+        'if report.status == "unavailable"\n',
+        'if report.status == "unavailable" or report.reason\n',
+        "nps review useful partial results remain partial in logs",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        'source = "cached result" if to_words(row, "cached").lower() == "true" else "live fetch"',
+        'source = "live fetch"',
+        "nps review activity shows cached reports",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        'f"{rules}\\n\\n{PARK_RULES}\\n\\n{PARK_ALERT_RULES}"',
+        'f"{rules}\\n\\n{PARK_RULES}"',
+        "nps review park availability enables notice instructions",
+    ),
+    Mutation(
+        "nimbus/utils.py",
+        'return normalizeLink(parts._replace(scheme="https", netloc=parts.hostname).geturl())',
+        "return value",
+        "nps review public URLs match Markdown citation targets",
+    ),
+    Mutation(
+        "nimbus/alerts_page.py",
+        "response.headers.update(error.headers or {})",
+        "pass",
+        "nps review HTML errors preserve Retry-After",
+    ),
+    Mutation(
+        "nimbus/alerts_page.py",
+        "status_code=error.status_code",
+        "status_code=200",
+        "nps review HTML errors preserve HTTP status",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        'detail, "bad" if status in {"failed", "unavailable"} else "ok")',
+        'detail, "bad" if status in {"failed", "unavailable"} else "warn")',
+        "nps review guidance lookup tones stay unchanged",
+    ),
+)
+
+for _review_module in ("nimbus/utils.py", "nimbus/observability.py", "nimbus/prompts.py"):
+    TESTS_FOR[_review_module] += ("test_nps_review.py",)
+
+
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
     """
     Whether the unit tests fail in the copy: these test files, or, given none, the whole suite. Tests that run past
@@ -1665,6 +1870,7 @@ def main() -> int:
     """Runs every mutation and says which the tests caught, in the rules' order; 1 if any wasn't."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hardening", action="store_true", help="Check the reviewed production and privacy fixes")
+    parser.add_argument("--nps", action="store_true", help="Check official park notice safeguards")
     parser.add_argument("--parks", action="store_true", help="Check the park rules and affected prompt guards")
     parser.add_argument("--knowledge", action="store_true", help="Check the knowledge browser safeguards")
     parser.add_argument("--retrieval", action="store_true", help="Check the retrieval playground diagnostics")
@@ -1685,6 +1891,18 @@ def main() -> int:
         selected = tuple(m for m in MUTATIONS if m.rule.startswith("retrieval "))
     if args.hardening:
         selected = tuple(m for m in MUTATIONS if m.rule.startswith("hardening "))
+    if args.nps:
+        selected = tuple(
+            m
+            for m in MUTATIONS
+            if m.rule.startswith("nps ")
+            or m.rule
+            in {
+                "hardening duplicate retrieval fields are rejected",
+                "hardening retrieval body bytes stay bounded",
+                "hardening foreign browser origins cannot submit inference",
+            }
+        )
     workers = max(1, int(os.environ.get("MUTATION_WORKERS", "2")))
     with tempfile.TemporaryDirectory(prefix="mut") as scratch:
         # Each worker takes a copy of the project from the queue, and gives it back when its rule is done.

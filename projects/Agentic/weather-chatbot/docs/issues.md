@@ -740,3 +740,25 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 118. **Two integration assertions did not prove their names.** A swallowed assertion and invalid forecast input
      concealed lane-opening behavior. **Fix:** observe opening attempts and use valid tool schemas; add rank-sensitive
      grading, paraphrases and hardening mutations. **Check:** focused regressions and the expanded 41-case benchmark.
+
+## Step 17
+
+119. **An NPS credential was placed in the tracked example file.** **Fix:** move it into ignored `.env.local` and
+     restore a blank `NPS_API_KEY=` template. Never copy the credential into test recordings, artifacts or docs.
+     **Check:** verify the example contains no value, the local file is ignored, and mock outputs exclude secrets.
+120. **Step 17's deployment action was missing from Waiting on you.** **Fix:** list `NPS_API_KEY` for the intended
+     Preview and Production environments, with redeploy and verification instructions; link from To do. Remove
+     session-specific authorization statements from served docs. **Check:** inspect the rendered action page.
+121. **Inspection forms and NPS link checks had copied logic.** **Fix:** share bounded form reading in `forms.py`
+     and pure validation in `utils.py`; canonicalize allowed links as Markdown does. **Check:** existing retrieval
+     defenses, invalid/duplicate form inputs and Unicode/default-port citation regressions.
+122. **Page views looked like chat tool calls and rate limits showed JSON.** **Fix:** inspect configuration silently
+     on GET, label explicit page checks separately, and render HTML errors with status and Retry-After intact.
+     **Check:** event attribution, HTTP 429 selection retention, phone layout and axe in Edge.
+123. **Partial-result and short-cache promises lacked direct regressions.** **Fix:** retain valid same-park notices
+     after later-page failure or invalid individual records; label incomplete results and expire them at 60 seconds.
+     **Check:** page-two failure, mixed valid/invalid records, cache hits at 59 seconds and refetch at 60 seconds.
+124. **NPS diagnostics obscured cause, cache state and partial results.** **Fix:** log fixed reason codes, classify
+     network errors separately, and show partial/cache/reason details on Activity while retaining guidance tones.
+     **Check:** secret-free authentication/network logs, Activity rows and partial-result Errors selection. Remove
+     the redundant prompt flag; notice instructions follow the production park-tools setting.

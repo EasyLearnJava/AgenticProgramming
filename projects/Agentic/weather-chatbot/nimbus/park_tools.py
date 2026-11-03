@@ -16,8 +16,8 @@ import structlog
 from langchain_core.tools import StructuredTool, ToolException
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from nimbus.parks import checked_source_url
-from nimbus.utils import to_ms
+from nimbus.nps_alerts import AlertsCallRecord, AlertsReport, NpsAlertsService, ParkId
+from nimbus.utils import checked_source_url, to_ms
 
 PARK_TOOL_SECONDS = 6.0
 PARK_GUIDANCE_UNAVAILABLE = "The park guidance is unavailable right now. I can still check the weather."
@@ -66,6 +66,63 @@ class SearchParkGuidanceInput(_ParkInput):
     visit_date: date | None = Field(default=None, description="The intended visit date as YYYY-MM-DD, when known.")
 
 
+class ParkAlertsInput(_ParkInput):
+    """A supported park ID from this turn's destination resolution, never a URL or visitor question."""
+
+    park_id: ParkId = Field(description="The park_id returned by resolve_destination: zion, grand-canyon or yosemite.")
+
+
+def alerts_context(report: AlertsReport) -> tuple[str, tuple[str, ...]]:
+    """Bound model context separately from the page's full report, and retain exactly the URLs the model saw."""
+    # ③ API completeness and model-context completeness are independent; only exposed sources support citations.
+    output = report.model_dump(mode="json", exclude={"notices"})
+    notices: list[dict[str, Any]] = []
+    budget = 0
+    truncated = False
+    for item in report.notices[:8]:
+        entry = item.model_dump()
+        entry["title"], entry["description"] = item.title[:300], item.description[:1500]
+        entry["text_truncated"] = len(item.title) > 300 or len(item.description) > 1500
+        size = len(json.dumps(entry, ensure_ascii=False))
+        if budget + size > 12000:
+            break
+        budget += size
+        truncated = truncated or entry["text_truncated"]
+        notices.append(entry)
+    output["notices"] = notices
+    output["context_limited"] = truncated or len(notices) < len(report.notices)
+    sources = (report.source_url, *(str(item["url"]) for item in notices))
+    return json.dumps(output, ensure_ascii=False), tuple(dict.fromkeys(sources))
+
+
+def make_alert_tools(service: NpsAlertsService) -> list[StructuredTool]:
+    """Expose official park-level notices independently of stored preparation guidance and weather transports."""
+
+    async def alerts(park_id: ParkId) -> tuple[str, AlertsCallRecord]:
+        """Fetch a bounded report or an explicit missing-key/unavailable status, preserving its provenance."""
+        started = time.perf_counter()
+        params = ParkAlertsInput(park_id=park_id)
+        report = await service.get(params.park_id)
+        content, sources = alerts_context(report)
+        return content, AlertsCallRecord(to_ms(time.perf_counter() - started), report, sources)
+
+    return [
+        StructuredTool.from_function(
+            coroutine=alerts,
+            name="get_park_alerts",
+            args_schema=ParkAlertsInput,
+            description=(
+                "Check recently published official NPS park-level notices after resolve_destination. "
+                "Returns notices, source links, indexing/fetch timestamps and completeness; no_alerts means "
+                "no notices returned, never that a trail is open or safe. Missing configuration and outages "
+                "are explicit. Do not use stored guides to infer current closures."
+            ),
+            response_format="content_and_artifact",
+            handle_tool_error=True,
+        )
+    ]
+
+
 @dataclass(frozen=True)
 class KnowledgeSource:
     """A source's public provenance, suitable for the page's escaped link and date labels."""
@@ -97,7 +154,7 @@ def to_knowledge_sources(output: dict[str, Any]) -> tuple[KnowledgeSource, ...]:
         if not isinstance(url, str):
             continue
         try:
-            checked_source_url(url)
+            url = checked_source_url(url)
         except ValueError:
             continue
         sources[url] = KnowledgeSource(

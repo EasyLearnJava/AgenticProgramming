@@ -86,7 +86,7 @@ class ListEntry:
 # to come from the docs' registry, by their slugs; a test checks each is in one group.
 DOC_ITEMS: dict[str, MenuItem] = {doc.slug: MenuItem(doc.path, doc.label) for doc in PAGES}
 MENU_GROUPS: tuple[MenuGroup, ...] = (
-    MenuGroup("App", (MenuItem("/", "Chat"),)),
+    MenuGroup("App", (MenuItem("/", "Chat"), MenuItem("/parks/alerts", "Park alerts"))),
     MenuGroup(
         "Knowledge",
         (

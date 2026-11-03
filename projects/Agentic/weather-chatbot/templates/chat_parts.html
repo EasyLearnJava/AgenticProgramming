@@ -3,6 +3,7 @@
   your question, Nimbus's answer (being written and busy, its words as plain text; finished, its Markdown made HTML;
   or failed), with a chip above it for each tool call (nimbus/chips.py), and a message that's only an error.
 #}
+{% from "nps_alert_parts.html" import notices %}
 {% macro bot_meta() -%}
 <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
 {%- endmacro %}
@@ -68,6 +69,7 @@
       {%- endif %}
       <p>Index {{ chip.knowledge_record.index_version }} · {{ chip.knowledge_record.retrieval_mode }}</p>
       {%- endif %}
+      {%- if chip.alerts_record %}{{ notices(chip.alerts_record.report) }}{% endif %}
       <p class="tool-chip-label">Input</p>
       <pre>{{ chip.input_json }}</pre>
       {%- if chip.output_json %}

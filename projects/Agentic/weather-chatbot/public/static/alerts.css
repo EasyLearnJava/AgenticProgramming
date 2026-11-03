@@ -1,0 +1,11 @@
+/* Official notices remain readable within both the dedicated page and chat's existing tool cards. */
+.nps-panel { margin-top: 24px; }
+.nps-report { overflow-wrap: anywhere; }
+.nps-notices { display: grid; gap: 14px; margin: 18px 0; }
+.nps-card { padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); }
+.nps-card p { margin: 6px 0 12px; }
+.nps-category { color: #655326; font-size: 0.76rem; font-weight: 700; }
+.nps-description { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.nps-indexed, .nps-scope { color: #52645f; font-size: 0.78rem; line-height: 1.7; }
+.nps-notice { padding: 12px; background: #fffaf0; border: 1px solid #dbcda8; border-radius: 7px; }
+.nps-report a { overflow-wrap: anywhere; }

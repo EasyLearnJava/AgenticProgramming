@@ -2,7 +2,7 @@
 
 Nimbus is a weather chatbot: ask about the weather anywhere, and see each tool call behind the answer and the lane it
 took. Its first version was built in TypeScript (Next.js and AI SDK); this plan rebuilds it in Python, as a
-production-grade app and a tutorial at once: fifteen steps, each one adding one idea, each ending deployed and
+production-grade app and a tutorial at once: seventeen steps, each one adding one idea, each ending deployed and
 working, and each with a chapter written while it's built. The first version's plan is kept as
 [PLAN_deprecated.md](PLAN_deprecated.md).
 
@@ -53,6 +53,7 @@ artifact of public park guidance. It is built before deployment and stores no vi
 | 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token (done) |
 | 15 | Activity by request: each a row that opens onto its timeline, shown only by its ref; every tool, lane, ending, reason and day on the other pages a link to its requests | |
 | 16 | Park and trail preparation: official source ingestion, a versioned index, destination-filtered retrieval, citations and offline retrieval evaluations | CPU MiniLM weights are cached by the index build; production release remains a separate operation |
+| 17 | Official NPS notices: bounded API checks, a separate page, shared chat tool and source attribution | Configure the NPS key for the intended Vercel environments; verify notices and quota before releasing |
 
 ## 3. A chapter's sections
 

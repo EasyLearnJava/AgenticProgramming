@@ -15,7 +15,6 @@ from contextlib import closing
 from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any, Final, Literal
-from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import structlog
@@ -23,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 
 from nimbus.config import Settings
 from nimbus.park_embeddings import EmbeddingBusyError
+from nimbus.utils import checked_source_url
 
 log = structlog.get_logger()
 INDEX_SCHEMA: Final = "1"
@@ -148,22 +148,6 @@ DESTINATION_CONTEXT_TERMS: Final = STOP_WORDS | frozenset(
         "tonight",
     ]
 )
-
-
-def checked_source_url(value: str) -> str:
-    """An HTTPS National Park Service source URL, without credentials, a port, query, or fragment."""
-    parts = urlsplit(value)
-    if (
-        parts.scheme != "https"
-        or parts.hostname not in {"www.nps.gov", "nps.gov", "home.nps.gov"}
-        or parts.username
-        or parts.password
-        or parts.port
-        or parts.query
-        or parts.fragment
-    ):
-        raise ValueError("Park sources must be public HTTPS NPS pages")
-    return value
 
 
 class Destination(BaseModel):

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="270" viewBox="0 0 900 270">
+  <title>Separate official park notices from reference guidance</title>
+  <rect width="900" height="270" rx="16" fill="#f4f7f4"/>
+  <g fill="#17382f" font-family="sans-serif" font-size="18" text-anchor="middle">
+    <rect x="25" y="90" width="195" height="80" rx="10" fill="#dae9df"/>
+    <text x="122" y="123">Park selector</text><text x="122" y="150">or resolved chat park</text>
+    <text x="260" y="137">→</text>
+    <rect x="300" y="60" width="265" height="140" rx="10" fill="#dae9df"/>
+    <text x="432" y="95">Bounded NPS client</text><text x="432" y="127">Header key · short cache</text>
+    <text x="432" y="160">Deadline · validated links</text><text x="608" y="137">→</text>
+    <rect x="650" y="90" width="225" height="80" rx="10" fill="#dae9df"/>
+    <text x="762" y="123">Dated official notices</text><text x="762" y="150">Page and chat citations</text>
+    <text x="450" y="240">Stored RAG guides and weather remain separate sources.</text>
+  </g>
+</svg>

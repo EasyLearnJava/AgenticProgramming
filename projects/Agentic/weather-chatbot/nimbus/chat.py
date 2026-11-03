@@ -72,6 +72,7 @@ from nimbus.errors import (
 )
 from nimbus.lanes import MCP_NO_AUTH, MCP_WITH_AUTH, REST_WITH_AUTH, Lane, LaneId, get_lane, is_open
 from nimbus.mcp_lane import open_mcp_lane
+from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
@@ -310,12 +311,18 @@ async def stream_turn(
         async with aclosing(answer) as events:
             async for event in events:
                 if isinstance(event, ToolStarted):
-                    has_park_tools = has_park_tools or event.name in {"resolve_destination", "search_park_guidance"}
+                    has_park_tools = has_park_tools or event.name in {
+                        "resolve_destination",
+                        "search_park_guidance",
+                        "get_park_alerts",
+                    }
                     chip = chips[event.call_id] = ToolChip.start(len(chips), event)
                     yield to_tool_event(turn_id, chip, is_new=True)
                 elif isinstance(event, ToolEnded):
                     if event.name == "search_park_guidance" and isinstance(event.record, KnowledgeCallRecord):
                         park_sources.update(source.url for source in event.record.sources)
+                    if isinstance(event.record, AlertsCallRecord):
+                        park_sources.update(event.record.sources)
                     if (ended := chips.get(event.call_id)) is not None:
                         ended.end(event)
                         yield to_tool_event(turn_id, ended, is_new=False)
@@ -436,7 +443,15 @@ async def chat(request: Request) -> Response:
     deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
     tools = open_lane_tools(request, lane, deadline)
     answer = stream_weather_answer(
-        model, messages, stats, request.app.state.tracer, tools, lane, deadline, knowledge=knowledge
+        model,
+        messages,
+        stats,
+        request.app.state.tracer,
+        tools,
+        lane,
+        deadline,
+        knowledge=knowledge,
+        alerts=request.app.state.nps_alerts,
     )
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.

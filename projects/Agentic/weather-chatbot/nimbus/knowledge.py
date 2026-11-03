@@ -6,13 +6,14 @@ from datetime import date
 from functools import lru_cache
 from time import perf_counter
 from typing import Any, Literal
-from urllib.parse import parse_qsl, urlencode, urlsplit
+from urllib.parse import urlencode
 
 import structlog
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from nimbus.forms import read_form_fields
 from nimbus.pages import render_page
 from nimbus.parks import ParkKnowledge
 from nimbus.retrieval_gate import RetrievalGate
@@ -232,27 +233,9 @@ async def retrieval_playground(request: Request) -> HTMLResponse:
 
 async def read_retrieval_request(request: Request) -> RetrievalFilters:
     """Read one small URL-encoded body, rejecting foreign origins, duplicate fields and invalid values."""
-    origin = request.headers.get("origin")
-    if origin:
-        try:
-            parsed = urlsplit(origin)
-            is_same_origin = (parsed.scheme, parsed.netloc) == (request.url.scheme, request.url.netloc)
-        except ValueError:
-            is_same_origin = False
-        if not is_same_origin:
-            raise HTTPException(403, "Retrieval requests must come from this site")
-    if request.headers.get("content-type", "").partition(";")[0].lower() != "application/x-www-form-urlencoded":
-        raise HTTPException(415, "Submit the retrieval form")
-    body = bytearray()
-    async for part in request.stream():
-        body.extend(part)
-        if len(body) > 16_384:
-            raise HTTPException(413, "Retrieval request is too large")
+    fields = await read_form_fields(request, max_bytes=16_384, max_fields=3)
     try:
-        pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True, errors="strict", max_num_fields=3)
-        if len(dict(pairs)) != len(pairs):
-            raise ValueError("Duplicate fields")
-        filters = RetrievalFilters.model_validate(dict(pairs))
+        filters = RetrievalFilters.model_validate(fields)
         if not filters.q or not filters.destination:
             raise ValueError("A question and destination are required")
     except (ValidationError, ValueError):

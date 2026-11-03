@@ -13,6 +13,7 @@
 {% extends "base.html" %}
 {% from "chat_parts.html" import bot_meta, error_message %}
 {% block head %}
+    <link rel="stylesheet" href="/static/alerts.css">
     <meta name="htmx-config" content='{"extensions": "sse", "includeIndicatorCSS": false, "history": false}'>
     <script src="/static/htmx.min.js" defer></script>
     <script src="/static/hx-sse.min.js" defer></script>

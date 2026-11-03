@@ -77,7 +77,8 @@ Each step's chapter explains it, in order:
 | 13 | [Evals and Release: Golden Questions, a Load Test, Rollback](docs/step-13.md) | Done |
 | 14 | [Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups](docs/step-14.md) | Done |
 | 15 | [Activity by Request, and Rows That Lead to It](docs/step-15.md) | Done |
-| 16 | [Park Guidance with Retrieved Sources](docs/step-16.md) | Implemented locally; release pending |
+| 16 | [Park Guidance with Retrieved Sources](docs/step-16.md) | Implemented |
+| 17 | [Official Park Notices](docs/step-17.md) | Implemented |
 
 ## Run it
 
@@ -102,7 +103,7 @@ and never its query string; this one is for `/docs?q=private`:
 
 ## Test it
 
-This captured output is from step 13. Current Step 16 validation is recorded in [its chapter](docs/step-16.md).
+This captured output is from step 13. See [step 17](docs/step-17.md) for the current notice checks and commands.
 
 ```text
 $ uv run ruff check .
@@ -151,7 +152,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 15](docs/step-15.md)), **Architecture and design**
+step ([step 1](docs/step-1.md) to [step 17](docs/step-17.md)), **Architecture and design**
 ([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
 ([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**
@@ -163,6 +164,15 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 ([README_deprecated.md](README_deprecated.md) links them all).
 
 ## Next
+
+### Official park notices
+
+The App → Park alerts page checks NPS notices for Zion, Grand Canyon and Yosemite without Gemini. Chat also gets
+`get_park_alerts` beside the park knowledge tools. Put `NPS_API_KEY` only in ignored `.env.local`, then restart.
+The example file keeps a blank placeholder. Without a key the checker explicitly says it is not configured;
+mock tests require no credential. Results show fetch time, source links, cache status and incomplete checks.
+Notices are fetched separately from RAG and do not establish that a trail is open or safe. See
+[step 17](docs/step-17.md) for bounds, tests, freshness limits and preview validation.
 
 ### Park and trail preparation
 
@@ -194,8 +204,8 @@ capability is distinguished from transient startup/busy conditions. Both profile
 
 The 41-case retrieval benchmark includes paraphrases, destination conflicts and dated safety advice, and reports
 recall, top-1 evidence and reciprocal rank. The 18 live-answer goldens include five park scenarios. Offline retrieval
-results do not establish Gemini's citation faithfulness or production readiness. Step 16 remains local and uncommitted;
-no production push or deployment is part of this change.
+results do not establish Gemini's citation faithfulness or production readiness. Verify a preview and run the
+live-answer checks before releasing changes.
 
 The rebuild is complete: thirteen steps, each live and checked; a fourteenth reads the app's lines back onto its
 Observability pages, and a fifteenth tells each request's story there. What's waiting on you is on

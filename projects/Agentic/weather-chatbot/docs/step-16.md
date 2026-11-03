@@ -3,7 +3,7 @@
 Step 16 adds reviewed National Park Service preparation guidance for Zion, Grand Canyon and Yosemite, including
 selected trails. The agent resolves an explicit destination, retrieves applicable passages and combines them with
 weather when requested. Source cards and the Knowledge pages expose the evidence and retrieval decisions.
-This implementation is local and uncommitted; production release remains pending.
+See [step 17](step-17.md) for separate official notice checks; this index remains preparation guidance.
 
 **In one line:** resolve the complete place name → retrieve scoped guidance and optional weather → cite the evidence.
 

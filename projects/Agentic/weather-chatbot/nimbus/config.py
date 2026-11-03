@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     parks_index_path: Path = PROJECT_ROOT / "data" / "parks" / "index.sqlite"
     parks_model_cache: Path = PROJECT_ROOT / "data" / "parks" / "model"
     parks_model_revision: str = Field(default="1110a243fdf4706b3f48f1d95db1a4f5529b4d41", pattern=r"^[a-f0-9]{40}$")
+    # Optional official NPS notices; keep the credential in .env.local or a Sensitive deployment variable.
+    nps_api_key: SecretStr | None = None
     # ④ Set by you: LangSmith's tracing, its key and project, and whether it hides each run's inputs and outputs. The
     # app traces only when these say to hide both, through a client of its own that hides both, into this project
     # (model.py).

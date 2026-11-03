@@ -36,8 +36,16 @@ In the project's **Settings → Environment Variables**, for Production, then a 
 |---|---|---|
 | Add `VERCEL_TELEMETRY_DISABLED` = `1` | The app turns the vercel package's telemetry off before any of its modules import it (issues 58 and 69); a variable is in place even if Vercel's runtime imports the package first | 7 |
 | Delete `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` | They uploaded the TypeScript app's source maps; Python has none, so nothing reads them | 12 |
+| Add `NPS_API_KEY` as a server-side secret in each intended Preview and Production environment | Official park notices show "not configured" without it; the key in local `.env.local` does not configure Vercel | 17 |
 
 Axiom's and Sentry's own variables are set already: the live app's start line said so (step 12's Deploy it).
+
+For the NPS key, select the intended environment before saving it as a secret (Sensitive in dashboards using that
+label). Include Preview for the preview you will validate, and Production for the production release. A new
+deployment or redeploy is required after changing environment variables. Open `/parks/alerts`, choose each supported
+park and run a check: results should show a fetch time or an explicit failure, rather than "not configured".
+Activity distinguishes authentication failures, NPS outages and cached reports without displaying the key.
+See Vercel's [environment variable guide](https://vercel.com/docs/environment-variables/managing-environment-variables).
 
 ## 4. Monitoring: a dashboard, alerts and an uptime monitor (step 12)
 

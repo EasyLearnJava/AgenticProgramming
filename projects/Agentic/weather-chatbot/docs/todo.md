@@ -28,10 +28,14 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 
 ## Next
 
+- **Official park notices, step 17:** follow [Waiting on you](waiting-on-you.md#3-vercels-environment-variables) for
+  NPS account configuration. Verify the API firewall limit, smoke-test a preview and run live answer/citation checks.
+  Public caches and application gates are per instance, so monitor total NPS quota across instances.
+
 - **Park guidance, step 16:** review source changes before publishing a new index and rerun the retrieval benchmark.
   The hosted profile uses keyword retrieval; optional local CPU MiniLM needs no Google embedding key. Validate the
   clean Linux/Vercel bundle in a preview before production, verify the `/api/` edge rate limit, and run all 18 live
-  answer goldens (including five park cases) with Gemini configured. No production push is authorized yet.
+  answer goldens (including five park cases) with Gemini configured.
 
 The rebuild is complete (step 13); these could come after it.
 

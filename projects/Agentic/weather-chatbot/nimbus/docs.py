@@ -186,6 +186,12 @@ CHAPTERS += (
             "a versioned index built before deployment, optional embeddings, and evaluations of source evidence."
         ),
     ),
+    DocPage(
+        slug="step-17",
+        path="/docs/step-17",
+        label="Step 17: Official Park Notices",
+        summary="Bounded official NPS checks alongside stored guidance, with a standalone page and chat citations.",
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="architecture", path="/architecture", label="Architecture and design"),

@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from nimbus.parks import Destination, ParkChunk, Season
+from nimbus.utils import checked_source_url
 
 MAX_SOURCE_BYTES = 2_000_000
 TARGET_CHUNK_WORDS = 320
@@ -49,19 +50,12 @@ class SourceSpec(BaseModel):
     @field_validator("url")
     @classmethod
     def validate_url(cls, value: str) -> str:
-        """Only HTTPS pages on the reviewed NPS host may be fetched."""
-        parsed = urlsplit(value)
-        if (
-            parsed.scheme != "https"
-            or parsed.hostname != "www.nps.gov"
-            or parsed.username
-            or parsed.password
-            or parsed.port not in (None, 443)
-            or parsed.query
-            or parsed.fragment
-        ):
-            raise ValueError("Park sources must be HTTPS pages on www.nps.gov without credentials or query strings")
-        return value
+        """Apply shared URL safety, then require a reviewed document identity on www.nps.gov, without a fragment."""
+        canonical = checked_source_url(value)
+        parsed = urlsplit(canonical)
+        if parsed.hostname != "www.nps.gov" or parsed.fragment:
+            raise ValueError("Reviewed park sources must be document URLs on www.nps.gov without fragments")
+        return canonical
 
 
 @dataclass

@@ -24,6 +24,11 @@ fixed.
 
 ## What it does
 
+Step 17 adds official NPS notice checks alongside the reference index. A fixed-origin client authenticates with a
+server-side key, validates and bounds results, and caches public reports briefly. App → Park alerts runs without
+Gemini; chat has the same checker in every lane. Fetch time, indexing time and completeness stay distinct, and
+unavailable checks never imply no notices. No notices enter the SQLite index. See [step 17](step-17.md).
+
 Step 16 adds preparation guidance for supported parks and trails. A curated registry resolves exact destination IDs
 and labeled forecast reference points. Two knowledge tools run beside the selected weather lane: destination lookup
 and retrieval from official source passages. The answer cites those sources and distinguishes documented advice

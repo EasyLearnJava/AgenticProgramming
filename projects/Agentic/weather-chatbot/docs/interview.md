@@ -507,3 +507,14 @@ abstains on the selected unsupported cases. It does not prove a language model f
 retriever, rather than duplicating its ranking algorithm in the page. Report the actual scores and selection limits,
 and distinguish unavailable semantic scores from zero similarity. Tests compare explained and normal search results
 on the same corpus, including keyword fallback, scoped candidates and context-budget exclusions.
+
+## Step 17 · Official Park Notices
+
+**Why fetch park notices separately from RAG guidance?** Preparation guides are reviewed reference material; notices
+can change independently. Separate fetching and provenance avoid treating an old passage as current operating status.
+
+**Why distinguish no notices from an unavailable check?** An empty successful response describes what NPS returned.
+A failed or incomplete check cannot establish that no notices exist, and neither result establishes safety.
+
+**Why cap model context separately from API results?** Public inspection can show the bounded full report while the
+model receives a smaller labeled subset. Citation validation must allow only URLs actually included in that subset.

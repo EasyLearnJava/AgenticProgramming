@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "nps_alert_parts.html" import notices %}
+{% block title %}Park alerts · Nimbus{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/knowledge.css">
+<link rel="stylesheet" href="/static/alerts.css">{% endblock %}
+{% block content %}
+<main class="knowledge-page">
+  <header class="knowledge-header"><div><p class="knowledge-eyebrow">Nimbus / Parks</p>
+    <h1>Park alerts</h1><p class="knowledge-intro">Check recently published official notices separately from stored
+      preparation guidance, with source links and the time of each check.</p></div></header>
+  {% if not enabled %}<section class="knowledge-empty"><h2>Park features are disabled</h2></section>
+  {% else %}
+  {% if error_message %}<p class="nps-notice" role="alert">{{ error_message }}</p>{% endif %}
+  <form method="post" action="/api/parks/alerts" class="knowledge-filters">
+    <div><label for="alerts-park">Park</label><select id="alerts-park" name="park" required>
+      {% for id, info in parks.items() %}<option value="{{ id }}"{% if selection == id %} selected{% endif %}>
+        {{ info[0] }}</option>{% endfor %}</select></div>
+    <button class="knowledge-button" type="submit">Check alerts</button>
+  </form>
+  <section class="knowledge-panel nps-panel" aria-labelledby="notice-results">
+    <h2 id="notice-results">Official notices</h2>
+    {% if report %}{{ notices(report) }}{% else %}
+    <p>Choose a park and select Check alerts. The check uses the official NPS feed.</p>{% endif %}
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

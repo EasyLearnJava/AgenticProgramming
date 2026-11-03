@@ -1,5 +1,16 @@
 # System Design
 
+## Official park notice extension, step 17
+
+The park selector or resolved chat destination reaches a separate NPS client. It uses a server-side header key,
+fixed park codes, a six-second deadline, bounded pagination, short per-instance caches and shared in-flight checks.
+The page renders public notices directly; the agent gets a smaller labeled subset and its exact citation URLs.
+This path does not ingest notices into RAG, load an embedding model or open a weather connection.
+
+![Official notice request path](images/step-17-design.svg)
+
+See [Official Park Notices](step-17.md) for empty, partial and failure semantics and deployment limits.
+
 ## Park knowledge extension, step 16
 
 The existing weather path now has a separate reference-knowledge path. Approved official park pages are cleaned,

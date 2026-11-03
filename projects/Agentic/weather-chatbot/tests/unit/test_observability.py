@@ -165,7 +165,7 @@ def test_the_views_are_these_where_clauses_and_health_runs_have_their_own() -> N
         "questions": 'event in ("chat.request", "chat.rejected")',
         "errors": (
             f'event in ({events}) and (level == "error" or tostring(status) in ("failed", "down") '
-            'or event == "lane.fallback")'
+            'or event == "lane.fallback" or (event == "nps.alerts" and tostring(status) == "partial"))'
         ),
         "health": 'event == "health.done"',
     } == ACTIVITY_VIEWS
@@ -212,7 +212,8 @@ def test_each_view_asks_its_own_where_and_marks_its_tab(
         (
             "/activity?tool=get_forecast",
             "Questions that called get_forecast",
-            'event in ("tool.call", "knowledge.call") and column_ifexists(\'tool\', \'\') == "get_forecast"',
+            'event in ("tool.call", "knowledge.call", "nps.alerts") '
+            "and column_ifexists('tool', '') == \"get_forecast\"",
         ),
         (
             "/activity?asked=mcp-no-auth",

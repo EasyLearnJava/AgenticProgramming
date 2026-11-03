@@ -1,5 +1,18 @@
 # Technical Details
 
+## Official park notices, step 17
+
+GET `/parks/alerts` displays a selector without an NPS request. POST `/api/parks/alerts` accepts one known park,
+checks origin, bounds the body and reserves application capacity. `NpsAlertsService` authenticates with an
+`X-Api-Key` header to the fixed NPS alerts endpoint, with no question or credential in query parameters. Complete
+reports are cached for five minutes, other reports for one; expired data is never served on failed refresh.
+The same service backs `get_park_alerts` in chat, independent of weather transports. Its model context is bounded
+separately from full public cards. Exact exposed links enter the answer citation allowlist. `nps.alerts` logs only
+caller/status/count/timing metadata and fixed failure-reason codes. Activity shows cached versus live checks,
+sanitized reasons and partial results. Page checks use `park_alerts`, chat uses `get_park_alerts`, and plain GETs
+produce no notice-check event. Shared form and URL validation live in `forms.py` and `utils.py`; invalid individual
+records are omitted with an incomplete label. See [step 17](step-17.md).
+
 ## Park and trail questions, step 16
 
 The chat composes `resolve_destination` and `search_park_guidance` alongside the selected lane's four weather tools.
