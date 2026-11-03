@@ -1,0 +1,24 @@
+{# GET filters search public source text only; the index is never modified. #}
+<form class="knowledge-filters" method="get" aria-label="Filter knowledge">
+  <div class="knowledge-search"><label for="knowledge-search">Search {{ 'chunks' if show_documents else 'documents'
+    }}</label>
+    <input id="knowledge-search" type="search" name="q" value="{{ filters.q }}" maxlength="120"
+      placeholder="{{ 'Search passage text, headings, or IDs' if show_documents else 'Search document titles or IDs'
+        }}">
+  </div>
+  <div><label for="knowledge-park">Park</label><select name="park" id="knowledge-park">
+    <option value="">All parks</option>
+    {% for identity, label in parks.items() %}<option value="{{ identity }}"{% if filters.park == identity %}
+      selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select></div>
+  {% if show_documents %}
+  <div><label for="knowledge-document">Source document</label><select name="document" id="knowledge-document">
+    <option value="">All documents</option>
+    {% for item in documents %}<option value="{{ item.id }}"{% if filters.document == item.id %} selected{% endif
+      %}>{{ item.title }}</option>{% endfor %}
+  </select></div>
+  {% endif %}
+  <button class="knowledge-button" type="submit">Apply filters</button>
+  {% if filters.q or filters.park or filters.document %}<a class="knowledge-reset" href="{{ '/knowledge/chunks' if
+    show_documents else '/knowledge/sources' }}">Clear filters</a>{% endif %}
+</form>

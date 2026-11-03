@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from nimbus import chat, health, observability, pages
+from nimbus import chat, health, knowledge, observability, pages
 from nimbus.answer import make_http_client
 from nimbus.apify import make_apify_http_client
 from nimbus.axiom import make_log_shipper
@@ -24,6 +24,8 @@ from nimbus.mcp_lane import make_mcp_http_client, to_self_mcp_url
 from nimbus.mcp_server import make_mcp_server, to_routes
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from nimbus.model import make_chat_model, make_tracer
+from nimbus.parks import make_park_knowledge
+from nimbus.retrieval_gate import RetrievalGate
 from nimbus.sentry import start_sentry
 
 
@@ -51,6 +53,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # and whether Axiom and Sentry are on.
     app.state.chat_model = make_chat_model(settings)
     app.state.tracer = make_tracer(settings)
+    # Public, reviewed park guidance, independently replaceable in tests and disabled with PARKS_ENABLED=false.
+    app.state.park_knowledge = make_park_knowledge(settings)
+    app.state.retrieval_gate = RetrievalGate()
     # How each answer's weather tools reach Open-Meteo: a new HTTP client for each, and one cache for Open-Meteo's
     # answers (step 7); the tests give their own.
     app.state.make_http_client = make_http_client
@@ -81,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ③ The routes: the pages, the chat and the health check, the Observability pages (step 14); and our MCP server's,
     # with the same tools (step 8).
     app.include_router(pages.router)
+    app.include_router(knowledge.router)
     app.include_router(chat.router)
     app.include_router(health.router)
     app.include_router(observability.router)

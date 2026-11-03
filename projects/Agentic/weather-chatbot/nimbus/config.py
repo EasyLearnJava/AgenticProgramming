@@ -6,13 +6,14 @@ the rest, in Vercel's project settings, or in .env.local on your computer, which
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-from nimbus.constants import GEMINI_MODEL
+from nimbus.constants import GEMINI_MODEL, PROJECT_ROOT
 
 SHORT_COMMIT_CHARS = 7
 # The settings Vercel itself sets on its machines.
@@ -73,6 +74,12 @@ class Settings(BaseSettings):
     # key, the chat says it isn't set up.
     google_api_key: SecretStr | None = None
     gemini_model: str = Field(default=GEMINI_MODEL, pattern=r"^[a-z0-9][a-z0-9.\-]*$")
+    # Park guidance uses a versioned index and pinned CPU MiniLM weights, cached by the offline build command.
+    parks_enabled: bool = True
+    parks_retrieval_mode: Literal["auto", "lexical", "hybrid"] = "auto"
+    parks_index_path: Path = PROJECT_ROOT / "data" / "parks" / "index.sqlite"
+    parks_model_cache: Path = PROJECT_ROOT / "data" / "parks" / "model"
+    parks_model_revision: str = Field(default="1110a243fdf4706b3f48f1d95db1a4f5529b4d41", pattern=r"^[a-f0-9]{40}$")
     # ④ Set by you: LangSmith's tracing, its key and project, and whether it hides each run's inputs and outputs. The
     # app traces only when these say to hide both, through a client of its own that hides both, into this project
     # (model.py).

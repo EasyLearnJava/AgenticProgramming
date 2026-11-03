@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" width="960" height="560" role="img" aria-labelledby="title desc">
+  <title id="title">Park guidance: ingestion, retrieval and cited answers</title>
+  <desc id="desc">Before deployment, approved official sources become section chunks with metadata and a versioned index. During chat, the existing agent resolves a destination, retrieves applicable guidance alongside weather tools, and returns a cited answer. Stored guidance cannot establish live closures or warnings.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0f766e"/></marker></defs>
+  <rect width="960" height="560" fill="#fff"/>
+  <g font-family="system-ui, sans-serif" fill="#123d34">
+    <text x="24" y="38" font-size="22" font-weight="700">Park guidance, grounded in its sources</text>
+    <text x="24" y="78" font-size="16" font-weight="700">Before deployment</text>
+    <g fill="#f0fdfa" stroke="#0f766e">
+      <rect x="24" y="96" width="230" height="70" rx="10"/><rect x="348" y="96" width="250" height="70" rx="10"/><rect x="692" y="96" width="242" height="70" rx="10"/>
+      <rect x="24" y="246" width="230" height="90" rx="10"/><rect x="348" y="218" width="250" height="62" rx="10"/><rect x="348" y="306" width="250" height="62" rx="10"/><rect x="692" y="246" width="242" height="90" rx="10"/>
+      <rect x="24" y="422" width="230" height="72" rx="10"/>
+      <rect x="348" y="422" width="250" height="72" rx="10"/>
+      <rect x="692" y="422" width="242" height="72" rx="10"/>
+    </g>
+    <g font-size="16" text-anchor="middle">
+      <text x="139" y="126">Approved NPS pages</text><text x="139" y="149">Reviewed source snapshots</text>
+      <text x="473" y="126">Section chunks + metadata</text><text x="473" y="149">CPU MiniLM embeddings</text>
+      <text x="813" y="126">Versioned index</text><text x="813" y="149">Bundled, read-only SQLite</text>
+      <text x="139" y="280">Existing chat agent</text><text x="139" y="305">Resolve park or trail</text>
+      <text x="473" y="244">Retrieve guidance</text><text x="473" y="266">Destination + season filters</text>
+      <text x="473" y="332">Existing weather tools</text><text x="473" y="354">Selected REST or MCP lane</text>
+      <text x="813" y="280">Forecast + preparation</text><text x="813" y="305">Cited source links</text>
+      <text x="139" y="450">Retrieval Playground</text><text x="139" y="475">Bounded POST body</text>
+      <text x="473" y="450">Shared guidance retriever</text><text x="473" y="475">Keyword / local MiniLM</text>
+      <text x="813" y="450">Scores + selected chunks</text><text x="813" y="475">Sources and exclusions</text>
+    </g>
+    <text x="24" y="215" font-size="16" font-weight="700">During chat</text>
+    <text x="24" y="405" font-size="16" font-weight="700">Inspect retrieval without Gemini</text>
+    <text x="24" y="536" font-size="15">Published guidance is not a live closure, warning or river-level feed.</text>
+  </g>
+  <g fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M254 131H340"/><path d="M598 131H684"/><path d="M254 279L340 249"/><path d="M254 306L340 337"/><path d="M598 249L684 279"/><path d="M598 337L684 306"/><path d="M813 166V190H473V210"/>
+    <path d="M254 458H340"/><path d="M598 458H684"/>
+  </g>
+</svg>

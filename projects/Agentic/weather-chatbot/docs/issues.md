@@ -695,3 +695,48 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
      question's timeline shows the tool call and not what it asked of Open-Meteo. **Fix:** none yet: the server's
      request is a row of its own (issue 100), and joining the two is on To do: the lane could send the question's
      id, which the server would log only from our own calls. **Check:** none yet.
+
+## Step 16: Park guidance
+
+105. **Weather chips assumed every tool had a wire request.** The park integration exposed that assumption.
+     **Fix:** knowledge calls have their own artifact and escaped source links, revision dates and retrieval mode.
+     **Check:** source-card tests and the browser accessibility and phone-width check.
+106. **MiniLM would truncate the earlier long chunks.** Its input budget includes the document title and heading.
+     **Fix:** use the actual tokenizer before encoding, split oversized text and reject over-limit inputs.
+     **Check:** bounded-input and sentence-context tests, plus an actual CPU index build with 384-dimensional vectors.
+107. **A guide-only question could depend on a working weather lane.** MCP setup originally preceded model routing.
+     **Fix:** open weather lazily in a dedicated task that also closes its SDK context; retrieval remains available.
+     **Check:** lane setup failure, cancellation, and composition tests on all four lanes.
+108. **Initial source selection omitted Zion winter guidance.** The labeled evaluation found no supporting passage.
+     **Fix:** add the official seasonal page and review its winter preparation text, excluding operating schedules.
+     **Check:** all 30 labeled retrieval cases pass for keyword and CPU-assisted semantic retrieval.
+109. **The new browser check opened a source card while its stream could still replace it.** A zero busy-count
+     assertion could succeed before the answer began. **Fix:** wait for final answer text before opening the card.
+     **Check:** the park card opens by keyboard, passes axe, and fits the phone viewport.
+110. **The initial embedding dependency pins had known advisories.** The repository's dependency audit found them.
+     **Fix:** pin patched SentenceTransformers, Transformers and CPU PyTorch releases; take narrow security-fix
+     exceptions for filelock and setuptools. **Check:** the audit reports no known vulnerabilities beyond the four
+     existing pyasn1 exceptions, and unit, browser and real CPU retrieval checks pass with the patched packages.
+111. **The hosted ML dependency set was unnecessarily large and lacked weights.** Review found that a clean
+     deployment could import ML and always fall back. **Fix:** separate an optional `ml` group and default Vercel to
+     explicit keyword retrieval. **Check:** a clean production-only installation serves retrieval without ML.
+112. **Lazy MCP setup failures ended as successful answers.** **Fix:** retain the original failure class in per-turn
+     state, preserve any guidance, and finish through `chat.failed`; include setup events in Activity. **Check:** a
+     real-schema fake MCP setup failure retains guidance and logs `McpLaneError`, with no `chat.done`.
+113. **Nevada Fall was mistaken for a season.** Four safety passages were excluded in spring and summer. **Fix:**
+     use reviewed section-season metadata and regenerate the index with four corrected records. **Check:** dated
+     safety cases and a direct waterfall-name regression.
+114. **Playground questions entered request URLs.** **Fix:** bounded POST bodies under `/api/`, same-origin checks,
+     an expiring request limit and a concurrency cap. **Check:** question-free URLs, private-log markers, duplicate
+     and oversized bodies, foreign origins, rate expiry and browser form submission.
+115. **Longer place names matched familiar aliases.** **Fix:** reject unknown geographic qualifiers rather than
+     stripping them. **Check:** Yellowstone's Grand Canyon, Kanarra Creek narrows and the unsupported North Rim.
+116. **Generated park links depended on prompt instructions.** **Fix:** permit retrieved park URLs and reviewed
+     weather-authority links before rendering. **Check:** invented and foreign citations lose their link targets;
+     three new park goldens require citations, with two more covering unsupported and ambiguous destinations.
+117. **Embedding deadlines left unbounded default-executor work.** **Fix:** one dedicated inference worker with no
+     request queue; isolate offline embedding work in a process that is killed and reaped on its overall deadline.
+     **Check:** cancellation, busy requests, released worker state and child termination tests.
+118. **Two integration assertions did not prove their names.** A swallowed assertion and invalid forecast input
+     concealed lane-opening behavior. **Fix:** observe opening attempts and use valid tool schemas; add rank-sensitive
+     grading, paraphrases and hardening mutations. **Check:** focused regressions and the expanded 41-case benchmark.

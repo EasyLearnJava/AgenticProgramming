@@ -1,5 +1,22 @@
 # System Design
 
+## Park knowledge extension, step 16
+
+The existing weather path now has a separate reference-knowledge path. Approved official park pages are cleaned,
+split into attributed sections and published as a versioned read-only SQLite index. At request time, destination
+resolution constrains retrieval; the agent combines those passages with weather tools and cites their sources.
+No ingestion runs in the chat request, and no visitor conversation is written into the index.
+
+![Park guidance: ingestion and request paths](images/step-16-design.svg)
+
+This extends the step 15 diagram below with a public reference store and two tools shared by all weather lanes.
+Source dates and index versions describe a published snapshot; a snapshot cannot establish a live closure or warning.
+See [Park Guidance with Retrieved Sources](step-16.md) for the complete data and request flows.
+
+Knowledge's **Retrieval Playground** provides a direct inspection path into that same guidance retriever. A validated
+question, destination and optional visit date produce candidate scores, selection decisions and source passages.
+It shares the encoder and published index with chat; Gemini and the weather tools are outside this inspection path.
+
 How Nimbus is built after step 15, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
@@ -247,3 +264,7 @@ Searched for the id, Vercel's logs found its seven lines, the question's text an
 The rebuild is complete: thirteen steps, each live and checked; a fourteenth reads the app's lines back onto its
 Observability pages, and a fifteenth tells each request's story there. What's yours to set is on
 [Waiting on you](waiting-on-you.md); what could come next, on [To do](todo.md).
+
+The Step 16 hosted profile uses the lightweight keyword retriever. CPU MiniLM is an optional local or explicitly
+provisioned-host capability, with one bounded inference worker. Playground execution uses a protected POST endpoint
+under `/api/`; no question is placed in its URL. Index health and knowledge/setup events are part of operations.

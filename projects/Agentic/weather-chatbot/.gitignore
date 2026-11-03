@@ -9,3 +9,7 @@
 # Playwright's reports
 /test-results/
 /playwright-report/
+
+# Downloaded, revision-pinned MiniLM weights; rebuild with tools.build_park_index on each host.
+/data/parks/model/
+/data/parks/raw/

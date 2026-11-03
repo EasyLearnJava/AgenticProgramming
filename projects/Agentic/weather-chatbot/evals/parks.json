@@ -1,0 +1,479 @@
+[
+  {
+    "id": "narrows-warm-layers",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What warm clothing should I bring for cold river water?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "warm",
+      "clothing"
+    ]
+  },
+  {
+    "id": "narrows-summer-clothing",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What extra clothing should I carry in summer?",
+    "visit_date": "2027-07-10",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "warm",
+      "dry"
+    ]
+  },
+  {
+    "id": "narrows-winter-suit",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What wetsuit or drysuit equipment is recommended in winter?",
+    "visit_date": "2027-01-10",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "wetsuit|drysuit"
+    ]
+  },
+  {
+    "id": "narrows-footwear",
+    "destination": "Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What footwear is recommended for slippery rocks?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "footwear",
+      "slippery|ankle"
+    ]
+  },
+  {
+    "id": "narrows-dry-bags",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "How should I protect belongings and equipment from river water?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "waterproof",
+      "bag|container"
+    ]
+  },
+  {
+    "id": "narrows-hiking-poles",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "Why are hiking poles useful in the river?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "pole|stick",
+      "balance"
+    ]
+  },
+  {
+    "id": "narrows-flash-floods",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "Can storms far away cause a flash flood in the canyon?",
+    "document_ids": [
+      "zion-narrows-safety",
+      "zion-flash-flood"
+    ],
+    "evidence_terms": [
+      "flash flood",
+      "miles|away|distant"
+    ]
+  },
+  {
+    "id": "narrows-headlamp",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "Why should I carry a headlamp or flashlight?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "headlamp|flashlight"
+    ]
+  },
+  {
+    "id": "zion-flood-preparation",
+    "destination": "Zion National Park",
+    "destination_id": "zion",
+    "query": "What preparation guidance addresses flash floods in narrow canyons?",
+    "document_ids": [
+      "zion-flash-flood"
+    ],
+    "evidence_terms": [
+      "flash flood"
+    ]
+  },
+  {
+    "id": "zion-winter-weather",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "What winter weather and snow should visitors prepare for?",
+    "visit_date": "2027-01-15",
+    "document_ids": [
+      "zion-seasons"
+    ],
+    "evidence_terms": [
+      "winter|snow"
+    ]
+  },
+  {
+    "id": "canyon-summer-shade",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "What summer hiking advice addresses heat and shade?",
+    "visit_date": "2027-07-10",
+    "document_ids": [
+      "grand-canyon-summer"
+    ],
+    "evidence_terms": [
+      "shade",
+      "heat|hot"
+    ]
+  },
+  {
+    "id": "canyon-hottest-hours",
+    "destination": "Grand Canyon National Park",
+    "destination_id": "grand-canyon",
+    "query": "What time of day does the summer guide recommend avoiding hiking?",
+    "visit_date": "2027-07-10",
+    "document_ids": [
+      "grand-canyon-summer"
+    ],
+    "evidence_terms": [
+      "10",
+      "4"
+    ]
+  },
+  {
+    "id": "canyon-hiking-food",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "What food and salty snacks should I carry when hiking?",
+    "document_ids": [
+      "grand-canyon-summer",
+      "grand-canyon-hiking"
+    ],
+    "evidence_terms": [
+      "food|snack",
+      "salt"
+    ]
+  },
+  {
+    "id": "canyon-sun-protection",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "What sun protection should I pack for a summer hike?",
+    "visit_date": "2027-07-10",
+    "document_ids": [
+      "grand-canyon-summer"
+    ],
+    "evidence_terms": [
+      "sun",
+      "hat|sunscreen"
+    ]
+  },
+  {
+    "id": "canyon-winter-traction",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "What traction equipment helps with icy winter trails?",
+    "visit_date": "2027-01-15",
+    "document_ids": [
+      "grand-canyon-winter"
+    ],
+    "evidence_terms": [
+      "ice|icy",
+      "traction|crampon"
+    ]
+  },
+  {
+    "id": "south-kaibab-water",
+    "destination": "South Kaibab Trail",
+    "destination_id": "grand-canyon-south-kaibab",
+    "query": "What does the summer guide say about shade and water sources on South Kaibab?",
+    "visit_date": "2027-07-10",
+    "document_ids": [
+      "grand-canyon-summer",
+      "grand-canyon-south-kaibab"
+    ],
+    "evidence_terms": [
+      "South Kaibab",
+      "shade",
+      "water"
+    ]
+  },
+  {
+    "id": "south-kaibab-heat",
+    "destination": "South Kaibab",
+    "destination_id": "grand-canyon-south-kaibab",
+    "query": "What heat exposure should I prepare for in summer?",
+    "visit_date": "2027-07-10",
+    "document_ids": [
+      "grand-canyon-summer",
+      "grand-canyon-south-kaibab"
+    ],
+    "evidence_terms": [
+      "heat",
+      "shade"
+    ]
+  },
+  {
+    "id": "yosemite-lightning",
+    "destination": "Yosemite",
+    "destination_id": "yosemite",
+    "query": "What official guidance applies to thunderstorms and lightning?",
+    "document_ids": [
+      "yosemite-lightning"
+    ],
+    "evidence_terms": [
+      "lightning"
+    ]
+  },
+  {
+    "id": "yosemite-lightning-shelter",
+    "destination": "Yosemite National Park",
+    "destination_id": "yosemite",
+    "query": "What shelter does the park recommend during a thunderstorm?",
+    "document_ids": [
+      "yosemite-lightning"
+    ],
+    "evidence_terms": [
+      "building|vehicle|shelter"
+    ]
+  },
+  {
+    "id": "yosemite-winter-snow",
+    "destination": "Yosemite",
+    "destination_id": "yosemite",
+    "query": "What snow and winter weather should visitors prepare for?",
+    "visit_date": "2027-01-15",
+    "document_ids": [
+      "yosemite-weather"
+    ],
+    "evidence_terms": [
+      "winter|snow"
+    ]
+  },
+  {
+    "id": "yosemite-water",
+    "destination": "Yosemite",
+    "destination_id": "yosemite",
+    "query": "What does the hiking guide say about carrying and treating water?",
+    "document_ids": [
+      "yosemite-hiking"
+    ],
+    "evidence_terms": [
+      "water",
+      "treat"
+    ]
+  },
+  {
+    "id": "mist-trail-spray",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "What should I know about waterfall spray and slippery steps?",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "slippery|spray"
+    ]
+  },
+  {
+    "id": "mist-trail-rainwear",
+    "destination": "Yosemite Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "Should I bring rain gear for the waterfall mist?",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "rain|wet|spray"
+    ]
+  },
+  {
+    "id": "mist-trail-lightning",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "What should I do when thunder or lightning threatens?",
+    "document_ids": [
+      "yosemite-lightning"
+    ],
+    "evidence_terms": [
+      "lightning|thunder"
+    ]
+  },
+  {
+    "id": "unsupported-yellowstone",
+    "destination": "Yellowstone",
+    "resolution": "unsupported",
+    "query": "What should I pack?"
+  },
+  {
+    "id": "unsupported-acadia",
+    "destination": "Acadia National Park",
+    "resolution": "unsupported",
+    "query": "What should I pack?"
+  },
+  {
+    "id": "ambiguous-parks",
+    "destination": "Zion or Yosemite",
+    "resolution": "ambiguous",
+    "query": "Which park's guidance applies?"
+  },
+  {
+    "id": "narrows-no-account-help",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "Reset my email password and configure SMTP authentication",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "canyon-no-recipe",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "Chocolate macarons recipe oven baking instructions",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "yosemite-no-stock-analysis",
+    "destination": "Yosemite",
+    "destination_id": "yosemite",
+    "query": "Quarterly earnings semiconductor stock valuation",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "narrows-dry-bags-paraphrase",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "How can I keep spare clothing dry while carrying it through the river?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "waterproof",
+      "bag|container"
+    ]
+  },
+  {
+    "id": "narrows-footwear-paraphrase",
+    "destination": "Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What should go on my feet to grip the wet rocks?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "footwear",
+      "slippery|ankle"
+    ]
+  },
+  {
+    "id": "canyon-food-paraphrase",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "What should I eat along the way to replace salt while hiking?",
+    "document_ids": [
+      "grand-canyon-summer",
+      "grand-canyon-hiking"
+    ],
+    "evidence_terms": [
+      "food|snack",
+      "salt"
+    ]
+  },
+  {
+    "id": "yosemite-lightning-paraphrase",
+    "destination": "Yosemite National Park",
+    "destination_id": "yosemite",
+    "query": "Where can a walker take shelter when a thunderstorm arrives?",
+    "document_ids": [
+      "yosemite-lightning"
+    ],
+    "evidence_terms": [
+      "building|vehicle|shelter"
+    ]
+  },
+  {
+    "id": "mist-spray-paraphrase",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "Will waterfall mist make the stairway slippery?",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "slippery|spray"
+    ]
+  },
+  {
+    "id": "zion-winter-paraphrase",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Does the cold season bring snow to Zion?",
+    "visit_date": "2027-01-15",
+    "document_ids": [
+      "zion-seasons"
+    ],
+    "evidence_terms": [
+      "winter|snow"
+    ]
+  },
+  {
+    "id": "mist-spray-spring",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "What should I know about waterfall spray and slippery steps?",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "slippery|spray"
+    ],
+    "visit_date": "2027-04-10"
+  },
+  {
+    "id": "mist-spray-summer",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "What should I know about waterfall spray and slippery steps?",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "slippery|spray"
+    ],
+    "visit_date": "2027-07-10"
+  },
+  {
+    "id": "yellowstone-canyon-collision",
+    "destination": "Grand Canyon of the Yellowstone",
+    "resolution": "unsupported",
+    "query": "What should I pack?"
+  },
+  {
+    "id": "kanarra-collision",
+    "destination": "Kanarra Creek narrows",
+    "resolution": "unsupported",
+    "query": "What should I pack?"
+  },
+  {
+    "id": "north-rim-scope",
+    "destination": "Grand Canyon North Rim",
+    "resolution": "unsupported",
+    "query": "What should I pack?"
+  }
+]

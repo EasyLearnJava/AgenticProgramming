@@ -1,0 +1,201 @@
+/* Retrieval diagnostics use the existing Knowledge palette, with readable score tables and mobile forms. */
+.retrieval-query {
+  margin-bottom: 20px;
+}
+
+.retrieval-form {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.retrieval-form .retrieval-question {
+  flex: 1 1 100%;
+}
+
+.retrieval-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid #bacbc5;
+  border-radius: 8px;
+  background: white;
+  color: var(--user-text);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.retrieval-form .retrieval-destination {
+  flex: 1;
+  min-width: min(280px, 100%);
+}
+
+.retrieval-destination select {
+  max-width: none;
+}
+
+.retrieval-hint {
+  margin: 8px 0 0;
+  color: #52645f;
+  font-size: 0.76rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.retrieval-wide {
+  flex: 1 1 100%;
+}
+
+.retrieval-results > .knowledge-section-heading:first-child {
+  margin: 0 0 16px;
+}
+
+.retrieval-mode {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #edf6f2;
+  color: #295d4f;
+  font-weight: 650;
+}
+
+.retrieval-notice {
+  padding: 12px 14px;
+  border: 1px solid #dbcda8;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #655326;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+.retrieval-summary {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.5fr) repeat(3, minmax(100px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.retrieval-summary dt {
+  color: #52645f;
+  font-size: 0.72rem;
+}
+
+.retrieval-summary dd {
+  margin: 6px 0 0;
+  color: var(--bot-text);
+  font-size: 1rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.retrieval-explanation {
+  margin-top: 16px;
+  padding: 14px 0;
+  border-block: 1px solid var(--line);
+  font-size: 0.8rem;
+  line-height: 1.8;
+}
+
+.retrieval-explanation summary {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retrieval-explanation p:last-child {
+  margin-bottom: 0;
+}
+
+.retrieval-table {
+  min-width: 920px;
+}
+
+.retrieval-table .retrieval-chunk-cell {
+  min-width: 210px;
+  max-width: 300px;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.retrieval-chunk-cell > span {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.retrieval-table .retrieval-score {
+  min-width: 80px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.retrieval-decision {
+  display: inline-block;
+  min-width: 90px;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.retrieval-passage {
+  margin-top: 14px;
+  scroll-margin-top: 20px;
+}
+
+.retrieval-passage-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.retrieval-passage-heading > div {
+  flex: 1;
+  min-width: min(180px, 100%);
+}
+
+.retrieval-passage-heading h3 {
+  margin: 0 0 5px;
+}
+
+.retrieval-passage-heading a {
+  font-size: 0.8rem;
+}
+
+.retrieval-passage-heading > p {
+  margin: 0;
+  color: #52645f;
+  font-size: 0.75rem;
+}
+
+.retrieval-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #edf6f2;
+  color: #295d4f;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+@media (max-width: 680px) {
+  .retrieval-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .retrieval-form .retrieval-destination {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .retrieval-form {
+    padding: 0;
+  }
+}

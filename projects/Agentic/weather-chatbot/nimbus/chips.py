@@ -19,6 +19,7 @@ from nimbus.errors import (
     WEATHER_UNREACHABLE,
 )
 from nimbus.lanes import get_lane
+from nimbus.park_tools import PARK_GUIDANCE_UNAVAILABLE, KnowledgeCallRecord
 from nimbus.tools import ToolCallRecord
 
 type ChipStatus = Literal["running", "done", "failed", "stopped"]
@@ -28,7 +29,14 @@ WORDS: Final[dict[ChipStatus, str]] = {"running": "Running", "done": "Done", "fa
 # The sentences a failed call may show: ours. Any other text a tool's failure holds (LangChain's own, when the model's
 # input didn't fit) shows as TOOL_MISUSED.
 TOOL_SENTENCES: Final = frozenset(
-    {WEATHER_TOO_SLOW, WEATHER_UNREACHABLE, WEATHER_BUSY, WEATHER_UNEXPECTED, MCP_UNREACHABLE}
+    {
+        WEATHER_TOO_SLOW,
+        WEATHER_UNREACHABLE,
+        WEATHER_BUSY,
+        WEATHER_UNEXPECTED,
+        MCP_UNREACHABLE,
+        PARK_GUIDANCE_UNAVAILABLE,
+    }
 )
 SHORTEST_SHOWN_MS: Final = 50
 MS_PER_SECOND: Final = 1000
@@ -65,7 +73,7 @@ class ToolChip:
     name: str
     args: dict[str, Any]
     status: ChipStatus = "running"
-    record: ToolCallRecord | None = None
+    record: ToolCallRecord | KnowledgeCallRecord | None = None
     output: str | None = None
     error: str | None = None
 
@@ -127,6 +135,8 @@ class ToolChip:
         """
         if self.record is None:
             return None
+        if isinstance(self.record, KnowledgeCallRecord):
+            return f"Park guidance · {to_duration_text(self.record.ms)}"
         lane = get_lane(self.record.lane).label
         cache = " · from the cache" if self.record.from_cache else ""
         return f"{lane} · {self.record.request.host}{cache} · {to_duration_text(self.record.ms)}"
@@ -135,11 +145,21 @@ class ToolChip:
     def wire_label(self) -> str:
         """Over the request the call sent: on REST, if the cache answered, the one that first fetched it (step 7)."""
         record = self.record
-        first = record is not None and record.from_cache and record.upstream_request is None
+        first = isinstance(record, ToolCallRecord) and record.from_cache and record.upstream_request is None
         return "On the wire, when it was first fetched" if first else "On the wire"
 
     @property
     def upstream_label(self) -> str:
         """Over the request our MCP server sent Open-Meteo, on the MCP lane: the first time's, if the cache answered."""
-        cached = self.record is not None and self.record.from_cache
+        cached = isinstance(self.record, ToolCallRecord) and self.record.from_cache
         return "Then, from our MCP server, when it was first fetched" if cached else "Then, from our MCP server"
+
+    @property
+    def weather_record(self) -> ToolCallRecord | None:
+        """The wire record for a weather tool, absent for local knowledge operations."""
+        return self.record if isinstance(self.record, ToolCallRecord) else None
+
+    @property
+    def knowledge_record(self) -> KnowledgeCallRecord | None:
+        """The provenance record for a destination lookup or guidance retrieval."""
+        return self.record if isinstance(self.record, KnowledgeCallRecord) else None

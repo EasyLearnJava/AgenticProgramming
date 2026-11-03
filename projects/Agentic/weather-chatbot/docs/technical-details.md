@@ -1,5 +1,21 @@
 # Technical Details
 
+## Park and trail questions, step 16
+
+The chat composes `resolve_destination` and `search_park_guidance` alongside the selected lane's four weather tools.
+The destination registry returns an explicit park or trail ID and a labeled forecast reference point. Retrieval
+filters source chunks by destination and visit season before keyword or compatible embedding ranking. The agent can
+fetch forecast data and retrieve preparation guidance concurrently after resolving the destination.
+
+Each returned passage carries its document ID, section, source URL and dates. Its artifact feeds a knowledge card,
+while the model sees the bounded passage content as untrusted data. The answer's links cite returned sources. A
+missing or failed retrieval leaves the weather answer useful and explicitly limits its preparation guidance.
+The index is public read-only reference data, built outside requests; it holds no visitor questions or chat history.
+
+The separate `tools.eval_parks` command measures labeled source retrieval without asking Gemini. Live answer goldens
+can additionally require `cites` URLs and restrict links with `only_cites`. See [step 16](step-16.md) for operation and
+failure behavior.
+
 One question, followed through the code: "Will it rain in Paris tomorrow?", asked on the live site on 31 October 2026,
 on REST · no auth, its request id `cle1::n4pbp-1793475397181-d8b19e1af797`. Each part names the file and the function
 that does the work; a circled number (①) is the code's own comment at that point. The TypeScript version's page is
@@ -140,3 +156,24 @@ The live question's seven lines, as Axiom keeps them (`['weather-chatbot'] | whe
 Each line goes to Axiom, once its request has answered; each error to Sentry; `/api/health` checks each lane's way
 out, for an uptime monitor and the dots. [Step 12's chapter](step-12.md) has the dashboards and alerts, ready to set
 up.
+
+### Knowledge inspection pages
+
+`nimbus/knowledge.py` serves `/knowledge/sources`, `/knowledge/sources/{document_id}` and `/knowledge/chunks`.
+`ParkKnowledge.inspection()` supplies detached public records; it never opens a writable connection. Bounded filter
+models reject unknown fields and invalid selections. PCA operates on all stored vectors before filtering, using
+stable component signs and a bounded projection cache; filter changes preserve the map's coordinates. Escaped
+Jinja2 templates provide source links, indexed text and vector values, with keyboard-accessible SVG links and a table.
+
+`/knowledge/retrieval` accepts `RetrievalFilters` and calls `ParkKnowledge.search(..., explain=True)` on the same
+app-scoped service used by chat. Its optional diagnostics report raw keyword scores, compressed keyword contributions,
+cosine similarities, final scores, qualified ranks and selection/exclusion reasons. The page renders actual selected
+passages and source links, labels lexical fallback, and never calls Gemini or changes the published index. Explanation
+mode preserves the ordinary search response and ranking when disabled. Both the form and results work without scripts.
+
+The hosted profile is explicitly keyword-only by default and does not install the optional ML group. The local
+profile checks dependencies and pinned cached weights before attaching a single dedicated inference worker.
+Playground execution is `POST /api/knowledge/retrieval`, with bounded bodies, same-origin checks, expiring request
+limits and a concurrency cap. Questions never appear in generated retrieval URLs. Weather setup failures preserve
+the original error class through `chat.failed` while retaining guidance. Activity includes knowledge and setup events,
+and health checks the published index separately from weather-lane status. See step 16 for limits and release checks.

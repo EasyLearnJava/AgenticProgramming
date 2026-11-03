@@ -45,7 +45,8 @@ def answered(tools: list[str], text: str = "", *, failed: bool = False) -> Answe
 
 def test_the_golden_questions_each_expect_something_and_each_has_its_own_id() -> None:
     goldens = read_goldens()
-    assert len(goldens) == 13
+    assert len(goldens) == 18
+    assert len([golden for golden in goldens if golden.id.startswith("park-")]) == 5
     assert len({golden.id for golden in goldens}) == len(goldens)
     for golden in goldens:
         expect = golden.expect
@@ -169,7 +170,14 @@ def test_langsmith_s_examples_are_what_s_asked_and_what_s_expected() -> None:
         "time_zone": "America/Chicago",
         "lane": "rest-no-auth",
     }
-    assert example["outputs"] == {"tools": [], "no_tools": [], "says": ["°C"], "never_says": []}
+    assert example["outputs"] == {
+        "tools": [],
+        "no_tools": [],
+        "says": ["°C"],
+        "never_says": [],
+        "cites": [],
+        "only_cites": [],
+    }
     assert example["metadata"] == {"id": "metric"}
 
 

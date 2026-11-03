@@ -1,0 +1,34 @@
+{# Shared shell for the public, read-only knowledge browser. #}
+{% extends "base.html" %}
+{% block title %}{% block knowledge_title %}Knowledge{% endblock %} · Nimbus{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/knowledge.css">{% endblock %}
+{% block content %}
+<main class="knowledge-page">
+  <header class="knowledge-header">
+    <div><p class="knowledge-eyebrow">Nimbus / Knowledge</p>
+      <h1>{% block knowledge_heading %}Knowledge{% endblock %}</h1>
+      <p class="knowledge-intro">{% block knowledge_intro %}{% endblock %}</p>
+    </div>
+    {% block knowledge_action %}{% endblock %}
+  </header>
+  {% if not catalog.available %}
+  <section class="knowledge-empty" aria-labelledby="unavailable-title">
+    <h2 id="unavailable-title">Knowledge index unavailable</h2>
+    <p>The published park collection could not be loaded. Check the index configuration before browsing again.</p>
+  </section>
+  {% else %}
+  <ul class="knowledge-stats" aria-label="{{ source_count }} documents, {{ chunk_count }} chunks, {{ vector_count }}
+    vectors">
+    <li><strong>{{ source_count }}</strong><span>Source documents</span></li>
+    <li><strong>{{ chunk_count }}</strong><span>Indexed chunks</span></li>
+    <li><strong>{{ vector_count }}</strong><span>Stored vectors</span></li>
+    <li><strong>{{ catalog.dimensions }}</strong><span>Vector dimensions</span></li>
+  </ul>
+  {% block knowledge_body %}{% endblock %}
+  <footer class="knowledge-footer">
+    Public National Park Service guidance · Index <code>{{ catalog.index_version }}</code>
+    <p>Published preparation guidance does not establish current closures, warnings, or river conditions.</p>
+  </footer>
+  {% endif %}
+</main>
+{% endblock %}

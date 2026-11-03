@@ -1,0 +1,91 @@
+{# PCA is computed from real stored vectors; native SVG links and a complete table provide keyboard access. #}
+{% extends "knowledge_layout.html" %}
+{% block knowledge_title %}Chunks &amp; vectors{% endblock %}
+{% block knowledge_heading %}Chunks &amp; vectors{% endblock %}
+{% block knowledge_intro %}Explore the passages stored in the knowledge index, inspect their embeddings, and trace
+  every chunk back to its source.{% endblock %}
+{% block knowledge_action %}<a class="knowledge-button knowledge-secondary" href="/knowledge/sources">Browse sources
+  →</a>{% endblock %}
+{% block knowledge_body %}
+{% set show_documents = true %}{% include "knowledge_filters.html" %}
+<div class="knowledge-model"><p>Stored embeddings ·
+  <strong>{{ catalog.embedding_model.split('@')[0].split('/')[-1] or 'No embedding model' }}</strong>
+  · {{ catalog.dimensions }} dimensions</p>
+  <details><summary>Model revision</summary><code>{{ catalog.embedding_model }}</code></details>
+</div>
+{% if chunks %}
+<div class="knowledge-explorer">
+  <section class="knowledge-panel knowledge-map-panel" aria-labelledby="map-title">
+    <div class="knowledge-section-heading"><h2 id="map-title">Embedding map</h2><span>{{ points|length }}
+      vectors</span></div>
+    <p class="knowledge-map-intro">Select a point to inspect its chunk.</p>
+    {% if points %}
+    <svg id="embedding-map" class="knowledge-map" viewBox="0 0 800 400" role="group" aria-labelledby="map-title
+      map-description">
+      <title>Stored chunk embeddings projected into two dimensions</title>
+      <desc id="map-description">A PCA projection of the actual stored embeddings. Each point links to its chunk
+        details.</desc>
+      <rect x="60" y="30" width="680" height="320" class="knowledge-plot-background"/>
+      <g class="knowledge-plot-grid"><path d="M60 110H740M60 190H740M60 270H740M230 30V350M400 30V350M570 30V350"/></g>
+      <g class="knowledge-plot-axes"><path d="M60 350H740M60 30V350"/></g>
+      <text x="400" y="386" text-anchor="middle" class="knowledge-axis-label">PC1 · {{ variance[0] }}% variance</text>
+      <text x="18" y="190" text-anchor="middle" transform="rotate(-90 18 190)" class="knowledge-axis-label">PC2 · {{
+        variance[1] }}% variance</text>
+      {% for point in points %}
+      <a href="{{ point.href }}" aria-label="Inspect {{ point.chunk.section }} — {{ point.chunk.title }}"
+        class="knowledge-plot-link">
+        <circle cx="{{ point.x }}" cy="{{ point.y }}" r="{{ 9 if selected and selected.id == point.id else 6 }}"
+          class="knowledge-point knowledge-point-{{ point.color }}{% if selected and selected.id == point.id %}
+            knowledge-point-selected{% endif %}">
+          <title>{{ point.chunk.title }} · {{ point.chunk.section }}</title>
+        </circle>
+      </a>
+      {% endfor %}
+    </svg>
+    {% else %}<p class="knowledge-empty">No vectors are stored for the matching chunks.</p>{% endif %}
+    <ul class="knowledge-legend" aria-label="Park colors"><li><span class="knowledge-dot
+      knowledge-point-zion"></span>Zion</li>
+      <li><span class="knowledge-dot knowledge-point-canyon"></span>Grand Canyon</li>
+      <li><span class="knowledge-dot knowledge-point-yosemite"></span>Yosemite</li></ul>
+    <p class="knowledge-map-note">PCA reduces the full vector to two dimensions. Distances here are approximate;
+      retrieval uses all {{ catalog.dimensions }} dimensions. Filters keep the same projection.</p>
+  </section>
+  <section class="knowledge-panel knowledge-detail" id="chunk-detail" aria-labelledby="chunk-title">
+    {% if selected %}
+    <p class="knowledge-eyebrow">Selected chunk</p><h2 id="chunk-title">{{ selected.section }}</h2>
+    <p><a href="/knowledge/sources/{{ selected.document_id }}">{{ selected.title }}</a></p>
+    <p class="knowledge-document-id">{{ selected.id }}</p>
+    <p class="knowledge-passage-text">{{ selected.text }}</p>
+    <dl class="knowledge-detail-meta"><div><dt>Applies to</dt><dd>{{ selected.destination_ids|join(', ') }}</dd></div>
+      <div><dt>Season</dt><dd>{{ selected.seasons|join(', ') }}</dd></div>
+      <div><dt>Source updated</dt><dd>{{ selected.source_updated_at or 'Not provided' }}</dd></div>
+      <div><dt>Retrieved</dt><dd>{{ selected.fetched_at[:10] }}</dd></div>
+      <div><dt>Vector</dt><dd>{{ selected.embedding|length }} components · normalized</dd></div></dl>
+    <a href="{{ selected.source_url }}" target="_blank" rel="noopener noreferrer">Read the official source ↗<span
+      class="visually-hidden"> (opens in a new tab)</span></a>
+    <details class="knowledge-vector"><summary>Vector components ({{ selected.embedding|length }})</summary>
+      <pre tabindex="0" role="region" aria-label="Vector component values">{{ vector_json }}</pre></details>
+    <details class="knowledge-vector"><summary>Content fingerprint</summary><code>{{ selected.content_hash
+      }}</code></details>
+    {% endif %}
+  </section>
+</div>
+<section class="knowledge-panel knowledge-chunk-list" aria-labelledby="chunks-title">
+  <div class="knowledge-section-heading"><h2 id="chunks-title">Stored chunks</h2><p>{{ chunks|length }} of {{
+    chunk_count }} chunks</p></div>
+  <div class="knowledge-table-wrap" tabindex="0" role="region" aria-label="Scrollable chunks table">
+    <table class="knowledge-table"><thead><tr><th scope="col">Chunk / section</th><th scope="col">Source</th>
+      <th scope="col">Text preview</th><th scope="col">Dimensions</th></tr></thead>
+      <tbody>{% for item in chunks %}<tr data-park="{{ item.park_id }}"{% if selected and selected.id == item.id %}
+        class="knowledge-row-selected"{% endif %}>
+        <td><a href="{{ chunk_url(item.id) }}"{% if selected and selected.id == item.id %} aria-current="true"{%
+          endif %}>{{ item.section }}</a><code>{{ item.id }}</code></td>
+        <td><a href="/knowledge/sources/{{ item.document_id }}">{{ item.title }}</a></td>
+        <td>{{ item.text[:150] }}{% if item.text|length > 150 %}…{% endif %}</td><td>{{ item.embedding|length }}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</section>
+{% else %}<section class="knowledge-empty"><h2>No chunks match</h2><p>Try a different search, source document, or
+  park.</p></section>{% endif %}
+{% endblock %}

@@ -6,7 +6,7 @@ https://weather-chatbot-hazel.vercel.app/. This page is its whole design in one 
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
 secure. The other pages go deeper: [System design](system-design.md) sets it against a reference design for AI
 assistants, [Technical details](technical-details.md) follows one question through the code, each step's chapter
-tells how a part was built, and [Issues and fixes](issues.md) tells all 94 problems met on the way and how each was
+tells how a part was built, and [Issues and fixes](issues.md) records the problems met on the way and how each was
 fixed.
 
 ## At a glance
@@ -18,11 +18,23 @@ fixed.
 | **Weather** | Open-Meteo's geocoding, forecast and air-quality APIs, which need no key; Apify's Actor, behind a token |
 | **Interfaces** | The chat page; four Observability pages; the documentation; an MCP server at `/api/mcp`; a health check at `/api/health` |
 | **Hosting** | One Vercel Function in `iad1` (Washington, D.C.), on the Hobby plan; Vercel's CDN for the files |
-| **State** | No database: the conversation stays in the visitor's browser; the weather, in Vercel's Runtime Cache |
+| **State** | The conversation stays in the visitor's browser; weather uses Vercel Runtime Cache; public park guidance uses a bundled read-only SQLite index |
 | **Monitoring** | JSON log lines with each request's id, to Axiom, and read back onto the Observability pages; errors to Sentry; a health check of each lane |
-| **Checks** | 750 unit tests, 210 browser tests with accessibility checks, 236 mutation rules, 13 golden questions |
+| **Checks** | Unit, browser, accessibility, mutation and retrieval checks; 18 live-answer goldens; current results in step 16 |
 
 ## What it does
+
+Step 16 adds preparation guidance for supported parks and trails. A curated registry resolves exact destination IDs
+and labeled forecast reference points. Two knowledge tools run beside the selected weather lane: destination lookup
+and retrieval from official source passages. The answer cites those sources and distinguishes documented advice
+from live weather. The index contains no conversations and cannot verify current park operating status.
+
+![Park guidance: ingestion and request paths](images/step-16-design.svg)
+
+The index is prepared before deployment, with source URLs, publication and retrieval dates, hashes and optional
+CPU MiniLM embeddings for optional local retrieval; Vercel defaults to keywords. Retrieval filters by destination and
+season before ranking, bounds returned context, and reports
+whether it used keyword or hybrid retrieval. [Step 16](step-16.md) describes rebuilding, evaluating and publishing it.
 
 ### For a visitor
 
@@ -84,7 +96,7 @@ the app's own calls through and limits everyone else to 20 calls a minute to `/a
 | `tools.py`, `weather.py`, `open_meteo.py`, `cache.py` | The four tools, their inputs checked; Open-Meteo, its answers cached |
 | `actor.py`, `apify.py` | Apify's Actor: its input, its answer checked, its two doors |
 | `mcp_server.py` | Our MCP server: the same four tools, stateless, in JSON |
-| `health.py` | `GET /api/health`: four checks, each lane's status |
+| `health.py` | `GET /api/health`: weather checks, park-index readiness and each lane's status |
 | `observability.py`, `axiom_query.py`, `goldens.py` | The Observability pages: each query once a minute, only the fields it names; Axiom's query door; the golden questions and their last run |
 | `logger.py`, `axiom.py`, `sentry.py` | JSON lines, other libraries' among them, their query strings cut; Axiom's batch; Sentry's events, without an exception's message or a request's data |
 | `errors.py`, `utils.py`, `constants.py` | Our errors and their sentences; small helpers; every limit, in one place |
@@ -167,7 +179,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 
 | Decision | Why |
 |---|---|
-| FastAPI, async throughout | Every answer waits on the network: the model, the tools and the stream wait together, and the health check's four checks run at once |
+| FastAPI, async throughout | Every answer waits on the network: the model, the tools and the stream wait together, and health checks run concurrently |
 | Pages from Jinja2, made live by htmx; no front-end framework | The server makes the HTML; nothing to build, a page's whole code readable, and the documentation needs no JavaScript at all |
 | The answer as server-sent events of HTML | Each event is a piece of the page, put in place by htmx: the words appear as they're written |
 | The turn's first event made before the response starts | However the stream ends, the code that logs how it ended runs |
@@ -218,9 +230,9 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 ### It's tested, every way
 
 - **Static checks:** Ruff and mypy in strict mode, in CI on every push.
-- **Unit tests,** 750, with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
+- **Unit tests,** with every way out played back: Gemini, Open-Meteo, Apify's REST API and its MCP server,
   and Axiom's query door.
-- **Browser tests,** 210, on every page and through the chat, each page checked by axe and at a phone's width.
+- **Browser tests,** on every page and through the chat, each page checked by axe and at a phone's width.
 - **A mutation check:** 236 rules, each breaking the code on purpose; a test must catch each, and does.
 - **Privacy tests:** words of their own sent through three lanes, then searched for in every log line and every
   request out.
@@ -316,3 +328,15 @@ back with each question, as untrusted input. What is kept, where, and for how lo
   query token expires within a year; then they say Axiom didn't answer until a new one is set
   ([Waiting on you](waiting-on-you.md), part 6).
 - **No accounts:** the weather is public, so anyone can ask; no feedback on answers yet ([To do](todo.md)).
+
+### Inspect the knowledge collection
+
+The Knowledge menu opens source documents and the chunk/vector explorer. Both read a detached snapshot of the
+published park index. Source views show included text and provenance; the vector explorer filters passages and
+projects the actual normalized vectors with PCA. Clicking a point selects its source passage and numerical values.
+The plot is approximate; retrieval continues to use the complete embedding. These views require no model inference.
+
+The **Retrieval Playground** runs the shared chat retriever with optional diagnostics. It accepts a bounded question,
+explicit destination and optional date, then shows keyword, full-vector cosine and fused scores, selection decisions
+and retrieved source passages. Model failures retain keyword ranking and appear explicitly in the UI. It uses the
+same local encoder, model-compatibility checks and three-second deadline as chat, without calling Gemini or weather.

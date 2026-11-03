@@ -13,6 +13,7 @@ from pydantic import AliasChoices
 from nimbus.app import create_app
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
+from nimbus.parks import ParkKnowledge
 from tests.fakes import FakeCacheStore, FakeModel, OpenMeteoRecordings
 
 
@@ -23,6 +24,12 @@ def no_settings_from_the_shell(monkeypatch: pytest.MonkeyPatch) -> None:
         alias = field.validation_alias
         for variable in alias.choices if isinstance(alias, AliasChoices) else [name]:
             monkeypatch.delenv(str(variable).upper(), raising=False)
+    # Application unit tests use the committed corpus but never load native model weights in background threads.
+    # Encoder behavior is covered separately with test doubles; the CLI evaluates real CPU embeddings.
+    monkeypatch.setattr(
+        "nimbus.app.make_park_knowledge",
+        lambda settings: ParkKnowledge(settings.parks_index_path) if settings.parks_enabled else None,
+    )
 
 
 @pytest.fixture

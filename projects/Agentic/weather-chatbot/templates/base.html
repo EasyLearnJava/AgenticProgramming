@@ -19,6 +19,18 @@
     {% for item in group.items %}{{ menu_link(item, path) }}{% endfor %}
   </ul>
 {%- endmacro %}
+{% macro menu_icon(name) -%}
+<svg class="side-menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  {% if name == 'app' %}<path d="M5 5h14v10H9l-4 4V5Z"/><path d="M9 9h6M9 12h3"/>
+  {% elif name == 'knowledge' %}<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/>
+  {% elif name == 'observability' %}<path d="M4 18h16M6 14v-3M12 14V5M18 14V8"/>
+  {% elif name == 'learn' %}<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Zm0 0v14"/>
+  {% elif name == 'project' %}<path d="M3 7h7l2 2h9v11H3V7Zm0 0V4h7l2 3h7v2"/>
+  {% else %}<path d="m10 13 4-4M8 15l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/>
+  {% endif %}
+</svg>
+{%- endmacro %}
+{% set nav_path = menu_path|default(request.url.path) %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -37,13 +49,18 @@
         <p class="side-menu-brand">Nimbus</p>
         {% for group in menu_groups %}
         {% if group.is_folded %}
-        <details class="side-menu-fold"{% if holds_page(group, request.url.path) %} open{% endif %}>
+        <details class="side-menu-fold"{% if holds_page(group, nav_path) %} open{% endif %}>
           <summary class="side-menu-group" id="menu-{{ group.slug }}">{{ group.title }}</summary>
-          {{ menu_items(group, request.url.path) }}
+          {{ menu_items(group, nav_path) }}
         </details>
         {% else %}
-        <p class="side-menu-group" id="menu-{{ group.slug }}">{{ group.title }}</p>
-        {{ menu_items(group, request.url.path) }}
+        <div class="side-menu-section"{% if holds_page(group, nav_path) %} data-active="true"{% endif %}>
+          <div class="side-menu-section-heading">
+            {{ menu_icon(group.slug) }}
+            <p class="side-menu-group" id="menu-{{ group.slug }}">{{ group.title }}</p>
+          </div>
+          {{ menu_items(group, nav_path) }}
+        </div>
         {% endif %}
         {% endfor %}
         <p class="side-menu-build">{{ build_label }}</p>

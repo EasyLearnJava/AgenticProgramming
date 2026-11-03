@@ -1,0 +1,35 @@
+{# Source cards use real indexed document and vector counts, with provenance and an indexed-text preview. #}
+{% extends "knowledge_layout.html" %}
+{% block knowledge_title %}Source documents{% endblock %}
+{% block knowledge_heading %}Source documents{% endblock %}
+{% block knowledge_intro %}The official park documents behind Nimbus’s answers. Browse the sections included in the
+  index and follow each original source.{% endblock %}
+{% block knowledge_action %}<a class="knowledge-button knowledge-secondary" href="/knowledge/chunks">Explore chunks
+  →</a>{% endblock %}
+{% block knowledge_body %}
+{% set show_documents = false %}{% include "knowledge_filters.html" %}
+<div class="knowledge-section-heading"><h2>Indexed collection</h2><p>{{ visible_documents|length }} of {{
+  source_count }} documents</p></div>
+{% if visible_documents %}
+<div class="knowledge-documents">
+  {% for item in visible_documents %}
+  <article class="knowledge-source-card" data-park="{{ item.park_id }}">
+    <div class="knowledge-card-top"><span class="knowledge-park">{{ item.park }}</span>
+      <span class="knowledge-status">{{ 'Indexed' if item.vectors == item.count else 'Text indexed' }}</span>
+    </div>
+    <h3><a href="/knowledge/sources/{{ item.id }}">{{ item.title }}</a></h3>
+    <p class="knowledge-document-id">{{ item.id }}</p>
+    <dl class="knowledge-card-numbers"><div><dt>Chunks</dt><dd>{{ item.count }}</dd></div>
+      <div><dt>Vectors</dt><dd>{{ item.vectors }}</dd></div><div><dt>Indexed words</dt><dd>{{ item.words }}</dd></div>
+    </dl>
+    <div class="knowledge-source-dates"><p>Source updated <strong>{{ item.updated or 'Not provided' }}</strong></p>
+      <p>Retrieved <time datetime="{{ item.retrieved }}">{{ item.retrieved }}</time></p></div>
+    <div class="knowledge-card-links"><a href="/knowledge/sources/{{ item.id }}">Read indexed text</a>
+      <a href="{{ item.source_url }}" target="_blank" rel="noopener noreferrer">Official source ↗<span
+        class="visually-hidden"> (opens in a new tab)</span></a></div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}<section class="knowledge-empty"><h2>No documents match</h2><p>Try a different title or park, or clear the
+  filters.</p></section>{% endif %}
+{% endblock %}

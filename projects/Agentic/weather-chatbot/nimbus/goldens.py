@@ -13,12 +13,14 @@ from nimbus.constants import GOLDEN_FILE, LAST_RUN_FILE
 
 
 class Expect(BaseModel):
-    """What a golden answer must do: tools it calls, in order among its calls; tools it never calls; words it says."""
+    """A golden answer's required tools, forbidden tools, wording and citation targets."""
 
     tools: list[str] = Field(default_factory=list)
     no_tools: list[str] = Field(default_factory=list)
     says: list[str] = Field(default_factory=list)
     never_says: list[str] = Field(default_factory=list)
+    cites: list[str] = Field(default_factory=list)
+    only_cites: list[str] = Field(default_factory=list)
 
 
 class Golden(BaseModel):

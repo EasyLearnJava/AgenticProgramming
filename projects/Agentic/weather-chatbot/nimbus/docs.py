@@ -176,6 +176,17 @@ CHAPTERS: tuple[DocPage, ...] = (
         ),
     ),
 )
+CHAPTERS += (
+    DocPage(
+        slug="step-16",
+        path="/docs/step-16",
+        label="Step 16: Park Guidance with Retrieved Sources",
+        summary=(
+            "Official park guidance, retrieved for an exact destination alongside live weather, with source links; "
+            "a versioned index built before deployment, optional embeddings, and evaluations of source evidence."
+        ),
+    ),
+)
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="architecture", path="/architecture", label="Architecture and design"),
     DocPage(slug="system-design", path="/system-design", label="System design"),

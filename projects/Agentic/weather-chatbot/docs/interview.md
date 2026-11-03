@@ -488,3 +488,22 @@ under a strict Content Security Policy, and the server renders it once for every
 
 **5. What goes wrong when a cache is keyed by a query that names its data?**
 Each new set of data is a new key, so the cache grows without end; let entries past their time go before adding one.
+
+## Step 16 · Park Guidance with Retrieved Sources
+
+**Why filter by destination before ranking passages?** Because semantically similar advice can describe a different
+trail. Identity and applicability are constraints, while relevance determines which applicable passages to return.
+
+**Does RAG require a vector database?** No. Retrieval can use keywords, embeddings or both. This small collection uses
+a versioned SQLite artifact and an in-memory ranking step; its text and provenance remain the evidence.
+
+**Why keep document retrieval separate from weather APIs?** Weather tools supply current conditions and forecasts.
+Published guides supply preparation advice. Combining them must not turn a document into a claim about live status.
+
+**What does the offline evaluation prove?** That retrieval finds labeled evidence for the correct destination and
+abstains on the selected unsupported cases. It does not prove a language model faithfully uses that evidence.
+
+**How do you keep a retrieval playground faithful to production search?** Add optional diagnostics to the shared
+retriever, rather than duplicating its ranking algorithm in the page. Report the actual scores and selection limits,
+and distinguish unavailable semantic scores from zero similarity. Tests compare explained and normal search results
+on the same corpus, including keyword fallback, scoped candidates and context-budget exclusions.

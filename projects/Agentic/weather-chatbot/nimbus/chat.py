@@ -73,6 +73,7 @@ from nimbus.errors import (
 from nimbus.lanes import MCP_NO_AUTH, MCP_WITH_AUTH, REST_WITH_AUTH, Lane, LaneId, get_lane, is_open
 from nimbus.mcp_lane import open_mcp_lane
 from nimbus.pages import templates
+from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
 from nimbus.utils import new_turn_id, to_ms, to_ref, to_sse_message
 
@@ -280,6 +281,8 @@ async def stream_turn(
     started = time.perf_counter()
     pieces: list[str] = []
     chips: dict[str, ToolChip] = {}
+    park_sources: set[str] = set()
+    has_park_tools = False
 
     def ending() -> dict[str, object]:
         """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
@@ -307,9 +310,12 @@ async def stream_turn(
         async with aclosing(answer) as events:
             async for event in events:
                 if isinstance(event, ToolStarted):
+                    has_park_tools = has_park_tools or event.name in {"resolve_destination", "search_park_guidance"}
                     chip = chips[event.call_id] = ToolChip.start(len(chips), event)
                     yield to_tool_event(turn_id, chip, is_new=True)
                 elif isinstance(event, ToolEnded):
+                    if event.name == "search_park_guidance" and isinstance(event.record, KnowledgeCallRecord):
+                        park_sources.update(source.url for source in event.record.sources)
                     if (ended := chips.get(event.call_id)) is not None:
                         ended.end(event)
                         yield to_tool_event(turn_id, ended, is_new=False)
@@ -317,7 +323,13 @@ async def stream_turn(
                     pieces.append(event)
                     yield to_sse_message(render_part("chat_piece.html", {"turn_id": turn_id, "text": event}))
         # ③ The finished answer, its Markdown made HTML, no longer busy, in place of the one being written.
-        done: dict[str, object] = {"turn_id": turn_id, "answer": render_answer("".join(pieces)), "chips": final_chips()}
+        if stats.lane_error is not None:
+            raise stats.lane_error
+        done: dict[str, object] = {
+            "turn_id": turn_id,
+            "answer": render_answer("".join(pieces), park_sources=park_sources if has_park_tools else None),
+            "chips": final_chips(),
+        }
         yield to_sse_message(render_part("chat_end.html", done))
         log.info("chat.done", **ending())
     except (asyncio.CancelledError, GeneratorExit):
@@ -333,7 +345,7 @@ async def stream_turn(
         note = f"{to_user_message(error)} (ref {to_ref(request_id)})"
         failed: dict[str, object] = {
             "turn_id": turn_id,
-            "answer": render_answer("".join(pieces)),
+            "answer": render_answer("".join(pieces), park_sources=park_sources if has_park_tools else None),
             "failed": True,
             "note": note,
             "chips": final_chips(),
@@ -412,10 +424,20 @@ async def chat(request: Request) -> Response:
     stats = AnswerStats()
     history = [(message.role, message.text) for message in chat_request.history]
     now = datetime.now(UTC)
-    messages = to_messages(chat_request.question, now, chat_request.locale, chat_request.time_zone, history)
+    knowledge = request.app.state.park_knowledge
+    messages = to_messages(
+        chat_request.question,
+        now,
+        chat_request.locale,
+        chat_request.time_zone,
+        history,
+        parks_enabled=knowledge is not None,
+    )
     deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
     tools = open_lane_tools(request, lane, deadline)
-    answer = stream_weather_answer(model, messages, stats, request.app.state.tracer, tools, lane, deadline)
+    answer = stream_weather_answer(
+        model, messages, stats, request.app.state.tracer, tools, lane, deadline, knowledge=knowledge
+    )
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.
     turn = stream_turn(answer, chat_request.question, request.state.request_id, stats, settings.gemini_model)

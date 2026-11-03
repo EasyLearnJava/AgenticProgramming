@@ -65,6 +65,7 @@ def test_without_apify_s_token_the_lanes_with_no_auth_work_and_those_with_auth_a
         "our-mcp": "ok",
         "apify-rest": "off",
         "apify-mcp": "off",
+        "park-index": "ok",
     }
     assert isinstance(body["checks"]["open-meteo"]["ms"], int)
     # Open-Meteo itself, its cache skipped: the geocoding of Paris, asked by this run and the MCP server's none.

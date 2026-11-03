@@ -77,6 +77,7 @@ Each step's chapter explains it, in order:
 | 13 | [Evals and Release: Golden Questions, a Load Test, Rollback](docs/step-13.md) | Done |
 | 14 | [Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups](docs/step-14.md) | Done |
 | 15 | [Activity by Request, and Rows That Lead to It](docs/step-15.md) | Done |
+| 16 | [Park Guidance with Retrieved Sources](docs/step-16.md) | Implemented locally; release pending |
 
 ## Run it
 
@@ -100,6 +101,8 @@ and never its query string; this one is for `/docs?q=private`:
 ```
 
 ## Test it
+
+This captured output is from step 13. Current Step 16 validation is recorded in [its chapter](docs/step-16.md).
 
 ```text
 $ uv run ruff check .
@@ -160,6 +163,39 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 ([README_deprecated.md](README_deprecated.md) links them all).
 
 ## Next
+
+### Park and trail preparation
+
+Nimbus now includes official preparation guidance for Zion, Grand Canyon and Yosemite, with selected trails. The
+agent resolves the destination, retrieves applicable source passages and combines them with the existing weather
+tools. Source cards identify the documents and their dates. Stored guides do not establish current closures,
+warnings, river levels or water availability. [Step 16](docs/step-16.md) explains the implementation and its limits.
+
+The bundled `data/parks/index.sqlite` contains public passages and 384-dimensional MiniLM vectors. Vercel's default
+profile uses keyword retrieval without importing or installing the ML stack. Local CPU semantic retrieval is optional:
+
+```bash
+uv sync --locked --group ml
+uv run --group ml python -m tools.build_park_index
+uv run --group ml python -m tools.eval_parks
+uv run python -m tools.eval_parks --lexical-only
+```
+
+`PARKS_RETRIEVAL_MODE=auto` uses keywords on Vercel and local semantic retrieval only with installed ML dependencies
+and cached pinned weights. `lexical` forces keywords; `hybrid` explicitly opts into a suitably provisioned host.
+`PARKS_ENABLED=false` disables park tools and playground execution. Gemini's key remains necessary for chat answers,
+not indexing or retrieval. Review source changes before publishing an index; source fetching never runs during chat.
+
+**Knowledge** opens source documents, the chunk/vector explorer and the Retrieval Playground. The explorer's PCA
+projection uses stored vectors without loading a model. Playground questions submit in bounded POST bodies to
+`/api/knowledge/retrieval`; they never enter generated URLs. Results explain raw keyword scores, semantic scores,
+combined ranks, selected passages and exclusions. A dedicated worker bounds local inference; unavailable semantic
+capability is distinguished from transient startup/busy conditions. Both profiles inspect the same SQLite artifact.
+
+The 41-case retrieval benchmark includes paraphrases, destination conflicts and dated safety advice, and reports
+recall, top-1 evidence and reciprocal rank. The 18 live-answer goldens include five park scenarios. Offline retrieval
+results do not establish Gemini's citation faithfulness or production readiness. Step 16 remains local and uncommitted;
+no production push or deployment is part of this change.
 
 The rebuild is complete: thirteen steps, each live and checked; a fourteenth reads the app's lines back onto its
 Observability pages, and a fifteenth tells each request's story there. What's waiting on you is on

@@ -20,7 +20,7 @@ working, and each with a chapter written while it's built. The first version's p
 | Tools | LangChain tools with Pydantic inputs; `httpx2` for the calls out, `tenacity` for retries (9.1.4: google-genai wants it below 9.2) |
 | MCP | The official `mcp` SDK (FastMCP) for our server; `langchain-mcp-adapters` for the MCP lanes |
 | Settings | pydantic-settings: one module reads the environment |
-| State between requests | No database: each chat stays in the browser, sent back with every question (step 6); Open-Meteo's answers in Vercel's Runtime Cache, through the `vercel` package (step 7) |
+| State between requests | Each chat stays in the browser (step 6); Open-Meteo's answers use Vercel Runtime Cache (step 7); public park reference material uses a bundled read-only SQLite index (step 16) |
 | Logs | structlog, JSON lines with a request id; Axiom (from step 12), read back onto the Observability pages (step 14) |
 | Errors, traces | Sentry; LangSmith for the model's runs (from step 3), then the agent's (from step 4) |
 | Tests | pytest; Playwright for Python with axe; mutation checks |
@@ -30,7 +30,8 @@ working, and each with a chapter written while it's built. The first version's p
 Why no database: Vercel runs many copies of the app, which share no memory, so whatever must last from one request to
 the next lives outside them. The conversation lives in the visitor's browser, so nothing a visitor types is ever
 stored on our side; the weather lives in Vercel's Runtime Cache. A database would pay off with accounts, or with runs
-that pause for a person's approval (LangGraph's checkpoints); neither is planned.
+that pause for a person's approval (LangGraph's checkpoints); neither is planned. Step 16 adds a read-only SQLite
+artifact of public park guidance. It is built before deployment and stores no visitor data.
 
 ## 2. The roadmap
 
@@ -51,6 +52,7 @@ that pause for a person's approval (LangGraph's checkpoints); neither is planned
 | 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; Technical details; the backup deleted | |
 | 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token (done) |
 | 15 | Activity by request: each a row that opens onto its timeline, shown only by its ref; every tool, lane, ending, reason and day on the other pages a link to its requests | |
+| 16 | Park and trail preparation: official source ingestion, a versioned index, destination-filtered retrieval, citations and offline retrieval evaluations | CPU MiniLM weights are cached by the index build; production release remains a separate operation |
 
 ## 3. A chapter's sections
 

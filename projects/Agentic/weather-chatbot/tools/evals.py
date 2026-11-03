@@ -16,7 +16,7 @@ import re
 import sys
 import urllib.parse
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
@@ -43,6 +43,7 @@ class Answer:
     text: str
     failed: bool
     request_id: str
+    citations: list[str] = field(default_factory=list)
 
 
 def to_text(fragment: str) -> str:
@@ -60,7 +61,8 @@ def read_answer(events: Sequence[str], request_id: str = "") -> Answer:
     tools = re.findall(r'<code class="tool-chip-name">(.*?)</code>', last)
     words = last.split('<div class="answer', 1)[-1] if '<div class="answer' in last else ""
     words = words.split(">", 1)[-1] if words else ""
-    return Answer(tools, to_text(words), "message-error" in last or not events, request_id)
+    citations = list(dict.fromkeys(html.unescape(href) for href in re.findall(r'<a\b[^>]*href=["\'](.*?)["\']', words)))
+    return Answer(tools, to_text(words), "message-error" in last or not events, request_id, citations)
 
 
 def grade(golden: Golden, answer: Answer) -> list[str]:
@@ -72,6 +74,9 @@ def grade(golden: Golden, answer: Answer) -> list[str]:
     misses += [f"called {tool}" for tool in golden.expect.no_tools if tool in answer.tools]
     misses += [f"doesn't say /{words}/" for words in golden.expect.says if not re.search(words, answer.text, re.I)]
     misses += [f"says /{words}/" for words in golden.expect.never_says if re.search(words, answer.text, re.I)]
+    misses += [f"missing citation {url}" for url in golden.expect.cites if url not in answer.citations]
+    if golden.expect.only_cites:
+        misses += [f"unexpected citation {url}" for url in answer.citations if url not in golden.expect.only_cites]
     return misses
 
 

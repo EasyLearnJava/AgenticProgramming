@@ -88,6 +88,14 @@ DOC_ITEMS: dict[str, MenuItem] = {doc.slug: MenuItem(doc.path, doc.label) for do
 MENU_GROUPS: tuple[MenuGroup, ...] = (
     MenuGroup("App", (MenuItem("/", "Chat"),)),
     MenuGroup(
+        "Knowledge",
+        (
+            MenuItem("/knowledge/sources", "Source documents"),
+            MenuItem("/knowledge/chunks", "Chunks & vectors"),
+            MenuItem("/knowledge/retrieval", "Retrieval Playground"),
+        ),
+    ),
+    MenuGroup(
         "Observability",
         (
             MenuItem("/activity", "Activity"),

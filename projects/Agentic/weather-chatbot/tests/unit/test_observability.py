@@ -212,7 +212,7 @@ def test_each_view_asks_its_own_where_and_marks_its_tab(
         (
             "/activity?tool=get_forecast",
             "Questions that called get_forecast",
-            "event == \"tool.call\" and column_ifexists('tool', '') == \"get_forecast\"",
+            'event in ("tool.call", "knowledge.call") and column_ifexists(\'tool\', \'\') == "get_forecast"',
         ),
         (
             "/activity?asked=mcp-no-auth",
@@ -515,7 +515,7 @@ def test_evaluations_shows_each_golden_its_last_run_and_how_answers_ended(
     last_run = LastRun(commit="4785bc7", ran_at=ran_at, results=results)
     monkeypatch.setattr(observability, "read_last_run", lambda: last_run)
     words = text_of(observed.get("/evaluations").text)
-    assert "The last run: 12 of 13 passed, answered by build 4785bc7, on 01 November 2026, 15:04 UTC" in words
+    assert "The last run: 17 of 18 passed, answered by build 4785bc7, on 01 November 2026, 15:04 UTC" in words
     for golden in goldens:
         assert golden.question in words
     assert "call geocode_location, then get_forecast" in words

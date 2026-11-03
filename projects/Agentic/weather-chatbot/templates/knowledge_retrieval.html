@@ -1,0 +1,167 @@
+{# The same scores and context selections used by chat, rendered without scripts or a Gemini call. #}
+{% extends "knowledge_layout.html" %}
+{% block head %}{{ super() }}<link rel="stylesheet" href="/static/retrieval.css">{% endblock %}
+{% block knowledge_title %}Retrieval Playground{% endblock %}
+{% block knowledge_heading %}Retrieval Playground{% endblock %}
+{% block knowledge_intro %}
+Ask a question, inspect the matching passages, and see how keyword and semantic relevance determine their ranking.
+{% endblock %}
+{% block knowledge_action %}
+<a class="knowledge-button knowledge-secondary" href="/knowledge/chunks">Explore stored chunks →</a>
+{% endblock %}
+{% block knowledge_body %}
+{% if not retrieval_enabled %}
+<section class="knowledge-empty"><h2>Retrieval is disabled</h2>
+  <p>Enable the park knowledge service to run questions against this collection.</p></section>
+{% else %}
+<section class="knowledge-panel retrieval-query" aria-labelledby="query-title">
+  <h2 id="query-title">Test a question</h2>
+  <form method="post" action="/api/knowledge/retrieval" class="knowledge-filters retrieval-form">
+    <div class="retrieval-question">
+      <label for="retrieval-question">Question</label>
+      <textarea id="retrieval-question" name="q" rows="3" maxlength="1000" required
+        aria-describedby="question-hint"
+        placeholder="What should I pack for cold water in the Narrows?">{{ retrieval_filters.q }}</textarea>
+      <p id="question-hint" class="retrieval-hint">Up to 1,000 characters. Choose the place the question applies to.</p>
+    </div>
+    <div class="retrieval-destination">
+      <label for="retrieval-destination">Park or trail</label>
+      <select id="retrieval-destination" name="destination" required>
+        <option value="">Choose a park or trail</option>
+        {% for item in catalog.destinations %}
+        <option value="{{ item.id }}"{% if item.id == retrieval_filters.destination %} selected{% endif %}>
+          {{ item.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="retrieval-date">Visit date (optional)</label>
+      <input id="retrieval-date" type="date" name="visit_date"
+        value="{{ retrieval_filters.visit_date or '' }}" aria-describedby="date-hint">
+    </div>
+    <button class="knowledge-button" type="submit">Run retrieval</button>
+    <a class="knowledge-reset" href="/knowledge/retrieval">Reset</a>
+    <p id="date-hint" class="retrieval-hint retrieval-wide">
+      A date applies the same seasonal filter as chat. Leave it empty to include every season.
+    </p>
+  </form>
+  <p class="retrieval-hint">Uses the chat retriever and local CPU embeddings. No Gemini or weather call is made.</p>
+</section>
+{% if result and result.diagnostics is defined %}
+{% set diagnostics = result.diagnostics %}
+{% set labels = {
+  'retrieved': 'Retrieved', 'below_threshold': 'Below relevance threshold',
+  'result_limit': 'Outside top 4', 'context_limit': 'Context budget exceeded'
+} %}
+<section class="knowledge-panel retrieval-results" aria-labelledby="retrieval-results-title"
+  data-retrieval-mode="{{ result.retrieval_mode }}">
+  <div class="knowledge-section-heading">
+    <h2 id="retrieval-results-title">Retrieval results</h2>
+    <span class="retrieval-mode">
+      {{ 'Hybrid retrieval' if result.retrieval_mode == 'hybrid' else 'Keyword-only retrieval' }}
+    </span>
+  </div>
+  {% if result.retrieval_mode == 'lexical' and diagnostics.candidate_count %}
+  <p class="retrieval-notice">Semantic scoring was unavailable for this run. Ranking uses keyword scores only.
+    {% if result.semantic_status in ('timeout', 'busy') %}
+    The local embedding worker is starting or busy. You can try again shortly.
+    {% elif result.semantic_status == 'disabled' %}
+    This server is configured for keyword retrieval.
+    {% else %}
+    Semantic retrieval is not currently available on this server.
+    {% endif %}</p>
+  {% endif %}
+  <dl class="retrieval-summary">
+    <div><dt>Destination</dt><dd>{{ result.destination.name }}</dd></div>
+    <div><dt>Candidates scored</dt><dd>{{ diagnostics.candidate_count }}</dd></div>
+    <div><dt>Chunks retrieved</dt><dd>{{ result.passages|length }} / {{ diagnostics.max_passages }}</dd></div>
+    <div><dt>Retrieval time</dt><dd>{{ elapsed_ms }} ms</dd></div>
+  </dl>
+  <p class="retrieval-hint">Season: {{ diagnostics.season or 'All seasons' }} ·
+    Context: {{ diagnostics.context_chars }} / {{ diagnostics.max_context_chars }} characters ·
+    Model: {{ catalog.embedding_model.split('@')[0].split('/')[-1] or 'No model' }}</p>
+  <details class="retrieval-explanation">
+    <summary>How to read the scores</summary>
+    <p><strong>Keyword score</strong> is the raw BM25-style score.
+      <strong>Keyword contribution</strong> compresses it with <code>keyword / (1 + keyword)</code>.</p>
+    <p><strong>Semantic score</strong> is cosine similarity using all {{ catalog.dimensions }} vector dimensions,
+      from −1 to 1. “Not available” means it was not computed, rather than a similarity of zero.</p>
+    <p><strong>Final score = keyword contribution + semantic score.</strong>
+      A missing semantic score contributes nothing. In keyword-only mode, the final score is just the keyword
+      contribution. Scores are not probabilities.</p>
+    <p>A chunk qualifies with a positive keyword score or semantic similarity of at least
+      {{ diagnostics.semantic_threshold }}. Qualified chunks are ranked by final score, with chunk ID breaking ties.
+      Chat takes up to {{ diagnostics.max_passages }} chunks within its character budget.</p>
+  </details>
+  {% if not result.passages %}
+  <div class="knowledge-empty"><h3>No chunks retrieved</h3>
+    <p>Try a more specific preparation question or choose another destination.</p></div>
+  {% endif %}
+  {% if diagnostics.candidates %}
+  <div class="knowledge-section-heading"><h3 id="ranking-title">Candidate ranking</h3>
+    <p>Filtered by destination{% if diagnostics.season %} and season{% endif %}</p></div>
+  <div class="knowledge-table-wrap" tabindex="0" role="region" aria-labelledby="ranking-title">
+    <table class="knowledge-table retrieval-table" id="retrieval-ranking">
+      <caption class="visually-hidden">Actual keyword, semantic and combined scores for eligible chunks</caption>
+      <thead><tr><th scope="col">Rank</th><th scope="col">Chunk / source</th>
+        <th scope="col">Keyword score</th><th scope="col">Keyword contribution</th>
+        <th scope="col">Semantic score</th><th scope="col">Final score</th><th scope="col">Decision</th></tr></thead>
+      <tbody>{% for item in diagnostics.candidates %}
+      <tr data-chunk="{{ item.chunk.id }}" data-selection="{{ item.selection }}"
+        {% if item.selection == 'retrieved' %} class="knowledge-row-selected"{% endif %}>
+        <td>{{ item.rank if item.rank is not none else '—' }}</td>
+        <th scope="row" class="retrieval-chunk-cell">
+          {% if item.selection == 'retrieved' %}
+          <a href="#retrieved-{{ item.chunk.id }}">{{ item.chunk.section }}</a>
+          {% else %}
+          <a href="{{ chunk_url(item.chunk.id, knowledge_filters) }}">{{ item.chunk.section }}</a>
+          {% endif %}
+          <span>{{ item.chunk.title }}</span><code>{{ item.chunk.id }}</code>
+        </th>
+        <td class="retrieval-score">{{ '%.4f'|format(item.keyword_score) }}</td>
+        <td class="retrieval-score">{{ '%.4f'|format(item.keyword_component) }}</td>
+        <td class="retrieval-score">
+          {{ '%.4f'|format(item.semantic_score) if item.semantic_score is not none else 'Not available' }}
+        </td>
+        <td class="retrieval-score"><strong>{{ '%.4f'|format(item.final_score) }}</strong></td>
+        <td><span class="retrieval-decision">{{ labels[item.selection] }}</span></td>
+      </tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="retrieval-notice">No indexed chunks apply to this destination and season.</p>
+  {% endif %}
+</section>
+{% if result.passages %}
+<section class="retrieval-passages" aria-labelledby="retrieved-title">
+  <div class="knowledge-section-heading"><h2 id="retrieved-title">Retrieved chunks</h2>
+    <p>The passages chat would receive as context</p></div>
+  {% for item in diagnostics.candidates if item.selection == 'retrieved' %}
+  <article class="knowledge-panel retrieval-passage" id="retrieved-{{ item.chunk.id }}">
+    <div class="retrieval-passage-heading"><span class="retrieval-rank" aria-label="Rank {{ item.rank }}">
+      {{ item.rank }}</span><div><h3>{{ item.chunk.section }}</h3>
+        <a href="/knowledge/sources/{{ item.chunk.document_id }}">{{ item.chunk.title }}</a></div>
+      <p>Final score <strong>{{ '%.4f'|format(item.final_score) }}</strong></p>
+    </div>
+    <p class="knowledge-passage-text">{{ item.chunk.text }}</p>
+    <p class="knowledge-document-id">{{ item.chunk.id }} · Source updated:
+      {{ item.chunk.source_updated_at or 'Not provided' }} · Retrieved: {{ item.chunk.fetched_at[:10] }}</p>
+    <div class="knowledge-card-links">
+      <a href="{{ chunk_url(item.chunk.id, knowledge_filters) }}">Inspect chunk &amp; vector →</a>
+      <a href="{{ item.chunk.source_url }}" target="_blank" rel="noopener noreferrer">Official source ↗
+        <span class="visually-hidden"> (opens in a new tab)</span></a>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+{% elif result %}
+<section class="knowledge-empty"><h2>Retrieval unavailable</h2>
+  <p>The knowledge service could not retrieve this collection. Check the index configuration.</p></section>
+{% else %}
+<section class="knowledge-empty"><h2>No question run yet</h2>
+  <p>Enter a preparation question and choose a park or trail to see its scores and retrieved passages.</p></section>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,351 @@
+{
+  "destinations": [
+    {
+      "id": "zion",
+      "park_id": "zion",
+      "name": "Zion National Park",
+      "aliases": [
+        "Zion",
+        "Zion National Park"
+      ],
+      "latitude": 37.25082,
+      "longitude": -112.95633,
+      "time_zone": "America/Denver",
+      "forecast_reference": "Zion Canyon regional reference point selected by NPS; not the whole park or a trail-specific forecast.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm"
+    },
+    {
+      "id": "zion-narrows",
+      "park_id": "zion",
+      "name": "The Narrows (bottom-up), Zion National Park",
+      "aliases": [
+        "The Narrows",
+        "Narrows",
+        "Zion Narrows",
+        "Narrows bottom up"
+      ],
+      "latitude": 37.25082,
+      "longitude": -112.95633,
+      "time_zone": "America/Denver",
+      "forecast_reference": "Nearby Zion Canyon regional reference from NPS; not the Narrows trailhead, canyon microclimate, upstream rainfall, river flow or water temperature.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm"
+    },
+    {
+      "id": "grand-canyon",
+      "park_id": "grand-canyon",
+      "name": "Grand Canyon National Park (South Rim)",
+      "aliases": [
+        "Grand Canyon",
+        "Grand Canyon National Park",
+        "Grand Canyon South Rim"
+      ],
+      "latitude": 36.059117257442715,
+      "longitude": -112.10929870605469,
+      "time_zone": "America/Phoenix",
+      "forecast_reference": "NPS South Rim reference point; inner-canyon and North Rim conditions can differ substantially.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/weather-condition.htm"
+    },
+    {
+      "id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "name": "South Kaibab Trail, Grand Canyon National Park",
+      "aliases": [
+        "South Kaibab",
+        "South Kaibab Trail",
+        "Grand Canyon South Kaibab"
+      ],
+      "latitude": 36.059117257442715,
+      "longitude": -112.10929870605469,
+      "time_zone": "America/Phoenix",
+      "forecast_reference": "Nearby NPS South Rim reference point; not the South Kaibab trailhead or the hotter inner canyon.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/weather-condition.htm"
+    },
+    {
+      "id": "yosemite",
+      "park_id": "yosemite",
+      "name": "Yosemite National Park (Yosemite Valley)",
+      "aliases": [
+        "Yosemite",
+        "Yosemite National Park",
+        "Yosemite Valley"
+      ],
+      "latitude": 37.74539308593381,
+      "longitude": -119.59244728088379,
+      "time_zone": "America/Los_Angeles",
+      "forecast_reference": "NPS Yosemite Valley reference point; not the park high country or all elevations.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weathermap.htm"
+    },
+    {
+      "id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "name": "Mist Trail, Yosemite National Park",
+      "aliases": [
+        "Mist Trail",
+        "Yosemite Mist Trail",
+        "Vernal Fall",
+        "Vernal Falls",
+        "Nevada Fall",
+        "Nevada Falls"
+      ],
+      "latitude": 37.74539308593381,
+      "longitude": -119.59244728088379,
+      "time_zone": "America/Los_Angeles",
+      "forecast_reference": "Nearby NPS Yosemite Valley reference point; not the Mist Trail stairway, waterfall spray or upper elevations.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weathermap.htm"
+    }
+  ],
+  "sources": [
+    {
+      "id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "include_sections": [
+        "Flash Floods",
+        "Clothing and Equipment",
+        "Footwear",
+        "Clothing",
+        "Year-Round",
+        "Summer",
+        "Spring and Fall",
+        "Winter",
+        "Hiking Poles / Sticks",
+        "Dry Bags",
+        "Food",
+        "Water",
+        "Flashlight / Headlamp"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {
+        "Summer": [
+          "summer"
+        ],
+        "Spring and Fall": [
+          "spring",
+          "fall"
+        ],
+        "Winter": [
+          "winter"
+        ]
+      }
+    },
+    {
+      "id": "zion-bottom-up",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "The Narrows from the Bottom Up",
+      "url": "https://www.nps.gov/zion/planyourvisit/narrowsbottomup.htm",
+      "include_sections": [
+        "Recommended Gear",
+        "Safety"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "zion-flash-flood",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Flash Floods in Zion",
+      "url": "https://www.nps.gov/zion/planyourvisit/flash-flood.htm",
+      "include_sections": [
+        "What are flash floods?",
+        "When do flash floods occur?"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "zion-hiking",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Hiking in Zion",
+      "url": "https://www.nps.gov/zion/planyourvisit/hiking-in-zion.htm",
+      "include_sections": [
+        "Hiking in Zion"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "zion-weather",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Zion Weather and Climate",
+      "url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm",
+      "include_sections": [
+        "Weather and Climate"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "grand-canyon-summer",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Summer Hiking - Hike Smart",
+      "url": "https://www.nps.gov/grca/planyourvisit/hike-smart.htm",
+      "include_sections": [
+        "Summer Hiking Essentials",
+        "Wait for the Shade\u2014AVOID HIKING BETWEEN 10 AM AND 4 PM"
+      ],
+      "seasons": [
+        "summer"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "grand-canyon-winter",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Winter Hiking",
+      "url": "https://www.nps.gov/grca/planyourvisit/winter-recreation.htm",
+      "include_sections": [
+        "Winter Hiking Essentials"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "include_sections": [
+        "About South Kaibab Trail",
+        "Trail Description",
+        "Hike Smart"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "yosemite-hiking",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Hiking in Yosemite",
+      "url": "https://www.nps.gov/yose/planyourvisit/hiking.htm",
+      "include_sections": [
+        "Things to Remember While Hiking"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "include_sections": [
+        "Top of Nevada Fall",
+        "Seasonality",
+        "Stay Safe"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "yosemite-lightning",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Lightning Safety",
+      "url": "https://www.nps.gov/yose/planyourvisit/lightning.htm",
+      "include_sections": [
+        "How To Avoid Getting Struck By Lightning",
+        "Plan Ahead"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "yosemite-weather",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Yosemite Weather",
+      "url": "https://www.nps.gov/yose/planyourvisit/weather.htm",
+      "include_sections": [
+        "Weather"
+      ],
+      "seasons": [
+        "all"
+      ],
+      "section_seasons": {}
+    },
+    {
+      "id": "zion-seasons",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Zion Seasonal Preparation",
+      "url": "https://www.nps.gov/zion/planyourvisit/seasons.htm",
+      "include_sections": [
+        "Winter"
+      ],
+      "seasons": [
+        "winter"
+      ],
+      "section_seasons": {
+        "Winter": [
+          "winter"
+        ]
+      }
+    }
+  ]
+}

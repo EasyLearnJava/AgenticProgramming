@@ -33,8 +33,8 @@
       {%- if chip.lane_line %}
       <span class="tool-chip-lane">{{ chip.lane_line }}</span>
       {%- endif %}
-      {%- if chip.record and chip.record.fallback_note %}
-      <span class="tool-chip-fallback">↩ {{ chip.record.fallback_note }}</span>
+      {%- if chip.weather_record and chip.weather_record.fallback_note %}
+      <span class="tool-chip-fallback">↩ {{ chip.weather_record.fallback_note }}</span>
       {%- endif %}
     </summary>
     <div class="tool-chip-body">
@@ -44,13 +44,29 @@
       {%- if chip.error %}
       <p class="tool-chip-error">{{ chip.error }}</p>
       {%- endif %}
-      {%- if chip.record %}
+      {%- if chip.weather_record %}
       <p class="tool-chip-label">{{ chip.wire_label }}</p>
-      <pre>{{ chip.record.request.to_text() }}</pre>
-      {%- if chip.record.upstream_request %}
+      <pre>{{ chip.weather_record.request.to_text() }}</pre>
+      {%- if chip.weather_record.upstream_request %}
       <p class="tool-chip-label">{{ chip.upstream_label }}</p>
-      <pre>{{ chip.record.upstream_request.to_text() }}</pre>
+      <pre>{{ chip.weather_record.upstream_request.to_text() }}</pre>
       {%- endif %}
+      {%- endif %}
+      {%- if chip.knowledge_record %}
+      <p class="tool-chip-label">Park guidance sources</p>
+      {%- if chip.knowledge_record.sources %}
+      <ul>
+        {%- for source in chip.knowledge_record.sources %}
+        <li><a href="{{ source.url }}" target="_blank" rel="nofollow noopener noreferrer">{{ source.title }}</a>
+          {%- if source.updated_at %} · Updated {{ source.updated_at }}{% endif %}
+          {%- if source.fetched_at %} · Retrieved {{ source.fetched_at }}{% endif %}
+        </li>
+        {%- endfor %}
+      </ul>
+      {%- else %}
+      <p>No guidance sources returned by this lookup.</p>
+      {%- endif %}
+      <p>Index {{ chip.knowledge_record.index_version }} · {{ chip.knowledge_record.retrieval_mode }}</p>
       {%- endif %}
       <p class="tool-chip-label">Input</p>
       <pre>{{ chip.input_json }}</pre>

@@ -53,10 +53,15 @@ MS_PER_SECOND = 1000
 HTTP_CLIENT_ERROR = 400
 HTTP_SERVER_ERROR = 500
 LANE_LABELS: Final = {lane.id: lane.label for lane in LANES}
-TOOL_NAMES: Final = frozenset(tool.name for tool in WEATHER_TOOLS)
+TOOL_NAMES: Final = frozenset(tool.name for tool in WEATHER_TOOLS) | {
+    "resolve_destination",
+    "search_park_guidance",
+    "retrieval_playground",
+}
 CHECK_LABELS: Final = {
     "open-meteo": "Open-Meteo",
     "our-mcp": "Our MCP server",
+    "park-index": "Park knowledge index",
     "apify-rest": "Apify's REST API",
     "apify-mcp": "Apify's MCP server",
 }
@@ -84,6 +89,8 @@ TOOL_EVENTS: Final = ("tool.call", "lane.fallback")
 TIMELINE_EVENTS: Final = (
     *QUESTION_EVENTS,
     *TOOL_EVENTS,
+    "knowledge.call",
+    "lane.open.failed",
     "mcp.call",
     "lane.connect",
     "upstream.cache",
@@ -183,7 +190,7 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
     "tool": (
         TOOL_NAMES,
         "Questions that called {label}",
-        f'event == "tool.call" and {to_field("tool")} == "{{value}}"',
+        f'{to_in("event", ("tool.call", "knowledge.call"))} and {to_field("tool")} == "{{value}}"',
     ),
     "asked": (
         LANE_LABELS,
@@ -533,6 +540,12 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
         if to_words(row, "status") == "failed":
             return ActivityLine(at, tool, f"failed on {lane}: {error_class}, after {took}", "bad")
         return ActivityLine(at, tool, f"on {lane} in {took}", "ok")
+    if event == "knowledge.call":
+        status = to_words(row, "status")
+        detail = f"{status.replace('_', ' ')} in {took}"
+        return ActivityLine(at, to_words(row, "tool"), detail, "bad" if status in {"failed", "unavailable"} else "ok")
+    if event == "lane.open.failed":
+        return ActivityLine(at, "Weather connection", f"failed on {lane}: {error_class}", "bad")
     if event == "lane.fallback":
         moved = f"{to_lane_label(to_words(row, 'fromLane'))} to {to_lane_label(to_words(row, 'toLane'))}"
         # With too little time left, the line is written and the forecast fails instead (auth_lanes.py).

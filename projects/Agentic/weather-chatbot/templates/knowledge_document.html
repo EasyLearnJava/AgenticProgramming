@@ -1,0 +1,27 @@
+{# Read the source text actually present in the index, including its attribution and section boundaries. #}
+{% extends "knowledge_layout.html" %}
+{% block knowledge_title %}{{ document.title }}{% endblock %}
+{% block knowledge_heading %}{{ document.title }}{% endblock %}
+{% block knowledge_intro %}{{ document.park }} · {{ document.count }} indexed passages from this official source.{%
+  endblock %}
+{% block knowledge_action %}<a class="knowledge-button knowledge-secondary" href="/knowledge/sources">← All
+  sources</a>{% endblock %}
+{% block knowledge_body %}
+<section class="knowledge-panel knowledge-provenance" aria-labelledby="source-title">
+  <h2 id="source-title">Source provenance</h2>
+  <a class="knowledge-source-url" href="{{ document.source_url }}" target="_blank" rel="noopener noreferrer">{{
+    document.source_url }}<span class="visually-hidden"> (opens in a new tab)</span></a>
+  <p>Source updated {{ document.updated or 'not provided' }} · Retrieved {{ document.retrieved }}</p>
+  <p>These are the reviewed sections included in Nimbus’s index. The official page may contain additional material.</p>
+  <a class="knowledge-button" href="/knowledge/chunks?document={{ document.id }}">Inspect this document’s vectors →</a>
+</section>
+<div class="knowledge-section-heading"><h2>Indexed passages</h2><p>{{ document.count }} chunks</p></div>
+{% for item in document.chunks %}
+<article class="knowledge-panel knowledge-passage">
+  <div class="knowledge-card-top"><span class="knowledge-park">{{ item.seasons|join(', ') }}</span>
+    <a href="/knowledge/chunks?chunk={{ item.id }}#chunk-detail">Inspect vector →</a></div>
+  <h3>{{ item.section }}</h3><p class="knowledge-document-id">{{ item.id }}</p>
+  <p class="knowledge-passage-text">{{ item.text }}</p>
+</article>
+{% endfor %}
+{% endblock %}

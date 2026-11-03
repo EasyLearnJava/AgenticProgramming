@@ -1,12 +1,9 @@
 """
-nimbus/health.py: GET /api/health: which lanes work (step 12), for the status dots and an uptime monitor; it answers
-HEAD too, which uptime monitors often send. Four checks, at once, each within 8 s, none of which costs: Open-Meteo
-geocodes Paris, its cache skipped, so an outage shows; our MCP server is connected to and offers our four tools, as the
-MCP lanes need; Apify's REST door reads the account behind the token, which runs nothing; Apify's MCP server is
-connected to with the token, its tools checked against our pin. A lane works when every check its answers depend on
-passes; without Apify's token, the lanes with auth are off. 200 when every lane that's on works, else 503, with the
-same report, so a monitor needs only the status. A run's report answers every request through the same address to
-this copy of the app for a minute, and Vercel's CDN keeps a 200 for one more.
+nimbus/health.py: GET/HEAD /api/health checks weather lanes and optional park-index readiness. Weather checks run
+concurrently within eight seconds: Open-Meteo geocodes Paris without cache, MCP connects and lists tools, and the
+Apify checks validate configured REST/MCP access without running an Actor. Index readiness makes no network call
+and loads no ML model. Overall health is 503 when an enabled check fails; each weather lane retains its own status.
+Reports are shared for one minute per address on this app instance, with a successful response cached at the CDN.
 """
 
 import asyncio
@@ -28,12 +25,13 @@ from nimbus.errors import ContractError, UpstreamError, UpstreamTimeoutError, Up
 from nimbus.lanes import LaneId
 from nimbus.mcp_lane import open_mcp_runs
 from nimbus.open_meteo import OpenMeteoClient
+from nimbus.parks import ParkKnowledge
 from nimbus.utils import to_iso, to_ms
 
 router = APIRouter()
 log = structlog.get_logger()
 
-type CheckName = Literal["open-meteo", "our-mcp", "apify-rest", "apify-mcp"]
+type CheckName = Literal["open-meteo", "our-mcp", "apify-rest", "apify-mcp", "park-index"]
 type Status = Literal["ok", "down", "off"]
 # A check passes when it returns, within its time; None is a check that's off (no token).
 type Check = Callable[[], Awaitable[None]] | None
@@ -129,13 +127,13 @@ async def check_lanes(checks: Mapping[CheckName, Check], failing: dict[CheckName
     runs = (run_check(name, checks[name], failing) for name in names)
     results = dict(zip(names, await asyncio.gather(*runs), strict=True))
     lanes = {lane: to_lane_status(lane, results) for lane in CHECKS_BY_LANE}
-    status: Literal["ok", "down"] = "down" if "down" in lanes.values() else "ok"
+    status: Literal["ok", "down"] = "down" if any(result.status == "down" for result in results.values()) else "ok"
     log.info("health.done", status=status, ms=to_ms(time.perf_counter() - started), lanes=lanes)
     return HealthReport(status, results, lanes)
 
 
 def make_checks(request: Request, mcp_url: str | None) -> dict[CheckName, Check]:
-    """The four checks, through the app's own ways out (the tests give their own); Apify's two, only with its token."""
+    """Weather checks plus optional index readiness; Apify checks run only with its token."""
     state = request.app.state
     settings: Settings = state.settings
     token = settings.apify_token
@@ -165,11 +163,17 @@ def make_checks(request: Request, mcp_url: str | None) -> dict[CheckName, Check]
             if apify.client is None:
                 raise apify.error or UpstreamUnavailableError()
 
+    async def park_index() -> None:
+        """Check the already loaded public index without inference, network calls, or writable connections."""
+        if not isinstance(state.park_knowledge, ParkKnowledge) or not state.park_knowledge.available:
+            raise ContractError
+
     return {
         "open-meteo": open_meteo,
         "our-mcp": our_mcp,
         "apify-rest": apify_rest if token is not None else None,
         "apify-mcp": apify_mcp if token is not None else None,
+        "park-index": park_index if settings.parks_enabled else None,
     }
 
 
@@ -200,7 +204,7 @@ async def to_report(request: Request) -> HealthReport:
 
 @router.api_route("/api/health", methods=["GET", "HEAD"])
 async def health(request: Request) -> JSONResponse:
-    """Which lanes work, and which build answers: 200 when every lane that's on works, kept a minute by Vercel's CDN."""
+    """Which lanes work, and which build answers: 200 when every enabled check works, kept a minute by Vercel's CDN."""
     settings: Settings = request.app.state.settings
     report = await to_report(request)
     body = {

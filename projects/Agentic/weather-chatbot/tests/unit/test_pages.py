@@ -172,6 +172,7 @@ def test_the_pages_every_step_adds_to_open_and_mark_their_link(client: TestClien
 def test_the_menu_lists_its_groups_each_with_its_links() -> None:
     assert [(group.title, [item.href for item in group.items]) for group in MENU_GROUPS[:-1]] == [
         ("App", ["/"]),
+        ("Knowledge", ["/knowledge/sources", "/knowledge/chunks", "/knowledge/retrieval"]),
         ("Observability", ["/activity", "/performance", "/evaluations", "/health"]),
         ("Learn", ["/docs", "/architecture", "/system-design", "/technical-details", "/interview"]),
         ("Project", ["/issues", "/todo", "/waiting-on-you"]),

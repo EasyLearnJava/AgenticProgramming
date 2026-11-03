@@ -28,6 +28,11 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 
 ## Next
 
+- **Park guidance, step 16:** review source changes before publishing a new index and rerun the retrieval benchmark.
+  The hosted profile uses keyword retrieval; optional local CPU MiniLM needs no Google embedding key. Validate the
+  clean Linux/Vercel bundle in a preview before production, verify the `/api/` edge rate limit, and run all 18 live
+  answer goldens (including five park cases) with Gemini configured. No production push is authorized yet.
+
 The rebuild is complete (step 13); these could come after it.
 
 - **The cache's own errors as our warning (issues 60 and 72):** on Vercel, the runtime gives each request its cache,

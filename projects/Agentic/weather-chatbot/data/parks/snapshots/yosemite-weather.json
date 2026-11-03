@@ -1,0 +1,16 @@
+{
+  "document_id": "yosemite-weather",
+  "source_url": "https://www.nps.gov/yose/planyourvisit/weather.htm",
+  "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+  "source_updated_at": "2024-10-20",
+  "source_sha256": "b62ba4d024b72bf378648b840c0207fb7ca602f8be6caca7e71fdacbb5b1465d",
+  "sections": [
+    {
+      "title": "Weather",
+      "paragraphs": [
+        "Yosemite National Park covers nearly 1,200 square miles (3,100 square km) in the Sierra Nevada, with elevations ranging from about 2,000 feet (600 m) to 13,000 ft (4,000 m). Yosemite receives 95% of its precipitation between October and May (and over 75% between November and March). Most of Yosemite is blanketed in snow from about November through May. (Yosemite Valley can be rainy or snowy in any given winter storm.)",
+        "Check current weather forecasts in the park by location."
+      ]
+    }
+  ]
+}

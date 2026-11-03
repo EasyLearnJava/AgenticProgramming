@@ -5,12 +5,14 @@ turned into one of our errors. And the finished answer's Markdown, made into HTM
 """
 
 import asyncio
-from collections.abc import AsyncGenerator, AsyncIterator, Iterator, Sequence
-from contextlib import AbstractAsyncContextManager, aclosing, asynccontextmanager
+from collections.abc import AsyncGenerator, AsyncIterator, Collection, Iterator, Sequence
+from contextlib import AbstractAsyncContextManager, aclosing, asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 import httpx2
+import structlog
 from langchain_core.exceptions import (
     ModelAuthenticationError,
     ModelInvalidRequestError,
@@ -21,7 +23,7 @@ from langchain_core.exceptions import (
 from langchain_core.exceptions import ModelTimeoutError as LangChainModelTimeoutError
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import StructuredTool, ToolException
 from langgraph.graph.state import CompiledStateGraph
 from langsmith import tracing_context
 from markdown_it import MarkdownIt
@@ -33,11 +35,21 @@ from markupsafe import Markup
 from nimbus.agent import make_agent, to_agent_config
 from nimbus.cache import WeatherCache
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS, AUTH_ANSWER_TIMEOUT_SECONDS
-from nimbus.errors import AnswerTimeoutError, ConfigError, ModelBusyError, ModelFailedError, NimbusError
+from nimbus.errors import (
+    WEATHER_UNEXPECTED,
+    WEATHER_UNREACHABLE,
+    AnswerTimeoutError,
+    ConfigError,
+    ModelBusyError,
+    ModelFailedError,
+    NimbusError,
+    UpstreamUnavailableError,
+)
 from nimbus.lanes import REST_NO_AUTH, Lane
 from nimbus.model import Tracer
 from nimbus.open_meteo import OpenMeteoClient
-from nimbus.tools import ToolCallRecord, ToolContext, make_tools
+from nimbus.park_tools import KnowledgeCallRecord, KnowledgeService, make_park_tools
+from nimbus.tools import WEATHER_TOOLS, ToolCallRecord, ToolContext, WeatherTool, make_tools
 
 # What a link in an answer carries: it opens in a new tab, so the chat stays, and it tells the other site nothing.
 LINK_REL = "nofollow noopener noreferrer"
@@ -51,6 +63,7 @@ class AnswerStats:
 
     tokens_in: int = 0
     tokens_out: int = 0
+    lane_error: NimbusError | None = None
 
 
 @dataclass(frozen=True)
@@ -72,7 +85,7 @@ class ToolEnded:
     call_id: str
     name: str
     content: str
-    record: ToolCallRecord | None
+    record: ToolCallRecord | KnowledgeCallRecord | None
     failed: bool
 
 
@@ -111,7 +124,9 @@ def _from_update(payload: dict[str, Any]) -> Iterator[ToolStarted | ToolEnded]:
             continue
         for message in update.get("messages", []):
             if isinstance(message, ToolMessage):
-                record = message.artifact if isinstance(message.artifact, ToolCallRecord) else None
+                record = (
+                    message.artifact if isinstance(message.artifact, (ToolCallRecord, KnowledgeCallRecord)) else None
+                )
                 failed = message.status == "error"
                 yield ToolEnded(message.tool_call_id, message.name or "", str(message.content), record, failed)
             elif isinstance(message, AIMessage):
@@ -203,6 +218,92 @@ async def rest_tools(
         yield make_tools(ToolContext(OpenMeteoClient(http, cache=weather_cache)))
 
 
+@asynccontextmanager
+async def lazy_weather_tools(
+    context: AbstractAsyncContextManager[list[StructuredTool]], lane: Lane, stats: AnswerStats | None = None
+) -> AsyncIterator[list[StructuredTool]]:
+    """Open a selected weather lane only when used, sharing one cancellation-safe lifetime across concurrent calls."""
+    # ① A document-only question never contacts MCP or Apify. Concurrent weather calls share one setup operation.
+    lock = asyncio.Lock()
+    opened: dict[str, StructuredTool] | None = None
+    failed = False
+    ready: asyncio.Future[list[StructuredTool]] = asyncio.get_running_loop().create_future()
+    close = asyncio.Event()
+    owner: asyncio.Task[None] | None = None
+
+    async def own_lane() -> None:
+        """Enter and exit SDK context managers in the same task, as AnyIO's cancel scopes require."""
+        try:
+            async with context as tools:
+                if not ready.done():
+                    ready.set_result(tools)
+                await close.wait()
+        except Exception as error:
+            if not ready.done():
+                ready.set_exception(error)
+            else:
+                raise
+
+    try:
+
+        def wrap(definition: WeatherTool) -> StructuredTool:
+            """Give a weather tool its existing schema and defer its lane's setup until invocation."""
+
+            async def call(**kwargs: Any) -> tuple[str, ToolCallRecord]:
+                """Run the selected lane's real tool and preserve its wire artifact and recoverable errors."""
+                nonlocal opened, failed, owner
+                async with lock:
+                    if opened is None and not failed:
+                        try:
+                            owner = asyncio.create_task(own_lane())
+                            tools = await asyncio.shield(ready)
+                            opened = {tool.name: tool for tool in tools}
+                        except Exception as error:
+                            failed = True
+                            if stats is not None:
+                                stats.lane_error = (
+                                    error if isinstance(error, NimbusError) else UpstreamUnavailableError()
+                                )
+                            structlog.get_logger().error(
+                                "lane.open.failed", lane=lane.id, status="failed", errorClass=type(error).__name__
+                            )
+                if opened is None:
+                    raise ToolException(WEATHER_UNREACHABLE)
+                target = opened.get(definition.name)
+                if target is None:
+                    raise ToolException(WEATHER_UNEXPECTED)
+                # ② A tool-call envelope retains the underlying artifact; a bare dict would discard it.
+                result = await target.ainvoke(
+                    {"type": "tool_call", "id": "weather-operation", "name": definition.name, "args": kwargs}
+                )
+                if not isinstance(result, ToolMessage):
+                    raise ToolException(WEATHER_UNEXPECTED)
+                if result.status == "error":
+                    raise ToolException(str(result.content))
+                if not isinstance(result.artifact, ToolCallRecord):
+                    raise ToolException(WEATHER_UNEXPECTED)
+                return str(result.content), result.artifact
+
+            return StructuredTool.from_function(
+                coroutine=call,
+                name=definition.name,
+                description=definition.description,
+                args_schema=definition.input_model,
+                response_format="content_and_artifact",
+                handle_tool_error=True,
+            )
+
+        # ③ The exit stack closes an opened lane when the answer ends or is cancelled.
+        yield [wrap(definition) for definition in WEATHER_TOOLS]
+    finally:
+        close.set()
+        if owner is not None:
+            if not ready.done():
+                owner.cancel()
+            with suppress(asyncio.CancelledError):
+                await owner
+
+
 async def stream_weather_answer(
     model: BaseChatModel,
     messages: Sequence[BaseMessage],
@@ -211,13 +312,17 @@ async def stream_weather_answer(
     tools: AbstractAsyncContextManager[list[StructuredTool]],
     lane: Lane = REST_NO_AUTH,
     deadline: float | None = None,
+    *,
+    knowledge: KnowledgeService | None = None,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The answer, by the agent with the four weather tools of the question's lane (step 9), open for as long as the
-    answer is, and closed with it, however it ends. A lane that can't open fails the answer with its own error.
+    answer is, and closed with it. Setup failures remain in per-turn state so chat can report their original class.
     """
-    async with tools as weather_tools:
-        agent = make_agent(model, weather_tools)
+    context = lazy_weather_tools(tools, lane, stats) if knowledge is not None else tools
+    async with context as weather_tools:
+        knowledge_tools = make_park_tools(knowledge) if knowledge is not None else []
+        agent = make_agent(model, [*weather_tools, *knowledge_tools])
         async with aclosing(stream_answer(agent, messages, stats, tracer, lane, deadline)) as events:
             async for event in events:
                 yield event
@@ -240,9 +345,57 @@ def _create_markdown() -> MarkdownIt:
 ANSWER_MARKDOWN = _create_markdown()
 
 
-def render_answer(text: str) -> Markup:
+def is_weather_authority(url: str) -> bool:
+    """Recognize reviewed weather-alert publishers, separate from park preparation citations."""
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "https"
+        and parts.hostname
+        in {
+            "www.weather.gov",
+            "weather.gov",
+            "www.nhc.noaa.gov",
+            "www.metoffice.gov.uk",
+            "weather.gc.ca",
+            "www.bom.gov.au",
+        }
+        and not parts.username
+        and not parts.password
+        and port in (None, 443)
+    )
+
+
+def render_answer(text: str, *, park_sources: Collection[str] | None = None) -> Markup:
     """
     The finished answer's HTML, from the model's Markdown. Safe to put in a template as it is: with raw HTML off, every
     tag in it is markdown-it's own, and markdown-it never makes a link of a javascript: address.
     """
-    return Markup(ANSWER_MARKDOWN.render(text))  # noqa: S704
+    # ① A normal weather answer retains its existing safe Markdown behavior.
+    if park_sources is None:
+        return Markup(ANSWER_MARKDOWN.render(text))  # noqa: S704
+    # ② Park citations must name retrieved evidence. Removing link tokens retains their escaped readable labels.
+    tokens = ANSWER_MARKDOWN.parse(text)
+    for block in tokens:
+        if not block.children:
+            continue
+        children = []
+        permitted = True
+        for token in block.children:
+            if token.type == "link_open":
+                value = token.attrGet("href")
+                href = value if isinstance(value, str) else ""
+                permitted = href in park_sources or is_weather_authority(href)
+                if permitted:
+                    children.append(token)
+            elif token.type == "link_close":
+                if permitted:
+                    children.append(token)
+                permitted = True
+            else:
+                children.append(token)
+        block.children = children
+    return Markup(ANSWER_MARKDOWN.renderer.render(tokens, ANSWER_MARKDOWN.options, {}))  # noqa: S704
