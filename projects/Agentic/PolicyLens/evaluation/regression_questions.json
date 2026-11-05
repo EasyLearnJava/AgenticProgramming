@@ -1,0 +1,41 @@
+[
+  {
+    "id": "R01", "category": "Unanswerable policy qualifier",
+    "question": "What is the time off policy for astronauts on Mars?",
+    "expected_behavior": "refused", "expected_sources": [], "evidence_fragments": [],
+    "rationale": "Time-off keywords cannot establish an astronaut or Mars policy."
+  },
+  {
+    "id": "R02", "category": "Unanswerable policy qualifier",
+    "question": "What is the expense policy on Jupiter moons?",
+    "expected_behavior": "refused", "expected_sources": [], "evidence_fragments": [],
+    "rationale": "An expense topic match does not support an unrelated location."
+  },
+  {
+    "id": "R03", "category": "Personal record unavailable",
+    "question": "What is my remaining PTO balance?",
+    "expected_behavior": "refused", "expected_sources": [], "evidence_fragments": [],
+    "rationale": "Public policy documents do not contain the user's personal balance."
+  },
+  {
+    "id": "R04", "category": "Short named topic",
+    "question": "What is Okta?",
+    "expected_behavior": "answer", "expected_sources": ["passwords"],
+    "evidence_fragments": ["GitLab utilizes Okta for SAML/SSO and passwordless authentication"],
+    "rationale": "A single specific topic is not automatically ambiguous."
+  },
+  {
+    "id": "R05", "category": "Short named topic",
+    "question": "Explain PTO",
+    "expected_behavior": "answer", "expected_sources": ["time-off-types"],
+    "evidence_fragments": ["GitLab offers a Flexible PTO policy"],
+    "rationale": "The corpus documents this concise, named topic."
+  },
+  {
+    "id": "R06", "category": "Unicode and possessive wording",
+    "question": "What is the manager's role in approving PTO?",
+    "expected_behavior": "answer", "expected_sources": ["time-off-types"],
+    "evidence_fragments": ["Discuss planned time off with your manager first"],
+    "rationale": "Straight apostrophes must match typographic apostrophes in sources."
+  }
+]

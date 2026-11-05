@@ -1,0 +1,6 @@
+{
+  "file": "challenge_questions.json",
+  "sha256": "1aadbd4174e3df17e1cde036ca9228c8dc8e0519d242b73dc7313e078be93dcc",
+  "questions": 30,
+  "purpose": "Locked challenge set created before the round-two implementation; not a blind or statistically held-out benchmark."
+}

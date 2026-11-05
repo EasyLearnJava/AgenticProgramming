@@ -1,0 +1,68 @@
+[
+  {
+    "source_id": "spending",
+    "title": "Spending Company Money",
+    "category": "Finance",
+    "url": "https://handbook.gitlab.com/handbook/finance/spending-company-money/",
+    "file": "spending.md",
+    "fetched_at": "2026-11-05T18:01:16.502890+00:00",
+    "sha256": "87975e07d1bf172dfaf22c8ef9a08f51f704bf771b98fcb431e542f2fb9d4572",
+    "owner": "GitLab",
+    "license": "MIT"
+  },
+  {
+    "source_id": "expenses",
+    "title": "Global Travel and Expense Policy",
+    "category": "Finance",
+    "url": "https://handbook.gitlab.com/handbook/finance/expenses/",
+    "file": "expenses.md",
+    "fetched_at": "2026-11-05T18:01:16.502890+00:00",
+    "sha256": "d82db4f2e99f2921548826a6ee74b83b355f82f5eaf73614240edb6ce3b94a03",
+    "owner": "GitLab",
+    "license": "MIT"
+  },
+  {
+    "source_id": "time-off",
+    "title": "Time Off and Absence",
+    "category": "People",
+    "url": "https://handbook.gitlab.com/handbook/people-group/time-off-and-absence/",
+    "file": "time-off.md",
+    "fetched_at": "2026-11-05T18:01:16.502890+00:00",
+    "sha256": "d38b13c37ee68b5f8f1b54e14d6278e897ed4a3b3daf44a6159b00dc542b0dc4",
+    "owner": "GitLab",
+    "license": "MIT"
+  },
+  {
+    "source_id": "time-off-types",
+    "title": "Time Off Types",
+    "category": "People",
+    "url": "https://handbook.gitlab.com/handbook/people-group/time-off-and-absence/time-off-types/",
+    "file": "time-off-types.md",
+    "fetched_at": "2026-11-05T18:01:16.502890+00:00",
+    "sha256": "16b7e8074778f4c464f11cbd98ff6fe9690cdbc7a95142fe11884c8b6069a290",
+    "owner": "GitLab",
+    "license": "MIT"
+  },
+  {
+    "source_id": "passwords",
+    "title": "Password Guidelines",
+    "category": "Security",
+    "url": "https://handbook.gitlab.com/handbook/security/password-guidelines/",
+    "file": "passwords.md",
+    "fetched_at": "2026-11-05T18:01:16.502890+00:00",
+    "sha256": "05462d3b14440ea2d7b0426fc317d75b1793568c0a6b24037531ce60b065436f",
+    "owner": "GitLab",
+    "license": "MIT"
+  },
+  {
+    "source_id": "communication",
+    "title": "GitLab Communication",
+    "category": "Ways of working",
+    "url": "https://handbook.gitlab.com/handbook/communication/",
+    "file": "communication.md",
+    "fetched_at": "2026-11-05T18:01:16.502890+00:00",
+    "sha256": "df7500680814d3ad7038a53c5a0e671a9769425f5a9d1e94804c349976ae280d",
+    "owner": "GitLab",
+    "license": "MIT"
+  }
+]
