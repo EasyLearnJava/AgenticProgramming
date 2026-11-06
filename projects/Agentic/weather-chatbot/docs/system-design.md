@@ -133,10 +133,9 @@ tools, and through them Open-Meteo.
   in code (`weather.py`). A failure reaches the model and the chip as our own sentence. Our MCP server offers the
   same four, each input schema made from the same model: the weather as structured content, the summary as text, the
   request and the cache's part in `_meta`.
-- **The lanes** (`lanes.py`, `mcp_lane.py`): the question's lane, chosen on the page and checked: on REST · no auth,
-  the tools call Open-Meteo; on MCP · no auth, they call our own MCP server, at an address of this deployment's own,
-  never one a request names, one connection an answer, each call a `tools/call`. The chips show the JSON-RPC request
-  as sent, then the server's to Open-Meteo; the compare view shows one forecast call through each lane. On the two
+- **The lanes** (`lanes.py`, `mcp_lane.py`). Chat uses the API's REST · no auth default to call Open-Meteo.
+  API callers can specify another supported lane. On MCP · no auth the tools call this deployment's MCP server
+  over one connection per answer. The chips show the JSON-RPC request and the server's request to Open-Meteo. On the two
   lanes with auth (`auth_lanes.py`, `apify.py`, `actor.py`), open only with `APIFY_TOKEN`, `get_forecast` runs Apify's
   Actor, over its REST API or its MCP server, its build, 18 s and $0.01 pinned, the token only in a header; the other
   three tools are the twin's; a failure falls back to the twin's forecast, with 12 s of the answer's 50 left, and
@@ -179,7 +178,7 @@ tools, and through them Open-Meteo.
   and tokens, its inputs and outputs hidden, and a failed run's error. From step 12, each line also goes to Axiom, in
   one batch once its request has answered (Vercel keeps the function alive for it); each line at error goes to Sentry
   as its exception's class and frames, tagged, nothing private; and `/api/health` checks each lane's way out, none of
-  it costing, for an uptime monitor and the lane picker's status dots. From step 14, four Observability pages read
+  it costing, for uptime monitoring. From step 14, four Observability pages read
   the lines back from Axiom, with a second token that can only query: Activity, Performance, Evaluations and Health,
   each query naming the fields it reads, once a minute on each copy, each page kept a minute by the CDN. From
   step 15, Activity shows each request, its lines put together by its id, shown only by its ref.

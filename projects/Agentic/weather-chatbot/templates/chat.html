@@ -6,9 +6,7 @@
   come, and a chip's mark when Stop ends its call; they're held here, on the conversation's data-* attributes. The
   script also fills the hidden fields: the browser's locale and time zone, for the units and the visitor's today; and
   the conversation so far (step 6), which goes back with each question, within the limits held here; New chat clears it.
-  The lane picker (step 9) chooses how the tools are reached: its radios belong to the form (form="chat-form"), so the
-  lane goes with each question; the two with auth (step 10) open only with Apify's token. The compare view shows one
-  forecast call through each lane.
+  The form omits the lane so ordinary chat uses the API's REST-without-authentication default.
 #}
 {% extends "base.html" %}
 {% from "chat_parts.html" import bot_meta, error_message %}
@@ -20,13 +18,20 @@
     <script src="/static/chat.js" defer></script>
 {% endblock %}
 {% block content %}
+{% set features = request.app.state.settings %}
+{% set travel_searches = [
+  "flights" if features.flights_enabled, "hotels" if features.hotels_enabled
+]|select|join(" and ") %}
 <main class="chat-page">
   <section class="chat-card" aria-labelledby="chat-title">
     <header class="chat-header">
       <div>
-        <h1 id="chat-title" class="chat-title">Nimbus (Weather)</h1>
+        <h1 id="chat-title" class="chat-title">Nimbus</h1>
         <p class="chat-subtitle">
-          Ask about the weather anywhere. Each answer will show the tool calls behind it, and the lane each one took.
+          Check forecasts and air quality anywhere.
+          {% if features.parks_enabled %}
+          Explore hiking guidance and official park alerts for Zion, Yosemite, and Grand Canyon.
+          {% endif %}
         </p>
       </div>
       <button id="new-chat" type="button" class="new-chat-button">New chat</button>
@@ -41,53 +46,25 @@
         {{ bot_meta() }}
         <div class="bubble bubble-bot">
           <p>
-            Hi, I'm Nimbus. Ask me about the weather anywhere: now, today and the coming days, or the air. Each
-            tool call behind an answer shows above it; open one to see the request it sent. The Documentation shows
-            each step as it's built.
+            {% if features.parks_enabled and travel_searches %}
+            Try “Plan a trip to Zion.” Once you confirm your dates and trip details, I can check {{ travel_searches }}
+            alongside the forecast and park notices.
+            {% elif features.parks_enabled %}
+            Try “What should I pack for a hike in Zion tomorrow?”
+            {% else %}
+            Try “Will I need a rain jacket in Chicago tomorrow?”
+            {% if travel_searches %}You can also search for {{ travel_searches }}.{% endif %}
+            {% endif %}
           </p>
         </div>
       </li>
     </ol>
     <template id="chat-error-template">{{ error_message("") }}</template>
     <div class="chat-input-area">
-      <fieldset class="lane-picker" data-working="working" data-not-answering="not answering"
-        data-unknown="status unknown">
-        <legend class="lane-picker-legend">Lane: how the tools are reached</legend>
-        <div class="lane-grid">
-          {%- for lane, open in lanes %}
-          <label class="lane{{ '' if open else ' lane-closed' }}">
-            <input type="radio" name="lane" value="{{ lane.id }}" form="chat-form"
-              {%- if lane.id == default_lane %} checked{% endif %}{% if not open %} disabled{% endif %}>
-            <span class="lane-label">{{ lane.label }}</span>
-            {%- if open %}
-            <span class="lane-note lane-status" data-lane-status="{{ lane.id }}" data-state="checking">
-              <span class="lane-dot" aria-hidden="true"></span><span class="lane-status-word">checking…</span>
-            </span>
-            {%- else %}
-            <span class="lane-note">needs a token</span>
-            {%- endif %}
-          </label>
-          {%- endfor %}
-        </div>
-      </fieldset>
-      <details class="compare">
-        <summary>Compare the lanes: one forecast call through each</summary>
-        <div class="compare-grid">
-          {%- for cell in compare %}
-          <section class="compare-cell" aria-labelledby="compare-{{ cell.lane.id }}">
-            <h2 id="compare-{{ cell.lane.id }}" class="compare-title">{{ cell.lane.label }}</h2>
-            {%- if cell.request %}
-            <pre>{{ cell.request }}</pre>
-            {%- endif %}
-            <p class="compare-note">{{ cell.note }}</p>
-          </section>
-          {%- endfor %}
-        </div>
-      </details>
       <form id="chat-form" class="chat-input" method="post" action="/api/chat" hx-post="/api/chat"
-        hx-target="#messages" hx-swap="beforeend" hx-sync="this:drop" aria-label="Ask about the weather">
+        hx-target="#messages" hx-swap="beforeend" hx-sync="this:drop" aria-label="Ask Nimbus">
         <label class="visually-hidden" for="question">Your question</label>
-        <input id="question" name="question" type="text" placeholder="Ask about the weather anywhere"
+        <input id="question" name="question" type="text" placeholder="Ask Nimbus a question"
           autocomplete="off" maxlength="{{ question_max_chars }}" required>
         <input id="locale" name="locale" type="hidden">
         <input id="time-zone" name="time_zone" type="hidden">
@@ -95,9 +72,6 @@
         <button id="send" type="submit" class="send-button">Send</button>
         <button id="stop" type="button" class="stop-button">Stop</button>
       </form>
-      <p class="chat-privacy">
-        Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.
-      </p>
       <noscript><p class="chat-noscript">The chat needs JavaScript; the documentation doesn't.</p></noscript>
     </div>
   </section>

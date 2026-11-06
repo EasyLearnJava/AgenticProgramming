@@ -11,7 +11,7 @@ import re
 
 from axe_playwright_python.sync_playwright import Axe
 from langchain_core.messages import AIMessage, HumanMessage
-from playwright.sync_api import BrowserContext, ConsoleMessage, Locator, Page, Route, expect
+from playwright.sync_api import ConsoleMessage, Locator, Page, Route, expect
 
 from nimbus.constants import QUESTION_MAX_CHARS
 from nimbus.errors import CUT_OFF, QUESTION_TOO_LONG, RATE_LIMITED, STOPPED, UNREACHABLE
@@ -285,28 +285,27 @@ def test_the_same_question_again_is_answered_from_the_cache(page: Page, open_met
     assert len(open_meteo.requests) == asked
 
 
-def test_the_lane_picker_takes_a_question_through_our_mcp_server(page: Page) -> None:
+def test_a_normal_submission_uses_rest_without_a_browser_lane_override(page: Page) -> None:
     page.goto("/")
-    page.get_by_role("radio", name="MCP · no auth").check()
-    box = page.get_by_label("Your question")
-    box.fill(QUESTION)
-    box.press("Enter")
+    expect(page.get_by_role("radio")).to_have_count(0)
+    with page.expect_request(lambda request: request.url.endswith("/api/chat") and request.method == "POST") as sent:
+        page.get_by_label("Your question").fill(QUESTION)
+        page.get_by_role("button", name="Send").click()
+    fields = sent.value.post_data_json
+    assert isinstance(fields, dict)
+    assert fields["question"] == QUESTION
+    assert "lane" not in fields
     expect(last_answer(page)).to_have_text(ANSWER_TEXT)
-    expect(chips(page).locator(".tool-chip-lane")).to_have_text([re.compile(r"^MCP · no auth · 127\.0\.0\.1:")] * 2)
-    chips(page).first.locator("summary").click()
-    expect(chips(page).first.get_by_text("Then, from our MCP server")).to_be_visible()
+    expect(chips(page).locator(".tool-chip-lane")).to_have_text([re.compile(r"^REST · no auth · ")] * 2)
 
 
-def test_the_compare_view_shows_one_forecast_call_through_each_lane_and_passes_axe(page: Page) -> None:
+def test_chat_does_not_poll_the_health_endpoint(page: Page) -> None:
+    requested: list[str] = []
+    page.clock.install()
+    page.on("request", lambda request: requested.append(request.url))
     page.goto("/")
-    page.get_by_text("Compare the lanes").click()
-    cells = page.locator(".compare-cell")
-    expect(cells).to_have_count(4)
-    expect(cells.nth(0)).to_contain_text("GET https://api.open-meteo.com/v1/forecast?")
-    expect(cells.nth(2)).to_contain_text('"method": "tools/call"')
-    assert page.evaluate("document.documentElement.scrollWidth - window.innerWidth") <= 0
-    results = Axe().run(page)
-    assert results.violations_count == 0, results.generate_report()
+    page.clock.fast_forward(5 * 60 * 1000)
+    assert not any(url.endswith("/api/health") for url in requested)
 
 
 def test_the_firewall_s_429_is_said_in_our_own_words(page: Page) -> None:
@@ -314,41 +313,3 @@ def test_the_firewall_s_429_is_said_in_our_own_words(page: Page) -> None:
     page.route("**/api/chat", lambda route: route.fulfill(status=429, content_type="text/plain", body="Too Many"))
     ask(page)
     expect(page.locator(".message-error .message-note")).to_have_text(RATE_LIMITED)
-
-
-def lane_status(page: Page, lane: str) -> Locator:
-    """A lane's health, beside it in the picker (step 12)."""
-    return page.locator(f'[data-lane-status="{lane}"]')
-
-
-def test_each_lane_s_health_shows_beside_it_once_the_page_has_asked(page: Page, context: BrowserContext) -> None:
-    # Here, Open-Meteo is played back and our MCP server is this one: the lanes with no auth work. The app answers the
-    # page itself, and the test waits for the answer.
-    context.unroute("**/api/health")
-    page.goto("/")
-    for lane in ("rest-no-auth", "mcp-no-auth"):
-        expect(lane_status(page, lane)).to_have_attribute("data-state", "ok")
-        expect(lane_status(page, lane).locator(".lane-status-word")).to_have_text("working")
-    expect(page.locator(".lane-closed .lane-note")).to_have_text(["needs a token", "needs a token"])
-
-
-def test_a_lane_not_answering_says_so_and_can_still_be_picked(page: Page) -> None:
-    report = {"status": "down", "lanes": {"rest-no-auth": "ok", "mcp-no-auth": "down"}}
-    page.route(
-        "**/api/health",
-        lambda route: route.fulfill(status=503, content_type="application/json", body=json.dumps(report)),
-    )
-    page.goto("/")
-    expect(lane_status(page, "mcp-no-auth")).to_have_attribute("data-state", "down")
-    expect(lane_status(page, "mcp-no-auth").locator(".lane-status-word")).to_have_text("not answering")
-    expect(page.get_by_role("radio", name="MCP · no auth")).to_be_enabled()
-
-
-def test_a_health_answer_the_page_can_t_read_leaves_each_status_unknown(page: Page) -> None:
-    page.route(
-        "**/api/health",
-        lambda route: route.fulfill(status=502, content_type="text/html", body="<h1>Bad gateway</h1>"),
-    )
-    page.goto("/")
-    for lane in ("rest-no-auth", "mcp-no-auth"):
-        expect(lane_status(page, lane).locator(".lane-status-word")).to_have_text("status unknown")

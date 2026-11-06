@@ -6,7 +6,6 @@ gets the app's own 404 page, and a missing API, JSON.
 """
 
 import json
-import re
 from html.parser import HTMLParser
 
 import pytest
@@ -27,9 +26,30 @@ DEPRECATED_NOTE = "Deprecated: this page describes the earlier TypeScript versio
 def test_the_chat_page_shows_its_card_and_marks_its_menu_link(client: TestClient) -> None:
     page = client.get("/")
     assert page.status_code == 200
-    assert "Nimbus (Weather)" in page.text
+    assert 'class="chat-title">Nimbus</h1>' in page.text
     assert '<a class="side-menu-link" href="/" aria-current="page">Chat</a>' in page.text
     assert "Build c7165ac · production" in page.text
+
+
+@pytest.mark.parametrize(
+    ("parks", "flights", "hotels"),
+    [(True, True, True), (True, True, False), (True, False, False), (False, False, True), (False, False, False)],
+)
+def test_the_chat_introduction_describes_enabled_capabilities(
+    settings: Settings, parks: bool, flights: bool, hotels: bool
+) -> None:
+    """Look only inside the chat card, excluding the shared documentation and navigation labels."""
+    settings = settings.model_copy(
+        update={"parks_enabled": parks, "flights_enabled": flights, "hotels_enabled": hotels}
+    )
+    with TestClient(create_app(settings)) as client:
+        card = client.get("/").text.split('id="chat-title"', 1)[1].split('id="chat-error-template"', 1)[0].lower()
+    assert "forecasts" in card
+    assert "air quality" in card
+    assert ("park alerts" in card) is parks
+    assert ("plan a trip" in card) is (parks and (flights or hotels))
+    assert ("flights" in card) is flights
+    assert ("hotels" in card) is hotels
 
 
 class _Elements(HTMLParser):
@@ -95,12 +115,6 @@ def test_the_chat_page_holds_the_sentences_our_script_shows(client: TestClient) 
     assert messages["data-rate-limited"] == RATE_LIMITED
     assert messages["aria-live"] == "polite"
     assert "chat-error-template" in page.by_id
-
-
-def test_the_chat_page_says_where_questions_go(client: TestClient) -> None:
-    # Step 11: on Gemini's free tier, Google may use what it gets; the page says so, under the form.
-    note = "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal."
-    assert note in client.get("/").text
 
 
 def test_only_the_chat_page_loads_scripts(client: TestClient) -> None:
@@ -242,36 +256,17 @@ def test_on_vercel_leaves_the_stylesheet_to_the_cdn_and_still_serves_the_docs_pi
         assert vercel_client.get("/docs/images/system-design_deprecated.png").status_code == 200
 
 
-def test_the_chat_page_offers_the_lanes_and_compares_one_call_through_each(client: TestClient) -> None:
-    page = client.get("/").text
-    radios = re.findall(r'<input type="radio" name="lane" value="([a-z-]+)" form="chat-form"([^>]*)>', page)
-    assert [(lane, "checked" in rest, "disabled" in rest) for lane, rest in radios] == [
-        ("rest-no-auth", True, False),
-        ("rest-with-auth", False, True),
-        ("mcp-no-auth", False, False),
-        ("mcp-with-auth", False, True),
-    ]
-    assert "GET https://api.open-meteo.com/v1/forecast?latitude=48.85&amp;longitude=2.35" in page
-    assert "POST http://testserver:80/api/mcp" in page
-    # The lanes with auth, closed here (no token), show their requests too, the token masked (step 10).
-    assert "POST https://api.apify.com/v2/acts/gochujang~open-meteo-weather-forecast/run-sync-get-dataset-items" in page
-    assert page.count("authorization: Bearer &lt;APIFY_TOKEN&gt;") == 2
-    assert '"name": "call-actor"' in page.replace("&#34;", '"')
-    assert page.count("needs a token") == 2
-    # Step 12: each open lane's health, asked once the page has opened; the page itself says it's checking.
-    assert re.findall(r'data-lane-status="([a-z-]+)" data-state="checking"', page) == ["rest-no-auth", "mcp-no-auth"]
-
-
-def test_with_apify_s_token_the_lanes_with_auth_are_open(settings: Settings) -> None:
-    app = create_app(settings.model_copy(update={"apify_token": SecretStr("test-apify-token")}))
+@pytest.mark.parametrize("token", [None, SecretStr("test-apify-token")], ids=["no-token", "token"])
+def test_the_chat_page_uses_the_server_default_without_showing_lane_controls(
+    settings: Settings, token: SecretStr | None
+) -> None:
+    """Both deployment configurations serve the same composer and leave lane selection to the API default."""
+    app = create_app(settings.model_copy(update={"apify_token": token}))
     with TestClient(app) as client:
         page = client.get("/").text
-    radios = re.findall(r'<input type="radio" name="lane" value="([a-z-]+)" form="chat-form"([^>]*)>', page)
-    assert [(lane, "disabled" in rest) for lane, rest in radios] == [
-        ("rest-no-auth", False),
-        ("rest-with-auth", False),
-        ("mcp-no-auth", False),
-        ("mcp-with-auth", False),
-    ]
-    assert "needs a token" not in page
+    assert 'name="lane"' not in page
+    assert "Compare the lanes" not in page
+    assert "Lane: how the tools are reached" not in page
+    assert "data-lane-status" not in page
+    assert "Your questions go to Google's Gemini" not in page
     assert "test-apify-token" not in page

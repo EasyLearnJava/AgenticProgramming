@@ -59,8 +59,7 @@ whether it used keyword or hybrid retrieval. [Step 16](step-16.md) describes reb
   "tomorrow" is your tomorrow, from your browser's time zone; times are given in the place's own time, and say so.
 - **A conversation:** a follow-up question carries the last 10 messages, kept in your browser alone; New chat starts
   over; Stop ends an answer on the page.
-- **Four lanes, side by side:** the same tools reached four ways: over REST or through an MCP server, without a key or
-  with Apify's. A dot beside each says whether it's working; a compare view shows the request each lane sends.
+- Chat uses REST without authentication for weather lookups. Open a tool call above an answer to inspect its request.
 - **Its own words when things go wrong:** never another service's error page; a failure while answering ends with a
   ref that finds its log lines.
 - **Accessible:** every page passes axe's checks, works with the keyboard, reads out new messages, and never scrolls

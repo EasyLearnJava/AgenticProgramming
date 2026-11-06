@@ -31,7 +31,7 @@ COMPUTER_WIDTH = 1280
 
 def test_the_menu_opens_each_page_and_marks_it(page: Page) -> None:
     page.goto("/")
-    expect(page.get_by_role("heading", name="Nimbus (Weather)")).to_be_visible()
+    expect(page.get_by_role("heading", name="Nimbus", exact=True)).to_be_visible()
     page.get_by_role("link", name="Documentation", exact=True).click()
     expect(page.get_by_role("heading", level=1, name="Documentation")).to_be_visible()
     expect(page.get_by_role("link", name="Documentation", exact=True)).to_have_attribute("aria-current", "page")

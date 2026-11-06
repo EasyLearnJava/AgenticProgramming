@@ -915,12 +915,6 @@ MUTATIONS: tuple[Mutation, ...] = (
         '"rate_limited": "",',
         "the page holds the 429's sentence",
     ),
-    Mutation(
-        "templates/chat.html",
-        "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.",
-        "",
-        "the page says where questions go",
-    ),
     Mutation("nimbus/model.py", "        anonymizer=hide_error_text,\n", "", "LangSmith never gets an error's text"),
     Mutation(
         "nimbus/utils.py",
@@ -1068,10 +1062,10 @@ MUTATIONS: tuple[Mutation, ...] = (
         "the health check's token Apify refuses is AuthError",
     ),
     Mutation(
-        "templates/chat.html",
-        'data-lane-status="{{ lane.id }}" ',
-        "",
-        "each open lane shows its status",
+        "nimbus/chat.py",
+        'lane: LaneId = "rest-no-auth"',
+        'lane: LaneId = "mcp-no-auth"',
+        "chat uses REST without authentication by default",
     ),
     Mutation(
         "nimbus/middleware.py",
