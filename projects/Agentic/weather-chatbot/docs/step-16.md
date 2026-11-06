@@ -206,15 +206,38 @@ inspected. Question-bearing GET submissions are rejected, and model/corpus data 
 
 Both retrieval profiles pass 41 cases with recall@4 of 100% and top-1 evidence of 81.2%; MRR@4 is 0.893 for keywords
 and 0.906 for local hybrid search. This small benchmark does not establish a broad semantic-search advantage.
-The eighteen live-answer goldens were not run: Gemini credentials are absent. A Vercel preview and production
-validation were not performed; no deployment is authorized. The preceding saved thirteen-case live run is retained
-as historical evidence and does not validate Step 16.
+The initial local validation did not run the eighteen live-answer goldens. The production run on 4 November 2026
+is recorded below, including failures and separate timeout rechecks; the preceding thirteen-case result has been
+replaced by that actual eighteen-case run in `evals/last-run.json`.
 
 ## Deploy it
 
-No production commit, push or deployment is authorized by this work. Before release, build a clean production-only
-environment, inspect its dependency set and function artifact, verify the `/api/` firewall rule, and run all eighteen
-answer goldens against this version with Gemini configured. Preserve the preceding index for rollback.
+Production validation was performed on **4 November 2026**, starting at 13:33 UTC. The exact source was
+`5de2c5c06300b4afc52c3ba0e4bec85f060d96f3`, with Vercel deployment `dpl_HXVLKC8omqqMG4giJheCaFCosfcE`.
+Requests used [the production address](https://weather-chatbot-hazel.vercel.app). Vercel's API confirmed the same
+deployment and full source SHA before and after each chat request. GitHub's `check` and `audit` jobs passed.
+Vercel reported a ready FastAPI function of 63.72 MB; production used the expected keyword retrieval profile.
+
+| Check | Observed result |
+|---|---|
+| Production health | All four weather lanes and the park index passed |
+| Source documents and vectors | 13 documents and 40 stored vectors visible |
+| POST Retrieval Playground | Four scoped Narrows passages returned with official source links, using keyword retrieval |
+| Existing eighteen chat goldens, initial batch | 14 passed, two model timeouts and two completed expectation failures |
+| Timeout-only rechecks | Both timed-out existing cases passed once rechecked; original failures remain recorded |
+| Park guidance chat | Yosemite and Grand Canyon cases passed initially; Narrows passed on its timeout-only recheck |
+
+Two completed failures remain: `too-far-ahead` called `geocode_location` despite its no-tools requirement;
+`park-ambiguous-destination` resolved the two parks separately and retrieved guidance instead of requesting
+clarification. Timeouts before any tool call were classified separately, without claiming that a tool was skipped.
+
+**Release gate: failed.** Both completion tags were withheld for this validation run. The two completed failures
+must be addressed and live checks repeated against the intended tag commit. No runtime or security implementation
+was changed during this validation. Machine-readable evidence and the predefined plan were saved separately as
+`steps-16-17-production-validation.json` and `steps-16-17-validation-plan.json` in the task outputs.
+
+The recorded deployment can be inspected at
+[Vercel](https://vercel.com/silverado/weather-chatbot/HXVLKC8omqqMG4giJheCaFCosfcE). Preserve the index for rollback.
 
 Vercel's standard Python function limit is 500 MB uncompressed. Eligible Fluid Compute projects can use the Large
 Functions public beta up to 5 GB; do not assume that setting is enabled. The default hosted profile avoids the ML

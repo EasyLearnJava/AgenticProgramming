@@ -143,10 +143,36 @@ example configuration, ignored local credentials and credential-free public HTML
 
 ## Deploy it
 
-Configure `NPS_API_KEY` as a server-side secret in each intended Vercel environment, as described on
-[Waiting on you](waiting-on-you.md#3-vercels-environment-variables), then verify its `/api/` firewall
-limit. No new runtime dependency or native ML bundle is needed. Validate a preview before production and run the
-existing live-answer goldens plus attributed notice scenarios. Never publish the key in `.env.example`.
+On **4 November 2026**, `NPS_API_KEY` was configured as a sensitive **Production** variable. The existing
+deployment was redeployed without uploading source changes. The tested source was
+`5de2c5c06300b4afc52c3ba0e4bec85f060d96f3`,
+and the resulting immutable deployment was `dpl_HXVLKC8omqqMG4giJheCaFCosfcE`. Preview settings were not changed.
+Vercel's API verified this deployment around each chat request sent to
+[production](https://weather-chatbot-hazel.vercel.app).
+
+| Live check | Result |
+|---|---|
+| Zion notices page | HTTP 200; six notices, complete check, fetch time and official links |
+| Grand Canyon notices page | HTTP 200; four notices, complete check, fetch time and official links |
+| Yosemite notices page | HTTP 200; two notices, complete check, fetch time and official links |
+| Explicit Yosemite notice question, MCP lane selected | Passed initially: destination resolution, notice tool, complete result and returned-source citation |
+| Explicit Zion notice question, REST lane selected | Initial model timeout before any tool; one identical recheck passed all notice requirements |
+| Notice cache | Yosemite chat reported a cached result with its original fetch timestamp |
+| Provider quota observation | HTTP 200, `X-RateLimit-Limit: 1000`, `X-RateLimit-Remaining: 994` at 13:47 UTC |
+
+The NPS chat tool runs independently of weather transport; selecting the MCP lane does not send the NPS request
+through MCP. Credentials were never included in the report, model input or command arguments. Case IDs, observed
+tools, result status, citations, timing and build identity were recorded; question and answer text were omitted.
+
+The existing eighteen chat goldens initially produced 14 passes, two timeouts and two completed failures. The two
+timed-out existing cases and the timed-out NPS smoke case each passed one technical recheck. The completed
+forecast-horizon and ambiguous-destination failures were retained, without retrying them to obtain a passing score.
+**Both completion tags were withheld for this failed release gate.** See [Step 16](step-16.md#deploy-it) and issues
+125 and 126. No security changes were started.
+
+For future deployment targets, follow
+[Waiting on you](waiting-on-you.md#3-vercels-environment-variables), validate the API firewall limit and run the
+existing answer goldens plus attributed notice checks. Never publish the key in `.env.example`.
 
 ## Things to take care of, and pitfalls
 

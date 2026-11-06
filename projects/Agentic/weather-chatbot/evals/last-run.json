@@ -1,6 +1,6 @@
 {
-  "commit": "8cee038",
-  "ran_at": "2026-11-02T14:30:08.415387Z",
+  "commit": "5de2c5c",
+  "ran_at": "2026-11-04T13:39:42.036225+00:00",
   "results": [
     {
       "id": "rain-tomorrow",
@@ -47,9 +47,13 @@
     },
     {
       "id": "too-far-ahead",
-      "passed": true,
-      "tools": [],
-      "misses": []
+      "passed": false,
+      "tools": [
+        "geocode_location"
+      ],
+      "misses": [
+        "called geocode_location"
+      ]
     },
     {
       "id": "coordinates",
@@ -79,9 +83,11 @@
     },
     {
       "id": "off-topic",
-      "passed": true,
+      "passed": false,
       "tools": [],
-      "misses": []
+      "misses": [
+        "model_timeout before any tool call; tool selection was not assessed; original attempt retained"
+      ]
     },
     {
       "id": "change-the-rules",
@@ -103,6 +109,54 @@
         "get_forecast"
       ],
       "misses": []
+    },
+    {
+      "id": "park-narrows-clothing",
+      "passed": false,
+      "tools": [],
+      "misses": [
+        "model_timeout before any tool call; tool selection was not assessed; original attempt retained"
+      ]
+    },
+    {
+      "id": "park-yosemite-lightning",
+      "passed": true,
+      "tools": [
+        "resolve_destination",
+        "search_park_guidance"
+      ],
+      "misses": []
+    },
+    {
+      "id": "park-canyon-summer",
+      "passed": true,
+      "tools": [
+        "resolve_destination",
+        "search_park_guidance"
+      ],
+      "misses": []
+    },
+    {
+      "id": "park-conflicting-name",
+      "passed": true,
+      "tools": [
+        "resolve_destination"
+      ],
+      "misses": []
+    },
+    {
+      "id": "park-ambiguous-destination",
+      "passed": false,
+      "tools": [
+        "resolve_destination",
+        "resolve_destination",
+        "search_park_guidance",
+        "search_park_guidance"
+      ],
+      "misses": [
+        "called search_park_guidance",
+        "doesn't say /which|clarif|choose|specif/"
+      ]
     }
   ]
 }

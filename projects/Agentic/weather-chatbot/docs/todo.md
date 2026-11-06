@@ -28,9 +28,12 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 
 ## Next
 
-- **Official park notices, step 17:** follow [Waiting on you](waiting-on-you.md#3-vercels-environment-variables) for
-  NPS account configuration. Verify the API firewall limit, smoke-test a preview and run live answer/citation checks.
-  Public caches and application gates are per instance, so monitor total NPS quota across instances.
+- **Steps 16 and 17 release gate, checked 4 November 2026:** production NPS configuration, all three notice pages,
+  RAG browsing/retrieval and explicit NPS chat checks were verified on `5de2c5c`. Completion tags remain withheld:
+  the live `too-far-ahead` and `park-ambiguous-destination` goldens failed their tool-use rules (issues 125 and 126).
+  Model timeouts were recorded separately and passed once rechecked. Correct the completed failures and repeat
+  live validation on the intended tag commit. Public caches and request gates are per instance; monitor NPS quota.
+  Preview configuration remains on [Waiting on you](waiting-on-you.md#3-vercels-environment-variables).
 
 - **Park guidance, step 16:** review source changes before publishing a new index and rerun the retrieval benchmark.
   The hosted profile uses keyword retrieval; optional local CPU MiniLM needs no Google embedding key. Validate the

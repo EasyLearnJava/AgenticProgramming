@@ -7,7 +7,7 @@ checker, a mutation check, a screenshot), **the review** (the independent review
 package's code**, **deploying**, or **testing a real API**. The TypeScript version's log is kept as
 [Issues and fixes_deprecated](issues_deprecated.md).
 
-## Step 1 · The Project, Its Pages and Its First Deploy
+## Step 1 Â· The Project, Its Pages and Its First Deploy
 
 1. **Starlette's test client said `httpx` is deprecated.** *Checking our work* (the first smoke test). Every test run
    warned: "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead." Starlette 1.8's test
@@ -134,7 +134,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     078915f changed only CI's workflow, outside this folder: Vercel's status for Nimbus read "Canceled by Ignored
     Build Step", and `/api/health` still named 17045bf; 1de58df and 17045bf, which changed the folder, each built.
 
-## Step 2 · The Chat Streams Its Answer
+## Step 2 Â· The Chat Streams Its Answer
 
 22. **Stop would have been an error on some servers, and logged late on others.** *Reading a package's code*
     (Starlette's `StreamingResponse`, before the stream was written). Starlette hears the browser go in one of two ways,
@@ -155,8 +155,8 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     followed the change. **Fix:** one test states both limits in numbers. **Check:** the mutation check's "a question
     is at most 2,000 characters" and "a body over 32 KiB is refused".
 25. **A test's number rounded the other way.** *Checking our work* (a failing test). `to_ms(1.2345)` gave 1234, not
-    1235: 1.2345 × 1000 comes out as exactly 1234.5, and `round()` rounds a half to the even 1234. (Step 2's chapter
-    first said the product was 1234.4999…; issue 30.) **Fix:** the test uses 1.2346. **Check:** the test itself.
+    1235: 1.2345 Ã— 1000 comes out as exactly 1234.5, and `round()` rounds a half to the even 1234. (Step 2's chapter
+    first said the product was 1234.4999â€¦; issue 30.) **Fix:** the test uses 1.2346. **Check:** the test itself.
 26. **An escape arrived as the character itself.** *Checking our work* (reading the file back). A test's `\u2028`,
     appended to the file through a shell command, arrived as the line-separator character itself, invisible on the
     screen. **Fix:** a script wrote the escape back, and tests are edited with an editor, not through the shell.
@@ -171,7 +171,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     stream it feeds, as the response ends. **Check:** two unit tests, under ASGI 2.3 and 2.4, where the browser goes
     before the response starts; the mutation check's "an answer starts before its response".
 28. **Without htmx, the form would have put the question in the address.** *The review.* The form had no `method` or
-    `action`, so with htmx missing (a script blocked, or still loading), Enter sent `GET /?question=…`: the question
+    `action`, so with htmx missing (a script blocked, or still loading), Enter sent `GET /?question=â€¦`: the question
     in the address, the browser's history, and any log that keeps addresses. **Fix:** `method="post"` and
     `action="/api/chat"`. **Check:** a page test; the mutation check's "without htmx, a question never goes into the
     address".
@@ -181,11 +181,11 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     **Check:** a browser test with an empty stream.
 30. **Wrong explanations, and a raw line separator, in step 2's chapter.** *The review.* It said a server speaking
     ASGI 2.4 sends no `http.disconnect` (every version does; 2.4 adds that a send to a closed connection raises
-    `OSError`, and Starlette then stops listening); it said 1.2345 × 1000 isn't exact (it's exactly 1234.5); and a
+    `OSError`, and Starlette then stops listening); it said 1.2345 Ã— 1000 isn't exact (it's exactly 1234.5); and a
     pitfall held the U+2028 character itself, invisible, as in issue 26. **Fix:** each corrected; the character
     written as its escape by a script. **Check:** a test that no page holds U+2028 or U+2029.
 31. **Smaller review findings.** *The review.* A body sent in chunks, with no length, was checked against 32 KiB as
-    it was read, but no test or mutation said so; a declared length such as `²` passed `isdigit()` and then broke
+    it was read, but no test or mutation said so; a declared length such as `Â²` passed `isdigit()` and then broke
     `int()`; a form with only a field we don't know got "Please type a question."; a browser gone while sending its
     question was logged as an error; and clicking Send hid it while it had the focus. **Fix:** a test and a mutation
     for the chunked body; `isascii()` and `isdecimal()`; a field we don't know is checked first; `chat.aborted` and a
@@ -201,7 +201,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     there, and step 3 caps each model answer's length and time, so an answer no one reads can't run on. **Check:** the
     live check's Stop, and that request's lines in Vercel's logs.
 
-## Step 3 · Gemini Answers, Streamed
+## Step 3 Â· Gemini Answers, Streamed
 
 33. **LangSmith would have traced every model run by itself.** *Reading a package's code* (LangSmith's
     `tracing_is_enabled()`, while adding the model). LangChain traces each model run whenever `LANGSMITH_TRACING` is
@@ -273,7 +273,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     in a row taking seconds; each address is now matched whole, in any case, then cut. **Check:** unit tests for each,
     one of them timed; nine mutation rules; on the live site, a question's lines after the fix's deploy.
 
-## Step 4 · The Weather Tools, and an Agent That Calls Them
+## Step 4 Â· The Weather Tools, and an Agent That Calls Them
 
 44. **tenacity 9.2.1 can't be installed with google-genai.** *Building it* (`uv add`). The plan named tenacity 9.2.1,
     the newest release before the step's cutoff; uv refused it: google-genai, which langchain-google-genai needs,
@@ -325,11 +325,11 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     with a stand-in that writes before its tool calls; the mutation check's "words written before a tool call end
     their paragraph".
 54. **A Retry-After of other digits would have read as an answer we can't read.** *The review.* `isdigit()` is true
-    for "²", which `float()` refuses, so a 429 with that header would have failed as `ContractError`, not as busy.
+    for "Â²", which `float()` refuses, so a 429 with that header would have failed as `ContractError`, not as busy.
     **Fix:** ASCII digits only (`isascii()` and `isdecimal()`). **Check:** a unit test with the byte httpx2 reads as
-    "²"; the mutation check's "a Retry-After is read from ASCII digits only".
+    "Â²"; the mutation check's "a Retry-After is read from ASCII digits only".
 
-## Step 5 · The Agent as a Graph of Our Own
+## Step 5 Â· The Agent as a Graph of Our Own
 
 55. **The mutation check grew past ten minutes, and a stopped one left a rule broken.** *The captured run.* Each of
     the 100 rules ran the whole unit suite, about 9 s, one after the other: on a computer short of memory, the check
@@ -340,7 +340,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     rules, each in a copy of the project, so the files you work on are never changed. The check takes 3 minutes.
     **Check:** 100 of 100 caught, in the rules' order; `git status` unchanged after the run.
 
-## Step 6 · The Chat Remembers, in the Browser
+## Step 6 Â· The Chat Remembers, in the Browser
 
 56. **JSON nested deep enough gave a 500.** *The review.* A conversation of 30,000 nested brackets fits in the body's
     256 KiB, and `json.loads()` raises `RecursionError` on it, which isn't a `ValueError`, so Pydantic didn't make it
@@ -352,7 +352,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     unreadable, so each question after it failed until New chat. **Fix:** the page cuts by whole characters
     (`Array.from()`). **Check:** a browser test whose answer ends in an emoji at the cut.
 
-## Step 7 · Open-Meteo's Answers, Cached
+## Step 7 Â· Open-Meteo's Answers, Cached
 
 58. **The `vercel` package sends telemetry when the process ends.** *Reading its source, before using it.* Its
     `track()` keeps usage events, such as each read of the cache, with the user's, team's and project's ids it can
@@ -372,7 +372,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     the store built with an `on_error` that raises, so the error reaches our warning. **Check:** the package's
     `AsyncBuildCache`: its `get()` and `set()` hand every error to `on_error`, which the package sets to `print`.
 
-## Step 8 · Our Own MCP Server
+## Step 8 Â· Our Own MCP Server
 
 61. **A GET at `/api/mcp` opened a stream that never ended.** *The review.* With no session and JSON answers, the
     SDK still answers a GET with `200` and `text/event-stream`, then sends nothing: a `curl` on a computer hung until
@@ -388,7 +388,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     names get through; on Vercel, the host isn't checked; the mutation check's "on a computer, the MCP server checks
     the Host".
 
-## Step 9 · The MCP · No Auth Lane
+## Step 9 Â· The MCP Â· No Auth Lane
 
 63. **langchain-mcp-adapters' latest imports the SDK's version 1.** *Adding it, as the plan named it.* uv resolved
     langchain-mcp-adapters 0.3.1 beside mcp 2.3.0, since its metadata doesn't cap the SDK's version, but importing it
@@ -404,7 +404,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     unit tests: an error the answer raises comes out as itself; `unwrap()`'s three cases; the mutation check's "an
     error out of the MCP lane is never wrapped".
 
-## Step 10 · The Lanes With Auth, Through Apify
+## Step 10 Â· The Lanes With Auth, Through Apify
 
 65. **The SDK's client turns an HTTP error status into a JSON-RPC error without it.** *Reading its code, to tell a
     refused token from a used-up credit.* `mcp.client.streamable_http` answers a request whose response is 4xx or 5xx
@@ -427,7 +427,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     chips mask `mcp-session-id` too, as the TypeScript version did. **Check:** the MCP door's unit test; the
     mutation check's "a chip masks a session's id".
 
-## Step 11 · Security: Rate Limits, Prompt Injection, Privacy
+## Step 11 Â· Security: Rate Limits, Prompt Injection, Privacy
 
 68. **LangSmith got a failed run's error text.** *The review.* The app's LangSmith client hid each run's inputs and
     outputs, but not its error, which LangChain writes as the exception and its traceback: a tool input our check
@@ -437,7 +437,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     which passes as it is. **Check:** a test traces a refused input through the app's own client, its runs kept
     instead of sent: no payload holds the question's word or the conversation's; the mutation check's two rules.
 
-## Step 12 · Monitoring: Axiom, Sentry, the Health Check and the Status Dots
+## Step 12 Â· Monitoring: Axiom, Sentry, the Health Check and the Status Dots
 
 69. **The vercel package's telemetry was off only by the order of imports.** *Building step 12.* The package reads
     `VERCEL_TELEMETRY_DISABLED` once, when it's first imported; `cache.py` set it just before its own import, and
@@ -461,10 +461,10 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     `on_error`; those variables are for Vercel's builds (the package's class for them is `BuildCache`). **Fix:**
     undone, rather than kept as code that never runs; issue 60 stays open, on To do. **Check:** the live start line;
     the live cache's hits, which come through the runtime's cache.
-73. **A request that raised never sent what it left for monitoring.** *The review.* The middleware's send, step ⑤,
+73. **A request that raised never sent what it left for monitoring.** *The review.* The middleware's send, step â‘¤,
     came after its `try`/`finally`; Starlette answers a request that raises with its 500, then raises again, so the
-    error left the middleware before ⑤: its lines waited for the next request on that copy, and Sentry's event,
-    caught, was never flushed. **Fix:** ⑤ is in the `finally`, after the request's line, still after the response
+    error left the middleware before â‘¤: its lines waited for the next request on that copy, and Sentry's event,
+    caught, was never flushed. **Fix:** â‘¤ is in the `finally`, after the request's line, still after the response
     has gone. **Check:** a test whose route raises: its batch goes to Axiom, its `http.request` line with the error's
     class, and Sentry is flushed; the mutation check's rule.
 74. **A refused token could use up Sentry's free quota.** *The review.* Each health run would send Sentry two events,
@@ -484,7 +484,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     default loop, 7 to 9 such requests made the server stop accepting; on a selector loop, 40 made no warning; and the
     browser suite, whole, since.
 
-## Step 13 · Evals and Release: Golden Questions, a Load Test, Rollback
+## Step 13 Â· Evals and Release: Golden Questions, a Load Test, Rollback
 
 76. **Importing LangSmith's `evaluate` warns on Python 3.13.** *Building step 13.* Its evaluation module reads
     `ast.Str`, which Python 3.13 deprecates, and our tests turn every warning into an error, so the test of the
@@ -512,7 +512,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     and its busy answer come in one event, so no answer busy then means the answer ended. **Check:** CI's browser
     suite.
 
-## Step 14 · Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups
+## Step 14 Â· Observability: Activity, Performance, Evaluations, Health, and the Menu in Groups
 
 81. **The Evaluations page couldn't have imported the golden questions.** *Building step 14.* Their models, and the
     function that reads `golden.json`, lived in `tools/evals.py`, and `vercel.json` leaves `tools/**` out of the
@@ -645,7 +645,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
     server (McpLaneError)"; the two opened failed that check after 139 and 344 ms, the other three working. Why our
     MCP server's check fails one run in three is still open ([To do](todo.md)).
 
-## Step 15 · Activity by Request, and Rows That Lead to It
+## Step 15 Â· Activity by Request, and Rows That Lead to It
 
 96. **A health check's line read the same as the call it made.** *Looking at the page* (a screenshot of a health
     run's timeline, opened). "Open-Meteo working in 420 ms", the check, sat under "Open-Meteo fetched in 400 ms", the
@@ -690,8 +690,8 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
      `lane.fallback` line before it knows there's time for the twin, with `fellBack` false when there isn't, and
      then the forecast fails. **Fix:** the timeline reads `fellBack`; false is "Couldn't fall back", with too little
      time left. **Check:** a test of the line; the mutation check's rule.
-104. **On the MCP lanes, a question's timeline lacks its fetches.** *The review* (both reviewers). A tool on MCP · no
-     auth, or a twin's on MCP · with auth, runs in our MCP server's own request, with an id of its own, so the
+104. **On the MCP lanes, a question's timeline lacks its fetches.** *The review* (both reviewers). A tool on MCP Â· no
+     auth, or a twin's on MCP Â· with auth, runs in our MCP server's own request, with an id of its own, so the
      question's timeline shows the tool call and not what it asked of Open-Meteo. **Fix:** none yet: the server's
      request is a row of its own (issue 100), and joining the two is on To do: the lane could send the question's
      id, which the server would log only from our own calls. **Check:** none yet.
@@ -762,3 +762,12 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
      network errors separately, and show partial/cache/reason details on Activity while retaining guidance tones.
      **Check:** secret-free authentication/network logs, Activity rows and partial-result Errors selection. Remove
      the redundant prompt flag; notice instructions follow the production park-tools setting.
+125. **Production's forecast-horizon golden called a tool.** On 4 November 2026, `too-far-ahead` called
+     `geocode_location` despite requiring no tools. **Status: open.** The observed deployment was
+     `dpl_HXVLKC8omqqMG4giJheCaFCosfcE`, source `5de2c5c`. The completed failure was retained and not retried away;
+     completion tags were withheld. No runtime change was made during release validation.
+126. **Production's ambiguous-park golden retrieved guidance before clarification.** On the same run,
+     `park-ambiguous-destination` resolved both parks separately and called `search_park_guidance` twice instead
+     of asking which park applied. **Status: open.** The case failed its no-guidance and clarification requirements.
+     The full release evidence records this separately from the three model timeouts, all of which passed one
+     identical technical recheck. Security changes and the new trip-measurement suite were not started.
