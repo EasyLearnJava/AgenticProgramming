@@ -1,5 +1,8 @@
 # Step 12 · Monitoring: Axiom, Sentry, the Health Check and the Status Dots
 
+> **Later:** the chat page dropped the lane picker, and with it each lane's dot (commit 592a73f);
+> `/api/health` still checks each lane's way out.
+
 Step 12 makes the app say how it's doing, to you and to its visitors. Every line it logs now also goes to Axiom, which
 keeps it long past Vercel's hour, and searches it; every failure it logs at error goes to Sentry, as its exception's
 class and frames, with nothing private; `/api/health` checks each lane's way out, running nothing that costs; and

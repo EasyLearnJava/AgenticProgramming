@@ -12,6 +12,10 @@ MAX_OFFERS: Final = 5
 MAX_CONTEXT_BYTES: Final = 24_000
 # Live provider discovery plus search took about ten seconds.
 TRAVEL_TIMEOUT_SECONDS: Final = 14.0
+# A chat's travel searches end this long before the answer's own deadline: a slow provider then costs its own
+# result, never the answer the model still has to write: its first words may take 10 s, and then it writes. The Apify
+# lanes keep the same 12 s (FALLBACK_MIN_LEFT_SECONDS).
+TRAVEL_ANSWER_RESERVE_SECONDS: Final = 12.0
 type Provider = Literal["kiwi", "trivago"]
 type TravelStatus = Literal[
     "found",
@@ -34,7 +38,7 @@ type Place = Annotated[
 type CountAdults = Annotated[int, Field(ge=1, le=9, strict=True)]
 type PriceLimit = Annotated[int, Field(gt=0, le=10_000_000, strict=True)]
 type FlightPlace = Annotated[
-    Place, Field(description="Use a three-letter airport code for an exact airport or spell out a city name.")
+    Place, Field(description="A three-letter airport code for one airport, or the city's name for all its airports.")
 ]
 
 
@@ -59,7 +63,9 @@ class _Search(BaseModel):
     """Immutable and hashable so identical searches in one answer share an upstream call."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", json_schema_extra=_tool_schema)
-    currency: Currency = "USD"
+    currency: Currency = Field(
+        default="USD", description="A three-letter currency code; leave it out to search in the visitor's currency."
+    )
     adults: CountAdults = 1
 
 

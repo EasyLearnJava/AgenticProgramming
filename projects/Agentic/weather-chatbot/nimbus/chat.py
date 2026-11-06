@@ -52,8 +52,6 @@ from nimbus.constants import (
     HISTORY_ANSWER_MAX_CHARS,
     HISTORY_MAX_CHARS,
     HISTORY_MAX_MESSAGES,
-    LOCALE_MAX_CHARS,
-    LOCALE_PATTERN,
     NO_STORE,
     QUESTION_MAX_CHARS,
 )
@@ -77,10 +75,10 @@ from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
-from nimbus.travel.models import TravelCallRecord
+from nimbus.travel.models import TRAVEL_ANSWER_RESERVE_SECONDS, TravelCallRecord
 from nimbus.travel.planner_intake import planner_intake
 from nimbus.travel.service import TravelService
-from nimbus.utils import new_turn_id, to_ms, to_ref, to_sse_message
+from nimbus.utils import is_usable_locale, new_turn_id, to_currency, to_ms, to_ref, to_sse_message
 
 router = APIRouter()
 # The status a request gets when the browser went before it was answered, as nginx logs it: no one reads it.
@@ -146,8 +144,7 @@ class ChatRequest(BaseModel):
     @classmethod
     def usable_locale(cls, value: object) -> object:
         """A language tag of at most 35 characters, letters, digits and hyphens; else the default."""
-        usable = isinstance(value, str) and len(value) <= LOCALE_MAX_CHARS and LOCALE_PATTERN.fullmatch(value)
-        return value if usable else DEFAULT_LOCALE
+        return value if isinstance(value, str) and is_usable_locale(value) else DEFAULT_LOCALE
 
     @field_validator("time_zone", mode="before")
     @classmethod
@@ -447,6 +444,7 @@ async def chat(request: Request) -> Response:
     ):
         turn_id = new_turn_id()
         fields["lane"] = lane.id
+        fields.setdefault("currency", to_currency(chat_request.locale))
         first = to_sse_message(render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question}))
 
         async def intake_events() -> AsyncGenerator[str]:
@@ -488,7 +486,10 @@ async def chat(request: Request) -> Response:
     deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
     service: TravelService = request.app.state.travel_service
     today = now.astimezone(zoneinfo.ZoneInfo(chat_request.time_zone)).date()
-    travel = service.new_turn(deadline, today=today) if enabled else None
+    currency = to_currency(chat_request.locale)
+    travel = (
+        service.new_turn(deadline - TRAVEL_ANSWER_RESERVE_SECONDS, today=today, currency=currency) if enabled else None
+    )
     tools = open_lane_tools(request, lane, deadline)
     answer = stream_weather_answer(
         model,

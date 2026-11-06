@@ -45,6 +45,23 @@ def test_kiwi_city_code_keeps_only_airports_for_that_city() -> None:
         kiwi.to_flight_report(payload, FLIGHT.model_copy(update={"origin": "LON"}))
 
 
+@pytest.mark.parametrize(("city", "airport"), [("CHI", "ORD"), ("chi", "MDW"), ("TYO", "HND"), ("PAR", "ORY")])
+def test_kiwi_metro_city_codes_keep_their_airports(city: str, airport: str) -> None:
+    """A model that sends CHI for Chicago gets ORD and MDW departures, not every offer rejected."""
+    payload = fixture("kiwi")
+    payload["itineraries"][0]["outbound"]["from"] = airport
+    report = kiwi.to_flight_report(payload, FLIGHT.model_copy(update={"origin": city}))
+    assert report.offers[0].title == f"{airport} → LAS"
+
+
+def test_kiwi_an_exact_airport_still_rejects_its_neighbor() -> None:
+    """ORD asked for is ORD: a Midway departure is another airport than the one requested."""
+    payload = fixture("kiwi")
+    payload["itineraries"][0]["outbound"]["from"] = "MDW"
+    with pytest.raises(TravelProviderError, match="invalid_response"):
+        kiwi.to_flight_report(payload, FLIGHT.model_copy(update={"origin": "ORD"}))
+
+
 def test_kiwi_maps_return_and_filters_and_validates_both_dates() -> None:
     """A return trip requires two verified legs and preserves Kiwi's total amount and booking link."""
     query = FLIGHT.model_copy(update={"return_date": date(2030, 6, 23), "max_price": 400, "max_stops": 1})

@@ -1,5 +1,8 @@
 # Step 10 · The Lanes With Auth, Through Apify
 
+> **Later:** the chat page dropped the lane picker and the compare view (commit 592a73f). Both lanes with auth
+> remain: a request to `/api/chat` names one in its `lane` field, and the chips still show the Actor's run.
+
 Step 10 opens the last two lanes: REST · with auth and MCP · with auth. On both, `get_forecast` runs through Apify's
 Actor `gochujang/open-meteo-weather-forecast`, which asks Open-Meteo itself, behind Apify's token: over Apify's REST
 API, one request that runs the Actor and answers with its items; or over Apify's MCP server, `call-actor`, then

@@ -117,8 +117,8 @@ CHAPTERS: tuple[DocPage, ...] = (
         path="/docs/step-9",
         label="Step 9: The MCP · No Auth Lane",
         summary=(
-            "A lane picker, and the agent's tools reached through our own MCP server on this same deployment, at an "
-            "address of its own; the chips show both hops, and a compare view one forecast call through each lane."
+            "The agent's tools reached through our own MCP server on this same deployment, at an address of its own; "
+            "the chips show both hops. (A later change removed the lane picker and the compare view.)"
         ),
     ),
     DocPage(
@@ -145,7 +145,7 @@ CHAPTERS: tuple[DocPage, ...] = (
         label="Step 12: Monitoring: Axiom, Sentry, the Health Check and the Status Dots",
         summary=(
             "Each line to Axiom once the request has answered; each error to Sentry, nothing private; the cache's own "
-            "errors our warning; a health check of each lane, and a dot beside each in the picker."
+            "errors our warning; a health check of each lane. (The picker's dots went with the picker.)"
         ),
     ),
     DocPage(

@@ -13,6 +13,11 @@ Requests recorded before this link existed still have their Axiom timeline. Refr
 
 On Vercel, enable `LANGSMITH_TRACING=true`, `LANGSMITH_HIDE_INPUTS=true` and `LANGSMITH_HIDE_OUTPUTS=true`.
 The server uses the existing `LANGSMITH_API_KEY` for tracing and to read the configured `LANGSMITH_PROJECT`.
+Nimbus reads the project's workspace UUID from LangSmith and sends it with the key when fetching the trace.
+For a key with access to multiple workspaces, set `LANGSMITH_WORKSPACE_ID` to the workspace that owns the project.
+The same setting applies to both uploading and reading traces, in Vercel or in the local `.env.local`.
+If a lookup fails, the trace page shows a short reason written for any visitor, never a setting's name. In the server logs, `langsmith.read_failed` records
+the lookup stage (`project` or `runs`), a fixed reason, and the upstream HTTP status when available.
 The deployment also needs Activity's existing Axiom ingest token, query token and dataset. To check a deployment,
 ask a fresh weather question, open its Activity row and compare the tool names with those in the chat.
 

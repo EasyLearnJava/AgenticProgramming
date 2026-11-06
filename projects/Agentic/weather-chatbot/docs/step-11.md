@@ -91,8 +91,10 @@ ask questions that try.
 | Gemini | The question, the conversation so far, the tools' results; the browser's language and time zone | Who asked |
 | Open-Meteo | The place's name searched; a point, rounded to about 1 km | The question, who asked |
 | Apify (the lanes with auth) | A point, rounded, named by itself; the days | The question, the name searched, who asked |
+| Kiwi.com (step 18, when `FLIGHTS_ENABLED`) | A flight search: the origin and destination, the dates, how many adults, children and infants, the currency, and any price limit or most stops the visitor set | The question, the conversation, who asked |
+| trivago (step 18, when `HOTELS_ENABLED`) | A hotel search: a place's name or a park's point, the dates, rooms, adults, each child's age, the currency, and any nightly budget the visitor set | The question, the conversation, who asked |
 | Our MCP server | A tool's input, from our own lane, or any MCP client | The question |
-| LangSmith, if you turn tracing on | Each run's names, times and lane; of a run that failed, only that it failed | The question, the answer, an error's text |
+| LangSmith, if you turn tracing on | Each run's names, times and lane; of a run that failed, only that it failed. Activity's trace view reads back a run's ids, status, times and known tool names, and shows those on the public page | The question, the answer, an error's text |
 | Our log lines, in Vercel | A question's length, the lane, ids, times, classes | The question, the conversation, the place, a token |
 | Vercel's Runtime Cache | Open-Meteo's answers, under a hash of their address; the day's count of runs | The question, who asked |
 | Your browser | The conversation, on the page, until New chat or the page closes | |

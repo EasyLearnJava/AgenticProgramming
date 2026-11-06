@@ -786,3 +786,52 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 133. **Live travel evaluation found an unnecessary geocoding call for a hotel stay beyond the forecast horizon.**
      Give Gemini the inclusive last forecast date in the visitor’s time zone and check it before resolving a city.
      For undecided park alternatives, resolve the alternatives together before retrieving guidance.
+134. **The chat page lost step 11's privacy line.** Removing the lane picker (592a73f) also removed "Your questions
+     go to Google's Gemini... share nothing personal", its test and its mutation rule, just as step 18 invited
+     airports and children's ages into the chat. **Fix:** restore the line, its style, its test and its rule.
+     **Check:** `test_the_chat_page_says_where_questions_go`; mutation "the page says where questions go".
+135. **The public trace page told any visitor how Nimbus is configured.** Messages named `LANGSMITH_WORKSPACE_ID`,
+     the deployment key and the server's log. **Fix:** each message speaks to a visitor; its enum name stays the
+     diagnostic code that `langsmith.read_failed` logs. **Check:** no message names a setting, a key or the log;
+     every message is distinct.
+136. **`LANGSMITH_WORKSPACE_ID` was undocumented.** A key that reaches several workspaces needs it to read traces,
+     and a value that isn't a UUID stops the app at start. **Fix:** `.env.example`, Waiting on you part 3, and
+     the technical details say so.
+137. **A slow travel search could cost the whole answer.** A search may take 14 s and stopped only at the answer's
+     own deadline, leaving the model no time to write; the forecast that did come back was lost. **Fix:** a chat's
+     travel searches end `TRAVEL_ANSWER_RESERVE_SECONDS` (12 s) before the answer's deadline, the same margin the
+     Apify lanes keep (`FALLBACK_MIN_LEFT_SECONDS`). **Check:** the turn's deadline is the answer's less the reserve.
+138. **With travel on, rule 11 lost its polite refusal.** "Do I need a visa for Canada?" could get an answer from
+     the model's memory. **Fix:** the travel version keeps "For anything else, say in one polite sentence what you
+     can do." **Check:** both park settings, with a travel tool.
+139. **Kiwi rejected every offer for most city codes.** Only NYC, LON and WAS were known, so CHI's ORD and MDW
+     flights read as "a different airport than requested". **Fix:** IATA's common metropolitan codes that name no
+     airport of their own, and a tool description asking for an airport code or the city's name. **Check:** CHI,
+     TYO and PAR keep their airports; ORD still rejects MDW. Step 18's chapter names the list.
+140. **"Plan a trip to Yellowstone National Park" got a form for three other parks, unexplained.** **Fix:** a form
+     without a resolved park asks the visitor to choose from the list, the parks the planner covers, and for a
+     place not on it to ask here about its weather and only the enabled searches. The wording also suits a listed
+     park the resolver missed ("Plan a trip to Zion next weekend"). **Check:** Yellowstone and two-park requests;
+     flights only names no hotels.
+141. **The planner's forecast was always °F, and chat searched in dollars.** **Fix:** the plan's units follow the
+     browser's first language (Accept-Language), as chat's rule 13 does. A chat search that names no currency
+     takes the locale's (GBP, CAD or EUR where its region uses them, else USD), the prompt says to search in it,
+     and the chat's trip form preselects it. The locale helpers live in `nimbus/utils.py`, shared by chat, prompts
+     and the planner. **Check:** en-GB gets metric and GBP; no language, imperial; a currency the model names
+     stays. A language without a region ("de") still searches in USD.
+142. **"We plan to visit Yosemite this weekend. Will it snow?" got the trip form, not a forecast.** The trip words
+     matched "plan ... visit". **Fix:** a question that asks about the weather (rain, snow, forecast, what to wear
+     or pack) gets the chat, unless an explicit request opens the form beside it: "plan" starting a sentence,
+     "can you (help me) plan", "help me plan", "please plan", an itinerary or a trip planner. **Check:** "we plan a
+     trip to Zion next week, will it rain?" and five more reach the chat; "help me plan to visit Zion" and "Plan a
+     trip to Zion National Park; will it rain?" still open the form.
+143. **Code the lane picker left behind.** `to_call_actor_example` had no caller; comments and a test still named the
+     compare view. **Fix:** remove the helper, rename the comments and test, note the removal at the top of steps
+     9, 10 and 12, and in the docs index's summaries; `chat.js` no longer adds status dots.
+144. **The privacy tables didn't name the travel providers.** **Fix:** step 11's table and the architecture's "what
+     is kept, where" list what Kiwi and trivago receive, and what the trace view shows of LangSmith's runs.
+145. **The mutation check stopped on stale rules.** Rules whose text had moved (the request's path in
+     `middleware.py`, Activity's ref in `observability.py`, and the locale helpers now in `utils.py`) matched
+     nothing, so the full run raised before its summary. **Fix:** each rule names the code as it is now; the review
+     fixes' rules run with `--travel` too, and `chat_trip.html` and `planner_page.py` map to `test_planner.py`.
+     **Check:** all 349 rules match their text exactly once; each review rule was run and caught.

@@ -97,7 +97,8 @@ Kiwi ① translates the dates, route, passengers and optional stop or party-pric
 identifies its actual airports, local times and stops. A party fare requires matching adult, child and infant
 counts in Kiwi’s response. A contradictory count invalidates the quote. With missing counts, an unpriced route
 can appear as partial, unless the visitor set a budget requiring a verified fare.
-Airport codes are checked in both directions. NYC, LON and WAS support their metro airports.
+Airport codes are checked in both directions. IATA's common metropolitan codes (NYC, WAS, CHI, LON, PAR, TYO
+and others in `kiwi.METRO_AIRPORTS`) keep their airports; any other three letters are one exact airport.
 [Kiwi routes](https://www.kiwi.com/en/cheap-flights/london-united-kingdom/new-york-city-new-york-united-states/) ·
 [IATA location codes](https://www.iata.org/en/iata-repository/pressroom/fact-sheets/fact-sheet-iata-location-codes/)
 

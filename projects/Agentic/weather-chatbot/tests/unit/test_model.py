@@ -4,6 +4,7 @@ shown; and LangSmith may trace only when it hides both a run's inputs and its ou
 """
 
 import json
+from uuid import UUID
 
 import pytest
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -86,17 +87,20 @@ class RecordingClient:
         self.kwargs = kwargs
 
 
+@pytest.mark.parametrize("workspace_id", [None, UUID(int=101)])
 def test_the_tracer_hides_every_run_s_inputs_and_outputs_whatever_its_variables_say(
     monkeypatch: pytest.MonkeyPatch,
+    workspace_id: UUID | None,
 ) -> None:
     # LangSmith's own client hides only for the exact string "true"; the app's tracer hides always (issue 34). Its
     # project is the one the app's settings name, from .env.local too (issue 42).
     monkeypatch.setattr(model_module, "Client", RecordingClient)
-    tracer = make_tracer(langsmith())
+    tracer = make_tracer(langsmith().model_copy(update={"langsmith_workspace_id": workspace_id}))
     assert tracer is not None
     assert isinstance(tracer.client, RecordingClient)
     assert tracer.client.kwargs == {
         "api_key": KEY,
+        "workspace_id": str(workspace_id) if workspace_id else None,
         "hide_inputs": True,
         "hide_outputs": True,
         "anonymizer": hide_error_text,

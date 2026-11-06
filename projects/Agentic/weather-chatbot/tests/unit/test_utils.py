@@ -13,8 +13,11 @@ from nimbus.utils import (
     checked_source_url,
     hide_error_text,
     is_same_origin,
+    is_usable_locale,
     new_request_id,
     new_turn_id,
+    to_browser_locale,
+    to_currency,
     to_frames,
     to_iso,
     to_ms,
@@ -22,6 +25,7 @@ from nimbus.utils import (
     to_ref,
     to_request_id,
     to_sse_message,
+    to_unit_system,
 )
 
 HEX = set("0123456789abcdef")
@@ -199,3 +203,42 @@ def test_a_failed_run_s_error_reaches_langsmith_as_hidden_and_its_metadata_as_it
     error = "ToolException('1 validation error: input_value=\\'Paris\\'')\nTraceback (most recent call last): ..."
     assert hide_error_text({"error": error}) == {"error": "hidden"}
     assert hide_error_text({"lane": "rest-no-auth"}) == {"lane": "rest-no-auth"}
+
+
+@pytest.mark.parametrize(
+    ("header", "locale"),
+    [
+        ("en-GB,en;q=0.9", "en-GB"),
+        ("de-DE", "de-DE"),
+        ("fr;q=0.8, en", "fr"),
+        ("", "en-US"),
+        ("*", "en-US"),
+        ("en_GB", "en-US"),
+    ],
+)
+def test_the_browser_s_first_language_comes_from_accept_language(header: str, locale: str) -> None:
+    assert to_browser_locale(header) == locale
+
+
+@pytest.mark.parametrize(
+    ("locale", "system", "currency"),
+    [
+        ("en-US", "imperial", "USD"),
+        ("en-GB", "metric", "GBP"),
+        ("fr-CA", "metric", "CAD"),
+        ("de-DE", "metric", "EUR"),
+        ("bg-BG", "metric", "EUR"),
+        ("fr", "metric", "USD"),
+        ("ja-JP", "metric", "USD"),
+    ],
+)
+def test_a_locale_s_units_and_travel_currency(locale: str, system: str, currency: str) -> None:
+    # Imperial only where the region uses it; GBP, CAD or EUR where the region does; else US dollars.
+    assert to_unit_system(locale) == system
+    assert to_currency(locale) == currency
+
+
+def test_a_usable_locale_is_a_short_language_tag() -> None:
+    assert is_usable_locale("zh-Hant-TW")
+    assert not is_usable_locale("en_GB")
+    assert not is_usable_locale("en-" + "x" * 40)

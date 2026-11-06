@@ -3,7 +3,7 @@ tests/unit/test_mcp_lane.py: the MCP · no auth lane (step 9), against our own M
 reaches it: our four tools, each call a tools/call whose answer becomes the tool's run, with the request the client
 sent and the one the server sent Open-Meteo, and the cache's part; a failure as the same error as on REST; a server
 that can't be reached, or lacks one of our tools, McpLaneError; an error the answer raises, as itself, never wrapped;
-the secret masked; the compare view's request the one the lane sends; and where the lane finds the server, never where
+the secret masked; the chip's request the one the lane sends; and where the lane finds the server, never where
 a request's Host says.
 """
 
@@ -210,8 +210,8 @@ def test_a_server_that_cant_be_reached_is_mcp_lane_error(url: str | None) -> Non
         asyncio.run(go())
 
 
-def test_the_compare_view_s_request_is_the_one_the_lane_sends(settings: Settings) -> None:
-    # The compare view's message and headers, as the lane makes them; the SDK's client adds its own beside them.
+def test_the_chip_s_request_is_the_one_the_lane_sends(settings: Settings) -> None:
+    # The chip's message and headers, as the lane makes them; the SDK's client adds its own beside them.
     message = through_the_lane(lane_app(settings, OpenMeteoRecordings()), lambda t: call(t, "get_air_quality", DELHI))
     sent = record_of(message).request
     shown = to_tools_call(LOCAL_MCP, "get_air_quality", DELHI)

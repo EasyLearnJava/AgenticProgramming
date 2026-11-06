@@ -121,14 +121,6 @@ def to_run_arguments(actor_input: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def to_call_actor_example(actor_input: dict[str, Any]) -> WireRequest:
-    """The MCP door's first message, for the compare view: the token masked; the SDK's client adds its own headers."""
-    message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call"}
-    message["params"] = {"name": APIFY_RUN_TOOL, "arguments": to_run_arguments(actor_input)}
-    headers = {"authorization": MASKED_AUTHORIZATION, "content-type": "application/json"}
-    return WireRequest(method="POST", url=APIFY_MCP_URL, headers=headers, body=json.dumps(message, indent=2))
-
-
 def to_status_error(status: int) -> UpstreamError:
     """An error status of Apify's as one of our errors."""
     errors: dict[int, Callable[[], UpstreamError]] = {

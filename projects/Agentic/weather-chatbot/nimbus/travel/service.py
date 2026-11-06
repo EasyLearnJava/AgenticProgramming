@@ -42,19 +42,23 @@ class TravelService:
             "trivago": BoundedSemaphore(concurrency),
         }
 
-    def new_turn(self, deadline: float, *, today: date | None = None) -> "TravelTurn":
-        """Bind all searches to this answer's absolute loop deadline and visitor's local calendar date."""
-        return TravelTurn(self, deadline, today if today is not None else datetime.now(UTC).date())
+    def new_turn(self, deadline: float, *, today: date | None = None, currency: str = "USD") -> "TravelTurn":
+        """
+        Bind all searches to this answer's absolute loop deadline, the visitor's local calendar date, and the currency
+        a search takes when it names none.
+        """
+        return TravelTurn(self, deadline, today if today is not None else datetime.now(UTC).date(), currency)
 
 
 class TravelTurn:
     """Hold only a single answer's requests and bounded offers, including concurrent duplicate searches."""
 
-    def __init__(self, service: TravelService, deadline: float, today: date) -> None:
-        """Store the absolute deadline and the two independent provider budgets."""
+    def __init__(self, service: TravelService, deadline: float, today: date, currency: str = "USD") -> None:
+        """Store the absolute deadline, the visitor's currency and the two independent provider budgets."""
         self._service = service
         self._deadline = deadline
         self.today = today
+        self.currency = currency
         self._counts: Counter[Provider] = Counter()
         self._limited: set[Provider] = set()
         self._queries: dict[FlightSearch | HotelSearch, asyncio.Future[TravelReport]] = {}
@@ -71,11 +75,17 @@ class TravelTurn:
 
     async def search_flights(self, query: FlightSearch) -> TravelReport:
         """Fetch validated flight options for the requested dates and passengers."""
+        query = self._in_currency(query)
         return await self._search("kiwi", query, query.departure_date, self._service.flights)
 
     async def search_hotels(self, query: HotelSearch) -> TravelReport:
         """Fetch validated accommodation options for the requested dates and guests."""
+        query = self._in_currency(query)
         return await self._search("trivago", query, query.check_in, self._service.hotels)
+
+    def _in_currency[Q: (FlightSearch, HotelSearch)](self, query: Q) -> Q:
+        """A search that names no currency takes the visitor's: an en-GB visitor's prices come in pounds."""
+        return query if "currency" in query.model_fields_set else query.model_copy(update={"currency": self.currency})
 
     def _refusal(self, provider: Provider, departure: date) -> TravelStatus | None:
         """Check the date, remaining answer time, upstream throttle and per-provider query budget."""

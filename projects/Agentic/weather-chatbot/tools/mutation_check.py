@@ -111,8 +111,8 @@ MUTATIONS: tuple[Mutation, ...] = (
     Mutation("nimbus/pages.py", 'Markup("<wbr>_deprecated")', '"_deprecated"', "a label may break before _deprecated"),
     Mutation(
         "nimbus/middleware.py",
-        '"path": scope["path"],',
-        '"path": scope["path"] + "?" + scope["query_string"].decode(),',
+        'else scope["path"],',
+        'else scope["path"] + "?" + scope["query_string"].decode(),',
         "the query string is never logged",
     ),
     Mutation(
@@ -383,13 +383,13 @@ MUTATIONS: tuple[Mutation, ...] = (
         "today and tomorrow are the visitor's own",
     ),
     Mutation(
-        "nimbus/prompts.py",
-        "return IMPERIAL if to_region(locale) in IMPERIAL_REGIONS else METRIC",
-        "return METRIC",
+        "nimbus/utils.py",
+        'return "imperial" if to_region(locale) in IMPERIAL_REGIONS else "metric"',
+        'return "metric"',
         "the units follow the locale",
     ),
     Mutation(
-        "nimbus/prompts.py",
+        "nimbus/utils.py",
         "if len(subtag) == 1:\n            break",
         "if len(subtag) == 1:\n            pass",
         "a locale's region comes before any extension",
@@ -402,7 +402,7 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/chat.py",
-        "return value if usable else DEFAULT_LOCALE",
+        "return value if isinstance(value, str) and is_usable_locale(value) else DEFAULT_LOCALE",
         "return value",
         "a locale the chat can't use takes the default",
     ),
@@ -915,6 +915,12 @@ MUTATIONS: tuple[Mutation, ...] = (
         '"rate_limited": "",',
         "the page holds the 429's sentence",
     ),
+    Mutation(
+        "templates/chat.html",
+        "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.",
+        "",
+        "the page says where questions go",
+    ),
     Mutation("nimbus/model.py", "        anonymizer=hide_error_text,\n", "", "LangSmith never gets an error's text"),
     Mutation(
         "nimbus/utils.py",
@@ -1285,8 +1291,8 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/observability.py",
-        "to_ref(request_id), steps))",
-        "request_id, steps))",
+        "ref = to_ref(request_id)",
+        "ref = request_id",
         "a request is shown only by its ref",
     ),
     Mutation(
@@ -1822,7 +1828,7 @@ for _review_module in ("nimbus/utils.py", "nimbus/observability.py", "nimbus/pro
     TESTS_FOR[_review_module] += ("test_nps_review.py",)
 
 
-TRAVEL_MUTATIONS = (
+TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
     Mutation(
         "nimbus/prompts.py",
         "last_forecast = local.date() + timedelta(days=MAX_FORECAST_DAYS - 1)",
@@ -1994,6 +2000,12 @@ TRACE_MUTATIONS = (
     Mutation("nimbus/trace_view.py", "or span.project_id != project_id", "", "trace reads reject another project"),
     Mutation(
         "nimbus/trace_view.py",
+        'headers["X-Tenant-Id"] = str(tenant)',
+        "pass",
+        "trace reads carry the workspace returned by project discovery",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
         'span.name if span.name in TRACE_TOOL_NAMES else "Tool call"',
         "span.name",
         "trace names expose only known tools",
@@ -2003,6 +2015,12 @@ TRACE_MUTATIONS = (
         "follow_redirects=False",
         "follow_redirects=True",
         "trace reads keep credentials on the configured host",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        "reading traces isn't set up on this deployment.",
+        "set LANGSMITH_WORKSPACE_ID.",
+        "the public trace page names no setting",
     ),
     Mutation(
         "nimbus/model.py",
@@ -2023,6 +2041,64 @@ TESTS_FOR["nimbus/travel/planner.py"] = ("test_planner.py",)
 TESTS_FOR["nimbus/travel/planner_intake.py"] = ("test_planner.py",)
 TESTS_FOR["tools/eval_travel.py"] = ("test_travel_evals.py",)
 TESTS_FOR["nimbus/prompts.py"] += ("test_travel_integration.py",)
+TESTS_FOR["nimbus/chat.py"] += ("test_travel_integration.py", "test_planner.py")
+TESTS_FOR["nimbus/travel/planner_page.py"] = ("test_planner.py",)
+TESTS_FOR["templates/chat_trip.html"] = ("test_planner.py",)
+# The review fixes of 6 November 2026 (issues 134 to 145): with the others, and in --travel's set.
+REVIEW_TRAVEL_MUTATIONS = (
+    Mutation(
+        "nimbus/chat.py",
+        "deadline - TRAVEL_ANSWER_RESERVE_SECONDS,",
+        "deadline,",
+        "travel searches leave the answer time to be written",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        '"For anything else, say in one polite sentence what you can do. "',
+        '""',
+        "with travel tools, anything else still gets one polite sentence",
+    ),
+    Mutation("nimbus/travel/kiwi.py", '"CHI": {"ORD", "MDW"},', "", "Kiwi keeps Chicago's airports for CHI"),
+    Mutation(
+        "nimbus/travel/planner_intake.py",
+        "if WEATHER_ASK.search(normalized) and not EXPLICIT_PLAN.search(normalized):",
+        "if False:",
+        "a weather question that mentions a plan gets the weather, not the trip form",
+    ),
+    Mutation(
+        "templates/chat_trip.html",
+        "For a place not on the list, ask here about its weather",
+        "For a place not on the list, ask here",
+        "the trip form says what the planner covers and where else to ask",
+    ),
+    Mutation(
+        "templates/chat_trip.html",
+        "{% elif flights_enabled %} or flights{% elif hotels_enabled %} or hotels",
+        "",
+        "the trip form names only the enabled searches",
+    ),
+    Mutation(
+        "nimbus/travel/planner_page.py",
+        "units=units,",
+        'units="imperial",',
+        "the plan's forecast uses the browser's units",
+    ),
+    Mutation("nimbus/utils.py", '{"GB": "GBP", "CA": "CAD"}', "{}", "travel prices follow the locale's currency"),
+    Mutation(
+        "nimbus/travel/service.py",
+        'if "currency" in query.model_fields_set else',
+        "if True else",
+        "a search without a currency takes the visitor's",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        'fields.setdefault("currency", to_currency(chat_request.locale))',
+        "pass",
+        "the chat's trip form preselects the visitor's currency",
+    ),
+)
+TRAVEL_MUTATIONS += REVIEW_TRAVEL_MUTATIONS
+MUTATIONS += REVIEW_TRAVEL_MUTATIONS
 
 
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:

@@ -1,6 +1,7 @@
 """tests/unit/test_config.py: the settings: what the environment and a .env file give, checked."""
 
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
@@ -50,6 +51,21 @@ def test_reads_env_local_on_a_computer(tmp_path: Path, monkeypatch: pytest.Monke
     (tmp_path / ".env.local").write_text("LOG_LEVEL=debug\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     assert Settings().log_level == "debug"
+
+
+def test_reads_workspace_from_dotenv_and_prefers_the_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local, deployed = UUID(int=17), UUID(int=18)
+    monkeypatch.chdir(tmp_path)
+    assert Settings().langsmith_workspace_id is None
+    (tmp_path / ".env.local").write_text(f"LANGSMITH_WORKSPACE_ID={local}\n", encoding="utf-8")
+    assert Settings().langsmith_workspace_id == local
+    monkeypatch.setenv("LANGSMITH_WORKSPACE_ID", str(deployed))
+    assert Settings().langsmith_workspace_id == deployed
+    monkeypatch.setenv("LANGSMITH_WORKSPACE_ID", "not-a-workspace-uuid")
+    with pytest.raises(ValidationError, match="langsmith_workspace_id"):
+        Settings()
 
 
 def test_a_pulled_env_local_never_makes_a_computer_look_like_vercel(

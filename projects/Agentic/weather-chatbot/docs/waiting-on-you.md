@@ -36,6 +36,7 @@ In the project's **Settings → Environment Variables**, for Production, then a 
 |---|---|---|
 | Add `VERCEL_TELEMETRY_DISABLED` = `1` | The app turns the vercel package's telemetry off before any of its modules import it (issues 58 and 69); a variable is in place even if Vercel's runtime imports the package first | 7 |
 | Delete `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` | They uploaded the TypeScript app's source maps; Python has none, so nothing reads them | 12 |
+| `LANGSMITH_WORKSPACE_ID` = the workspace UUID that owns the tracing project, if the LangSmith key reaches more than one workspace | Activity's trace view reads each trace in that workspace; without it such a key's reads can fail, and the server log's `langsmith.read_failed` line names the lookup stage and LangSmith's status. A value that isn't a UUID stops the app at start, chat included, so paste it from LangSmith's workspace settings | Activity traces |
 | `NPS_API_KEY`: Production done on 4 November 2026; configure Preview before preview validation | Production was configured as sensitive and the same source commit redeployed; local `.env.local` does not configure other Vercel environments | 17 |
 
 For step 18, choose the providers for Preview under the same project settings. Set `FLIGHTS_ENABLED=true`

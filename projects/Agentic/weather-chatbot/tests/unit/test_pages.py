@@ -117,6 +117,12 @@ def test_the_chat_page_holds_the_sentences_our_script_shows(client: TestClient) 
     assert "chat-error-template" in page.by_id
 
 
+def test_the_chat_page_says_where_questions_go(client: TestClient) -> None:
+    # Step 11: on Gemini's free tier, Google may use what it gets; the page says so, under the form.
+    note = "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal."
+    assert note in client.get("/").text
+
+
 def test_only_the_chat_page_loads_scripts(client: TestClient) -> None:
     assert "<script" not in client.get("/docs").text
     assert "<script" not in client.get("/docs/step-1").text
@@ -268,5 +274,4 @@ def test_the_chat_page_uses_the_server_default_without_showing_lane_controls(
     assert "Compare the lanes" not in page
     assert "Lane: how the tools are reached" not in page
     assert "data-lane-status" not in page
-    assert "Your questions go to Google's Gemini" not in page
     assert "test-apify-token" not in page

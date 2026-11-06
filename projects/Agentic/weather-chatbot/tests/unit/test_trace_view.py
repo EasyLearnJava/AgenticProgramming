@@ -12,7 +12,7 @@ from pydantic import SecretStr
 
 from nimbus import trace_view
 from nimbus.config import Settings
-from nimbus.trace_view import TraceRow, TraceView, read_trace
+from nimbus.trace_view import TraceIssue, TraceRow, TraceView, read_trace
 
 TRACE = UUID(int=101)
 PROJECT = UUID(int=102)
@@ -127,6 +127,49 @@ def test_one_trace_in_one_project_selects_only_operational_fields(traced: Settin
     )
 
 
+def test_key_only_project_lookup_supplies_workspace_for_v2(traced: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The v1 project resource authenticates a single-workspace key alone; v2 also needs its tenant header."""
+    monkeypatch.setattr(smith, "get_workspace_id", lambda _: None)
+    seen = []
+
+    def langsmith(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request.url.path)
+        if request.url.path.endswith("/sessions"):
+            assert "x-tenant-id" not in request.headers
+            return httpx2.Response(200, json=[{**PROJECTS[0], "tenant_id": str(OTHER)}])
+        if request.headers.get("x-tenant-id") != str(OTHER):
+            return httpx2.Response(400)
+        assert request.url.params["project_id"] == str(PROJECT)
+        return httpx2.Response(200, json={"items": [span()]})
+
+    view = ask(traced, langsmith)
+    assert view.status == "ready"
+    assert view.rows[0].label == "Nimbus agent"
+    assert seen == ["/api/v1/sessions", f"/api/v2/traces/{TRACE}/runs"]
+
+
+def test_project_cannot_switch_configured_workspace(traced: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(smith, "get_workspace_id", lambda _: None)
+    traced = traced.model_copy(update={"langsmith_workspace_id": OTHER})
+
+    def project_only(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path.endswith("/sessions")
+        assert request.headers.get("x-tenant-id") == str(OTHER)
+        return httpx2.Response(200, json=[{**PROJECTS[0], "tenant_id": str(UUID(int=999))}])
+
+    assert ask(traced, project_only).status == "unavailable"
+
+
+def test_missing_workspace_stops_before_v2(traced: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(smith, "get_workspace_id", lambda _: None)
+
+    def project_only(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path.endswith("/sessions")
+        return httpx2.Response(200, json=PROJECTS)
+
+    assert ask(traced, project_only).status == "unavailable"
+
+
 def test_provider_text_is_never_a_public_label_status_or_error(traced: Settings) -> None:
     result = with_runs(
         traced,
@@ -156,29 +199,57 @@ def test_no_key_never_asks_langsmith(traced: Settings) -> None:
     )
 
 
-@pytest.mark.parametrize("response", [[], {}, [{"name": "different", "id": str(OTHER)}]])
-def test_no_verified_project_stops_before_the_trace_query(traced: Settings, response: object) -> None:
+@pytest.mark.parametrize(
+    ("response", "issue"),
+    [
+        ([], TraceIssue.PROJECT_NOT_FOUND),
+        ({}, TraceIssue.INVALID_RESPONSE),
+        ([{"name": "different", "id": str(OTHER)}], TraceIssue.WRONG_SCOPE),
+    ],
+)
+def test_no_verified_project_stops_before_the_trace_query(
+    traced: Settings, response: object, issue: TraceIssue
+) -> None:
     def project(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path.endswith("/sessions")
         return httpx2.Response(200, json=response)
 
-    assert ask(traced, project) == TraceView("unavailable")
+    assert ask(traced, project) == TraceView("unavailable", issue=issue)
 
 
 @pytest.mark.parametrize(
-    "changes", [{"trace_id": str(OTHER)}, {"project_id": str(OTHER)}, {"name": "different root"}, {"start_time": "bad"}]
+    ("changes", "issue"),
+    [
+        ({"trace_id": str(OTHER)}, TraceIssue.WRONG_SCOPE),
+        ({"project_id": str(OTHER)}, TraceIssue.WRONG_SCOPE),
+        ({"name": "different root"}, TraceIssue.WRONG_ROOT),
+        ({"start_time": "bad"}, TraceIssue.INVALID_RESPONSE),
+    ],
 )
-def test_mismatched_or_malformed_spans_are_unavailable(traced: Settings, changes: dict[str, object]) -> None:
-    assert with_runs(traced, span(**changes)) == TraceView("unavailable")
+def test_mismatched_or_malformed_spans_are_unavailable(
+    traced: Settings, changes: dict[str, object], issue: TraceIssue
+) -> None:
+    assert with_runs(traced, span(**changes)) == TraceView("unavailable", issue=issue)
 
 
-@pytest.mark.parametrize("code", [302, 401, 403, 429, 500])
-def test_http_errors_are_private_and_redirects_do_not_forward_the_key(traced: Settings, code: int) -> None:
+@pytest.mark.parametrize(
+    ("code", "issue"),
+    [
+        (302, TraceIssue.REQUEST_REJECTED),
+        (401, TraceIssue.ACCESS_DENIED),
+        (403, TraceIssue.ACCESS_DENIED),
+        (429, TraceIssue.RATE_LIMITED),
+        (500, TraceIssue.SERVICE_ERROR),
+    ],
+)
+def test_http_errors_are_private_and_redirects_do_not_forward_the_key(
+    traced: Settings, code: int, issue: TraceIssue
+) -> None:
     def reject(request: httpx2.Request) -> httpx2.Response:
         assert request.url.host == "eu.api.smith.langchain.com"
         return httpx2.Response(code, text=PRIVATE, headers={"Location": "https://unexpected.example/"})
 
-    assert ask(traced, reject) == TraceView("denied" if code in (401, 403) else "unavailable")
+    assert ask(traced, reject) == TraceView("denied" if code in (401, 403) else "unavailable", issue=issue)
 
 
 def test_wait_for_root_when_trace_is_missing_or_still_arriving(traced: Settings) -> None:
@@ -204,10 +275,12 @@ def test_malformed_and_oversized_bodies_and_network_errors_are_unavailable(
     def broken(request: httpx2.Request) -> httpx2.Response:
         raise httpx2.ConnectError(PRIVATE, request=request)
 
-    assert ask(traced, broken) == TraceView("unavailable")
-    assert ask(traced, lambda _: httpx2.Response(200, text="not JSON")) == TraceView("unavailable")
+    assert ask(traced, broken) == TraceView("unavailable", issue=TraceIssue.UNREACHABLE)
+    assert ask(traced, lambda _: httpx2.Response(200, text="not JSON")) == TraceView(
+        "unavailable", issue=TraceIssue.INVALID_RESPONSE
+    )
     monkeypatch.setattr(trace_view, "TRACE_MAX_BYTES", 100)
-    assert with_runs(traced, span()) == TraceView("unavailable")
+    assert with_runs(traced, span()) == TraceView("unavailable", issue=TraceIssue.TOO_LARGE)
 
 
 def test_deadline_cancels_the_request(traced: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -221,5 +294,16 @@ def test_deadline_cancels_the_request(traced: Settings, monkeypatch: pytest.Monk
             cancelled.append(True)
         return httpx2.Response(200, json=PROJECTS)
 
-    assert asyncio.run(read_trace(traced, TRACE, transport=httpx2.MockTransport(slow))) == TraceView("unavailable")
+    assert asyncio.run(read_trace(traced, TRACE, transport=httpx2.MockTransport(slow))) == TraceView(
+        "unavailable", issue=TraceIssue.TIMED_OUT
+    )
     assert cancelled == [True]
+
+
+def test_public_trace_messages_name_no_setting_or_server_detail() -> None:
+    # The trace page is public: its messages speak to a visitor; the cause goes to the server's log by enum name.
+    for issue in TraceIssue:
+        assert "LANGSMITH" not in issue.value
+        assert "log" not in issue.value.lower()
+        assert "key" not in issue.value.lower()
+    assert len({issue.value for issue in TraceIssue}) == len(TraceIssue)

@@ -83,7 +83,7 @@ def to_self_mcp_url(request: Request, settings: Settings) -> str | None:
 
 def to_tools_call(url: str, name: str, arguments: dict[str, Any]) -> WireRequest:
     """
-    A tools/call request, as this lane makes it, for the compare view: the address, the headers MCP's 2026-07-28 version
+    A tools/call request, as this lane makes it, for its chip: the address, the headers MCP's 2026-07-28 version
     names each request with, and the JSON-RPC message; the SDK's client adds its own headers and the protocol's _meta.
     """
     headers = {

@@ -42,11 +42,8 @@
     If the chat just finished, give it a moment and refresh.</p>
   {% elif trace.status == "disabled" %}
   <p class="obs-notice" role="note">LangSmith tracing is disabled in this environment.</p>
-  {% elif trace.status == "denied" %}
-  <p class="obs-notice" role="note">LangSmith denied Nimbus read access. Check that the deployment’s API key
-    can read the configured tracing project.</p>
-  {% elif trace.status == "busy" %}
-  <p class="obs-notice" role="note">Nimbus has reached its trace request limit. Wait a moment before refreshing.</p>
+  {% elif trace.issue %}
+  <p class="obs-notice" role="note">{{ trace.issue.value }}</p>
   {% else %}
   <p class="obs-notice" role="note">Nimbus could not read the trace from LangSmith. The request timeline
     is still available in Activity.</p>

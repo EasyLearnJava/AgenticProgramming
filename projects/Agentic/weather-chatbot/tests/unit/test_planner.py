@@ -1,6 +1,10 @@
 """HTTP acceptance cases for a real park index, synthetic upstreams, and all five planner sections."""
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any, cast
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -15,7 +19,7 @@ from nimbus.config import Settings
 from nimbus.lanes import Lane
 from nimbus.park_tools import KnowledgeService
 from nimbus.parks import Destination, ParkKnowledge
-from nimbus.tools import Day, ForecastOutput
+from nimbus.tools import GET_FORECAST, Day, ForecastOutput
 from nimbus.travel import planner_page
 from nimbus.travel.models import FlightSearch, HotelSearch, TravelOffer, TravelReport
 from nimbus.travel.planner import GENERAL_GUIDANCE
@@ -47,6 +51,14 @@ def knowledge(settings: Settings) -> ParkKnowledge:
         ("Please plan my Grand Canyon South Rim trip", "grand-canyon"),
         ("What is the weather in Zion National Park today?", None),
         ("Plan a trip to Lisbon", None),
+        ("We plan to visit Yosemite this weekend. Will it snow?", None),
+        ("I plan to visit Zion tomorrow, what should I wear?", None),
+        ("We plan a trip to Zion next week, will it rain?", None),
+        ("We plan a visit to Yosemite this weekend. Will it snow?", None),
+        ("Should I plan a trip to Zion this weekend given the weather?", None),
+        ("Our trip plan: Zion next week. Will it rain?", None),
+        ("Help me plan to visit Zion National Park", "zion"),
+        ("Plan a trip to Zion National Park; will it rain?", "zion"),
         ("Don't plan a trip to Zion, just show current notices", None),
     ],
 )
@@ -101,6 +113,9 @@ def test_unresolved_chat_destination_requires_an_explicit_park_selection(client:
     assert 'action="/api/parks/trip"' in html
     for park in ("grand-canyon", "yosemite", "zion"):
         assert f'value="{park}" selected' not in html
+    # Yellowstone, two parks at once, or a park the resolver missed: what the planner covers, and where else to ask.
+    assert "Choose your park from the list below: the planner covers those parks." in html
+    assert "For a place not on the list, ask here about its weather, flights or" in html
 
 
 @pytest.mark.parametrize(
@@ -375,3 +390,41 @@ def test_planner_get_disabled_queries_and_throttling(client: TestClient) -> None
     assert limited.status_code == 429
     assert limited.headers["retry-after"] == "60"
     assert "Trip planning is busy" in limited.text
+
+
+@pytest.mark.parametrize(("language", "units"), [("en-GB,en;q=0.9", "metric"), ("en-US", "imperial"), ("", "imperial")])
+def test_the_plan_s_forecast_uses_the_browser_s_units(
+    monkeypatch: pytest.MonkeyPatch, language: str, units: str
+) -> None:
+    # An en-GB visitor's plan is in °C, as the chat's answers are; no language takes the chat's default.
+    asked: list[dict[str, Any]] = []
+
+    class Tool:
+        name = GET_FORECAST.name
+
+        async def ainvoke(self, params: dict[str, Any]) -> str:
+            asked.append(params)
+            raise RuntimeError("recorded")
+
+    @asynccontextmanager
+    async def tools(*_: object) -> AsyncIterator[list[Tool]]:
+        yield [Tool()]
+
+    monkeypatch.setattr(planner_page, "open_lane_tools", tools)
+    headers = [(b"accept-language", language.encode())] if language else []
+    request = Request({"type": "http", "method": "POST", "path": PATH, "headers": headers})
+    zion = cast(Destination, SimpleNamespace(latitude=37.2, longitude=-112.99))
+    with pytest.raises(RuntimeError, match="recorded"):
+        asyncio.run(planner_page._forecast(request, zion, 3, cast(Lane, None), 0.0))
+    assert asked[0]["units"] == units
+
+
+def test_the_trip_form_names_only_the_enabled_searches_and_the_visitor_s_currency(client: TestClient) -> None:
+    # Flights only: a place not on the list may ask about its weather or flights, never hotels the chat can't search.
+    app = cast(FastAPI, client.app)
+    app.state.settings = app.state.settings.model_copy(update={"flights_enabled": True, "hotels_enabled": False})
+    data = {"question": "Plan a trip to Yellowstone National Park", "locale": "en-GB"}
+    html = client.post("/api/chat", data=data).text
+    assert "ask here about its weather or flights." in html
+    assert "hotels." not in html
+    assert 'value="GBP" selected' in html

@@ -20,6 +20,7 @@ from nimbus.retrieval_gate import RetrievalGate
 from nimbus.tools import GET_FORECAST, ForecastInput, ForecastOutput
 from nimbus.travel.planner import ParkPlan, ParkTrip, make_plan, park_destination
 from nimbus.travel.service import TravelService
+from nimbus.utils import to_browser_locale, to_unit_system
 
 router = APIRouter()
 FORM_ERRORS = {
@@ -77,14 +78,18 @@ async def planner_page(request: Request) -> HTMLResponse:
 async def _forecast(
     request: Request, destination: Destination, days: int, lane: Lane, deadline: float
 ) -> ForecastOutput:
-    """Use the selected weather lane, including its normal timeout, cache, telemetry and fallbacks."""
+    """
+    Use the selected weather lane, including its normal timeout, cache, telemetry and fallbacks, in the units of the
+    browser's first language, as the chat's rule 13 does.
+    """
+    units = to_unit_system(to_browser_locale(request.headers.get("accept-language", "")))
     async with open_lane_tools(request, lane, deadline) as tools:
         params = ForecastInput(
             latitude=destination.latitude,
             longitude=destination.longitude,
             days=days,
             include_hourly=False,
-            units="imperial",
+            units=units,
         )
         tool = next(tool for tool in tools if tool.name == GET_FORECAST.name)
         result = await tool.ainvoke(params.model_dump())

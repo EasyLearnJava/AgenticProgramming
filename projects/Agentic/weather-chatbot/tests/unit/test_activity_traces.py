@@ -16,7 +16,7 @@ from nimbus.axiom_query import AxiomQuery, Row
 from nimbus.config import Settings
 from nimbus.observability import get_activity_trace_reader, to_activity_requests
 from nimbus.trace_links import resolve_trace_link, trace_url
-from nimbus.trace_view import TraceView
+from nimbus.trace_view import TraceIssue, TraceView
 from tests.fakes import AxiomRecordings
 
 
@@ -93,7 +93,7 @@ def test_activity_reads_one_trace_only_after_click_and_limits_refreshes(
 
     async def read(_settings: Settings, trace_id: UUID) -> TraceView:
         calls.append(trace_id)
-        return TraceView("denied")
+        return TraceView("denied", issue=TraceIssue.ACCESS_DENIED)
 
     app.dependency_overrides[get_activity_trace_reader] = lambda: read
     activity = client.get("/activity")
@@ -109,7 +109,7 @@ def test_activity_reads_one_trace_only_after_click_and_limits_refreshes(
     with capture_logs() as events:
         result = client.get(url)
     assert result.status_code == 200
-    assert "LangSmith denied Nimbus read access" in result.text
+    assert TraceIssue.ACCESS_DENIED.value.replace("'", "&#39;") in result.text
     assert result.headers["cache-control"] == "no-store"
     assert [e["path"] for e in events if e["event"] == "http.request"] == ["/activity/trace"]
     assert calls == [root]

@@ -1,5 +1,9 @@
 # Step 9 · The MCP · No Auth Lane
 
+> **Later:** the chat page dropped the lane picker and the compare view (commit 592a73f). The four lanes remain:
+> a question takes REST · no auth unless a request to `/api/chat` names another in its `lane` field, and the chips
+> still show each hop.
+
 Step 9 gives the agent a second way to reach its four tools: MCP · no auth, through our own MCP server from step 8,
 on this same deployment. The page gets a lane picker, REST or MCP, without auth or with it, the two with auth shown
 closed until step 10; the question takes the lane chosen. On MCP · no auth, the answer opens one connection to

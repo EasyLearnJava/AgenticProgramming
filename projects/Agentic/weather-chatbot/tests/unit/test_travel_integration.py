@@ -2,17 +2,21 @@
 
 import json
 import logging
+import time
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from structlog.testing import capture_logs
 
+from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.logger import LibraryLogHandler
 from nimbus.prompts import to_system_prompt
 from nimbus.travel.mcp_client import travel_mcp_active
+from nimbus.travel.models import TRAVEL_ANSWER_RESERVE_SECONDS
+from nimbus.travel.service import TravelTurn
 from tests.fakes import FakeModel
 from tests.travel_fakes import FLIGHT_LINK, travel_service
 
@@ -111,3 +115,26 @@ def test_remote_log_text_is_suppressed_inside_the_transport_only() -> None:
         assert not logs
         handler.emit(record)
     assert logs[0]["event"] == "private upstream payload"
+
+
+def test_chat_travel_searches_end_before_the_answer_s_deadline(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A slow provider may spend its own time, never the time the model needs afterwards to write the answer.
+    app = cast(FastAPI, client.app)
+    app.state.settings.flights_enabled = True
+    service = travel_service()
+    deadlines: list[float] = []
+    new_turn = service.new_turn
+
+    def recorded(deadline: float, **kwargs: Any) -> TravelTurn:
+        deadlines.append(deadline)
+        return new_turn(deadline, **kwargs)
+
+    monkeypatch.setattr(service, "new_turn", recorded)
+    app.state.travel_service = service
+    reserved = ANSWER_TIMEOUT_SECONDS - TRAVEL_ANSWER_RESERVE_SECONDS
+    started = time.monotonic()
+    assert client.post("/api/chat", data={"question": "Flights from Chicago to Las Vegas?"}).status_code == 200
+    assert len(deadlines) == 1
+    assert started + reserved <= deadlines[0] <= time.monotonic() + reserved

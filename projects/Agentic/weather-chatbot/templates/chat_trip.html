@@ -6,7 +6,9 @@
   {{ bot_meta() }}
   <div class="bubble bubble-bot">
     <div class="answer" id="answer-{{ turn_id }}"><p>{% if fields.park %}Confirm your trip details to see your park plan.
-    {% else %}Choose the supported park you want to visit, then confirm your trip details.{% endif %}</p></div>
+    {% else %}Choose your park from the list below: the planner covers those parks. Then confirm your trip details.
+    For a place not on the list, ask here about its weather{% if flights_enabled and hotels_enabled %}, flights or
+    hotels{% elif flights_enabled %} or flights{% elif hotels_enabled %} or hotels{% endif %}.{% endif %}</p></div>
     {{ trip_form(fields, prefix=turn_id, flights_enabled=flights_enabled, hotels_enabled=hotels_enabled) }}
   </div>
 </li>

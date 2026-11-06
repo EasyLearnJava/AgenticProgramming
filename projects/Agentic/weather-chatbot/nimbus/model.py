@@ -98,6 +98,7 @@ def make_tracer(settings: Settings) -> Tracer | None:
         return None
     client = Client(
         api_key=settings.langsmith_api_key.get_secret_value(),
+        workspace_id=str(settings.langsmith_workspace_id) if settings.langsmith_workspace_id else None,
         hide_inputs=True,
         hide_outputs=True,
         anonymizer=hide_error_text,

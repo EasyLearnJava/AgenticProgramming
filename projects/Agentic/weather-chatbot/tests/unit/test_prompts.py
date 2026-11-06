@@ -8,7 +8,15 @@ from datetime import UTC, datetime
 import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from nimbus.prompts import IMPERIAL, METRIC, RULES, to_messages, to_system_prompt, to_units
+from nimbus.prompts import (
+    IMPERIAL,
+    METRIC,
+    RULES,
+    to_messages,
+    to_system_prompt,
+    to_units,
+)
+from nimbus.utils import to_currency, to_unit_system
 
 NOW = datetime(2026, 10, 31, 3, 30, tzinfo=UTC)
 
@@ -89,3 +97,33 @@ def test_the_model_gets_the_system_prompt_then_the_question() -> None:
     assert "(Europe/London)" in str(system.content)
     assert isinstance(question, HumanMessage)
     assert question.content == "Is it windy?"
+
+
+@pytest.mark.parametrize("parks_enabled", [False, True])
+def test_with_travel_tools_anything_else_still_gets_one_polite_sentence(parks_enabled: bool) -> None:
+    # Visas, car rental or restaurants: rule 11 still says what Nimbus can do, rather than answering from memory.
+    now = datetime(2026, 11, 6, 12, tzinfo=UTC)
+    prompt = to_system_prompt(now, "en-US", "UTC", parks_enabled=parks_enabled, travel_tools=("search_flights",))
+    rule = next(line for line in prompt.splitlines() if line.startswith("11. "))
+    assert "For anything else, say in one polite sentence what you can do." in rule
+    assert "travel searches" in rule
+
+
+@pytest.mark.parametrize(
+    ("locale", "system", "currency"),
+    [
+        ("en-US", "imperial", "USD"),
+        ("en-GB", "metric", "GBP"),
+        ("fr-CA", "metric", "CAD"),
+        ("de-DE", "metric", "EUR"),
+        ("fr", "metric", "USD"),
+        ("ja-JP", "metric", "USD"),
+    ],
+)
+def test_units_and_travel_currency_follow_the_locale(locale: str, system: str, currency: str) -> None:
+    # An en-GB visitor gets °C and is asked in pounds; a language without a region keeps US dollars.
+    assert to_unit_system(locale) == system
+    assert to_currency(locale) == currency
+    now = datetime(2026, 11, 6, 12, tzinfo=UTC)
+    prompt = to_system_prompt(now, locale, "UTC", travel_tools=("search_hotels",))
+    assert f"Search in {currency} unless the visitor names another currency." in prompt

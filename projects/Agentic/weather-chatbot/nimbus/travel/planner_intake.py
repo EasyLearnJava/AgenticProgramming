@@ -12,6 +12,18 @@ TRIP_WORDS: Final = re.compile(
     r"(?:plan|organize)\s+(?:my|our|a|an)\b.{0,50}\btrip)\b",
     re.I,
 )
+# A question about the weather that mentions a plan ("we plan a trip to Zion next week, will it rain?") wants the
+# weather. Only an explicit request beside it ("plan a trip to Zion: will it rain?", "can you help me plan...")
+# still opens the form.
+WEATHER_ASK: Final = re.compile(
+    r"\b(?:weather|forecasts?|rain(?:y|ing)?|snow(?:y|ing)?|storm(?:s|y)?|temperatures?|heat|cold|wear|pack)\b", re.I
+)
+EXPLICIT_PLAN: Final = re.compile(
+    r"(?:^|[.!?;:]\s+)(?:please\s+)?(?:plan|organi[sz]e)\b"
+    r"|\b(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:help\s+(?:me|us)\s+)?(?:to\s+)?(?:plan|organi[sz]e)\b"
+    r"|\bhelp\s+(?:me|us)\s+(?:to\s+)?(?:plan|organi[sz]e)\b|\bplease\s+plan\b|\bitinerary\b|\btrip planner\b",
+    re.I,
+)
 ISO_DATE: Final = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 COUNT_WORDS: Final = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
 PARTY: Final = re.compile(rf"\b([1-9]|{'|'.join(COUNT_WORDS)})\s+(adult|room)s?\b", re.I)
@@ -53,6 +65,8 @@ def planner_intake(
     # ① Ambiguous parks and an unsupported qualified name require an explicit selection.
     normalized = " ".join(question.replace("\N{RIGHT SINGLE QUOTATION MARK}", "'").split())
     if not TRIP_WORDS.search(normalized) or DECLINES_PLAN.search(normalized):
+        return None
+    if WEATHER_ASK.search(normalized) and not EXPLICIT_PLAN.search(normalized):
         return None
     place_context = previous_user_text if previous_user_text and FOLLOW_UP.fullmatch(normalized) else normalized
     place = AIRPORT_PAIR.sub(" ", place_context)

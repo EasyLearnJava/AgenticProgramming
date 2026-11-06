@@ -87,7 +87,7 @@ whether it used keyword or hybrid retrieval. [Step 16](step-16.md) describes reb
 
 **Your browser** gets each page as HTML, made by a Jinja2 template. On the chat page, htmx 4 posts each question and
 puts each event of the answer's stream into the page; its two files are kept in the project, pinned by a test to the
-SHA-256 of npm's own 4.0.0 files. Our script, `chat.js`, adds Stop, New chat, the status dots, and the conversation,
+SHA-256 of npm's own 4.0.0 files. Our script, `chat.js`, adds Stop, New chat, and the conversation,
 which it keeps in a hidden field of the form and nowhere else.
 
 **Vercel's edge** takes the HTTPS request and gives it an id. Its CDN serves the stylesheet, the scripts and the icon
@@ -184,6 +184,8 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 | Errors: their classes, frames and tags | Sentry | Its plan's retention |
 | Each run's trace, its words hidden | LangSmith | Its plan's retention |
 | Each Apify run: its input (a rounded point and the days) and its items | Apify's storage | Its plan's data retention |
+| Each flight search: its airports or cities, dates, party, currency and any price or stop limit (step 18) | Kiwi.com | As Kiwi's terms say; we found no retention period published |
+| Each hotel search: its place or point, dates, rooms, party, each child's age, currency and any nightly budget (step 18) | trivago | As trivago's terms say; we found no retention period published |
 | What Gemini is sent, and what it writes | Google, under Gemini's free tier, whose terms let Google use them to improve its products, with people reading some | As Google's terms say |
 
 ## Technical design: the decisions, and why

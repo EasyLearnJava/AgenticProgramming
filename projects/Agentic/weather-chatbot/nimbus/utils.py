@@ -8,12 +8,20 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
-from typing import Any
+from typing import Any, Final, Literal
 from urllib.parse import parse_qsl, urlsplit
 
 from markdown_it.common.normalize_url import normalizeLink
 
-from nimbus.constants import LIBRARY_LOG_MAX_FRAMES, NEW_REQUEST_ID_CHARS, REQUEST_ID_PATTERN
+from nimbus.constants import (
+    DEFAULT_LOCALE,
+    IMPERIAL_REGIONS,
+    LIBRARY_LOG_MAX_FRAMES,
+    LOCALE_MAX_CHARS,
+    LOCALE_PATTERN,
+    NEW_REQUEST_ID_CHARS,
+    REQUEST_ID_PATTERN,
+)
 
 MS_PER_SECOND = 1000
 REF_CHARS = 8
@@ -165,3 +173,48 @@ def hide_error_text(data: dict[str, Any]) -> dict[str, Any]:
     with its lane, goes on as it is.
     """
     return {**data, "error": "hidden"} if "error" in data else data
+
+
+def is_usable_locale(value: str) -> bool:
+    """A language tag the app can use: at most 35 characters, letters, digits and hyphens ("en-GB", "zh-Hant-TW")."""
+    return len(value) <= LOCALE_MAX_CHARS and LOCALE_PATTERN.fullmatch(value) is not None
+
+
+def to_browser_locale(accept_language: str) -> str:
+    """
+    The browser's first language, from a request's Accept-Language header ("en-GB,en;q=0.9" → "en-GB"), checked as
+    the chat checks its locale field; else the default, as the chat takes it.
+    """
+    first = accept_language.split(",")[0].split(";")[0].strip()
+    return first if is_usable_locale(first) else DEFAULT_LOCALE
+
+
+def to_region(locale: str) -> str:
+    """
+    A language tag's region: its subtag of two letters or three digits ("en-US" → "US", "zh-Hant-TW" → "TW", "es-419"
+    → "419"), before any extension or private part (-u-..., -x-...); "" when it has none.
+    """
+    for subtag in locale.split("-")[1:]:
+        if len(subtag) == 1:
+            break
+        if (len(subtag) == 2 and subtag.isalpha()) or (len(subtag) == 3 and subtag.isdigit()):
+            return subtag.upper()
+    return ""
+
+
+def to_unit_system(locale: str) -> Literal["imperial", "metric"]:
+    """A locale's system of units: imperial where its region uses them (en-US), else metric (en-GB, fr, ...)."""
+    return "imperial" if to_region(locale) in IMPERIAL_REGIONS else "metric"
+
+
+# The planner's four currencies, by the browser's region (Bulgaria has used the euro since 2026); else US dollars.
+EURO_REGIONS: Final = frozenset(
+    {"AT", "BE", "BG", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT", "NL"}
+    | {"PT", "SI", "SK"}
+)
+
+
+def to_currency(locale: str) -> str:
+    """The currency travel prices are searched in for a locale: GBP for en-GB, CAD for Canada, EUR in the euro area."""
+    region = to_region(locale)
+    return {"GB": "GBP", "CA": "CAD"}.get(region, "EUR" if region in EURO_REGIONS else "USD")

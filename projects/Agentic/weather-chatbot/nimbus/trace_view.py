@@ -5,11 +5,13 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from http import HTTPStatus
 from typing import Final, Literal
 from uuid import UUID
 
 import httpx2
+import structlog
 from langsmith import utils as smith
 from pydantic import AwareDatetime, BaseModel, TypeAdapter
 
@@ -34,6 +36,31 @@ STATUSES = {"SUCCESS": "Completed", "ERROR": "Failed", "PENDING": "Running"}
 # Ask only for identifiers, nesting, names, status and timestamps. Even error text can contain the question.
 SELECTS = ("ID", "PROJECT_ID", "TRACE_ID", "PARENT_RUN_IDS", "NAME", "RUN_TYPE", "START_TIME", "END_TIME", "STATUS")
 
+type _Stage = Literal["project", "runs"]
+
+
+class TraceIssue(StrEnum):
+    """
+    Fixed public messages, written for any visitor: never a setting's name, a key or the server's log, since the
+    page is public. Each message is distinct, so its enum name stays a stable diagnostic code: the server log's
+    langsmith.read_failed line records it, with the lookup stage and the HTTP status, for whoever runs Nimbus.
+    """
+
+    ACCESS_DENIED = "This trace can't be shown: Nimbus isn't allowed to read it."
+    PROJECT_NOT_FOUND = "This trace can't be shown: its tracing project wasn't found."
+    WORKSPACE_REQUIRED = "This trace can't be shown: reading traces isn't set up on this deployment."
+    WORKSPACE_MISMATCH = "This trace can't be shown: its tracing project doesn't match this deployment."
+    WRONG_SCOPE = "LangSmith returned data outside the requested trace or project. Nimbus withheld those calls."
+    WRONG_ROOT = "This trace doesn't belong to a Nimbus chat, so it isn't shown."
+    RATE_LIMITED = "LangSmith reached its read limit. Wait a minute before refreshing the trace."
+    SERVICE_ERROR = "LangSmith reported a service error. Try refreshing the trace later."
+    REQUEST_REJECTED = "LangSmith rejected the lookup. Try refreshing the trace later."
+    INVALID_RESPONSE = "Nimbus couldn't read what LangSmith returned. Try refreshing the trace later."
+    TOO_LARGE = "The LangSmith response exceeds the size limit for this view. The Activity timeline is still available."
+    TIMED_OUT = "The LangSmith lookup timed out. Try refreshing the trace."
+    UNREACHABLE = "Nimbus could not reach LangSmith. Try refreshing the trace later."
+    INVALID_ENDPOINT = "This trace can't be shown: reading traces is misconfigured on this deployment."
+
 
 @dataclass(frozen=True)
 class TraceRow:
@@ -55,11 +82,24 @@ class TraceView:
     status: Literal["ready", "pending", "unavailable", "disabled", "denied"]
     rows: tuple[TraceRow, ...] = ()
     truncated: bool = False
+    issue: TraceIssue | None = None
+
+
+def _failed(stage: _Stage, issue: TraceIssue, http_status: int | None = None) -> TraceView:
+    """Report the failed operation using only fixed vocabulary and the numeric upstream status."""
+    fields = {"httpStatus": http_status} if http_status is not None else {}
+    structlog.get_logger().warning("langsmith.read_failed", stage=stage, reason=issue.name.lower(), **fields)
+    return TraceView("denied" if issue == TraceIssue.ACCESS_DENIED else "unavailable", issue=issue)
+
+
+class _ResponseTooLargeError(ValueError):
+    """The decoded response exceeded the hard limit before JSON parsing."""
 
 
 class _Project(BaseModel):
     id: UUID
     name: str
+    tenant_id: UUID | None = None
 
 
 class _Span(BaseModel):
@@ -93,12 +133,12 @@ def _label(span: _Span, root_id: UUID) -> tuple[str, str] | None:
 
 def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
     if any(span.trace_id != trace_id or span.project_id != project_id for span in spans):
-        return TraceView("unavailable")
+        return _failed("runs", TraceIssue.WRONG_SCOPE)
     root = next((span for span in spans if span.id == trace_id), None)
     if root is None:
         return TraceView("pending")
     if root.name != AGENT_NAME or root.run_type != "CHAIN":
-        return TraceView("unavailable")
+        return _failed("runs", TraceIssue.WRONG_ROOT)
     labels = {span.id: display for span in spans if (display := _label(span, trace_id)) is not None}
     visible = sorted(
         (span for span in spans if span.id in labels),
@@ -134,7 +174,7 @@ async def _read_json(
         body = bytearray()
         async for chunk in response.aiter_bytes(chunk_size=8192):
             if len(body) + len(chunk) > TRACE_MAX_BYTES:
-                raise ValueError("Trace response too large")
+                raise _ResponseTooLargeError
             body.extend(chunk)
     return json.loads(body)
 
@@ -149,18 +189,36 @@ async def read_trace(
     if not key:
         return TraceView("disabled")
     headers = {"X-Api-Key": key, "Accept": "application/json"}
-    if workspace := smith.get_workspace_id(None):
-        headers["X-Tenant-Id"] = workspace
+    workspace = settings.langsmith_workspace_id
+    if workspace is None and (sdk_workspace := smith.get_workspace_id(None)):
+        try:
+            workspace = UUID(sdk_workspace)
+        except ValueError:
+            return _failed("project", TraceIssue.WORKSPACE_REQUIRED)
+    if workspace is not None:
+        headers["X-Tenant-Id"] = str(workspace)
     project = settings.langsmith_project or smith.get_tracer_project() or "default"
+    stage: _Stage = "project"
     try:
         # The writer's endpoint may include the v1 suffix (e.g. a regional LangSmith installation).
         base = smith.get_api_url(None).removesuffix("/api/v1").removesuffix("/api")
         async with asyncio.timeout(TRACE_SECONDS), httpx2.AsyncClient(transport=transport) as http:
             result = await _read_json(http, f"{base}/api/v1/sessions", headers, {"name": project, "limit": "1"})
             projects = TypeAdapter(list[_Project]).validate_python(result)
+            if not projects:
+                return _failed(stage, TraceIssue.PROJECT_NOT_FOUND)
             if len(projects) != 1 or projects[0].name != project:
-                return TraceView("unavailable")
+                return _failed(stage, TraceIssue.WRONG_SCOPE)
             project_id = projects[0].id
+            # The project lookup accepts a key alone. The v2 trace read requires the key AND the workspace.
+            tenant = projects[0].tenant_id
+            if tenant is not None and workspace is not None and tenant != workspace:
+                return _failed(stage, TraceIssue.WORKSPACE_MISMATCH)
+            tenant = tenant or workspace
+            if tenant is None:
+                return _failed(stage, TraceIssue.WORKSPACE_REQUIRED)
+            headers["X-Tenant-Id"] = str(tenant)
+            stage = "runs"
             now = datetime.now(UTC)
             result = await _read_json(
                 http,
@@ -175,10 +233,23 @@ async def read_trace(
             )
         return _to_view(_Runs.model_validate(result).items, trace_id, project_id)
     except httpx2.HTTPStatusError as exc:
-        if exc.response.status_code in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
-            return TraceView("denied")
-        if exc.response.status_code == HTTPStatus.NOT_FOUND and exc.request.url.path.endswith("/runs"):
+        status = exc.response.status_code
+        if status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
+            return _failed(stage, TraceIssue.ACCESS_DENIED, status)
+        if status == HTTPStatus.NOT_FOUND and stage == "runs":
             return TraceView("pending")
-        return TraceView("unavailable")
-    except (httpx2.HTTPError, TimeoutError, ValueError, RecursionError, smith.LangSmithUserError):
-        return TraceView("unavailable")
+        if status == HTTPStatus.TOO_MANY_REQUESTS:
+            return _failed(stage, TraceIssue.RATE_LIMITED, status)
+        if 500 <= status < 600:
+            return _failed(stage, TraceIssue.SERVICE_ERROR, status)
+        return _failed(stage, TraceIssue.REQUEST_REJECTED, status)
+    except (TimeoutError, httpx2.TimeoutException):
+        return _failed(stage, TraceIssue.TIMED_OUT)
+    except _ResponseTooLargeError:
+        return _failed(stage, TraceIssue.TOO_LARGE)
+    except (httpx2.InvalidURL, smith.LangSmithUserError):
+        return _failed(stage, TraceIssue.INVALID_ENDPOINT)
+    except httpx2.HTTPError:
+        return _failed(stage, TraceIssue.UNREACHABLE)
+    except (ValueError, RecursionError):
+        return _failed(stage, TraceIssue.INVALID_RESPONSE)

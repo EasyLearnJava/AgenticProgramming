@@ -8,6 +8,7 @@ the rest, in Vercel's project settings, or in .env.local on your computer, which
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic.fields import FieldInfo
@@ -90,6 +91,7 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = False
     langsmith_api_key: SecretStr | None = None
     langsmith_project: str | None = None
+    langsmith_workspace_id: UUID | None = None
     langsmith_hide_inputs: bool = False
     langsmith_hide_outputs: bool = False
     # ⑥ Set by you (step 10): Apify's token, a Sensitive variable in Vercel, for the lanes with auth; without it,

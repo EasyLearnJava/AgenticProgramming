@@ -263,3 +263,29 @@ def test_rendered_artifact_and_citation_sources_have_one_shared_size_boundary() 
     assert record.report.status == "partial"
     assert len(record.sources) == len(record.report.offers) < len(offers)
     assert all(url in content for url in record.sources)
+
+
+def test_a_search_without_a_currency_takes_the_visitor_s() -> None:
+    """An en-GB visitor's search in pounds when the model leaves currency out; a currency the model names stays."""
+
+    async def check() -> None:
+        asked: list[str] = []
+
+        async def flights(query: FlightSearch) -> TravelReport:
+            asked.append(query.currency)
+            return _flight_result()
+
+        turn = TravelService(flights=flights).new_turn(
+            asyncio.get_running_loop().time() + 30, today=DAY, currency="GBP"
+        )
+        await turn.search_flights(
+            FlightSearch.model_validate({"origin": "LHR", "destination": "LAS", "departure_date": DAY})
+        )
+        await turn.search_flights(
+            FlightSearch.model_validate(
+                {"origin": "LGW", "destination": "LAS", "departure_date": DAY, "currency": "USD"}
+            )
+        )
+        assert asked == ["GBP", "USD"]
+
+    asyncio.run(check())

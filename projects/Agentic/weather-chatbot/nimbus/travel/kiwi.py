@@ -8,11 +8,33 @@ from nimbus.travel.mcp_client import TravelProviderError, call_search
 from nimbus.travel.models import FlightSearch, TravelOffer, TravelReport
 from nimbus.travel.providers import currency_code, money, offer_link, records_report, short_text
 
-# For other multi-airport regions use the full city name. Show the actual airports on each offer.
+# IATA's metropolitan city codes that name no airport of their own, with the airports each covers: a model may send
+# CHI for Chicago, and Kiwi answers from ORD or MDW. Any other three letters are one exact airport. Each offer
+# shows its actual airports.
 METRO_AIRPORTS = {
     "NYC": {"JFK", "LGA", "EWR", "SWF"},
-    "LON": {"LHR", "LGW", "LCY", "LTN", "STN", "SEN"},
     "WAS": {"DCA", "IAD", "BWI"},
+    "CHI": {"ORD", "MDW"},
+    "DTT": {"DTW"},
+    "YTO": {"YYZ", "YTZ"},
+    "YMQ": {"YUL", "YHU"},
+    "YEA": {"YEG"},
+    "LON": {"LHR", "LGW", "LCY", "LTN", "STN", "SEN"},
+    "PAR": {"CDG", "ORY", "BVA"},
+    "MIL": {"MXP", "LIN", "BGY"},
+    "ROM": {"FCO", "CIA"},
+    "STO": {"ARN", "BMA", "NYO", "VST"},
+    "MOW": {"SVO", "DME", "VKO", "ZIA"},
+    "BUH": {"OTP", "BBU"},
+    "REK": {"KEF", "RKV"},
+    "TYO": {"NRT", "HND"},
+    "OSA": {"KIX", "ITM", "UKB"},
+    "SEL": {"ICN", "GMP"},
+    "BJS": {"PEK", "PKX", "NAY"},
+    "JKT": {"CGK", "HLP"},
+    "SAO": {"GRU", "CGH", "VCP"},
+    "RIO": {"GIG", "SDU"},
+    "BUE": {"EZE", "AEP"},
 }
 
 
