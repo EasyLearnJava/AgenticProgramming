@@ -94,7 +94,11 @@
   </ul>
   <div class="bubble bubble-bot">
     <div class="answer{% if busy %} answer-streaming{% endif %}" id="answer-{{ turn_id }}">{{ answer }}</div>
-    {% for chip in chips if chip.travel_record %}{{ travel_results(chip.travel_record.report) }}{% endfor %}
+    {%- set shown = namespace(reports=[]) %}
+    {%- for chip in chips if chip.travel_record and chip.travel_record.report not in shown.reports %}
+    {{ travel_results(chip.travel_record.report) }}
+    {%- set shown.reports = shown.reports + [chip.travel_record.report] %}
+    {%- endfor %}
     {%- if note %}
     <p class="message-note">{{ note }}</p>
     {%- endif %}

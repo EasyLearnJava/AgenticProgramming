@@ -24,6 +24,17 @@ EXPLICIT_PLAN: Final = re.compile(
     r"|\bhelp\s+(?:me|us)\s+(?:to\s+)?(?:plan|organi[sz]e)\b|\bplease\s+plan\b|\bitinerary\b|\btrip planner\b",
     re.I,
 )
+# When and with whom, removed before the resolver: "Plan a trip to Zion next weekend" names Zion. Places are kept:
+# "Zion, Illinois" and "the North Rim" still reach the resolver whole.
+MONTHS: Final = "january|february|march|april|may|june|july|august|september|october|november|december"
+TRIP_DETAILS: Final = re.compile(
+    r"\b(?:(?:this|next|coming)\s+(?:week(?:end)?|month|summer|spring|fall|autumn|winter)|tomorrow|today|tonight|"
+    rf"(?:in|during|for|over)\s+(?:{MONTHS}|spring(?:\s+break)?|summer|fall|autumn|winter|the\s+holidays)|"
+    r"for\s+(?:a|one|two|three|four|five|\d+)\s+(?:days?|nights?|weeks?)|\d+[- ]?(?:day|night)s?|family|"
+    r"(?:with|for)\s+(?:my|our)\s+(?:kids|children|family|partner|wife|husband|friends)"
+    r"(?:\s+aged?\s+\d+(?:\s*(?:,|and)\s*\d+)*)?)\b",
+    re.I,
+)
 ISO_DATE: Final = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 COUNT_WORDS: Final = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
 PARTY: Final = re.compile(rf"\b([1-9]|{'|'.join(COUNT_WORDS)})\s+(adult|room)s?\b", re.I)
@@ -70,7 +81,7 @@ def planner_intake(
         return None
     place_context = previous_user_text if previous_user_text and FOLLOW_UP.fullmatch(normalized) else normalized
     place = AIRPORT_PAIR.sub(" ", place_context)
-    for pattern in (ISO_DATE, PARTY, MODE_STATEMENT, REQUEST_WORDS):
+    for pattern in (ISO_DATE, PARTY, MODE_STATEMENT, REQUEST_WORDS, TRIP_DETAILS):
         place = pattern.sub(" ", place)
     # The resolver limits input to 500 characters. Never drop a qualifier by passing an overlong location.
     resolved = knowledge.resolve(place) if knowledge is not None and len(place) <= 500 else {}

@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Final, Literal, Self
 
@@ -12,6 +12,10 @@ MAX_OFFERS: Final = 5
 MAX_CONTEXT_BYTES: Final = 24_000
 # Live provider discovery plus search took about ten seconds.
 TRAVEL_TIMEOUT_SECONDS: Final = 14.0
+# Searches stay within a year ahead, and a stay within 30 nights: a 2099 arrival or a 3,000-night stay is a mistake,
+# and providers publish nothing that far out.
+MAX_DAYS_AHEAD: Final = 365
+MAX_STAY_NIGHTS: Final = 30
 # A chat's travel searches end this long before the answer's own deadline: a slow provider then costs its own
 # result, never the answer the model still has to write: its first words may take 10 s, and then it writes. The Apify
 # lanes keep the same 12 s (FALLBACK_MIN_LEFT_SECONDS).
@@ -40,6 +44,11 @@ type PriceLimit = Annotated[int, Field(gt=0, le=10_000_000, strict=True)]
 type FlightPlace = Annotated[
     Place, Field(description="A three-letter airport code for one airport, or the city's name for all its airports.")
 ]
+
+
+def within_a_year(day: date) -> bool:
+    """Whether a travel date is at most a year ahead, counting a day more for the time zones ahead of UTC."""
+    return day <= datetime.now(UTC).date() + timedelta(days=MAX_DAYS_AHEAD + 1)
 
 
 def _date_value(value: object) -> object:
@@ -89,6 +98,8 @@ class FlightSearch(_Search):
             raise ValueError("origin and destination must be different")
         if self.return_date is not None and self.return_date < self.departure_date:
             raise ValueError("return must be on or after departure")
+        if not within_a_year(self.return_date or self.departure_date):
+            raise ValueError(f"travel dates must be within {MAX_DAYS_AHEAD} days")
         if self.adults + self.children > 9 or self.infants > self.adults:
             raise ValueError("at most nine seated passengers and one infant per adult")
         return self
@@ -115,6 +126,8 @@ class HotelSearch(_Search):
             raise ValueError("provide either a destination or coordinates")
         if self.check_out <= self.check_in:
             raise ValueError("check-out must follow check-in")
+        if (self.check_out - self.check_in).days > MAX_STAY_NIGHTS or not within_a_year(self.check_out):
+            raise ValueError(f"a stay is at most {MAX_STAY_NIGHTS} nights, within {MAX_DAYS_AHEAD} days")
         if self.rooms > self.adults:
             raise ValueError("each room requires an adult")
         return self

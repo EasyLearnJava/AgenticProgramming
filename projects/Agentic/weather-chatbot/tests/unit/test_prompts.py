@@ -116,7 +116,7 @@ def test_with_travel_tools_anything_else_still_gets_one_polite_sentence(parks_en
         ("en-GB", "metric", "GBP"),
         ("fr-CA", "metric", "CAD"),
         ("de-DE", "metric", "EUR"),
-        ("fr", "metric", "USD"),
+        ("fr", "metric", "EUR"),
         ("ja-JP", "metric", "USD"),
     ],
 )

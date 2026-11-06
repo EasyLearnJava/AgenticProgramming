@@ -74,6 +74,11 @@
       </form>
       <p class="chat-privacy">
         Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.
+        {%- if flights_enabled or hotels_enabled %}
+        {% if flights_enabled and hotels_enabled %}Flight and hotel searches go to Kiwi.com and trivago{% elif flights_enabled
+        %}Flight searches go to Kiwi.com{% else %}Hotel searches go to trivago{% endif %}: their places, dates and
+        party, never your question.
+        {%- endif %}
       </p>
       <noscript><p class="chat-noscript">The chat needs JavaScript; the documentation doesn't.</p></noscript>
     </div>

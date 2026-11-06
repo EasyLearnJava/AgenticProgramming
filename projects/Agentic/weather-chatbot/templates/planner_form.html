@@ -1,7 +1,10 @@
 {# A single editable form used in chat and on the standalone page. All private search fields travel via POST. #}
-{% macro trip_form(fields, prefix="trip", flights_enabled=true, hotels_enabled=true) -%}
-<form action="/api/parks/trip" method="post" class="knowledge-filters">
+{% macro trip_form(fields, prefix="trip", flights_enabled=true, hotels_enabled=true, new_tab=false) -%}
+<form action="/api/parks/trip" method="post" class="knowledge-filters"{% if new_tab %} target="_blank" rel="noopener"{% endif %}>
   <input type="hidden" name="lane" value="{{ fields.get('lane', 'rest-no-auth') }}">
+  {%- if fields.get('locale') %}
+  <input type="hidden" name="locale" value="{{ fields.locale }}">
+  {%- endif %}
   <div><label for="{{ prefix }}-park">National park</label><select id="{{ prefix }}-park" name="park" required>
     <option value="">Choose a park</option>
     {% for key, label in [('zion','Zion'),('grand-canyon','Grand Canyon (South Rim)'),('yosemite','Yosemite')] %}

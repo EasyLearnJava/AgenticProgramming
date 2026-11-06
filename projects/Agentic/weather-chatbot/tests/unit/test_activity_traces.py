@@ -30,7 +30,8 @@ def test_handle_binds_project_dataset_trace_ref_and_expiry(connected: Settings) 
     url = trace_url(connected, str(root), now, "abcd1234", now)
     assert url is not None
     handle = url.rsplit("/", 1)[-1]
-    assert resolve_trace_link(connected, handle, now + timedelta(days=6)) == (root, "abcd1234")
+    assert resolve_trace_link(connected, handle, now + timedelta(minutes=59)) == (root, "abcd1234")
+    assert resolve_trace_link(connected, handle, now + timedelta(minutes=61)) is None
     for altered in (handle.replace(root.hex, uuid4().hex), handle.replace("abcd1234", "abcd1235"), str(root), "☁"):
         assert resolve_trace_link(connected, altered, now) is None
     for scope in ({"langsmith_project": "other"}, {"axiom_dataset": "other"}, {"axiom_query_token": None}):

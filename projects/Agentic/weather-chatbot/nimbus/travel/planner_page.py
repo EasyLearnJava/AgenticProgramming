@@ -20,7 +20,7 @@ from nimbus.retrieval_gate import RetrievalGate
 from nimbus.tools import GET_FORECAST, ForecastInput, ForecastOutput
 from nimbus.travel.planner import ParkPlan, ParkTrip, make_plan, park_destination
 from nimbus.travel.service import TravelService
-from nimbus.utils import to_browser_locale, to_unit_system
+from nimbus.utils import is_usable_locale, to_browser_locale, to_unit_system
 
 router = APIRouter()
 FORM_ERRORS = {
@@ -82,7 +82,8 @@ async def _forecast(
     Use the selected weather lane, including its normal timeout, cache, telemetry and fallbacks, in the units of the
     browser's first language, as the chat's rule 13 does.
     """
-    units = to_unit_system(to_browser_locale(request.headers.get("accept-language", "")))
+    chat_locale: str = getattr(request.state, "units_locale", "")
+    units = to_unit_system(chat_locale or to_browser_locale(request.headers.get("accept-language", "")))
     async with open_lane_tools(request, lane, deadline) as tools:
         params = ForecastInput(
             latitude=destination.latitude,
@@ -113,6 +114,7 @@ async def build_trip(request: Request) -> HTMLResponse:
             # Previously opened forms may still submit a room count after hotels have been switched off.
             fields.pop("rooms", None)
         trip = ParkTrip.model_validate(fields)
+        request.state.units_locale = trip.locale if is_usable_locale(trip.locale) else ""
         lane = get_lane(trip.lane)
         if not is_open(lane, state.settings):
             return _render(request, fields, error="The selected weather lane is unavailable.", status=400)

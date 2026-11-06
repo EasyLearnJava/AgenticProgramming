@@ -11,6 +11,8 @@ from nimbus.constants import OBSERVABILITY_DAYS
 
 _HANDLE = re.compile(r"([0-9a-f]{32})\.([0-9]{10})\.([a-zA-Z0-9]{0,8})\.([0-9a-f]{64})", re.ASCII)
 _WINDOW = timedelta(days=OBSERVABILITY_DAYS)
+# A link works for an hour after Activity shows it: copied or scraped, it soon stops costing LangSmith reads.
+_LIFETIME = timedelta(hours=1)
 
 
 def _signature(settings: Settings, payload: str) -> str:
@@ -32,7 +34,8 @@ def trace_url(settings: Settings, root: str, started: datetime, ref: str, now: d
         return None
     if trace_id.version != 4 or str(trace_id) != root:
         return None
-    payload = f"{trace_id.hex}.{int((started + _WINDOW).timestamp())}.{ref}"
+    expires = min(started + _WINDOW, now + _LIFETIME)
+    payload = f"{trace_id.hex}.{int(expires.timestamp())}.{ref}"
     return f"/activity/trace/{payload}.{_signature(settings, payload)}"
 
 

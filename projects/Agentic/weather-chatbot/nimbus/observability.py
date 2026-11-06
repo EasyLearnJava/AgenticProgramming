@@ -170,7 +170,7 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
     "errors": (
         f'{to_in("event", TIMELINE_EVENTS)} and (level == "error" or {STATUS} in ("failed", "down") '
         f'or event == "lane.fallback" or (event == "nps.alerts" and {STATUS} == "partial") '
-        f'or (event == "travel.call" and {STATUS} !in ("found", "no_results")) '
+        f'or (event == "travel.call" and {STATUS} !in ("found", "no_results", "disabled")) '
         f'or (event == "travel.plan" and toint({to_field("failedSections", "0")}) > 0))'
     ),
     "health": 'event == "health.done"',
@@ -240,7 +240,8 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
 # Evaluations' reasons, each event's by the narrowing that finds its questions.
 REASON_LINKS: Final = {"chat.rejected": "refused", "chat.failed": "failed", "lane.fallback": "fellback"}
 ANSWERS: Final = (
-    'where event == "chat.done"',
+    # A turn answered by the trip form took no model call: its milliseconds aren't an answer's.
+    f'where event == "chat.done" and tostring({to_field("tripForm")}) != "true"',
     "summarize answers = count(), p50 = percentile(ms, 50), p95 = percentile(ms, 95), p99 = percentile(ms, 99), "
     f"avgToolCalls = avg({to_field('toolCalls', '0')}), avgTokensIn = avg({to_field('tokensIn', '0')}), "
     f"avgTokensOut = avg({to_field('tokensOut', '0')})",

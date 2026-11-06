@@ -16,7 +16,7 @@ from nimbus.nps_alerts import PARKS, AlertsReport, NpsAlertsService, ParkId
 from nimbus.park_tools import KnowledgeService
 from nimbus.parks import Destination, ParkChunk
 from nimbus.tools import Day, ForecastOutput
-from nimbus.travel.models import FlightSearch, HotelSearch, SearchDate, TravelReport
+from nimbus.travel.models import MAX_STAY_NIGHTS, FlightSearch, HotelSearch, SearchDate, TravelReport, within_a_year
 from nimbus.travel.service import TravelTurn
 
 PlaceText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
@@ -40,6 +40,8 @@ class ParkTrip(BaseModel):
     children_ages: tuple[Annotated[int, Field(ge=0, le=17)], ...] = Field(default=(), max_length=8)
     activity: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] = ""
     currency: Literal["USD", "EUR", "GBP", "CAD"] = "USD"
+    # The chat's locale, when the form came from the chat: the plan's units then match the chat's.
+    locale: Annotated[str, StringConstraints(max_length=35)] = ""
 
     @field_validator("children_ages", mode="before")
     @classmethod
@@ -54,6 +56,8 @@ class ParkTrip(BaseModel):
         """Reject reversed dates and ambiguous flight endpoints before any lookups."""
         if self.departure <= self.arrival:
             raise ValueError("Check-out must follow check-in.")
+        if (self.departure - self.arrival).days > MAX_STAY_NIGHTS or not within_a_year(self.departure):
+            raise ValueError(f"Choose a stay of at most {MAX_STAY_NIGHTS} nights, within the next year.")
         if self.transport == "fly" and (
             not self.origin or not self.gateway or self.origin.casefold() == self.gateway.casefold()
         ):
@@ -129,13 +133,14 @@ async def _checked[T](call: Awaitable[Section[T]], deadline: float, name: str) -
             return await call
     except TimeoutError:
         return Section(message=f"The {name} check timed out.", failed=True)
-    except Exception:
+    except Exception as error:
+        structlog.get_logger().warning("travel.section_error", section=name, errorClass=type(error).__name__)
         return Section(message=f"The {name} check is unavailable.", failed=True)
 
 
 def _travel_section(report: TravelReport) -> Section[TravelReport]:
     """Distinguish a provider problem from empty inventory or disabled features in plan telemetry."""
-    return Section(report, failed=report.status not in {"found", "no_results", "disabled"})
+    return Section(report, failed=report.status not in {"found", "partial", "no_results", "disabled"})
 
 
 def park_destination(knowledge: KnowledgeService | None, trip: ParkTrip) -> Destination | None:

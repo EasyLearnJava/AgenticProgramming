@@ -215,7 +215,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 ### It always answers, in time
 
 - **Every wait has a limit:** an answer 30 s (50 s with auth), a call to Gemini 20 s with one retry, its first words
-  10 s, a tool 8 s, a try at Open-Meteo 3 s with one retry, the cache 1 s, an Apify run 18 s, a health check 8 s, a
+  10 s, a tool 8 s (a travel search 14 s), a try at Open-Meteo 3 s with one retry, the cache 1 s, an Apify run 18 s, a health check 8 s, a
   send to Axiom or Sentry 2 s.
 - **Every failure has a way through:** a slow cache is a miss; a failed Apify run falls back to its twin while the
   answer has 12 s left; an MCP lane that can't connect says so; the last model call has no tools, so the answer ends
@@ -295,7 +295,7 @@ back with each question, as untrusted input. What is kept, where, and for how lo
 | The conversation sent back | 10 messages; each answer 4,000 characters; 16,000 in all |
 | An answer | 30 s (50 s on a lane with auth); 5 calls to the model, each at most 1,024 tokens out |
 | A call to Gemini | 20 s, two attempts; its first words within 10 s |
-| A tool call | 8 s (20 s for Apify's Actor) |
+| A tool call | 8 s (20 s for Apify's Actor; 14 s for a flight or hotel search, ending 12 s before the answer's deadline) |
 | A try at Open-Meteo | 3 s, two tries |
 | The cache | 1 s a read or write; a place 30 days, a forecast 30 minutes, the air 30 minutes, the weather now 10 minutes |
 | A place's name | 100 characters; 5 places, at most 10 |

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Final, Literal
 
 import httpx2
+import structlog
 from mcp.client import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp_types import CallToolResult, TextContent
@@ -114,6 +115,10 @@ async def _session(provider: Provider, required: frozenset[str], seconds: float)
         known = next((item.reason for item in failures if isinstance(item, TravelProviderError)), None)
         timed_out = any(isinstance(item, (TimeoutError, httpx2.TimeoutException)) for item in failures)
         reason: Failure = exchange.failure or known or ("timeout" if timed_out else "unavailable")
+        if reason == "unavailable":
+            # Only the classes: an SDK or code fault is told apart from the provider's own outage.
+            classes = sorted({type(item).__name__ for item in failures})
+            structlog.get_logger().warning("travel.mcp_error", provider=provider, errorClasses=classes)
         raise TravelProviderError(reason) from None
     finally:
         travel_mcp_active.reset(token)

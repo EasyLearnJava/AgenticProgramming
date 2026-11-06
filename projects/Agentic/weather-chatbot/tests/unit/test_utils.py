@@ -228,7 +228,8 @@ def test_the_browser_s_first_language_comes_from_accept_language(header: str, lo
         ("fr-CA", "metric", "CAD"),
         ("de-DE", "metric", "EUR"),
         ("bg-BG", "metric", "EUR"),
-        ("fr", "metric", "USD"),
+        ("fr", "metric", "EUR"),
+        ("en", "metric", "USD"),
         ("ja-JP", "metric", "USD"),
     ],
 )

@@ -445,6 +445,7 @@ async def chat(request: Request) -> Response:
         turn_id = new_turn_id()
         fields["lane"] = lane.id
         fields.setdefault("currency", to_currency(chat_request.locale))
+        fields["locale"] = chat_request.locale
         first = to_sse_message(render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question}))
 
         async def intake_events() -> AsyncGenerator[str]:
@@ -460,7 +461,7 @@ async def chat(request: Request) -> Response:
                     },
                 )
             )
-            log.info("chat.done", answerChars=0, toolCalls=0, ms=to_ms(time.perf_counter() - started))
+            log.info("chat.done", answerChars=0, toolCalls=0, tripForm=True, ms=to_ms(time.perf_counter() - started))
 
         return EventStream(first, intake_events())
     # ② The model, made when the app started; a deployment without its key can't answer at all.
@@ -514,7 +515,8 @@ async def chat(request: Request) -> Response:
         restrict_links=bool(
             enabled
             and re.search(
-                r"\b(?:flights?|airfare|flying|fly|hotels?|lodging|accommodations?|itinerar(?:y|ies)|bookings?)\b",
+                r"\b(?:flights?|airfare|airlines?|airports?|flying|fly|tickets?|hotels?|motels?|lodges?|lodging|resorts?|"
+                r"rooms?|stays?|accommodations?|itinerar(?:y|ies)|bookings?)\b",
                 chat_request.question,
                 re.IGNORECASE,
             )

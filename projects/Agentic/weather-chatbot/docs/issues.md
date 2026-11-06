@@ -835,3 +835,33 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
      nothing, so the full run raised before its summary. **Fix:** each rule names the code as it is now; the review
      fixes' rules run with `--travel` too, and `chat_trip.html` and `planner_page.py` map to `test_planner.py`.
      **Check:** all 349 rules match their text exactly once; each review rule was run and caught.
+146. **A travel fault and a provider outage looked the same.** Every exception became "unavailable" with nothing
+     logged. **Fix:** `travel.error`, `travel.mcp_error` and `travel.section_error` log the class only (no
+     arguments, places or provider text).
+147. **Trace links lasted 7 days.** **Fix:** a link expires an hour after Activity shows it, never past Activity's
+     window; the HMAC message already names its purpose (`nimbus/activity-trace/v1`), so the key is domain-separated.
+148. **A partial travel result counted as a failed plan section, and a switched-off provider as an error.**
+     **Fix:** partial is a warning (Activity's tone, Errors as for NPS), not a failed section; `disabled` leaves Errors.
+149. **A repeated identical search showed its offer cards twice.** **Fix:** one set of cards for each distinct report.
+150. **The chat's trip form replaced the chat page.** The conversation lived only in the page. **Fix:** the form opens
+     the plan in a new tab, says so, and carries the chat's locale so the plan's units match the chat's.
+151. **A travel answer could keep invented links when the question said "stay", "room" or "airport".** **Fix:** the
+     words that restrict an answer's links to returned evidence include airline, airport, ticket, motel, lodge,
+     resort, room and stay.
+152. **Trip-form turns pulled Performance's answer times down.** **Fix:** `chat.done` carries `tripForm=true` for
+     them, and the answer times leave them out.
+153. **No limit on a trip's dates or length.** A 2099 arrival or a 3,000-night stay still searched. **Fix:** travel
+     dates within 365 days; a stay at most 30 nights, in chat and in the planner.
+154. **A browser reporting only "de" or "fr" searched in dollars.** **Fix:** a language most of whose speakers use
+     the euro searches in EUR; "en" and others stay USD.
+155. **"Plan a trip to Zion next weekend" opened the form with no park chosen.** The resolver read the trip's details
+     as part of the place. **Fix:** when and with whom ("next weekend", "in December", "for my kids aged 5 and 8")
+     are removed before resolving; places such as "Zion, Illinois" still reach it whole.
+156. **Two tests passed for the wrong reason.** One found the flight link in the offer card, not the answer; one never
+     restricted links. **Fix:** the first reads the answer itself; the second also asks with a travel word.
+157. **The privacy line named only Gemini with travel on.** **Fix:** it adds which searches go to Kiwi.com and
+     trivago, and what they get: places, dates and party, never the question.
+158. **The architecture's time limits named only 8 s for a tool.** **Fix:** they name 14 s for a travel search, ending
+     12 s before the answer's deadline. Round 3 (146 to 158) was committed without running the test suite, at the
+     user's request; CI runs it.
+

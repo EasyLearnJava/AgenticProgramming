@@ -169,6 +169,8 @@ def render_page(request: Request, template: str, context: Mapping[str, object], 
         {
             "build_label": settings.build_label,
             "menu_groups": TRAVEL_MENU_GROUPS if planner_enabled else MENU_GROUPS,
+            "flights_enabled": settings.flights_enabled,
+            "hotels_enabled": settings.hotels_enabled,
             **context,
         },
         status_code=status_code,

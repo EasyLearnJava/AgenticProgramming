@@ -214,7 +214,13 @@ EURO_REGIONS: Final = frozenset(
 )
 
 
+# Languages most of whose speakers use the euro, for a browser that reports a language alone ("de", "fr").
+EURO_LANGUAGES: Final = frozenset({"bg", "de", "el", "et", "fi", "fr", "hr", "it", "lt", "lv", "mt", "nl", "sk", "sl"})
+
+
 def to_currency(locale: str) -> str:
     """The currency travel prices are searched in for a locale: GBP for en-GB, CAD for Canada, EUR in the euro area."""
     region = to_region(locale)
+    if not region:
+        return "EUR" if locale.split("-")[0].lower() in EURO_LANGUAGES else "USD"
     return {"GB": "GBP", "CA": "CAD"}.get(region, "EUR" if region in EURO_REGIONS else "USD")

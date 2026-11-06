@@ -163,5 +163,7 @@ class TravelTurn:
             return TravelReport(provider=provider, status="timeout")
         except ValidationError:
             return TravelReport(provider=provider, status="invalid_response")
-        except Exception:
+        except Exception as error:
+            # A code fault and an outage both show the visitor "unavailable"; the log tells them apart.
+            structlog.get_logger().warning("travel.error", provider=provider, errorClass=type(error).__name__)
             return TravelReport(provider=provider, status="unavailable")
