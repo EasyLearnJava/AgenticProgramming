@@ -10,6 +10,7 @@ from contextlib import AbstractAsyncContextManager, aclosing, asynccontextmanage
 from dataclasses import dataclass
 from typing import Any, cast
 from urllib.parse import urlsplit
+from uuid import UUID, uuid4
 
 import httpx2
 import structlog
@@ -63,11 +64,12 @@ BAD_KEY_REASON = "API_KEY_INVALID"
 
 @dataclass
 class AnswerStats:
-    """What the model reported about an answer: its tokens in and out, added up chunk by chunk, over all its calls."""
+    """Per-turn token counts, a weather lane failure, and the root ID when this turn starts a traced graph."""
 
     tokens_in: int = 0
     tokens_out: int = 0
     lane_error: NimbusError | None = None
+    trace_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -162,10 +164,13 @@ async def stream_answer(
     # start a paragraph of their own, rather than running on from "Let me check." (issue 53).
     wrote_words = break_due = False
     try:
-        with tracing_context(enabled=tracer is not None, client=client, project_name=project):
+        with tracing_context(enabled=tracer is not None, client=client, project_name=project, parent=False):
             # The run's stream is closed however this one ends, so no call to Gemini or Open-Meteo outlives the answer.
             # Two kinds of item: "messages", the model's chunks as it writes; "updates", each node's result as it ends.
             config = to_agent_config(lane)
+            if tracer is not None:
+                stats.trace_id = uuid4()
+                config["run_id"] = stats.trace_id
             run = agent.astream({"messages": list(messages)}, config, stream_mode=["messages", "updates"])
             stream = cast("AsyncGenerator[tuple[str, Any]]", run)
             async with aclosing(stream) as items:
@@ -199,6 +204,9 @@ async def stream_answer(
         if is_set_up_wrong(error):
             raise ConfigError from error
         raise ModelFailedError from error
+    finally:
+        if tracer is not None and stats.trace_id is not None:
+            tracer.defer_flush()
 
 
 def make_http_client() -> httpx2.AsyncClient:

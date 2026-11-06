@@ -62,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.nps_alerts = NpsAlertsService(settings.nps_api_key)
     app.state.alerts_gate = RetrievalGate()
     app.state.planner_gate = RetrievalGate()
+    app.state.trace_gate = RetrievalGate()
     app.state.travel_service = TravelService(
         flights=kiwi.search_flights if settings.flights_enabled else None,
         hotels=trivago.search_hotels if settings.hotels_enabled else None,

@@ -3,15 +3,22 @@ nimbus/model.py: the model that answers: Gemini, through LangChain's ChatGoogleG
 starts, with the caps on each answer; and LangSmith's client, which may trace its runs, hiding their inputs and outputs.
 """
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
+from threading import Lock
+from typing import Final
 
+import structlog
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langsmith import Client
+from vercel.functions import wait_until
 
 from nimbus.config import Settings
 from nimbus.constants import MAX_OUTPUT_TOKENS, MODEL_MAX_ATTEMPTS, MODEL_REQUEST_TIMEOUT_SECONDS, MODEL_THINKING
 from nimbus.utils import hide_error_text
+
+TRACE_FLUSH_SECONDS: Final = 2
 
 
 def make_chat_model(settings: Settings) -> BaseChatModel | None:
@@ -47,6 +54,37 @@ class Tracer:
 
     client: Client
     project: str | None
+    is_vercel: bool = False
+    _flush_lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
+
+    def defer_flush(self) -> None:
+        """Give Vercel time to send buffered runs after this chat, without delaying its answer."""
+        if self.is_vercel:
+            pending = self._flush_on_vercel()
+            try:
+                wait_until(pending)
+            except Exception:
+                pending.close()
+                structlog.get_logger().warning("trace.flush_failed")
+
+    async def _flush_on_vercel(self) -> None:
+        """Bound Vercel's wait and allow at most one SDK drain in flight per shared tracing client."""
+
+        def drain() -> None:
+            """Flush the shared client if another request is not already draining the same queue."""
+            # A compressed SDK batch also has a synchronous drain before its timed network wait. Even if that
+            # outlasts our deadline, it occupies at most one worker and the SDK keeps its normal background uploader.
+            if self._flush_lock.acquire(blocking=False):
+                try:
+                    self.client.flush(timeout=TRACE_FLUSH_SECONDS)
+                finally:
+                    self._flush_lock.release()
+
+        try:
+            async with asyncio.timeout(TRACE_FLUSH_SECONDS):
+                await asyncio.to_thread(drain)
+        except Exception:
+            structlog.get_logger().warning("trace.flush_failed")
 
 
 def make_tracer(settings: Settings) -> Tracer | None:
@@ -64,4 +102,4 @@ def make_tracer(settings: Settings) -> Tracer | None:
         hide_outputs=True,
         anonymizer=hide_error_text,
     )
-    return Tracer(client=client, project=settings.langsmith_project)
+    return Tracer(client=client, project=settings.langsmith_project, is_vercel=settings.is_vercel)

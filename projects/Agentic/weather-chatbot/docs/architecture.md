@@ -67,7 +67,8 @@ whether it used keyword or hybrid retrieval. [Step 16](step-16.md) describes reb
 - **What it's doing, in the open:** Activity, Performance, Evaluations and Health, read back from its own lines in
   Axiom: what happened, how long it took, how answers ended, which checks pass; never a question's words, or who
   asked (step 14). Each request a row that opens onto its timeline, and every row of the other pages a link to
-  its requests (step 15).
+  its requests (step 15). For a traced chat, Activity also links to a Nimbus view of the model and tool calls
+  recorded by LangSmith, with their start offsets, durations and failure statuses.
 - **Its own documentation:** in the menu, its links in groups, from each step's chapter to this page.
 
 ### For an operator or a developer

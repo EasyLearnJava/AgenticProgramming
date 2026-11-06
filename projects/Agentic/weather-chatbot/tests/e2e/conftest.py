@@ -9,10 +9,13 @@ import socket
 import threading
 import time
 from collections.abc import Iterator
+from datetime import UTC, datetime
+from uuid import UUID
 
 import httpx2
 import pytest
 import uvicorn
+from fastapi import FastAPI
 from pydantic import SecretStr
 
 from nimbus.app import create_app
@@ -20,11 +23,58 @@ from nimbus.axiom_query import AxiomQuery
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
 from nimbus.nps_alerts import NpsAlertsService
+from nimbus.observability import get_activity_trace_reader
+from nimbus.trace_view import TraceRow, TraceView
 from tests.fakes import PARIS_STEPS, AxiomRecordings, FakeCacheStore, FakeModel, OpenMeteoRecordings
 from tests.travel_fakes import travel_service
 
 STARTUP_SECONDS = 10
 POLL_SECONDS = 0.05
+
+
+def trace_recordings(app: FastAPI) -> AxiomRecordings:
+    """A recent traced request, one awaiting upload, and one recorded before trace correlation was enabled."""
+    ready = UUID("1cd9a312-dd4d-4696-ac81-9e3521b2d07a")
+    pending = UUID("2edb2101-262d-41ad-ba41-d71c8c9d128e")
+    traces = {"ready-11111111": ready, "pending-22222222": pending, "legacy-33333333": None}
+    now = datetime.now(UTC).isoformat()
+
+    async def fake_reader(_settings: Settings, trace_id: UUID) -> TraceView:
+        if trace_id == pending:
+            return TraceView(status="pending")
+        assert trace_id == ready
+        rows = (
+            TraceRow(kind="Agent", label="Nimbus agent", depth=0, offset_ms=0, elapsed_ms=950, status="Completed"),
+            TraceRow(kind="Model", label="Gemini", depth=1, offset_ms=30, elapsed_ms=880, status="Completed"),
+            TraceRow(
+                kind="Tool",
+                label="get_forecast",
+                depth=1,
+                offset_ms=920,
+                elapsed_ms=12,
+                status="Failed",
+                error="Tool call failed",
+            ),
+        )
+        return TraceView(status="ready", rows=rows)
+
+    app.dependency_overrides[get_activity_trace_reader] = lambda: fake_reader
+    return AxiomRecordings(
+        {
+            "summarize started = min(_time) by requestId": [{"requestId": key, "started": now} for key in traces],
+            "where requestId in (": [
+                {
+                    "requestId": key,
+                    "_time": now,
+                    "event": event,
+                    "lane": "rest-no-auth",
+                    "traceId": str(trace_id) if trace_id and event == "chat.done" else None,
+                }
+                for key, trace_id in traces.items()
+                for event in ("chat.request", "chat.done")
+            ],
+        }
+    )
 
 
 def _free_port() -> int:
@@ -90,7 +140,7 @@ def base_url(
         apify_token=None,
         axiom_token=None,
         axiom_dataset="weather-chatbot",
-        axiom_query_token=None,
+        axiom_query_token=SecretStr("xaat-query-test") if getattr(request, "param", None) == "trace" else None,
         sentry_dsn=None,
         nps_api_key=None,
         flights_enabled=getattr(request, "param", None) in {"travel", "flights-only"},
@@ -129,7 +179,7 @@ def base_url(
         SecretStr("synthetic-nps-key"), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(notices))
     )
     # And Axiom's query door, played back with its recorded rows, for the Observability pages (step 14).
-    axiom = AxiomRecordings()
+    axiom = trace_recordings(app) if getattr(request, "param", None) == "trace" else AxiomRecordings()
     token = SecretStr("xaat-query-test")
     app.state.axiom_query = AxiomQuery(token, lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(axiom)))
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")

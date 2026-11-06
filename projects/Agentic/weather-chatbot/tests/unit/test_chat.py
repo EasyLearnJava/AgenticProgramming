@@ -204,6 +204,7 @@ def test_logs_the_question_s_length_and_the_answer_s_never_their_text(client: Te
     assert (done["tokensIn"], done["tokensOut"]) == (TOKENS_IN, TOKENS_OUT)
     assert done["model"] == "gemini-3.5-flash-lite"
     assert done["requestId"] == VERCEL_ID
+    assert "traceId" not in done
     assert isinstance(done["ms"], int)
     assert "private" not in str(lines)
     assert "forecasts" not in str(lines)

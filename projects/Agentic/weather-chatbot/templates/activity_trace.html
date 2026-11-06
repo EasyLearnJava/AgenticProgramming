@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}LangSmith trace · Activity · Nimbus{% endblock %}
+{% block content %}
+<main class="doc obs">
+  <p><a href="/activity">Back to Activity</a></p>
+  <h1>LangSmith trace</h1>
+  {% if ref %}<p class="obs-about">Request ref {{ ref }}</p>{% endif %}
+  {% if trace.status == "ready" %}
+  <h2 id="calls">Call timeline</h2>
+  <p class="obs-about" id="trace-timing">Start times are relative to the start of this trace.
+    Indented calls ran inside their parent call.</p>
+  <table class="trace-calls" aria-labelledby="calls" aria-describedby="trace-timing">
+    <thead>
+      <tr>
+        <th scope="col">Call</th><th scope="col">Start</th><th scope="col">Duration</th><th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in trace.rows %}
+      <tr>
+        <td>
+          <div class="trace-call" data-depth="{{ [row.depth, 3]|min }}">
+            <span class="trace-kind">
+              {{ row.kind }}<span class="visually-hidden">, level {{ row.depth + 1 }}</span>
+            </span>
+            {{ row.label }}
+          </div>
+        </td>
+        <td>+{{ "{:,}".format(row.offset_ms) }} ms</td>
+        <td>{% if row.elapsed_ms is not none %}{{ "{:,}".format(row.elapsed_ms) }} ms{% else %}Unknown{% endif %}</td>
+        <td>
+          <span{% if row.status == "Failed" %} class="obs-fail"{% endif %}>{{ row.status }}</span>
+          {% if row.error %}<span class="trace-error">{{ row.error }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if trace.truncated %}<p class="obs-about">Additional calls were omitted from this view.</p>{% endif %}
+  {% elif trace.status == "pending" %}
+  <p class="obs-notice" role="note">LangSmith has no visible calls for this trace yet.
+    If the chat just finished, give it a moment and refresh.</p>
+  {% elif trace.status == "disabled" %}
+  <p class="obs-notice" role="note">LangSmith tracing is disabled in this environment.</p>
+  {% elif trace.status == "denied" %}
+  <p class="obs-notice" role="note">LangSmith denied Nimbus read access. Check that the deployment’s API key
+    can read the configured tracing project.</p>
+  {% elif trace.status == "busy" %}
+  <p class="obs-notice" role="note">Nimbus has reached its trace request limit. Wait a moment before refreshing.</p>
+  {% else %}
+  <p class="obs-notice" role="note">Nimbus could not read the trace from LangSmith. The request timeline
+    is still available in Activity.</p>
+  {% endif %}
+  {% if trace.status != "disabled" %}<p><a href="{{ request.url.path }}">Refresh trace</a></p>{% endif %}
+</main>
+{% endblock %}

@@ -6,9 +6,11 @@ our MCP server or to Apify holds either word; Apify gets the point, rounded, and
 And LangSmith, when tracing is on, gets neither word, even of a run that failed (issue 68).
 """
 
+import asyncio
 import json
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Coroutine, Mapping, MutableMapping
 from typing import Any
+from uuid import UUID
 
 import httpx2
 import pytest
@@ -129,10 +131,11 @@ class KeepingClient(Client):
         return response
 
 
-def test_langsmith_gets_neither_word_even_of_a_run_that_failed(
+@pytest.fixture
+def traced_app(
     settings: Settings, chat_model: FakeModel, open_meteo: OpenMeteoRecordings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # A tool input our check refuses fails its run, and the run's error, pydantic's words, quotes the input.
+) -> FastAPI:
+    """A chat running the real graph and tracing SDK with a recorder in place of LangSmith."""
     monkeypatch.setattr(model, "Client", KeepingClient)
     tracing = {
         "langsmith_tracing": True,
@@ -140,11 +143,15 @@ def test_langsmith_gets_neither_word_even_of_a_run_that_failed(
         "langsmith_hide_inputs": True,
         "langsmith_hide_outputs": True,
     }
-    app = make_app(settings.model_copy(update=tracing), chat_model, open_meteo, ApifyRecordings(), [])
+    return make_app(settings.model_copy(update=tracing), chat_model, open_meteo, ApifyRecordings(), [])
+
+
+def test_langsmith_gets_neither_word_even_of_a_run_that_failed(traced_app: FastAPI, chat_model: FakeModel) -> None:
+    # A tool input our check refuses fails its run, and the run's error, pydantic's words, quotes the input.
     chat_model.tool_steps = [[{"name": "geocode_location", "args": {"query": f"Paris {QUESTION_WORD} " + "x" * 120}}]]
-    ask(app, "rest-no-auth")
+    ask(traced_app, "rest-no-auth")
     wait_for_all_tracers()
-    runs = app.state.tracer.client.kept_runs
+    runs = traced_app.state.tracer.client.kept_runs
     assert {run["error"] for run in runs if run.get("error")} == {"hidden"}
     for run in runs:
         # A run's serialized model is the stand-in's own repr, which holds the tool calls it was given to make; the
@@ -153,3 +160,65 @@ def test_langsmith_gets_neither_word_even_of_a_run_that_failed(
         sent = json.dumps(run)
         assert QUESTION_WORD not in sent
         assert HISTORY_WORD not in sent
+
+
+def test_activity_id_matches_the_sdk_root_and_its_children_for_success_and_failure(
+    traced_app: FastAPI, chat_model: FakeModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each question gets its own root even if the caller supplies the same request ID twice."""
+    external_id = "b242283d-50ae-48d4-9ee6-29617632c206"
+    trace_ids = set()
+    waiting: list[Coroutine[Any, Any, None]] = []
+    monkeypatch.setattr(model, "wait_until", waiting.append)
+    with TestClient(traced_app) as client:
+        for outcome in ("done", "failed"):
+            if outcome == "failed":
+                chat_model.fail_after_first_word = RuntimeError("private detail")
+            with capture_logs() as lines:
+                response = client.post("/api/chat", data={"question": "Paris?"}, headers={"x-vercel-id": external_id})
+            [ending] = [line for line in lines if line["event"] == f"chat.{outcome}"]
+            trace_id = ending["traceId"]
+            assert UUID(trace_id).version == 4
+            assert trace_id != external_id
+            assert trace_id not in response.text
+            trace_ids.add(trace_id)
+            wait_for_all_tracers()
+            runs = [run for run in traced_app.state.tracer.client.kept_runs if run.get("trace_id") == trace_id]
+            assert any(run.get("name") == "nimbus" and run["id"] == trace_id for run in runs)
+            kinds = {run["run_type"] for run in runs if run.get("parent_run_id") and "run_type" in run}
+            assert "llm" in kinds
+            if outcome == "done":
+                assert "tool" in kinds
+    assert len(trace_ids) == 2
+    assert waiting == []
+
+
+def test_vercel_defers_a_bounded_sdk_flush_only_for_a_traced_question(
+    traced_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Vercel can finish sending a trace after the answer; a flush failure exposes none of its text."""
+    settings = traced_app.state.settings.model_copy(update={"flights_enabled": True, "is_vercel": True})
+    traced_app.state.settings = settings
+    traced_app.state.tracer = model.make_tracer(settings)
+    waiting: list[Coroutine[Any, Any, None]] = []
+    timeouts: list[float | None] = []
+
+    def broken_flush(_client: Client, timeout: float | None = None) -> None:
+        timeouts.append(timeout)
+        raise RuntimeError("private provider detail")
+
+    monkeypatch.setattr(model, "wait_until", waiting.append)
+    monkeypatch.setattr(KeepingClient, "flush", broken_flush)
+    with TestClient(traced_app) as client, capture_logs() as lines:
+        intake = client.post("/api/chat", data={"question": "Plan a trip to Zion National Park"})
+        assert 'action="/api/parks/trip"' in intake.text
+        assert waiting == []
+        assert all("traceId" not in line for line in lines)
+        answer = client.post("/api/chat", data={"question": "Paris?"})
+        assert answer.status_code == 200
+        [task] = waiting
+        assert timeouts == []
+        asyncio.run(task)
+        assert timeouts == [2]
+    assert any(line["event"] == "chat.done" and "traceId" in line for line in lines)
+    assert "private provider detail" not in str(lines)

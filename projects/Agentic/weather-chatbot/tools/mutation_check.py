@@ -1975,6 +1975,46 @@ TRAVEL_MUTATIONS = (
     ),
 )
 MUTATIONS += TRAVEL_MUTATIONS
+TRACE_MUTATIONS = (
+    Mutation(
+        "nimbus/answer.py",
+        'config["run_id"] = stats.trace_id',
+        'config["run_id"] = uuid4()',
+        "trace correlation joins the same graph root",
+    ),
+    Mutation(
+        "nimbus/trace_links.py",
+        "if not hmac.compare_digest(",
+        "if False and not hmac.compare_digest(",
+        "trace links reject a changed root or ref",
+    ),
+    Mutation(
+        "nimbus/trace_links.py", "if int(expires) <= now.timestamp():", "if False:", "trace links expire with Activity"
+    ),
+    Mutation("nimbus/trace_view.py", "or span.project_id != project_id", "", "trace reads reject another project"),
+    Mutation(
+        "nimbus/trace_view.py",
+        'span.name if span.name in TRACE_TOOL_NAMES else "Tool call"',
+        "span.name",
+        "trace names expose only known tools",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        "follow_redirects=False",
+        "follow_redirects=True",
+        "trace reads keep credentials on the configured host",
+    ),
+    Mutation(
+        "nimbus/model.py",
+        "self.client.flush(timeout=TRACE_FLUSH_SECONDS)",
+        "self.client.flush()",
+        "trace flushing has a bounded SDK wait",
+    ),
+)
+MUTATIONS += TRACE_MUTATIONS
+TESTS_FOR["nimbus/answer.py"] += ("test_privacy.py",)
+TESTS_FOR["nimbus/trace_links.py"] = ("test_activity_traces.py",)
+TESTS_FOR["nimbus/trace_view.py"] = ("test_trace_view.py",)
 for _travel_module in ("providers", "mcp_client", "kiwi", "trivago"):
     TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_providers.py",)
 for _travel_module in ("service", "models"):
@@ -2032,6 +2072,7 @@ def main() -> int:
     parser.add_argument("--parks", action="store_true", help="Check the park rules and affected prompt guards")
     parser.add_argument("--knowledge", action="store_true", help="Check the knowledge browser safeguards")
     parser.add_argument("--retrieval", action="store_true", help="Check the retrieval playground diagnostics")
+    parser.add_argument("--traces", action="store_true", help="Check Activity trace correlation, access and privacy")
     args = parser.parse_args()
     selected = (
         tuple(
@@ -2045,6 +2086,8 @@ def main() -> int:
     )
     if args.travel:
         selected = TRAVEL_MUTATIONS
+    if args.traces:
+        selected = TRACE_MUTATIONS
     if args.knowledge:
         selected = tuple(m for m in MUTATIONS if m.file in {"nimbus/knowledge.py", "templates/knowledge_chunks.html"})
     if args.retrieval:

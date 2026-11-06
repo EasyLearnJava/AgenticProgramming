@@ -303,6 +303,7 @@ async def stream_turn(
             "tokensIn": stats.tokens_in,
             "tokensOut": stats.tokens_out,
             "model": model_name,
+            **({"traceId": str(stats.trace_id)} if stats.trace_id is not None else {}),
         }
 
     def final_chips() -> list[ToolChip]:

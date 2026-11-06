@@ -1,5 +1,25 @@
 # Technical Details
 
+## LangSmith traces in Activity
+
+Open **Observability → Activity**, expand a chat request and choose **View LangSmith trace**. Nimbus shows
+the agent, its model and tool calls, when each started, how long it took and which calls reported an error.
+The Axiom timeline on the request also shows fallbacks or upstream failures handled inside a completed call.
+
+Every newly traced graph starts with a random root UUID. Nimbus records it on the chat's ending event.
+A signed link ties that root and the short request ref to the Activity dataset and tracing project for seven days.
+Opening the link reads just that trace from LangSmith. The Activity list makes no LangSmith calls.
+Requests recorded before this link existed still have their Axiom timeline. Refresh the trace if its upload is pending.
+
+On Vercel, enable `LANGSMITH_TRACING=true`, `LANGSMITH_HIDE_INPUTS=true` and `LANGSMITH_HIDE_OUTPUTS=true`.
+The server uses the existing `LANGSMITH_API_KEY` for tracing and to read the configured `LANGSMITH_PROJECT`.
+The deployment also needs Activity's existing Axiom ingest token, query token and dataset. To check a deployment,
+ask a fresh weather question, open its Activity row and compare the tool names with those in the chat.
+
+Trace reads have a five-second deadline and a 512 KiB response limit. Each app instance allows two simultaneous
+reads and twelve per caller per minute. The public view receives only known labels, timing, nesting and status.
+Questions, answers, arguments, tool results and raw error text stay out of the trace view.
+
 ## Read-only travel searches, step 18
 
 The app injects the enabled Kiwi and trivago callables into a `TravelService`. A `TravelTurn` validates the

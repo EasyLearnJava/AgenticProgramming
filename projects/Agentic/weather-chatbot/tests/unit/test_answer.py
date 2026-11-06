@@ -213,13 +213,13 @@ def test_with_a_tracer_the_run_is_traced_by_its_client_into_its_project(monkeypa
     # The client hides inputs and outputs itself (issue 34); the project is the app's setting, not only the
     # environment's (issue 42).
     tracer = Tracer(client=cast("Client", object()), project="nimbus-tests")
-    expected = {"enabled": True, "client": tracer.client, "project_name": "nimbus-tests"}
+    expected = {"enabled": True, "client": tracer.client, "project_name": "nimbus-tests", "parent": False}
     assert traced_with(monkeypatch, tracer) == [expected]
 
 
 def test_without_a_tracer_tracing_is_off_whatever_the_environment_says(monkeypatch: pytest.MonkeyPatch) -> None:
     # LangChain would trace by itself whenever LANGSMITH_TRACING is set (issue 33).
-    assert traced_with(monkeypatch, None) == [{"enabled": False, "client": None, "project_name": None}]
+    assert traced_with(monkeypatch, None) == [{"enabled": False, "client": None, "project_name": None, "parent": False}]
 
 
 def test_the_limits_are_1024_tokens_a_call_5_calls_and_30_seconds() -> None:

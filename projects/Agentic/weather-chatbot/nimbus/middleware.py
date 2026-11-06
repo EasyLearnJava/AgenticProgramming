@@ -77,7 +77,7 @@ class RequestContextMiddleware:
                 # ④ One line when the request ends, however it ends; a failure that reached here says its class.
                 fields = {
                     "method": scope["method"],
-                    "path": scope["path"],
+                    "path": "/activity/trace" if scope["path"].startswith("/activity/trace/") else scope["path"],
                     "status": status,
                     "ms": to_ms(time.perf_counter() - started),
                 }

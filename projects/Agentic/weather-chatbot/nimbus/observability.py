@@ -13,15 +13,16 @@ answer is never kept.
 import asyncio
 import re
 import time
-from collections.abc import Container, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Container, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from http import HTTPStatus
-from typing import Final
+from typing import Annotated, Final
 from urllib.parse import urlencode
+from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import ValidationError
 from starlette.datastructures import State
@@ -42,8 +43,12 @@ from nimbus.errors import AXIOM_NOT_CONNECTED, NimbusError, ObservabilityError
 from nimbus.goldens import LastRun, read_goldens, read_last_run
 from nimbus.health import to_report
 from nimbus.lanes import LANES
+from nimbus.model import is_tracing_allowed
 from nimbus.pages import render_page
+from nimbus.retrieval_gate import RetrievalGate
 from nimbus.tools import WEATHER_TOOLS
+from nimbus.trace_links import resolve_trace_link, trace_url
+from nimbus.trace_view import TRACE_TOOL_NAMES, TraceView, read_trace
 from nimbus.utils import to_ms, to_ref
 
 router = APIRouter()
@@ -53,16 +58,7 @@ MS_PER_SECOND = 1000
 HTTP_CLIENT_ERROR = 400
 HTTP_SERVER_ERROR = 500
 LANE_LABELS: Final = {lane.id: lane.label for lane in LANES}
-TOOL_NAMES: Final = frozenset(tool.name for tool in WEATHER_TOOLS) | {
-    "resolve_destination",
-    "search_park_guidance",
-    "retrieval_playground",
-    "get_park_alerts",
-    "park_alerts",
-    "search_flights",
-    "search_hotels",
-    "park_trip_plan",
-}
+TOOL_NAMES: Final = TRACE_TOOL_NAMES | {"retrieval_playground", "park_alerts", "park_trip_plan"}
 CHECK_LABELS: Final = {
     "open-meteo": "Open-Meteo",
     "our-mcp": "Our MCP server",
@@ -144,6 +140,7 @@ TIMELINE_FIELDS: Final = (
     "deduplicated",
     "failedSections",
     "missingSections",
+    "traceId",
 )
 
 
@@ -681,6 +678,8 @@ class ActivityRequest:
     summary: ActivityLine
     ref: str
     steps: list[tuple[str, ActivityLine]]
+    is_chat: bool
+    trace_url: str | None
 
 
 def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLine:
@@ -730,7 +729,9 @@ def to_request_ids(rows: Sequence[Row]) -> list[str]:
     return list(dict.fromkeys(request_id for request_id in found if REQUEST_ID_PATTERN.fullmatch(request_id)))
 
 
-def to_activity_requests(request_ids: Sequence[str], rows: Sequence[Row]) -> list[ActivityRequest]:
+def to_activity_requests(
+    request_ids: Sequence[str], rows: Sequence[Row], settings: Settings | None = None
+) -> list[ActivityRequest]:
     """
     Each request the first query found, the latest begun first, with every line of its own the second query found,
     in the order they were written; a request none of whose lines a timeline shows is left out.
@@ -741,6 +742,7 @@ def to_activity_requests(request_ids: Sequence[str], rows: Sequence[Row]) -> lis
         if line is not None:
             lines.setdefault(to_words(row, "requestId"), []).append((row, line))
     requests = []
+    now = datetime.now(UTC)
     for request_id in request_ids:
         found = sorted(lines.get(request_id, []), key=lambda item: item[1].at)
         if not found:
@@ -748,7 +750,17 @@ def to_activity_requests(request_ids: Sequence[str], rows: Sequence[Row]) -> lis
         rows_of, lines_of = [row for row, _line in found], [line for _row, line in found]
         start = lines_of[0].at
         steps = [(f"+{to_duration((line.at - start) / timedelta(milliseconds=1))}", line) for line in lines_of]
-        requests.append(ActivityRequest(start, to_summary(rows_of, lines_of), to_ref(request_id), steps))
+        ref = to_ref(request_id)
+        is_chat = any(row.get("event") in QUESTION_EVENTS for row in rows_of)
+        # A server-minted root appears only on a traced chat ending. Ambiguous/reused request IDs have no link.
+        endings = [(row, line) for row, line in found if row.get("event") in ENDING_EVENTS]
+        beginnings = [line.at for row, line in found if row.get("event") == "chat.request"]
+        href = None
+        if settings is not None and len(beginnings) == len(endings) == 1:
+            ending, _ = endings[0]
+            if ending.get("event") in ("chat.done", "chat.failed", "chat.aborted"):
+                href = trace_url(settings, to_words(ending, "traceId"), beginnings[0], ref, now)
+        requests.append(ActivityRequest(start, to_summary(rows_of, lines_of), ref, steps, is_chat, href))
     # By when each began: the first query found each by the line that picked it, which may come later.
     return sorted(requests, key=lambda request: request.at, reverse=True)
 
@@ -915,12 +927,13 @@ async def activity_page(
     if is_cut:
         oldest = min(lines, key=lambda row: to_moment(row, "_time") or datetime.max.replace(tzinfo=UTC))
         request_ids = [request_id for request_id in request_ids if request_id != to_words(oldest, "requestId")]
-    requests = to_activity_requests(request_ids, lines)
+    requests = to_activity_requests(request_ids, lines, request.app.state.settings)
     narrowed = [narrowing.words] if narrowing is not None else []
     if on_day is not None:
         narrowed.append(to_day_words(on_day))
     context = {
         "title": "Activity",
+        "tracing_enabled": is_tracing_allowed(request.app.state.settings),
         "show": show,
         "tabs": [(label, to_activity_href(view, day=day), view == show) for view, label in ACTIVITY_TABS],
         "narrowed": narrowed,
@@ -933,6 +946,41 @@ async def activity_page(
         "requests_cap": ACTIVITY_REQUESTS,
     }
     return respond(request, "activity.html", context, answers.notice is None)
+
+
+type TraceReader = Callable[[Settings, UUID], Awaitable[TraceView]]
+
+
+def get_activity_trace_reader() -> TraceReader:
+    """The server-side reader used only when a visitor opens a trace."""
+    return read_trace
+
+
+@router.get("/activity/trace/{handle}", response_class=HTMLResponse)
+async def activity_trace_page(
+    request: Request, handle: str, reader: Annotated[TraceReader, Depends(get_activity_trace_reader)]
+) -> HTMLResponse:
+    """Read the signed Activity row's trace on demand, with independent capacity for these public requests."""
+    settings: Settings = request.app.state.settings
+    link = resolve_trace_link(settings, handle, datetime.now(UTC))
+    if link is None:
+        response = render_page(request, "not_found.html", {}, status_code=HTTPStatus.NOT_FOUND)
+    else:
+        trace_id, ref = link
+        context: dict[str, object] = {"title": "LangSmith trace", "ref": ref, "menu_path": "/activity"}
+        gate: RetrievalGate = request.app.state.trace_gate
+        try:
+            async with gate.reserve(request.client.host if request.client else "unknown"):
+                context["trace"] = await reader(settings, trace_id)
+            response = render_page(request, "activity_trace.html", context)
+        except HTTPException as error:
+            if error.status_code != HTTPStatus.TOO_MANY_REQUESTS:
+                raise
+            context["trace"] = {"status": "busy"}
+            response = render_page(request, "activity_trace.html", context, status_code=error.status_code)
+            response.headers.update(error.headers or {})
+    response.headers["cache-control"] = NO_STORE
+    return response
 
 
 def to_day_words(day: date) -> str:

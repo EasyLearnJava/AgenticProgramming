@@ -11,9 +11,11 @@
 {% block content %}
 <main class="doc obs">
   <h1>{{ title }}</h1>
-  <p class="obs-lead">The app's latest requests in Axiom, from the last 7 days: each question, from its first line to
-    its last, and each health run, under Health. Open a row to see its timeline. Never a question's words, or who
-    asked. Times in UTC.</p>
+  <p class="obs-lead">Open a request to see its timeline. Traced chats also include a LangSmith view of model and
+    tool calls. Activity covers the last 7 days in Axiom. Times are in UTC.</p>
+  {% if show == "questions" and not tracing_enabled %}
+  <p class="obs-about">LangSmith tracing is off for new chats in this environment.</p>
+  {% endif %}
   <nav class="obs-tabs" aria-label="Views">
     {% for label, href, is_current in tabs %}
     <a class="obs-tab" href="{{ href }}"{% if is_current %} aria-current="page"{% endif %}>{{ label }}</a>
@@ -57,6 +59,12 @@
             {% endfor %}
           </ol>
           <p class="obs-ref">Ref {{ item.ref }}: the one an error's sentence ends with.</p>
+          {% if item.trace_url %}
+          <p class="obs-trace-link"><a href="{{ item.trace_url }}">View LangSmith trace<span class="visually-hidden">
+            for request {{ item.ref }}</span></a></p>
+          {% elif item.is_chat %}
+          <p class="obs-ref">No linked LangSmith trace for this request.</p>
+          {% endif %}
         </details>
       </li>
       {% endfor %}
