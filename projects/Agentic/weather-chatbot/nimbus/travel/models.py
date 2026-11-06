@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Final, Literal, Self
 
@@ -44,11 +44,6 @@ type PriceLimit = Annotated[int, Field(gt=0, le=10_000_000, strict=True)]
 type FlightPlace = Annotated[
     Place, Field(description="A three-letter airport code for one airport, or the city's name for all its airports.")
 ]
-
-
-def within_a_year(day: date) -> bool:
-    """Whether a travel date is at most a year ahead, counting a day more for the time zones ahead of UTC."""
-    return day <= datetime.now(UTC).date() + timedelta(days=MAX_DAYS_AHEAD + 1)
 
 
 def _date_value(value: object) -> object:
@@ -98,8 +93,6 @@ class FlightSearch(_Search):
             raise ValueError("origin and destination must be different")
         if self.return_date is not None and self.return_date < self.departure_date:
             raise ValueError("return must be on or after departure")
-        if not within_a_year(self.return_date or self.departure_date):
-            raise ValueError(f"travel dates must be within {MAX_DAYS_AHEAD} days")
         if self.adults + self.children > 9 or self.infants > self.adults:
             raise ValueError("at most nine seated passengers and one infant per adult")
         return self
@@ -126,8 +119,8 @@ class HotelSearch(_Search):
             raise ValueError("provide either a destination or coordinates")
         if self.check_out <= self.check_in:
             raise ValueError("check-out must follow check-in")
-        if (self.check_out - self.check_in).days > MAX_STAY_NIGHTS or not within_a_year(self.check_out):
-            raise ValueError(f"a stay is at most {MAX_STAY_NIGHTS} nights, within {MAX_DAYS_AHEAD} days")
+        if (self.check_out - self.check_in).days > MAX_STAY_NIGHTS:
+            raise ValueError(f"a stay is at most {MAX_STAY_NIGHTS} nights")
         if self.rooms > self.adults:
             raise ValueError("each room requires an adult")
         return self

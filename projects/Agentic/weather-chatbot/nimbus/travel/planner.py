@@ -16,7 +16,7 @@ from nimbus.nps_alerts import PARKS, AlertsReport, NpsAlertsService, ParkId
 from nimbus.park_tools import KnowledgeService
 from nimbus.parks import Destination, ParkChunk
 from nimbus.tools import Day, ForecastOutput
-from nimbus.travel.models import MAX_STAY_NIGHTS, FlightSearch, HotelSearch, SearchDate, TravelReport, within_a_year
+from nimbus.travel.models import MAX_STAY_NIGHTS, FlightSearch, HotelSearch, SearchDate, TravelReport
 from nimbus.travel.service import TravelTurn
 
 PlaceText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
@@ -56,8 +56,8 @@ class ParkTrip(BaseModel):
         """Reject reversed dates and ambiguous flight endpoints before any lookups."""
         if self.departure <= self.arrival:
             raise ValueError("Check-out must follow check-in.")
-        if (self.departure - self.arrival).days > MAX_STAY_NIGHTS or not within_a_year(self.departure):
-            raise ValueError(f"Choose a stay of at most {MAX_STAY_NIGHTS} nights, within the next year.")
+        if (self.departure - self.arrival).days > MAX_STAY_NIGHTS:
+            raise ValueError(f"Choose a stay of at most {MAX_STAY_NIGHTS} nights.")
         if self.transport == "fly" and (
             not self.origin or not self.gateway or self.origin.casefold() == self.gateway.casefold()
         ):

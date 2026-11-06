@@ -18,6 +18,7 @@ from nimbus.pages import render_page
 from nimbus.parks import Destination
 from nimbus.retrieval_gate import RetrievalGate
 from nimbus.tools import GET_FORECAST, ForecastInput, ForecastOutput
+from nimbus.travel.models import MAX_DAYS_AHEAD
 from nimbus.travel.planner import ParkPlan, ParkTrip, make_plan, park_destination
 from nimbus.travel.service import TravelService
 from nimbus.utils import is_usable_locale, to_browser_locale, to_unit_system
@@ -126,6 +127,8 @@ async def build_trip(request: Request) -> HTMLResponse:
         )
         if trip.arrival < today:
             return _render(request, fields, error="Choose today or a future date at the park for check-in.", status=400)
+        if trip.arrival > today + timedelta(days=MAX_DAYS_AHEAD):
+            return _render(request, fields, error="Choose a check-in date within the next year.", status=400)
         flight_query = trip.flight() if trip.transport == "fly" else None
         hotel_query = trip.hotel(destination) if state.settings.hotels_enabled else None
         gate: RetrievalGate = state.planner_gate

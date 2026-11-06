@@ -4,14 +4,22 @@ import asyncio
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from threading import BoundedSemaphore
 from typing import Final
 
 import structlog
 from pydantic import ValidationError
 
-from nimbus.travel.models import TRAVEL_TIMEOUT_SECONDS, FlightSearch, HotelSearch, Provider, TravelReport, TravelStatus
+from nimbus.travel.models import (
+    MAX_DAYS_AHEAD,
+    TRAVEL_TIMEOUT_SECONDS,
+    FlightSearch,
+    HotelSearch,
+    Provider,
+    TravelReport,
+    TravelStatus,
+)
 from nimbus.utils import to_ms
 
 # Distinct searches allowed per provider in a single answer, shared by the planner and individual tools.
@@ -89,7 +97,7 @@ class TravelTurn:
 
     def _refusal(self, provider: Provider, departure: date) -> TravelStatus | None:
         """Check the date, remaining answer time, upstream throttle and per-provider query budget."""
-        if departure < self.today:
+        if departure < self.today or departure > self.today + timedelta(days=MAX_DAYS_AHEAD):
             return "invalid_input"
         if asyncio.get_running_loop().time() >= self._deadline:
             return "timeout"

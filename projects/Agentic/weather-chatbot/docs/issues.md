@@ -851,7 +851,7 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 152. **Trip-form turns pulled Performance's answer times down.** **Fix:** `chat.done` carries `tripForm=true` for
      them, and the answer times leave them out.
 153. **No limit on a trip's dates or length.** A 2099 arrival or a 3,000-night stay still searched. **Fix:** travel
-     dates within 365 days; a stay at most 30 nights, in chat and in the planner.
+     a search more than 365 days after the visitor's today is refused, as a past date is; a plan's check-in within the next year; a stay at most 30 nights. The year limit sits in the search, not the models, so tests may still build far synthetic dates (CI failed on that once).
 154. **A browser reporting only "de" or "fr" searched in dollars.** **Fix:** a language most of whose speakers use
      the euro searches in EUR; "en" and others stay USD.
 155. **"Plan a trip to Zion next weekend" opened the form with no park chosen.** The resolver read the trip's details
