@@ -1,5 +1,21 @@
 # Technical Details
 
+## Read-only travel searches, step 18
+
+The app injects the enabled Kiwi and trivago callables into a `TravelService`. A `TravelTurn` validates the
+calendar date, owns two distinct searches per provider, and shares duplicate in-flight and completed results.
+The same process allows at most two concurrent lookups per provider. Lookup sessions are private to their
+request. The SDK negotiates the supported MCP protocol, lists allowed operations and calls the requested one.
+Each HTTP response is capped at one MiB. Calls have a 14-second budget including setup and use the earlier
+answer or planner deadline. Health uses discovery only and has a six-second provider deadline.
+
+Each adapter validates structured content (or a single JSON text payload) into up to five offers. The hotel
+adapter distinguishes nightly prices from the total for the stay. The flight adapter checks each leg's date and
+labels the total for the party. Only eligible URLs from the provider may become offer links. Search parameters,
+opaque booking links and raw provider replies stay out of logs. The browser receives validated offer URLs directly.
+The model receives bounded offer facts with the booking URLs removed. Activity uses `travel.call` and `travel.plan`
+with status, counts and timing. See [Step 18](step-18.md) for live provider evidence and preview checks.
+
 ## Official park notices, step 17
 
 GET `/parks/alerts` displays a selector without an NPS request. POST `/api/parks/alerts` accepts one known park,

@@ -21,17 +21,24 @@ from nimbus.apify import check_apify_token, open_apify_mcp
 from nimbus.auth_lanes import NEEDS_A_LOOK
 from nimbus.config import Settings
 from nimbus.constants import HEALTH_CACHE_CONTROL, HEALTH_CHECK_SECONDS, HEALTH_PLACE, HEALTH_RUN_SECONDS, NO_STORE
-from nimbus.errors import ContractError, UpstreamError, UpstreamTimeoutError, UpstreamUnavailableError
+from nimbus.errors import (
+    ContractError,
+    UpstreamError,
+    UpstreamRateLimitedError,
+    UpstreamTimeoutError,
+    UpstreamUnavailableError,
+)
 from nimbus.lanes import LaneId
 from nimbus.mcp_lane import open_mcp_runs
 from nimbus.open_meteo import OpenMeteoClient
 from nimbus.parks import ParkKnowledge
+from nimbus.travel.mcp_client import TravelProviderError, check_provider
 from nimbus.utils import to_iso, to_ms
 
 router = APIRouter()
 log = structlog.get_logger()
 
-type CheckName = Literal["open-meteo", "our-mcp", "apify-rest", "apify-mcp", "park-index"]
+type CheckName = Literal["open-meteo", "our-mcp", "apify-rest", "apify-mcp", "park-index", "kiwi-mcp", "trivago-mcp"]
 type Status = Literal["ok", "down", "off"]
 # A check passes when it returns, within its time; None is a check that's off (no token).
 type Check = Callable[[], Awaitable[None]] | None
@@ -76,6 +83,13 @@ class HealthReport:
 
 def to_failure(error: Exception) -> UpstreamError:
     """A check's failure as one of our errors: as it is, if it's one; past its time, a timeout; else unavailable."""
+    if isinstance(error, TravelProviderError):
+        return {
+            "timeout": UpstreamTimeoutError,
+            "invalid_response": ContractError,
+            "rate_limited": UpstreamRateLimitedError,
+            "unavailable": UpstreamUnavailableError,
+        }[error.reason]()
     if isinstance(error, UpstreamError):
         return error
     return UpstreamTimeoutError() if isinstance(error, TimeoutError) else UpstreamUnavailableError()
@@ -127,7 +141,9 @@ async def check_lanes(checks: Mapping[CheckName, Check], failing: dict[CheckName
     runs = (run_check(name, checks[name], failing) for name in names)
     results = dict(zip(names, await asyncio.gather(*runs), strict=True))
     lanes = {lane: to_lane_status(lane, results) for lane in CHECKS_BY_LANE}
-    status: Literal["ok", "down"] = "down" if any(result.status == "down" for result in results.values()) else "ok"
+    # Optional search providers have individual readiness results. Weather uptime tracks core dependencies.
+    core = (result for name, result in results.items() if name not in {"kiwi-mcp", "trivago-mcp"})
+    status: Literal["ok", "down"] = "down" if any(result.status == "down" for result in core) else "ok"
     log.info("health.done", status=status, ms=to_ms(time.perf_counter() - started), lanes=lanes)
     return HealthReport(status, results, lanes)
 
@@ -168,13 +184,18 @@ def make_checks(request: Request, mcp_url: str | None) -> dict[CheckName, Check]
         if not isinstance(state.park_knowledge, ParkKnowledge) or not state.park_knowledge.available:
             raise ContractError
 
-    return {
+    checks: dict[CheckName, Check] = {
         "open-meteo": open_meteo,
         "our-mcp": our_mcp,
         "apify-rest": apify_rest if token is not None else None,
         "apify-mcp": apify_mcp if token is not None else None,
         "park-index": park_index if settings.parks_enabled else None,
     }
+    if settings.flights_enabled:
+        checks["kiwi-mcp"] = lambda: check_provider("kiwi")
+    if settings.hotels_enabled:
+        checks["trivago-mcp"] = lambda: check_provider("trivago")
+    return checks
 
 
 @dataclass

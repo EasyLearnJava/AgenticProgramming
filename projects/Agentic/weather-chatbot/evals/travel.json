@@ -1,0 +1,77 @@
+[
+  {
+    "id": "kiwi-direct",
+    "expected_args": {
+      "search_flights": {"origin": "ORD", "destination": "LAS", "adults": 2, "departure_date": "{arrival}", "return_date": "{departure}", "currency": "USD"}
+    },
+    "question": "Find round-trip flights for 2 adults from ORD to LAS leaving {arrival} and returning {departure}. USD, please.",
+    "requires": ["search_flights"],
+    "forbids": ["search_hotels", "geocode_location", "get_current_weather", "get_forecast", "get_air_quality"]
+  },
+  {
+    "id": "trivago-direct",
+    "expected_args": {
+      "search_hotels": {"destination": ["Springdale, UT", "Springdale, Utah"], "check_in": "{arrival}", "check_out": "{departure}", "adults": 2, "rooms": 1, "currency": "USD"}
+    },
+    "question": "Find a hotel in Springdale, Utah, for 2 adults, 1 room, checking in {arrival} and out {departure}, priced in USD.",
+    "requires": ["search_hotels"],
+    "forbids": ["search_flights", "geocode_location", "get_current_weather", "get_forecast", "get_air_quality"]
+  },
+  {
+    "id": "both-providers",
+    "expected_args": {
+      "search_flights": {"origin": "AUS", "destination": "LAS", "adults": 2, "departure_date": "{arrival}", "return_date": "{departure}", "currency": "USD"},
+      "search_hotels": {"destination": ["Las Vegas", "Las Vegas, NV", "Las Vegas, Nevada"], "check_in": "{arrival}", "check_out": "{departure}", "adults": 2, "rooms": 1, "currency": "USD"}
+    },
+    "question": "Find round-trip flights from AUS to LAS for two adults on {arrival} returning {departure}, and search for one hotel room for those dates in Las Vegas. Show USD for both.",
+    "requires": ["search_flights", "search_hotels"],
+    "forbids": ["geocode_location", "get_current_weather", "get_forecast", "get_air_quality"]
+  },
+  {
+    "id": "missing-flight-inputs",
+    "question": "Can you find flights to Las Vegas for us?",
+    "forbids": ["search_flights", "search_hotels", "geocode_location"], "says": ["depart|from|origin", "when|date"]
+  },
+  {
+    "id": "missing-hotel-dates",
+    "question": "Find a hotel in Springdale for two adults, one room. We haven't picked dates.",
+    "forbids": ["search_flights", "search_hotels", "geocode_location"], "says": ["date|check.in|when"]
+  },
+  {
+    "id": "plain-weather",
+    "question": "What is the current temperature in Seattle, Washington?",
+    "requires": ["get_current_weather"], "forbids": ["search_flights", "search_hotels"]
+  },
+  {
+    "id": "negated-planning",
+    "question": "Don't plan a trip to Zion National Park or look up flights or hotels. Just tell me today's forecast for Salt Lake City, Utah.",
+    "requires": ["get_forecast"], "forbids": ["search_flights", "search_hotels"]
+  },
+  {
+    "id": "zion-intake",
+    "question": "Plan a trip to Zion National Park for two adults. What do you need from me?",
+    "intake": {"park": "zion", "adults": "2"}, "forbids": ["get_forecast", "search_park_guidance", "get_park_alerts", "search_flights", "search_hotels"]
+  },
+  {
+    "id": "hotel-follow-up",
+    "expected_args": {
+      "search_hotels": {"destination": ["Springdale, UT", "Springdale, Utah"], "check_in": "{arrival}", "check_out": "{departure}", "adults": 2, "rooms": 1, "currency": "USD"}
+    },
+    "history": [
+      {"role":"user", "text":"Can you find hotels in Springdale, Utah, for two adults and one room?"},
+      {"role":"assistant", "text":"What dates would you like to check in and check out?"}
+    ],
+    "question": "Check in {arrival} and check out {departure}. Show the options in USD.",
+    "requires": ["search_hotels"],
+    "forbids": ["search_flights", "geocode_location", "get_current_weather", "get_forecast", "get_air_quality"]
+  },
+  {
+    "id": "beyond-forecast-window",
+    "expected_args": {
+      "search_hotels": {"destination": ["Denver", "Denver, CO", "Denver, Colorado"], "check_in": "{far_arrival}", "check_out": "{far_departure}", "adults": 1, "rooms": 1, "currency": "USD"}
+    },
+    "question": "Search hotels in Denver, Colorado, for one adult and one room from {far_arrival} to {far_departure}. Can you also forecast the weather that far ahead?",
+    "requires": ["search_hotels"], "forbids": ["geocode_location", "get_forecast", "get_current_weather", "search_flights"],
+    "says": ["16|too far|forecast.{0,40}(available|advance|yet)"]
+  }
+]

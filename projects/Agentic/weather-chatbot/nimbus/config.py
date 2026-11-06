@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     google_api_key: SecretStr | None = None
     gemini_model: str = Field(default=GEMINI_MODEL, pattern=r"^[a-z0-9][a-z0-9.\-]*$")
     # Park guidance uses a versioned index and pinned CPU MiniLM weights, cached by the offline build command.
+    flights_enabled: bool = False
+    hotels_enabled: bool = False
     parks_enabled: bool = True
     parks_retrieval_mode: Literal["auto", "lexical", "hybrid"] = "auto"
     parks_index_path: Path = PROJECT_ROOT / "data" / "parks" / "index.sqlite"

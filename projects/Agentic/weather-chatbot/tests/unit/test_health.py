@@ -26,6 +26,7 @@ from nimbus.config import Settings
 from nimbus.constants import HEALTH_CACHE_CONTROL
 from nimbus.errors import AuthError
 from nimbus.health import Check, CheckName, check_lanes, make_checks, run_check
+from nimbus.travel.mcp_client import Failure, TravelProviderError
 from tests.fakes import ApifyRecordings, FakeCacheStore, OpenMeteoRecordings, make_apify_mcp_stand_in
 
 LOCAL_MCP = "http://127.0.0.1:8000/api/mcp"
@@ -144,6 +145,41 @@ def test_with_apify_s_token_its_mcp_server_is_checked_against_our_pin(
             return (await run_check("apify-mcp", make_checks(request, None)["apify-mcp"], {})).status
 
     assert asyncio.run(go()) == expected
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected"),
+    [
+        ("timeout", "UpstreamTimeoutError"),
+        ("invalid_response", "ContractError"),
+        ("rate_limited", "UpstreamRateLimitedError"),
+        ("unavailable", "UpstreamUnavailableError"),
+    ],
+)
+def test_provider_discovery_retains_its_failure_class(reason: Failure, expected: str) -> None:
+    assert type(health.to_failure(TravelProviderError(reason))).__name__ == expected
+
+
+def test_optional_provider_failure_is_visible_while_weather_stays_ready() -> None:
+    async def fine() -> None:
+        return None
+
+    async def offline() -> None:
+        raise TimeoutError
+
+    checks: dict[CheckName, Check] = {
+        "open-meteo": fine,
+        "our-mcp": fine,
+        "apify-rest": None,
+        "apify-mcp": None,
+        "kiwi-mcp": offline,
+        "trivago-mcp": fine,
+    }
+    report = asyncio.run(check_lanes(checks, {}))
+    assert report.status == "ok"
+    assert report.checks["kiwi-mcp"].status == "down"
+    assert report.checks["trivago-mcp"].status == "ok"
+    assert report.lanes["mcp-no-auth"] == "ok"
 
 
 def test_each_check_has_its_time_and_no_more(monkeypatch: pytest.MonkeyPatch) -> None:

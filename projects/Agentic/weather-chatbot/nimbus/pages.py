@@ -131,6 +131,13 @@ MENU_GROUPS: tuple[MenuGroup, ...] = (
 )
 
 
+# Select the navigation for this deployment without mutating the shared base menu.
+TRAVEL_MENU_GROUPS = (
+    MenuGroup("App", (*MENU_GROUPS[0].items, MenuItem("/parks/trip", "Plan a park trip"))),
+    *MENU_GROUPS[1:],
+)
+
+
 def to_aria_current(path: str, href: str) -> str | None:
     """How a menu link relates to the address: the page itself ("page"), a section it's in ("true"), or neither."""
     if path == href:
@@ -162,8 +169,16 @@ router = APIRouter()
 def render_page(request: Request, template: str, context: Mapping[str, object], status_code: int = 200) -> HTMLResponse:
     """A page: its template, with the build's label for the menu's last line."""
     settings: Settings = request.app.state.settings
+    planner_enabled = settings.parks_enabled and (settings.flights_enabled or settings.hotels_enabled)
     return templates.TemplateResponse(
-        request, template, {"build_label": settings.build_label, **context}, status_code=status_code
+        request,
+        template,
+        {
+            "build_label": settings.build_label,
+            "menu_groups": TRAVEL_MENU_GROUPS if planner_enabled else MENU_GROUPS,
+            **context,
+        },
+        status_code=status_code,
     )
 
 

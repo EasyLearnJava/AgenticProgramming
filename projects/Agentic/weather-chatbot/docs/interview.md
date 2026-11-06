@@ -518,3 +518,14 @@ A failed or incomplete check cannot establish that no notices exist, and neither
 
 **Why cap model context separately from API results?** Public inspection can show the bounded full report while the
 model receives a smaller labeled subset. Citation validation must allow only URLs actually included in that subset.
+
+## Step 18 · Flights, Hotels and National Park Trips
+
+**Why confirm the gateway airport?** Flying into a gateway and staying near a park are different decisions.
+The traveler confirms both endpoints before Nimbus searches fares. Lodging uses the park location.
+
+**Why render the five sections independently?** An upstream timeout answers only whether that check finished.
+A flight timeout can coexist with a useful forecast, hotel quote, preparation passage or official notice.
+
+**How do you evaluate an answer when inventory changes?** Check the requested tool, routing, source link and
+price against the offers returned in that attempt. Record throttling, timeouts and empty inventory separately.

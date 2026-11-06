@@ -116,7 +116,7 @@ class NpsAlertsService:
         return None
 
     async def get(
-        self, park_id: str, *, tool: Literal["get_park_alerts", "park_alerts"] = "get_park_alerts"
+        self, park_id: str, *, tool: Literal["get_park_alerts", "park_alerts", "park_trip_plan"] = "get_park_alerts"
     ) -> AlertsReport:
         """Return a detached report and record its actual caller; missing configuration never makes a request."""
         started = self._clock()

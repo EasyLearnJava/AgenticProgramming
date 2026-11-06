@@ -192,6 +192,12 @@ CHAPTERS += (
         label="Step 17: Official Park Notices",
         summary="Bounded official NPS checks alongside stored guidance, with a standalone page and chat citations.",
     ),
+    DocPage(
+        slug="step-18",
+        path="/docs/step-18",
+        label="Step 18: Flights, Hotels and National Park Trips",
+        summary="Read-only flight and hotel search, plus a confirmed park trip with weather, guidance and notices.",
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="architecture", path="/architecture", label="Architecture and design"),

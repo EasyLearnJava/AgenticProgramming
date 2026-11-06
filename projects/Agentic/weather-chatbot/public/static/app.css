@@ -35,6 +35,25 @@ body {
   background: linear-gradient(160deg, var(--bg-top), var(--bg-mid) 55%, var(--bg-bottom));
 }
 
+/* Returned travel quotes. Long property names and itinerary details wrap on a narrow screen. */
+.travel-offers {
+  display: grid;
+  gap: .6rem;
+  padding: 0;
+  list-style: none;
+}
+.travel-offers li {
+  display: grid;
+  gap: .25rem;
+  padding: .75rem;
+  background: var(--card);
+  color: var(--user-text);
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  overflow-wrap: anywhere;
+}
+.travel-offers a { color: var(--accent); }
+
 /* Text only screen readers announce. */
 .visually-hidden {
   position: absolute;

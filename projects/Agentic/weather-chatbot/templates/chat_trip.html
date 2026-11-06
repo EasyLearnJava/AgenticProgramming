@@ -1,0 +1,13 @@
+{# The trip form completes this chat turn. Only the validated fields go to the planner. #}
+{% from "chat_parts.html" import bot_meta %}
+{% from "planner_form.html" import trip_form %}
+<hx-partial hx-target="#turn-{{ turn_id }}" hx-swap="outerHTML">
+<li class="message message-bot" id="turn-{{ turn_id }}">
+  {{ bot_meta() }}
+  <div class="bubble bubble-bot">
+    <div class="answer" id="answer-{{ turn_id }}"><p>{% if fields.park %}Confirm your trip details to see your park plan.
+    {% else %}Choose the supported park you want to visit, then confirm your trip details.{% endif %}</p></div>
+    {{ trip_form(fields, prefix=turn_id, flights_enabled=flights_enabled, hotels_enabled=hotels_enabled) }}
+  </div>
+</li>
+</hx-partial>

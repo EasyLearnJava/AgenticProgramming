@@ -79,6 +79,7 @@ Each step's chapter explains it, in order:
 | 15 | [Activity by Request, and Rows That Lead to It](docs/step-15.md) | Done |
 | 16 | [Park Guidance with Retrieved Sources](docs/step-16.md) | Implemented |
 | 17 | [Official Park Notices](docs/step-17.md) | Implemented |
+| 18 | [Flights, Hotels and National Park Trips](docs/step-18.md) | Implemented, preview checks pending |
 
 ## Run it
 
@@ -152,7 +153,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 17](docs/step-17.md)), **Architecture and design**
+step ([step 1](docs/step-1.md) to [step 18](docs/step-18.md)), **Architecture and design**
 ([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
 ([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**
@@ -164,6 +165,15 @@ design, Technical details, Issues and fixes, Interview guide and To do, each nam
 ([README_deprecated.md](README_deprecated.md) links them all).
 
 ## Next
+
+### Flights, hotels and park trips
+
+Set `FLIGHTS_ENABLED=true` and/or `HOTELS_ENABLED=true` in ignored `.env.local`, then restart. With park
+guidance enabled, open `/parks/trip` or ask chat to plan a trip to Zion, Grand Canyon or Yosemite. Confirm
+the dates, party and transport to compare quotes with the forecast, park guidance and current NPS notices.
+The planner works without Gemini. Direct flight and hotel questions use the same adapters through chat.
+Both providers accepted keyless searches during local verification. [Step 18](docs/step-18.md) covers
+setup, limits, privacy, live provider checks and the evaluation procedure.
 
 ### Official park notices
 

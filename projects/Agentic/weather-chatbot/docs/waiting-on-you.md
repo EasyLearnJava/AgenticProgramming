@@ -38,6 +38,11 @@ In the project's **Settings → Environment Variables**, for Production, then a 
 | Delete `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` | They uploaded the TypeScript app's source maps; Python has none, so nothing reads them | 12 |
 | `NPS_API_KEY`: Production done on 4 November 2026; configure Preview before preview validation | Production was configured as sensitive and the same source commit redeployed; local `.env.local` does not configure other Vercel environments | 17 |
 
+For step 18, choose the providers for Preview under the same project settings. Set `FLIGHTS_ENABLED=true`
+and/or `HOTELS_ENABLED=true`, keep `PARKS_ENABLED=true` for the planner, and redeploy that preview.
+Both travel switches default to false. Review the preview's provider and repeated chat checks before choosing
+the production flags. [Step 18](step-18.md#deploy-it)
+
 Axiom's and Sentry's own variables are set already: the live app's start line said so (step 12's Deploy it).
 
 **Production verified on 4 November 2026:** all three park pages returned complete notice checks, and explicit

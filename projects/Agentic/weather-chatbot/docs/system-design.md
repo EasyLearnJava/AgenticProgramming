@@ -1,5 +1,16 @@
 # System Design
 
+## Travel searches and national park trips, step 18
+
+Direct travel questions go through the agent. An explicit park-planning request opens the same confirmed form as
+the standalone planner. The form supplies validated dates and occupancy to up to five concurrent checks. Both
+paths use fresh external MCP sessions for each unique travel lookup and share duplicates within a single turn.
+The weather lane, local park index and NPS API each retain their own data source and failure state.
+
+![Trip intake, external providers and park services](images/step-18-design.svg)
+
+See [Flights, Hotels and National Park Trips](step-18.md) for quote units and verification.
+
 ## Official park notice extension, step 17
 
 The park selector or resolved chat destination reaches a separate NPS client. It uses a server-side header key,
@@ -28,7 +39,7 @@ Knowledge's **Retrieval Playground** provides a direct inspection path into that
 question, destination and optional visit date produce candidate scores, selection decisions and source passages.
 It shares the encoder and published index with chat; Gemini and the weather tools are outside this inspection path.
 
-How Nimbus is built after step 15, drawn the way the TypeScript version's
+How Nimbus is built after step 18, drawn the way the TypeScript version's
 [System design_deprecated](system-design_deprecated.md) was: as a common reference design for AI assistants draws an
 online shop's assistant, in four bands, from the request's path at the top to running it in production at the bottom.
 A number on a box is the reference's number for the part it plays (02 for the gateway, 09 for production operations);
@@ -44,12 +55,12 @@ the lines to Axiom, the errors to Sentry, a health check of each lane, and the s
 questions, graded against the live site, a load test and a way back. Step 14 reads the lines back from Axiom onto
 four Observability pages, and groups the menu's links. Step 15 puts each request's lines back together on
 Activity, a row that opens onto its timeline, and makes every row of the other pages a link to its requests.
-Each step added its parts to this page.
+Steps 16–18 add the park index, official notices and a confirmed trip form with external flight and hotel searches.
 Below the diagram, each band is described, then each part of the reference is set against what Nimbus has so far.
 [Architecture and design](architecture.md) puts the whole design on one page: its features, its data flow, the
 decisions and why, and what keeps it safe and secure.
 
-![How Nimbus is built after step 15](images/system-design.svg)
+![How Nimbus is built after step 18](images/system-design.svg)
 
 ## The four bands
 

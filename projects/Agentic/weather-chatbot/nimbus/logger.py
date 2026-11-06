@@ -19,6 +19,7 @@ from nimbus.axiom import LogShipper
 from nimbus.config import Settings
 from nimbus.constants import LIBRARY_LOG_LEVEL
 from nimbus.sentry import send_failure
+from nimbus.travel.mcp_client import travel_mcp_active
 from nimbus.utils import to_frames, to_redacted_urls
 
 ERROR_LEVELS = frozenset({"error", "critical"})
@@ -74,6 +75,10 @@ class LibraryLogHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         """Writes the record through structlog, so it gets the same fields as the app's own lines."""
+        # External MCP libraries may include the remote error body in a warning.
+        # The travel service emits its own bounded status independently of these records.
+        if travel_mcp_active.get():
+            return
         try:
             fields: dict[str, object] = {"logger": record.name}
             if record.exc_info is not None and record.exc_info[0] is not None:

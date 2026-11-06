@@ -20,9 +20,15 @@ fixed.
 | **Hosting** | One Vercel Function in `iad1` (Washington, D.C.), on the Hobby plan; Vercel's CDN for the files |
 | **State** | The conversation stays in the visitor's browser; weather uses Vercel Runtime Cache; public park guidance uses a bundled read-only SQLite index |
 | **Monitoring** | JSON log lines with each request's id, to Axiom, and read back onto the Observability pages; errors to Sentry; a health check of each lane |
-| **Checks** | Unit, browser, accessibility, mutation and retrieval checks; 18 live-answer goldens; current results in step 16 |
+| **Travel** | Optional external Kiwi and trivago MCP clients, direct chat search and a confirmed park trip planner |
+| **Checks** | Unit, browser, accessibility, mutation and retrieval checks, live-answer goldens and repeated travel evaluations |
 
 ## What it does
+
+Step 18 adds optional travel searches and a park trip planner for Zion, Grand Canyon and Yosemite. The chat
+tools and confirmed form share per-turn lookups and provider adapters. The form checks travel, forecast,
+retrieved guidance and current notices independently. Search terms, quotes and booking links stay out of
+application telemetry. See [Flights, Hotels and National Park Trips](step-18.md).
 
 Step 17 adds official NPS notice checks alongside the reference index. A fixed-origin client authenticates with a
 server-side key, validates and bounds results, and caches public reports briefly. App → Park alerts runs without

@@ -1,0 +1,25 @@
+{
+  "query": "synthetic",
+  "currency": "USD",
+  "resultsCount": 1,
+  "passengers": {
+    "adults": 2,
+    "children": 0,
+    "infants": 0
+  },
+  "itineraries": [
+    {
+      "price": 345,
+      "bookingUrl": "https://www.kiwi.com/booking?offer=synthetic&currency=USD",
+      "outbound": {
+        "from": "ORD",
+        "to": "LAS",
+        "departureTime": "2030-06-20T11:00:00",
+        "arrivalTime": "2030-06-20T16:39:00",
+        "stops": 1
+      },
+      "inbound": null
+    }
+  ],
+  "error": null
+}

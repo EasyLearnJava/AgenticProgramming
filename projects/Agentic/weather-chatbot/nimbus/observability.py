@@ -59,11 +59,16 @@ TOOL_NAMES: Final = frozenset(tool.name for tool in WEATHER_TOOLS) | {
     "retrieval_playground",
     "get_park_alerts",
     "park_alerts",
+    "search_flights",
+    "search_hotels",
+    "park_trip_plan",
 }
 CHECK_LABELS: Final = {
     "open-meteo": "Open-Meteo",
     "our-mcp": "Our MCP server",
     "park-index": "Park knowledge index",
+    "kiwi-mcp": "Kiwi flight search",
+    "trivago-mcp": "Trivago hotel search",
     "apify-rest": "Apify's REST API",
     "apify-mcp": "Apify's MCP server",
 }
@@ -93,6 +98,8 @@ TIMELINE_EVENTS: Final = (
     *TOOL_EVENTS,
     "knowledge.call",
     "nps.alerts",
+    "travel.call",
+    "travel.plan",
     "lane.open.failed",
     "mcp.call",
     "lane.connect",
@@ -132,6 +139,11 @@ TIMELINE_FIELDS: Final = (
     "cached",
     "reason",
     "complete",
+    "provider",
+    "count",
+    "deduplicated",
+    "failedSections",
+    "missingSections",
 )
 
 
@@ -160,7 +172,9 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
     "questions": to_in("event", ("chat.request", "chat.rejected")),
     "errors": (
         f'{to_in("event", TIMELINE_EVENTS)} and (level == "error" or {STATUS} in ("failed", "down") '
-        f'or event == "lane.fallback" or (event == "nps.alerts" and {STATUS} == "partial"))'
+        f'or event == "lane.fallback" or (event == "nps.alerts" and {STATUS} == "partial") '
+        f'or (event == "travel.call" and {STATUS} !in ("found", "no_results")) '
+        f'or (event == "travel.plan" and toint({to_field("failedSections", "0")}) > 0))'
     ),
     "health": 'event == "health.done"',
 }
@@ -196,7 +210,8 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
     "tool": (
         TOOL_NAMES,
         "Questions that called {label}",
-        f'{to_in("event", ("tool.call", "knowledge.call", "nps.alerts"))} and {to_field("tool")} == "{{value}}"',
+        to_in("event", ("tool.call", "knowledge.call", "nps.alerts", "travel.call", "travel.plan"))
+        + f' and {to_field("tool")} == "{{value}}"',
     ),
     "asked": (
         LANE_LABELS,
@@ -314,6 +329,10 @@ def to_narrowing(links: Mapping[str, str | None]) -> Narrowing | None:
     if value not in known:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
     label = LANE_LABELS.get(value) or ENDED_WORDS.get(value) or value
+    if kind == "tool" and value == "park_trip_plan":
+        return Narrowing(kind, "Park trip plans", where.format(value=value))
+    if kind == "tool" and value in {"search_flights", "search_hotels"}:
+        return Narrowing(kind, f"Travel searches using {value}", where.format(value=value))
     if kind == "tool" and value == "park_alerts":
         return Narrowing(kind, "Park alert checks", where.format(value=value))
     return Narrowing(kind, words.format(label=label), where.format(value=value))
@@ -548,6 +567,17 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
         if to_words(row, "status") == "failed":
             return ActivityLine(at, tool, f"failed on {lane}: {error_class}, after {took}", "bad")
         return ActivityLine(at, tool, f"on {lane} in {took}", "ok")
+    if event == "travel.plan":
+        failed = to_number(row, "failedSections")
+        missing = to_number(row, "missingSections")
+        detail = f"{to_count(missing, 'section')} unavailable, {failed:g} failed"
+        return ActivityLine(at, "Park trip plan", detail, "warn" if failed else "ok")
+    if event == "travel.call":
+        status = to_words(row, "status")
+        tone = "ok" if status in {"found", "no_results", "ok"} else "warn" if status == "partial" else "bad"
+        provider = to_words(row, "provider")
+        count = to_count(to_number(row, "count"), "offer")
+        return ActivityLine(at, to_words(row, "tool"), f"{provider} {status}: {count} in {took}".strip(), tone)
     if event == "knowledge.call":
         status = to_words(row, "status")
         detail = f"{status.replace('_', ' ')} in {took}"
@@ -913,9 +943,15 @@ def to_day_words(day: date) -> str:
 @router.get("/performance", response_class=HTMLResponse)
 async def performance_page(request: Request) -> HTMLResponse:
     """How long answers take, each tool and each lane, and Open-Meteo's answers from the cache, over 7 days."""
-    answers = await ask_axiom(
-        request, {"answers": ANSWERS, "endings": ENDINGS, "tool-calls": TOOL_CALLS, "weather-answers": WEATHER_ANSWERS}
-    )
+    queries = {"answers": ANSWERS, "endings": ENDINGS, "tool-calls": TOOL_CALLS, "weather-answers": WEATHER_ANSWERS}
+    settings: Settings = request.app.state.settings
+    if settings.flights_enabled or settings.hotels_enabled:
+        queries["travel-calls"] = (
+            'where event == "travel.call"',
+            f'summarize calls=count(), failed=countif({STATUS} !in ("found", "no_results", "partial")), '
+            f"totalMs=sum(ms), slowestMs=max(ms) by {to_named('tool')}",
+        )
+    answers = await ask_axiom(request, queries)
     [summary] = answers.rows.get("answers") or [{}]
     questions = to_counts(
         [row for row in answers.rows.get("endings", []) if to_words(row, "event") == "chat.request"], "lane"
@@ -938,7 +974,7 @@ async def performance_page(request: Request) -> HTMLResponse:
         "title": "Performance",
         "answers": answers,
         "tiles": tiles,
-        "tools": to_tool_bars(tool_calls, "tool"),
+        "tools": to_tool_bars([*tool_calls, *answers.rows.get("travel-calls", [])], "tool"),
         "lanes": to_tool_bars(tool_calls, "lane"),
         "questions": [
             Bar(to_lane_label(lane), f"{round(count):,}", to_share(count, whole), href=to_narrowed_href("asked", lane))

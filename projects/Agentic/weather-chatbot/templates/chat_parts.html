@@ -4,6 +4,7 @@
   or failed), with a chip above it for each tool call (nimbus/chips.py), and a message that's only an error.
 #}
 {% from "nps_alert_parts.html" import notices %}
+{% from "travel_parts.html" import travel_results %}
 {% macro bot_meta() -%}
 <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus (Weather)</span></p>
 {%- endmacro %}
@@ -93,6 +94,7 @@
   </ul>
   <div class="bubble bubble-bot">
     <div class="answer{% if busy %} answer-streaming{% endif %}" id="answer-{{ turn_id }}">{{ answer }}</div>
+    {% for chip in chips if chip.travel_record %}{{ travel_results(chip.travel_record.report) }}{% endfor %}
     {%- if note %}
     <p class="message-note">{{ note }}</p>
     {%- endif %}

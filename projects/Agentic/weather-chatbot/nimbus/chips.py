@@ -22,6 +22,8 @@ from nimbus.lanes import get_lane
 from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.park_tools import PARK_GUIDANCE_UNAVAILABLE, KnowledgeCallRecord
 from nimbus.tools import ToolCallRecord
+from nimbus.travel.models import TravelCallRecord
+from nimbus.travel.tools import FLIGHT_INPUT_ERROR, HOTEL_INPUT_ERROR
 
 type ChipStatus = Literal["running", "done", "failed", "stopped"]
 
@@ -37,6 +39,8 @@ TOOL_SENTENCES: Final = frozenset(
         WEATHER_UNEXPECTED,
         MCP_UNREACHABLE,
         PARK_GUIDANCE_UNAVAILABLE,
+        FLIGHT_INPUT_ERROR,
+        HOTEL_INPUT_ERROR,
     }
 )
 SHORTEST_SHOWN_MS: Final = 50
@@ -74,7 +78,7 @@ class ToolChip:
     name: str
     args: dict[str, Any]
     status: ChipStatus = "running"
-    record: ToolCallRecord | KnowledgeCallRecord | AlertsCallRecord | None = None
+    record: ToolCallRecord | KnowledgeCallRecord | AlertsCallRecord | TravelCallRecord | None = None
     output: str | None = None
     error: str | None = None
 
@@ -92,6 +96,12 @@ class ToolChip:
             self.status = "done"
             self.record = event.record
             self.output = event.content
+            if isinstance(event.record, TravelCallRecord) and event.record.report.status not in {
+                "found",
+                "partial",
+                "no_results",
+            }:
+                self.status = "failed"
             if isinstance(event.record, AlertsCallRecord) and event.record.report.status == "unavailable":
                 self.status = "failed"
 
@@ -122,7 +132,9 @@ class ToolChip:
 
     @property
     def output_json(self) -> str | None:
-        """What the model read, laid out; None until the call is done."""
+        """Show normalized provider evidence for travel, or the tool output for other completed calls."""
+        if isinstance(self.record, TravelCallRecord):
+            return self.record.report.model_dump_json(indent=2)
         if self.output is None:
             return None
         try:
@@ -138,6 +150,9 @@ class ToolChip:
         """
         if self.record is None:
             return None
+        if isinstance(self.record, TravelCallRecord):
+            report = self.record.report
+            return f"{report.provider.title()} · {report.status.replace('_', ' ')} · {to_duration_text(self.record.ms)}"
         if isinstance(self.record, AlertsCallRecord):
             cached = " · cached" if self.record.report.cached else ""
             return f"NPS alerts{cached} · {to_duration_text(self.record.ms)}"
@@ -146,6 +161,11 @@ class ToolChip:
         lane = get_lane(self.record.lane).label
         cache = " · from the cache" if self.record.from_cache else ""
         return f"{lane} · {self.record.request.host}{cache} · {to_duration_text(self.record.ms)}"
+
+    @property
+    def travel_record(self) -> TravelCallRecord | None:
+        """The offers returned by this turn's provider."""
+        return self.record if isinstance(self.record, TravelCallRecord) else None
 
     @property
     def wire_label(self) -> str:

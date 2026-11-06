@@ -1,0 +1,28 @@
+{# Render verified offers separately from the model's narrative. #}
+{% macro travel_results(report) -%}
+<section class="travel-results" aria-label="{{ report.provider|title }} search results">
+  <p><strong>{{ report.provider|title }}</strong> · {{ report.status|replace('_', ' ') }}
+    · Checked <time datetime="{{ report.checked_at.isoformat() }}">{{ report.checked_at.strftime('%Y-%m-%d %H:%M UTC') }}</time>
+  </p>
+  {% if report.offers %}
+  <ul class="travel-offers">
+    {% for offer in report.offers %}
+    <li>
+      <strong>{{ offer.title }}</strong>
+      {% if offer.price is not none %}
+      <span>{{ offer.currency or '' }} {{ offer.price }} · {{ {
+        'party_total': 'total for the party', 'per_person': 'per person', 'per_night': 'per night',
+        'stay_total': 'total stay', 'unknown': 'price basis unspecified'
+      }[offer.price_basis] }}</span>
+      {% endif %}
+      {% for detail in offer.details %}<span>{{ detail }}</span>{% endfor %}
+      {% if offer.url %}<a href="{{ offer.url }}" target="_blank" rel="nofollow noopener noreferrer">
+        View offer on {{ report.provider|title }}<span class="visually-hidden"> for {{ offer.title }}</span>
+      </a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif report.status == 'no_results' %}<p>The provider returned no matching offers.</p>
+  {% else %}<p>Current offers could not be verified for this search.</p>{% endif %}
+</section>
+{%- endmacro %}

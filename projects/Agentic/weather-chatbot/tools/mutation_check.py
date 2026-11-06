@@ -409,7 +409,7 @@ MUTATIONS: tuple[Mutation, ...] = (
     Mutation("nimbus/chat.py", "if model is None:", "if False:", "a deployment without a key says it isn't set up"),
     Mutation(
         "nimbus/chat.py",
-        '"answer": render_answer("".join(pieces), park_sources=park_sources if has_park_tools else None),\n'
+        '"answer": render_answer("".join(pieces), park_sources=evidence_urls if restrict_links else None),\n'
         '            "chips": final_chips(),',
         '"answer": "".join(pieces),\n            "chips": final_chips(),',
         "the finished answer's Markdown is HTML",
@@ -1718,8 +1718,8 @@ MUTATIONS += (
     Mutation("nimbus/alerts_page.py", "max_bytes=1024", "max_bytes=10240", "nps selector body remains bounded"),
     Mutation(
         "nimbus/answer.py",
-        "[*weather_tools, *knowledge_tools, *notice_tools]",
-        "[*weather_tools, *knowledge_tools]",
+        "[*weather_tools, *knowledge_tools, *notice_tools, *travel_tools]",
+        "[*weather_tools, *knowledge_tools, *travel_tools]",
         "nps notice tool composes in every lane",
     ),
     Mutation(
@@ -1828,6 +1828,169 @@ for _review_module in ("nimbus/utils.py", "nimbus/observability.py", "nimbus/pro
     TESTS_FOR[_review_module] += ("test_nps_review.py",)
 
 
+TRAVEL_MUTATIONS = (
+    Mutation(
+        "nimbus/prompts.py",
+        "last_forecast = local.date() + timedelta(days=MAX_FORECAST_DAYS - 1)",
+        "last_forecast = now.date() + timedelta(days=MAX_FORECAST_DAYS)",
+        "travel forecast horizon includes today in the visitor's zone",
+    ),
+    Mutation(
+        "nimbus/travel/planner_intake.py",
+        "knowledge.resolve(place) if knowledge",
+        'knowledge.resolve("Zion") if knowledge',
+        "travel planner selection must use the qualified destination",
+    ),
+    Mutation(
+        "nimbus/travel/planner_intake.py",
+        "if not TRIP_WORDS.search(normalized) or DECLINES_PLAN.search(normalized):",
+        "if not TRIP_WORDS.search(normalized):",
+        "travel a declined itinerary stays in ordinary chat",
+    ),
+    Mutation(
+        "nimbus/travel/planner_intake.py",
+        "driving = DRIVING.search(normalized) and not DECLINES_DRIVING.search(normalized)",
+        "driving = DRIVING.search(normalized)",
+        "travel a negated driving preference never selects driving",
+    ),
+    Mutation(
+        "nimbus/travel/kiwi.py",
+        "if type(count) is not int or count != requested:",
+        "if type(count) is not int:",
+        "travel party fares must match every requested age band",
+    ),
+    Mutation(
+        "nimbus/travel/kiwi.py",
+        "price=price if party_confirmed else None,",
+        "price=price,",
+        "travel unconfirmed parties never receive a quoted price",
+    ),
+    Mutation(
+        "nimbus/travel/planner.py",
+        "if hotel_query is None:",
+        "if False:",
+        "travel a disabled hotel provider is skipped before any service call",
+    ),
+    Mutation(
+        "tools/eval_travel.py",
+        "if not _arguments_match(tool, args, case.expected_args[tool], today):",
+        "if False:",
+        "travel evals match searches to the requested itinerary",
+    ),
+    Mutation(
+        "nimbus/travel/models.py",
+        'return self.model_dump_json(exclude={"offers": {"__all__": {"url"}}})',
+        "return self.model_dump_json()",
+        "travel opaque booking links stay out of model context",
+    ),
+    Mutation(
+        "nimbus/travel/planner.py",
+        "adults=self.adults + sum(age >= 12 for age in self.children_ages),",
+        "adults=self.adults,",
+        "travel airline counts teenagers in the correct fare band",
+    ),
+    Mutation(
+        "tools/eval_travel.py",
+        "if reason := check_claims(body[1], reports):",
+        "if False and (reason := check_claims(body[1], reports)):",
+        "travel evals reject invented prices",
+    ),
+    Mutation(
+        "nimbus/travel/providers.py",
+        "parts.hostname not in BOOKING_HOSTS[provider]",
+        "False",
+        "travel links stay on approved hosts",
+    ),
+    Mutation(
+        "nimbus/travel/providers.py",
+        'status="partial" if skipped else "found"',
+        'status="found"',
+        "travel a malformed record marks the surviving offers partial",
+    ),
+    Mutation(
+        "nimbus/travel/mcp_client.py",
+        "if seen > MAX_RESPONSE_BYTES:",
+        "if False:",
+        "travel MCP streams obey the byte budget",
+    ),
+    Mutation(
+        "nimbus/travel/mcp_client.py",
+        "if result.is_error:",
+        "if False:",
+        "travel remote errors cannot become offers",
+    ),
+    Mutation(
+        "nimbus/travel/kiwi.py",
+        "if depart.date() != day or",
+        "if False or",
+        "travel flight dates must match the request",
+    ),
+    Mutation(
+        "nimbus/travel/trivago.py",
+        '"budgetType": "PRICE_PER_NIGHT"',
+        '"budgetType": "PRICE_PER_STAY"',
+        "travel hotel budgets use nightly rates",
+    ),
+    Mutation(
+        "nimbus/travel/trivago.py",
+        "key=lambda deal: deal[0]",
+        "key=lambda deal: -deal[0]",
+        "travel comparable verified offers use the lowest rate",
+    ),
+    Mutation(
+        "nimbus/travel/service.py",
+        "if self._counts[provider] >= SEARCHES_PER_TURN:",
+        "if False:",
+        "travel searches are capped per provider per turn",
+    ),
+    Mutation(
+        "nimbus/travel/service.py",
+        "self._limited.add(provider)",
+        "pass",
+        "travel quota refusal stops further searches",
+    ),
+    Mutation(
+        "nimbus/travel/service.py",
+        "shared = self._queries.get(query)",
+        "shared = None",
+        "travel duplicate in-flight searches share one task",
+    ),
+    Mutation(
+        "nimbus/travel/models.py",
+        "if self.check_out <= self.check_in:",
+        "if False:",
+        "travel a stay requires at least one night",
+    ),
+    Mutation(
+        "nimbus/travel/models.py",
+        "MAX_CONTEXT_BYTES: Final = 24_000",
+        "MAX_CONTEXT_BYTES: Final = 100_000",
+        "travel model context has a byte limit",
+    ),
+    Mutation(
+        "nimbus/travel/planner.py",
+        'if trip.transport == "drive":',
+        "if False:",
+        "travel driving skips flight search",
+    ),
+    Mutation(
+        "nimbus/travel/planner.py",
+        "if end < trip.arrival:",
+        "if False:",
+        "travel forecasts skip dates beyond the horizon",
+    ),
+)
+MUTATIONS += TRAVEL_MUTATIONS
+for _travel_module in ("providers", "mcp_client", "kiwi", "trivago"):
+    TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_providers.py",)
+for _travel_module in ("service", "models"):
+    TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_service.py",)
+TESTS_FOR["nimbus/travel/planner.py"] = ("test_planner.py",)
+TESTS_FOR["nimbus/travel/planner_intake.py"] = ("test_planner.py",)
+TESTS_FOR["tools/eval_travel.py"] = ("test_travel_evals.py",)
+TESTS_FOR["nimbus/prompts.py"] += ("test_travel_integration.py",)
+
+
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
     """
     Whether the unit tests fail in the copy: these test files, or, given none, the whole suite. Tests that run past
@@ -1870,6 +2033,7 @@ def main() -> int:
     """Runs every mutation and says which the tests caught, in the rules' order; 1 if any wasn't."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hardening", action="store_true", help="Check the reviewed production and privacy fixes")
+    parser.add_argument("--travel", action="store_true", help="Check travel search and trip planning safeguards")
     parser.add_argument("--nps", action="store_true", help="Check official park notice safeguards")
     parser.add_argument("--parks", action="store_true", help="Check the park rules and affected prompt guards")
     parser.add_argument("--knowledge", action="store_true", help="Check the knowledge browser safeguards")
@@ -1885,6 +2049,8 @@ def main() -> int:
         if args.parks
         else MUTATIONS
     )
+    if args.travel:
+        selected = TRAVEL_MUTATIONS
     if args.knowledge:
         selected = tuple(m for m in MUTATIONS if m.file in {"nimbus/knowledge.py", "templates/knowledge_chunks.html"})
     if args.retrieval:

@@ -771,3 +771,18 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
      of asking which park applied. **Status: open.** The case failed its no-guidance and clarification requirements.
      The full release evidence records this separately from the three model timeouts, all of which passed one
      identical technical recheck. Security changes and the new trip-measurement suite were not started.
+127. **The travel MCP services needed the initialization handshake.** The SDK's negotiated legacy mode supported
+     both. Synthetic local searches returned normalized flights and lodging. [Step 18](step-18.md#test-it)
+128. **Trivago returned instructions alongside accommodation data.** Select explicit hotel and deal fields,
+     constrain URLs to reviewed hosts, and test the discarded text with a hostile fixture. [Step 18](step-18.md)
+129. **Park intake could select South Rim for a North Rim request or reverse a declined travel preference.**
+     Reuse the park resolver, test negation through chat, and require a choice when the destination is unclear.
+130. **Kiwi could label a fare for one traveler as the total for two.** Compare every returned age band with
+     the requested party. Tests cover contradictory counts, missing counts and budgeted trips.
+131. **The travel evaluation accepted a different trip and a nightly rate quoted as a stay total.** Grade the
+     arguments in each chip and check money and inventory claims against the relevant provider evidence.
+132. **Flights-only plans required room counts and logged a disabled hotel search.** Build queries only for
+     enabled providers. Test both entry forms, stale room fields and the completed plan’s telemetry.
+133. **Live travel evaluation found an unnecessary geocoding call for a hotel stay beyond the forecast horizon.**
+     Give Gemini the inclusive last forecast date in the visitor’s time zone and check it before resolving a city.
+     For undecided park alternatives, resolve the alternatives together before retrieving guidance.

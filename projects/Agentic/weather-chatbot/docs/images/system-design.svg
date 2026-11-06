@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1160" width="1160" height="1160" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
-  <title id="t">How Nimbus is built after step 15</title>
-  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages (from step 14, the Observability pages too, read back from Axiom; from step 15, Activity by request), the docs and their pictures, the health check or our MCP server, which offers the same four weather tools to any MCP client, with no session; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, on the lane the question took: on REST · no auth they call Open-Meteo with no key, on MCP · no auth our own MCP server, at an address of this deployment's own; on the lanes with auth, the forecast through Apify's Actor, behind its token, falling back to the twin; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: no database, only log lines kept, settings read only by config.py, the docs as Markdown and the static files on the CDN, and Open-Meteo's answers in Vercel's Runtime Cache, each key our namespace and a SHA-256, each kind for its own time. D, production operations: JSON log lines in Vercel's logs and Axiom, read back on the Observability pages, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1296" width="1160" height="1296" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="t">How Nimbus is built after step 18</title>
+  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages (from step 14, the Observability pages too, read back from Axiom; from step 15, Activity by request), the docs and their pictures, the health check or our MCP server, which offers the same four weather tools to any MCP client, with no session; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, on the lane the question took: on REST · no auth they call Open-Meteo with no key, on MCP · no auth our own MCP server, at an address of this deployment's own; on the lanes with auth, the forecast through Apify's Actor, behind its token, falling back to the twin; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: bundled park SQLite index, short public caches and sanitized log lines, settings read only by config.py, the docs as Markdown and the static files on the CDN, and Open-Meteo's answers in Vercel's Runtime Cache, each key our namespace and a SHA-256, each kind for its own time. D, production operations: JSON log lines in Vercel's logs and Axiom, read back on the Observability pages, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI. Park planning adds optional external flight and hotel MCP searches, park guidance and current NPS notices.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
     </marker>
   </defs>
-  <rect width="1160" height="1160" fill="#ffffff"/>
+  <rect width="1160" height="1296" fill="#ffffff"/>
 
   <!-- A · The online request path -->
   <rect x="8" y="8" width="1144" height="266" rx="16" fill="#fafafa" stroke="#d7e7e2"/>
@@ -155,9 +155,9 @@
   <text x="58" y="798" font-size="17" font-weight="700" fill="#053b30" letter-spacing="0.5">STATE AND DATA FRESHNESS</text>
 
   <rect x="24" y="814" width="270" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="40" y="840" font-size="15" font-weight="700" fill="#053b30">No database</text>
-  <text x="40" y="864" font-size="13" fill="#374151">only log lines: a request's path,</text>
-  <text x="40" y="882" font-size="13" fill="#374151">a question's length, never its text</text>
+  <text x="40" y="840" font-size="15" font-weight="700" fill="#053b30">Visitor and park data</text>
+  <text x="40" y="864" font-size="13" fill="#374151">park guidance in read-only SQLite</text>
+  <text x="40" y="882" font-size="13" fill="#374151">private travel turns; bounded offers</text>
   <text x="40" y="900" font-size="13" fill="#374151">the chat in the browser, sent back</text>
 
   <rect x="310" y="814" width="270" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
@@ -212,4 +212,22 @@
   <line x1="24" y1="1138" x2="70" y2="1138" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
   <text x="82" y="1143" font-size="13" fill="#374151">Request and response</text>
   <text x="1136" y="1143" font-size="13" fill="#374151" text-anchor="end">02, 04, 06, 07, 09: the reference's parts · +: only in Nimbus</text>
+  <rect x="8" y="1160" width="1144" height="124" rx="16" fill="#f1f7f4" stroke="#c8ded4"/>
+  <g fill="#053b30">
+    <text x="24" y="1190" font-size="18" font-weight="700">Park trips and external providers · Steps 16–18</text>
+    <text x="24" y="1220" font-size="15" font-weight="600">Confirmed trip form</text>
+    <text x="24" y="1243" font-size="13">From the menu or a park</text>
+    <text x="24" y="1261" font-size="13">planning question in chat</text>
+    <path d="M202 1237h43" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="265" y="1220" font-size="15" font-weight="600">Five parallel checks</text>
+    <text x="265" y="1243" font-size="13">Kiwi flights, trivago hotels, weather,</text>
+    <text x="265" y="1261" font-size="13">retrieved guidance and NPS notices</text>
+    <path d="M496 1237h43" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="559" y="1220" font-size="15" font-weight="600">Independent outcomes</text>
+    <text x="559" y="1243" font-size="13">Dated offers and official sources;</text>
+    <text x="559" y="1261" font-size="13">timeouts stay with their section</text>
+    <text x="845" y="1220" font-size="15" font-weight="600">Standalone chat searches</text>
+    <text x="845" y="1243" font-size="13">Use the same validated travel tools,</text>
+    <text x="845" y="1261" font-size="13">adapters, deadlines and budgets</text>
+  </g>
 </svg>

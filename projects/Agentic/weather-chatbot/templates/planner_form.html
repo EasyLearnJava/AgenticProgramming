@@ -1,0 +1,44 @@
+{# A single editable form used in chat and on the standalone page. All private search fields travel via POST. #}
+{% macro trip_form(fields, prefix="trip", flights_enabled=true, hotels_enabled=true) -%}
+<form action="/api/parks/trip" method="post" class="knowledge-filters">
+  <input type="hidden" name="lane" value="{{ fields.get('lane', 'rest-no-auth') }}">
+  <div><label for="{{ prefix }}-park">National park</label><select id="{{ prefix }}-park" name="park" required>
+    <option value="">Choose a park</option>
+    {% for key, label in [('zion','Zion'),('grand-canyon','Grand Canyon (South Rim)'),('yosemite','Yosemite')] %}
+    <option value="{{ key }}"{% if fields.park == key %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select></div>
+  {% for key, label in [('arrival','Check-in / outbound date'), ('departure','Check-out / return date')] %}
+  <div><label for="{{ prefix }}-{{ key }}">{{ label }}</label>
+    <input id="{{ prefix }}-{{ key }}" name="{{ key }}" type="date" value="{{ fields.get(key, '') }}" required></div>
+  {% endfor %}
+  {% if flights_enabled %}
+  <div><label for="{{ prefix }}-transport">How are you getting there?</label>
+    <select id="{{ prefix }}-transport" name="transport" required><option value="">Choose travel method</option>
+      <option value="fly"{% if fields.transport == 'fly' %} selected{% endif %}>Round-trip flights</option>
+      <option value="drive"{% if fields.transport == 'drive' %} selected{% endif %}>Driving or already there</option>
+    </select></div>
+  {% for key, label in [('origin','Flying from (city or airport)'), ('gateway','Flying into (city or airport)')] %}
+  <div><label for="{{ prefix }}-{{ key }}">{{ label }}</label>
+    <input id="{{ prefix }}-{{ key }}" name="{{ key }}" maxlength="100" value="{{ fields.get(key, '') }}"></div>
+  {% endfor %}
+  {% else %}<p>Flight search is disabled.</p><input type="hidden" name="transport" value="skip">{% endif %}
+  {% for key, label in [('adults','Adults (18+)'),('rooms','Rooms')] if key != 'rooms' or hotels_enabled %}
+  <div><label for="{{ prefix }}-{{ key }}">{{ label }}</label>
+    <input id="{{ prefix }}-{{ key }}" name="{{ key }}" type="number" min="1" max="9"
+     value="{{ fields.get(key, '1') }}" required></div>
+  {% endfor %}
+  <div><label for="{{ prefix }}-ages">Children’s ages (0–17, separate with commas)</label>
+    <input id="{{ prefix }}-ages" name="children_ages" maxlength="24" value="{{ fields.get('children_ages', '') }}">
+  </div>
+  <div><label for="{{ prefix }}-activity">Activity or preparation topic (optional)</label>
+    <input id="{{ prefix }}-activity" name="activity" maxlength="160" value="{{ fields.get('activity', '') }}"></div>
+  <div><label for="{{ prefix }}-currency">Price currency</label><select id="{{ prefix }}-currency" name="currency">
+    {% for unit in ['USD', 'EUR', 'GBP', 'CAD'] %}
+    <option value="{{ unit }}"{% if fields.currency == unit %} selected{% endif %}>{{ unit }}</option>
+    {% endfor %}
+  </select></div>
+  <button type="submit" class="knowledge-button">Build my trip plan</button>
+</form>
+{%- endmacro %}
+

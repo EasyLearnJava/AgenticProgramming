@@ -12,6 +12,7 @@ evals/last-run.json, which the Evaluations page shows (step 14). From the projec
 
 import asyncio
 import html
+import json
 import re
 import sys
 import urllib.parse
@@ -80,9 +81,18 @@ def grade(golden: Golden, answer: Answer) -> list[str]:
     return misses
 
 
-async def ask(http: httpx2.AsyncClient, base: str, golden: Golden) -> Answer:
+async def ask(
+    http: httpx2.AsyncClient,
+    base: str,
+    golden: Golden,
+    *,
+    history: Sequence[dict[str, str]] = (),
+    observe: Callable[[int, str], None] | None = None,
+) -> Answer:
     """Asks the golden question as the page would, and reads the answer from its stream."""
     form = {"question": golden.question, "locale": golden.locale, "time_zone": golden.time_zone, "lane": golden.lane}
+    if history:
+        form["history"] = json.dumps(history)
     headers = {"content-type": "application/x-www-form-urlencoded"}
     events: list[str] = []
     async with http.stream("POST", f"{base}/api/chat", content=urllib.parse.urlencode(form), headers=headers) as sent:
@@ -95,6 +105,8 @@ async def ask(http: httpx2.AsyncClient, base: str, golden: Golden) -> Answer:
                 events.append(
                     "\n".join(line[5:].removeprefix(" ") for line in raw.split("\n") if line.startswith("data:"))
                 )
+        if observe is not None:
+            observe(sent.status_code, events[-1] if events else "")
     return read_answer(events, request_id)
 
 

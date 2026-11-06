@@ -9,6 +9,7 @@ Gemini, with the four weather tools (nimbus/tools.py), told its rules by nimbus/
 
 import asyncio
 import json
+import re
 import time
 import zoneinfo
 from collections.abc import AsyncGenerator, Mapping
@@ -76,6 +77,9 @@ from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
+from nimbus.travel.models import TravelCallRecord
+from nimbus.travel.planner_intake import planner_intake
+from nimbus.travel.service import TravelService
 from nimbus.utils import new_turn_id, to_ms, to_ref, to_sse_message
 
 router = APIRouter()
@@ -271,7 +275,13 @@ def to_tool_event(turn_id: str, chip: ToolChip, is_new: bool) -> str:
 
 
 async def stream_turn(
-    answer: AsyncGenerator[AnswerEvent], question: str, request_id: str, stats: AnswerStats, model_name: str
+    answer: AsyncGenerator[AnswerEvent],
+    question: str,
+    request_id: str,
+    stats: AnswerStats,
+    model_name: str,
+    *,
+    restrict_links: bool = False,
 ) -> AsyncGenerator[str]:
     """
     A turn of the chat, as server-sent events: the two messages; each tool call's chip as it starts and as it ends;
@@ -282,8 +292,7 @@ async def stream_turn(
     started = time.perf_counter()
     pieces: list[str] = []
     chips: dict[str, ToolChip] = {}
-    park_sources: set[str] = set()
-    has_park_tools = False
+    evidence_urls: set[str] = set()
 
     def ending() -> dict[str, object]:
         """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
@@ -311,18 +320,20 @@ async def stream_turn(
         async with aclosing(answer) as events:
             async for event in events:
                 if isinstance(event, ToolStarted):
-                    has_park_tools = has_park_tools or event.name in {
+                    restrict_links = restrict_links or event.name in {
                         "resolve_destination",
                         "search_park_guidance",
                         "get_park_alerts",
+                        "search_flights",
+                        "search_hotels",
                     }
                     chip = chips[event.call_id] = ToolChip.start(len(chips), event)
                     yield to_tool_event(turn_id, chip, is_new=True)
                 elif isinstance(event, ToolEnded):
                     if event.name == "search_park_guidance" and isinstance(event.record, KnowledgeCallRecord):
-                        park_sources.update(source.url for source in event.record.sources)
-                    if isinstance(event.record, AlertsCallRecord):
-                        park_sources.update(event.record.sources)
+                        evidence_urls.update(source.url for source in event.record.sources)
+                    if isinstance(event.record, (AlertsCallRecord, TravelCallRecord)):
+                        evidence_urls.update(event.record.sources)
                     if (ended := chips.get(event.call_id)) is not None:
                         ended.end(event)
                         yield to_tool_event(turn_id, ended, is_new=False)
@@ -334,7 +345,7 @@ async def stream_turn(
             raise stats.lane_error
         done: dict[str, object] = {
             "turn_id": turn_id,
-            "answer": render_answer("".join(pieces), park_sources=park_sources if has_park_tools else None),
+            "answer": render_answer("".join(pieces), park_sources=evidence_urls if restrict_links else None),
             "chips": final_chips(),
         }
         yield to_sse_message(render_part("chat_end.html", done))
@@ -352,7 +363,7 @@ async def stream_turn(
         note = f"{to_user_message(error)} (ref {to_ref(request_id)})"
         failed: dict[str, object] = {
             "turn_id": turn_id,
-            "answer": render_answer("".join(pieces), park_sources=park_sources if has_park_tools else None),
+            "answer": render_answer("".join(pieces), park_sources=evidence_urls if restrict_links else None),
             "failed": True,
             "note": note,
             "chips": final_chips(),
@@ -420,6 +431,39 @@ async def chat(request: Request) -> Response:
     if chat_request.history:
         extra["historyMessages"] = len(chat_request.history)
     log.info("chat.request", questionChars=len(chat_request.question), lane=chat_request.lane, **extra)
+    # Open a trip intake before accessing the model. Only an explicit planning request needs this workflow.
+    enabled = tuple(
+        name
+        for name, active in (("search_flights", settings.flights_enabled), ("search_hotels", settings.hotels_enabled))
+        if active
+    )
+    previous_user_text = next((m.text for m in reversed(chat_request.history) if m.role == "user"), "")
+    knowledge = request.app.state.park_knowledge
+    if (
+        settings.parks_enabled
+        and enabled
+        and (fields := planner_intake(chat_request.question, knowledge, previous_user_text)) is not None
+    ):
+        turn_id = new_turn_id()
+        fields["lane"] = lane.id
+        first = to_sse_message(render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question}))
+
+        async def intake_events() -> AsyncGenerator[str]:
+            """Finish the turn with an editable form before contacting providers."""
+            yield to_sse_message(
+                render_part(
+                    "chat_trip.html",
+                    {
+                        "turn_id": turn_id,
+                        "fields": fields,
+                        "flights_enabled": settings.flights_enabled,
+                        "hotels_enabled": settings.hotels_enabled,
+                    },
+                )
+            )
+            log.info("chat.done", answerChars=0, toolCalls=0, ms=to_ms(time.perf_counter() - started))
+
+        return EventStream(first, intake_events())
     # ② The model, made when the app started; a deployment without its key can't answer at all.
     model = request.app.state.chat_model
     if model is None:
@@ -431,7 +475,6 @@ async def chat(request: Request) -> Response:
     stats = AnswerStats()
     history = [(message.role, message.text) for message in chat_request.history]
     now = datetime.now(UTC)
-    knowledge = request.app.state.park_knowledge
     messages = to_messages(
         chat_request.question,
         now,
@@ -439,8 +482,12 @@ async def chat(request: Request) -> Response:
         chat_request.time_zone,
         history,
         parks_enabled=knowledge is not None,
+        travel_tools=enabled,
     )
     deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
+    service: TravelService = request.app.state.travel_service
+    today = now.astimezone(zoneinfo.ZoneInfo(chat_request.time_zone)).date()
+    travel = service.new_turn(deadline, today=today) if enabled else None
     tools = open_lane_tools(request, lane, deadline)
     answer = stream_weather_answer(
         model,
@@ -452,10 +499,25 @@ async def chat(request: Request) -> Response:
         deadline,
         knowledge=knowledge,
         alerts=request.app.state.nps_alerts,
+        travel=travel,
     )
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.
-    turn = stream_turn(answer, chat_request.question, request.state.request_id, stats, settings.gemini_model)
+    turn = stream_turn(
+        answer,
+        chat_request.question,
+        request.state.request_id,
+        stats,
+        settings.gemini_model,
+        restrict_links=bool(
+            enabled
+            and re.search(
+                r"\b(?:flights?|airfare|flying|fly|hotels?|lodging|accommodations?|itinerar(?:y|ies)|bookings?)\b",
+                chat_request.question,
+                re.IGNORECASE,
+            )
+        ),
+    )
     first = await anext(turn)
     # ⑤ The answer, streamed.
     return EventStream(first, turn)

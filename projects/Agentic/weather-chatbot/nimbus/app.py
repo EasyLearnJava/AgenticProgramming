@@ -28,6 +28,8 @@ from nimbus.nps_alerts import NpsAlertsService
 from nimbus.parks import make_park_knowledge
 from nimbus.retrieval_gate import RetrievalGate
 from nimbus.sentry import start_sentry
+from nimbus.travel import kiwi, planner_page, trivago
+from nimbus.travel.service import TravelService
 
 
 @asynccontextmanager
@@ -59,6 +61,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.retrieval_gate = RetrievalGate()
     app.state.nps_alerts = NpsAlertsService(settings.nps_api_key)
     app.state.alerts_gate = RetrievalGate()
+    app.state.planner_gate = RetrievalGate()
+    app.state.travel_service = TravelService(
+        flights=kiwi.search_flights if settings.flights_enabled else None,
+        hotels=trivago.search_hotels if settings.hotels_enabled else None,
+    )
     # How each answer's weather tools reach Open-Meteo: a new HTTP client for each, and one cache for Open-Meteo's
     # answers (step 7); the tests give their own.
     app.state.make_http_client = make_http_client
@@ -91,6 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(pages.router)
     app.include_router(knowledge.router)
     app.include_router(alerts_page.router)
+    app.include_router(planner_page.router)
     app.include_router(chat.router)
     app.include_router(health.router)
     app.include_router(observability.router)

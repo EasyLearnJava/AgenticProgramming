@@ -28,6 +28,10 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 
 ## Next
 
+- **Step 18 travel release checks:** verify both providers on the intended preview and run the repeated chat
+  evaluation. Record the tested commit, deployment, tool outcomes and timeouts before enabling production.
+  [Step 18](step-18.md#deploy-it) describes the checks and [Waiting on you](waiting-on-you.md) covers settings.
+
 - **Steps 16 and 17 release gate, checked 4 November 2026:** production NPS configuration, all three notice pages,
   RAG browsing/retrieval and explicit NPS chat checks were verified on `5de2c5c`. Completion tags remain withheld:
   the live `too-far-ahead` and `park-ambiguous-destination` goldens failed their tool-use rules (issues 125 and 126).

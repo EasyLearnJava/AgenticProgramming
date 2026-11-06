@@ -51,6 +51,9 @@ from nimbus.nps_alerts import AlertsCallRecord, NpsAlertsService
 from nimbus.open_meteo import OpenMeteoClient
 from nimbus.park_tools import KnowledgeCallRecord, KnowledgeService, make_alert_tools, make_park_tools
 from nimbus.tools import WEATHER_TOOLS, ToolCallRecord, ToolContext, WeatherTool, make_tools
+from nimbus.travel.models import TravelCallRecord
+from nimbus.travel.service import TravelTurn
+from nimbus.travel.tools import make_travel_tools
 
 # What a link in an answer carries: it opens in a new tab, so the chat stays, and it tells the other site nothing.
 LINK_REL = "nofollow noopener noreferrer"
@@ -86,7 +89,7 @@ class ToolEnded:
     call_id: str
     name: str
     content: str
-    record: ToolCallRecord | KnowledgeCallRecord | AlertsCallRecord | None
+    record: ToolCallRecord | KnowledgeCallRecord | AlertsCallRecord | TravelCallRecord | None
     failed: bool
 
 
@@ -127,7 +130,9 @@ def _from_update(payload: dict[str, Any]) -> Iterator[ToolStarted | ToolEnded]:
             if isinstance(message, ToolMessage):
                 record = (
                     message.artifact
-                    if isinstance(message.artifact, (ToolCallRecord, KnowledgeCallRecord, AlertsCallRecord))
+                    if isinstance(
+                        message.artifact, (ToolCallRecord, KnowledgeCallRecord, AlertsCallRecord, TravelCallRecord)
+                    )
                     else None
                 )
                 failed = message.status == "error"
@@ -318,16 +323,18 @@ async def stream_weather_answer(
     *,
     knowledge: KnowledgeService | None = None,
     alerts: NpsAlertsService | None = None,
+    travel: TravelTurn | None = None,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The answer, by the agent with the four weather tools of the question's lane (step 9), open for as long as the
     answer is, and closed with it. Setup failures remain in per-turn state so chat can report their original class.
     """
-    context = lazy_weather_tools(tools, lane, stats) if knowledge is not None else tools
+    context = lazy_weather_tools(tools, lane, stats) if knowledge is not None or travel is not None else tools
     async with context as weather_tools:
         knowledge_tools = make_park_tools(knowledge) if knowledge is not None else []
         notice_tools = make_alert_tools(alerts) if alerts is not None and knowledge is not None else []
-        agent = make_agent(model, [*weather_tools, *knowledge_tools, *notice_tools])
+        travel_tools = make_travel_tools(travel) if travel is not None else []
+        agent = make_agent(model, [*weather_tools, *knowledge_tools, *notice_tools, *travel_tools])
         async with aclosing(stream_answer(agent, messages, stats, tracer, lane, deadline)) as events:
             async for event in events:
                 yield event

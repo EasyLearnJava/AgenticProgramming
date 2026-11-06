@@ -23,6 +23,7 @@ from nimbus.cache import WeatherCache
 from nimbus.config import Settings
 from nimbus.nps_alerts import NpsAlertsService
 from tests.fakes import PARIS_STEPS, AxiomRecordings, FakeCacheStore, FakeModel, OpenMeteoRecordings
+from tests.travel_fakes import travel_service
 
 STARTUP_SECONDS = 10
 POLL_SECONDS = 0.05
@@ -74,7 +75,9 @@ def chat_model() -> FakeModel:
 
 
 @pytest.fixture(scope="session")
-def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store: FakeCacheStore) -> Iterator[str]:
+def base_url(
+    request: pytest.FixtureRequest, open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store: FakeCacheStore
+) -> Iterator[str]:
     """The app's address, once Uvicorn is serving it; Uvicorn stops when the session ends."""
     port = _free_port()
     # Every setting given here, so the shell's environment can't change the app; it logs only warnings, so its line
@@ -92,10 +95,14 @@ def base_url(open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store
         axiom_query_token=None,
         sentry_dsn=None,
         nps_api_key=None,
+        flights_enabled=getattr(request, "param", None) in {"travel", "flights-only"},
+        hotels_enabled=getattr(request, "param", None) == "travel",
     )
     app = create_app(settings)
     # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour; and the cache.
     app.state.chat_model = chat_model
+    if settings.flights_enabled:
+        app.state.travel_service = travel_service()
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
     app.state.weather_cache = WeatherCache(cache_store)
 

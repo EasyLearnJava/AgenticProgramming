@@ -54,6 +54,7 @@ artifact of public park guidance. It is built before deployment and stores no vi
 | 15 | Activity by request: each a row that opens onto its timeline, shown only by its ref; every tool, lane, ending, reason and day on the other pages a link to its requests | |
 | 16 | Park and trail preparation: official source ingestion, a versioned index, destination-filtered retrieval, citations and offline retrieval evaluations | CPU MiniLM weights are cached by the index build; production release remains a separate operation |
 | 17 | Official NPS notices: bounded API checks, a separate page, shared chat tool and source attribution | Configure the NPS key for the intended Vercel environments; verify notices and quota before releasing |
+| 18 | Read-only Kiwi flights, trivago hotels and a shared national park trip planner | Local provider checks complete. Run repeated chat evaluations and verify the target preview before release |
 
 ## 3. A chapter's sections
 
