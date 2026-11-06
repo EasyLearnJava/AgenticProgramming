@@ -386,6 +386,9 @@ def is_weather_authority(url: str) -> bool:
         and not parts.username
         and not parts.password
         and port in (None, 443)
+        and parts.path in ("", "/")
+        and not parts.query
+        and not parts.fragment
     )
 
 
@@ -394,10 +397,8 @@ def render_answer(text: str, *, park_sources: Collection[str] | None = None) -> 
     The finished answer's HTML, from the model's Markdown. Safe to put in a template as it is: with raw HTML off, every
     tag in it is markdown-it's own, and markdown-it never makes a link of a javascript: address.
     """
-    # ① A normal weather answer retains its existing safe Markdown behavior.
-    if park_sources is None:
-        return Markup(ANSWER_MARKDOWN.render(text))  # noqa: S704
-    # ② Park citations must name retrieved evidence. Removing link tokens retains their escaped readable labels.
+    # Exact evidence URLs and the reviewed weather homepages are clickable. Keep other labels as plain text.
+    park_sources = park_sources or ()
     tokens = ANSWER_MARKDOWN.parse(text)
     for block in tokens:
         if not block.children:

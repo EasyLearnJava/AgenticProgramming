@@ -529,3 +529,14 @@ A flight timeout can coexist with a useful forecast, hotel quote, preparation pa
 
 **How do you evaluate an answer when inventory changes?** Check the requested tool, routing, source link and
 price against the offers returned in that attempt. Record throttling, timeouts and empty inventory separately.
+
+## Step 19 · The Evaluation Harness
+
+**What does passing three times measure?** It measures consistency on the three recorded attempts for each case.
+A first-try score can hide an intermittent missed tool call. Neither score predicts every visitor’s experience.
+
+**Why write a synthetic regression?** A public category tells a reviewer where to investigate. A fresh example
+can express the intended behavior precisely and travel with the code while the visitor’s words stay private.
+
+**Why check a deployment ID as well as a commit?** Two deployments of one commit can have different settings.
+Nimbus checks the answering preview during live trials and binds release evidence to that deployment.

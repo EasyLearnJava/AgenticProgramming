@@ -20,6 +20,31 @@
   let isStopping = false;
   let hasStarted = false;
 
+  messages.addEventListener("submit", async (event) => {
+    const feedback = event.target;
+    if (!feedback.matches(".answer-feedback form")) return;
+    event.preventDefault();
+    const button = feedback.querySelector("button");
+    if (button.disabled) return;
+    const status = feedback.querySelector('[role="status"]');
+    button.disabled = true;
+    status.textContent = "Sending…";
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST", body: new URLSearchParams(new FormData(feedback)), signal: AbortSignal.timeout(10000),
+      });
+      if (response.ok) {
+        feedback.querySelector("select").disabled = true;
+        status.textContent = "Feedback received.";
+        return;
+      }
+      status.textContent = response.status === 429 ? "Please wait a minute and try again." : "Could not send feedback.";
+    } catch {
+      status.textContent = "Check your connection and try again.";
+    }
+    button.disabled = false;
+  });
+
   /** Scrolls the conversation's newest message into view. */
   function showNewest() {
     messages.lastElementChild?.scrollIntoView({ block: "nearest" });
@@ -127,6 +152,9 @@
       endWithNote(busy, isStopping ? messages.dataset.stopped : messages.dataset.cutOff);
     } else if (!hasStarted && !isStopping) {
       showError(messages.dataset.cutOff);
+    }
+    if (hasStarted && !busy && document.activeElement === box && !box.value) {
+      messages.lastElementChild?.querySelector("[data-brief-heading]")?.focus();
     }
     rememberConversation();
   });

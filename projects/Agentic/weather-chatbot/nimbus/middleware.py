@@ -38,11 +38,19 @@ class RequestContextMiddleware:
     time it took. Then its lines go to Axiom, and any error to Sentry.
     """
 
-    def __init__(self, app: ASGIApp, log_shipper: LogShipper | None = None, *, is_vercel: bool = False) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        log_shipper: LogShipper | None = None,
+        *,
+        is_vercel: bool = False,
+        deployment: str | None = None,
+    ) -> None:
         """Wraps the app; the shipper that keeps its lines for Axiom, if any, and whether it runs on Vercel."""
         self.app = app
         self.log_shipper = log_shipper
         self.is_vercel = is_vercel
+        self.deployment = deployment
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Runs one HTTP request through the app, with its id; anything else (the app's startup) passes as it is."""
@@ -64,6 +72,8 @@ class RequestContextMiddleware:
             if message["type"] == "http.response.start":
                 status = message["status"]
                 MutableHeaders(scope=message).append(REQUEST_ID_HEADER, request_id)
+                if self.deployment and scope["path"] == "/api/chat":
+                    MutableHeaders(scope=message)["x-nimbus-deployment"] = self.deployment
             await send(message)
 
         # ③ Every line this request logs carries its id, and no other request's.

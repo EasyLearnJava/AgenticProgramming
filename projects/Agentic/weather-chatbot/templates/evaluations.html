@@ -10,8 +10,8 @@
 {% block content %}
 <main class="doc obs">
   <h1>{{ title }}</h1>
-  <p class="obs-lead">Two ways to see whether Nimbus answers well: the golden questions, asked of the live site and
-    graded by rules, and how the visitors' own answers ended.</p>
+  <p class="obs-lead">See how Nimbus handles recorded scenarios, how it answers live questions, and where checks fail.</p>
+  {% include "harness_scorecard.html" %}
 
   <section class="obs-card" aria-labelledby="goldens">
     <h2 id="goldens">The golden questions</h2>

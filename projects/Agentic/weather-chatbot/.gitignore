@@ -8,6 +8,7 @@
 
 # Playwright's reports
 /test-results/
+/harness-output/
 /playwright-report/
 
 # Downloaded, revision-pinned MiniLM weights; rebuild with tools.build_park_index on each host.

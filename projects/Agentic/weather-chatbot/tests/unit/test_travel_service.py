@@ -28,6 +28,14 @@ def _flight_result() -> TravelReport:
     )
 
 
+def test_flight_windows_accept_any_time_and_named_periods() -> None:
+    assert ROUTE.depart_window == ""
+    for window in ("", "evening", "morning", "by_noon"):
+        assert FlightSearch.model_validate({**ROUTE.model_dump(), "depart_window": window}).depart_window == window
+    with pytest.raises(ValidationError):
+        FlightSearch.model_validate({**ROUTE.model_dump(), "depart_window": "invalid"})
+
+
 def test_parallel_duplicate_calls_share_one_budget_slot_and_one_record() -> None:
     """The planner and agent can start the same search simultaneously without paying for it twice."""
 
@@ -103,6 +111,8 @@ def test_invalid_flight_search_is_rejected(change: dict[str, Any]) -> None:
     "change",
     [
         {"check_out": DAY},
+        {"checkin_date": DAY + timedelta(days=1)},
+        {"checkout_date": DAY + timedelta(days=4)},
         {"rooms": 2, "adults": 1},
         {"children_ages": [18]},
         {"destination": None},

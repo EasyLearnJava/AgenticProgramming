@@ -7,6 +7,7 @@ Reports are shared for one minute per address on this app instance, with a succe
 """
 
 import asyncio
+import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
@@ -221,6 +222,21 @@ async def to_report(request: Request) -> HealthReport:
         run = runs[mcp_url or ""] = HealthRun(now, asyncio.create_task(checking))
     # Shielded: a request that goes away doesn't stop the run the others wait for.
     return await asyncio.shield(run.task)
+
+
+@router.get("/api/build")
+async def build_identity(request: Request) -> JSONResponse:
+    """Identify the code being evaluated without running upstream health probes."""
+    settings: Settings = request.app.state.settings
+    sha = settings.vercel_git_commit_sha or ""
+    return JSONResponse(
+        {
+            "environment": settings.environment,
+            "commit": sha if re.fullmatch(r"[a-f0-9]{40}", sha) else None,
+            "deployment": settings.public_deployment,
+        },
+        headers={"cache-control": NO_STORE},
+    )
 
 
 @router.api_route("/api/health", methods=["GET", "HEAD"])

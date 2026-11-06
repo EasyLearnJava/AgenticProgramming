@@ -112,9 +112,11 @@ the app's own calls through and limits everyone else to 20 calls a minute to `/a
 | `logger.py`, `axiom.py`, `sentry.py` | JSON lines, other libraries' among them, their query strings cut; Axiom's batch; Sentry's events, without an exception's message or a request's data |
 | `errors.py`, `utils.py`, `constants.py` | Our errors and their sentences; small helpers; every limit, in one place |
 
-**The services** it calls: Gemini, which writes the answers; Open-Meteo, for places, forecasts and the air; Apify,
-whose Actor gives the forecast on the lanes with auth; Vercel's Runtime Cache, for Open-Meteo's answers; Axiom, Sentry
-and LangSmith, for monitoring, Axiom's lines read back for the Observability pages. The app calls nothing else.
+Gemini writes chat answers. Open-Meteo supplies places, forecasts and air quality, Apify supplies forecasts on the
+authenticated lanes, and Vercel's Runtime Cache stores Open-Meteo results. Park briefings check current NPS notices
+and request active National Weather Service alerts from `api.weather.gov` using the park’s public reference coordinates.
+Visitors can then submit a separate search to Kiwi for flights or trivago for accommodations when those providers
+are enabled. Axiom, Sentry and LangSmith supply monitoring, with Activity reading request events and trace details.
 
 ## Data flow
 

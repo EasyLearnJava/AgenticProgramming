@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from nimbus import alerts_page, chat, health, knowledge, observability, pages
+from nimbus import alerts_page, chat, feedback, health, knowledge, observability, pages
 from nimbus.answer import make_http_client
 from nimbus.apify import make_apify_http_client
 from nimbus.axiom import make_log_shipper
@@ -25,10 +25,11 @@ from nimbus.mcp_server import make_mcp_server, to_routes
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from nimbus.model import make_chat_model, make_tracer
 from nimbus.nps_alerts import NpsAlertsService
+from nimbus.nws_alerts import NwsAlertsService
 from nimbus.parks import make_park_knowledge
 from nimbus.retrieval_gate import RetrievalGate
 from nimbus.sentry import start_sentry
-from nimbus.travel import kiwi, planner_page, trivago
+from nimbus.travel import briefing_page, kiwi, planner_page, trivago
 from nimbus.travel.service import TravelService
 
 
@@ -60,8 +61,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.park_knowledge = make_park_knowledge(settings)
     app.state.retrieval_gate = RetrievalGate()
     app.state.nps_alerts = NpsAlertsService(settings.nps_api_key)
+    app.state.nws_alerts = NwsAlertsService()
     app.state.alerts_gate = RetrievalGate()
     app.state.planner_gate = RetrievalGate()
+    app.state.feedback_gate = RetrievalGate()
     app.state.trace_gate = RetrievalGate()
     app.state.travel_service = TravelService(
         flights=kiwi.search_flights if settings.flights_enabled else None,
@@ -100,6 +103,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(knowledge.router)
     app.include_router(alerts_page.router)
     app.include_router(planner_page.router)
+    app.include_router(briefing_page.router)
+    app.include_router(feedback.router)
     app.include_router(chat.router)
     app.include_router(health.router)
     app.include_router(observability.router)
@@ -114,6 +119,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(StarletteHTTPException, pages.http_error_response)
     # ⑥ Every request: its id and its log line, its lines to Axiom and any error to Sentry, then, outermost, the
     # security headers on its response.
-    app.add_middleware(RequestContextMiddleware, log_shipper=log_shipper, is_vercel=settings.is_vercel)
+    app.add_middleware(
+        RequestContextMiddleware,
+        log_shipper=log_shipper,
+        is_vercel=settings.is_vercel,
+        deployment=settings.public_deployment,
+    )
     app.add_middleware(SecurityHeadersMiddleware)
     return app

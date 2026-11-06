@@ -14,7 +14,6 @@ import time
 import zoneinfo
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import AbstractAsyncContextManager, aclosing, suppress
-from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Annotated, Literal, Self
 from urllib.parse import parse_qsl
@@ -69,14 +68,16 @@ from nimbus.errors import (
     NimbusError,
     to_user_message,
 )
+from nimbus.feedback import answer_ref
 from nimbus.lanes import MCP_NO_AUTH, MCP_WITH_AUTH, REST_WITH_AUTH, Lane, LaneId, get_lane, is_open
 from nimbus.mcp_lane import open_mcp_lane
 from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
+from nimbus.travel import briefing
 from nimbus.travel.models import TRAVEL_ANSWER_RESERVE_SECONDS, TravelCallRecord
-from nimbus.travel.planner_intake import planner_intake
+from nimbus.travel.planner_intake import analyze_trip
 from nimbus.travel.service import TravelService
 from nimbus.utils import is_usable_locale, new_turn_id, to_currency, to_ms, to_ref, to_sse_message
 
@@ -295,6 +296,7 @@ async def stream_turn(
         """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
         return {
             "answerChars": len("".join(pieces)),
+            "answerRef": answer_ref(turn_id),
             "ms": to_ms(time.perf_counter() - started),
             "toolCalls": len(chips),
             "tokensIn": stats.tokens_in,
@@ -437,33 +439,48 @@ async def chat(request: Request) -> Response:
     )
     previous_user_text = next((m.text for m in reversed(chat_request.history) if m.role == "user"), "")
     knowledge = request.app.state.park_knowledge
+    now = briefing.utc_now()
     if (
         settings.parks_enabled
-        and enabled
-        and (fields := planner_intake(chat_request.question, knowledge, previous_user_text)) is not None
+        and (intent := analyze_trip(chat_request.question, knowledge, previous_user_text, now, chat_request.time_zone))
+        is not None
     ):
         turn_id = new_turn_id()
-        fields["lane"] = lane.id
-        fields.setdefault("currency", to_currency(chat_request.locale))
-        fields["locale"] = chat_request.locale
-        first = to_sse_message(render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question}))
 
         async def intake_events() -> AsyncGenerator[str]:
-            """Finish the turn with an editable form before contacting providers."""
-            yield to_sse_message(
-                render_part(
-                    "chat_trip.html",
-                    {
-                        "turn_id": turn_id,
-                        "fields": fields,
-                        "flights_enabled": settings.flights_enabled,
-                        "hotels_enabled": settings.hotels_enabled,
-                    },
+            """Prime the turn before sending so even an immediate disconnect has a recorded ending."""
+            try:
+                yield to_sse_message(
+                    render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question})
                 )
-            )
-            log.info("chat.done", answerChars=0, toolCalls=0, tripForm=True, ms=to_ms(time.perf_counter() - started))
+                prefs = briefing.BriefPreferences.from_intent(intent, chat_request.locale, lane, chat_request.time_zone)
+                context = await briefing.briefing_context(request, intent, prefs, open_lane_tools, now, turn_id)
+                yield to_sse_message(render_part("chat_trip.html", context))
+                log.info(
+                    "chat.done",
+                    answerRef=answer_ref(turn_id),
+                    answerChars=0,
+                    toolCalls=0,
+                    tripForm="conditions" not in context,
+                    ms=to_ms(time.perf_counter() - started),
+                )
+            except (asyncio.CancelledError, GeneratorExit):
+                log.info("chat.aborted", answerChars=0, ms=to_ms(time.perf_counter() - started))
+                raise
+            except Exception as error:
+                log.error(
+                    "chat.failed",
+                    answerRef=answer_ref(turn_id),
+                    errorClass=type(error).__name__,
+                    answerChars=0,
+                    ms=to_ms(time.perf_counter() - started),
+                )
+                note = f"{to_user_message(error)} (ref {to_ref(request.state.request_id)})"
+                failed = {"turn_id": turn_id, "answer": "", "failed": True, "note": note, "chips": []}
+                yield to_sse_message(render_part("chat_end.html", failed))
 
-        return EventStream(first, intake_events())
+        events = intake_events()
+        return EventStream(await anext(events), events)
     # ② The model, made when the app started; a deployment without its key can't answer at all.
     model = request.app.state.chat_model
     if model is None:
@@ -474,7 +491,6 @@ async def chat(request: Request) -> Response:
     # only through the app's own tracer, whose client hides its inputs and outputs, when tracing is allowed at all.
     stats = AnswerStats()
     history = [(message.role, message.text) for message in chat_request.history]
-    now = datetime.now(UTC)
     messages = to_messages(
         chat_request.question,
         now,

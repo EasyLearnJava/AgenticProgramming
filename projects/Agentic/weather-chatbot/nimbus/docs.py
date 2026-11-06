@@ -198,6 +198,12 @@ CHAPTERS += (
         label="Step 18: Flights, Hotels and National Park Trips",
         summary="Read-only flight and hotel search, plus a confirmed park trip with weather, guidance and notices.",
     ),
+    DocPage(
+        slug="step-19",
+        path="/docs/step-19",
+        label="Step 19: The Evaluation Harness",
+        summary="Replay realistic trips, turn visitor feedback into reviewed tests, and check a specific preview.",
+    ),
 )
 PAGES: tuple[DocPage, ...] = (
     DocPage(slug="architecture", path="/architecture", label="Architecture and design"),

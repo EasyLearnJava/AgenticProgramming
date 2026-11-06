@@ -289,3 +289,10 @@ Observability pages, and a fifteenth tells each request's story there. What's yo
 The Step 16 hosted profile uses the lightweight keyword retriever. CPU MiniLM is an optional local or explicitly
 provisioned-host capability, with one bounded inference worker. Playground execution uses a protected POST endpoint
 under `/api/`; no question is placed in its URL. Index health and knowledge/setup events are part of operations.
+
+### Evaluation and release evidence
+
+An offline runner grades human-authored trip cases on fixed clocks. Live trials exercise a named preview with
+synthetic questions and score its actual tool calls. The Evaluations page reads scorecards from disk. Activity
+shows visitor-selected feedback categories and answer references. A reviewer writes a synthetic regression,
+and CI replays it with the existing cases. [The Evaluation Harness](step-19.md)

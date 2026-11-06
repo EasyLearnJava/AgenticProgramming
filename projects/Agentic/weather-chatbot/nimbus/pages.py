@@ -37,6 +37,7 @@ from nimbus.docs import (
     title_of,
 )
 from nimbus.errors import CUT_OFF, RATE_LIMITED, STOPPED, UNREACHABLE
+from nimbus.feedback import CATEGORIES as FEEDBACK_CATEGORIES
 
 HTTP_NOT_FOUND = 404
 API_PREFIX = "/api/"
@@ -153,6 +154,7 @@ def to_menu_label(label: str) -> Markup:
 # ② The templates, with what every page's shell needs: the menu's groups, how to mark its current link, whether a
 # group holds the page, and its labels.
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+templates.env.globals["feedback_categories"] = FEEDBACK_CATEGORIES
 templates.env.globals.update(menu_groups=MENU_GROUPS, to_aria_current=to_aria_current, holds_page=holds_page)
 templates.env.filters["menu_label"] = to_menu_label
 

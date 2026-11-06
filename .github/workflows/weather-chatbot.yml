@@ -9,9 +9,19 @@ on:
     paths:
       - "projects/Agentic/weather-chatbot/**"
       - ".github/workflows/weather-chatbot.yml"
+  pull_request:
+    paths:
+      - "projects/Agentic/weather-chatbot/**"
+      - ".github/workflows/weather-chatbot.yml"
   schedule:
     - cron: "0 6 * * 1"
+    - cron: "33 5 * * *"
   workflow_dispatch:
+    inputs:
+      release_deployment:
+        description: "Optional immutable preview deployment ID for a full evidence gate"
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -23,6 +33,7 @@ jobs:
   # decodings of ASN.1 in a module that never loads here (google-auth imports it beside rsa, which isn't locked);
   # 0.6.5 fixes them, and waits until it's two weeks old, from 11 November (To do).
   audit:
+    if: github.event_name != 'schedule' || github.event.schedule == '0 6 * * 1'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -65,6 +76,53 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
+      - name: Run the offline harness
+        run: uv run python -m tools.harness run --mode replay --output harness-output/replay.json --summary-file "$GITHUB_STEP_SUMMARY"
+      - name: Keep the replay scorecard
+        if: always() && hashFiles('projects/Agentic/weather-chatbot/harness-output/replay.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nimbus-replay
+          path: projects/Agentic/weather-chatbot/harness-output/replay.json
       - run: uv run pytest
       - run: uv run playwright install --with-deps chromium
       - run: uv run pytest tests/e2e
+
+  preview:
+    # Opt in with an immutable Nimbus preview URL. Untrusted pull requests never trigger provider traffic.
+    if: >-
+      vars.NIMBUS_HARNESS_PREVIEW_URL != '' &&
+      (github.event.schedule == '33 5 * * *' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 130
+    defaults:
+      run:
+        working-directory: projects/Agentic/weather-chatbot
+    env:
+      PREVIEW_URL: ${{ vars.NIMBUS_HARNESS_PREVIEW_URL }}
+      EXPECTED_DEPLOYMENT: ${{ inputs.release_deployment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: "0.9.18"
+      - run: uv sync --locked
+      - name: Three-trial live smoke
+        if: env.EXPECTED_DEPLOYMENT == ''
+        run: >-
+          uv run python -m tools.harness run --mode live --smoke --base-url "$PREVIEW_URL" --require-preview
+          --output harness-output/live.json --summary-file "$GITHUB_STEP_SUMMARY"
+      - name: Evaluate the release candidate
+        if: env.EXPECTED_DEPLOYMENT != ''
+        run: |
+          uv run python -m tools.harness run --output harness-output/replay.json
+          uv run python -m tools.harness run --mode live --base-url "$PREVIEW_URL" --require-preview --output harness-output/live.json --summary-file "$GITHUB_STEP_SUMMARY"
+          uv run python -m tools.harness gate --replay harness-output/replay.json --live harness-output/live.json --commit "$GITHUB_SHA" --deployment "$EXPECTED_DEPLOYMENT"
+      - name: Keep the preview evidence
+        if: always() && hashFiles('projects/Agentic/weather-chatbot/harness-output/*.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nimbus-preview
+          path: projects/Agentic/weather-chatbot/harness-output/*.json

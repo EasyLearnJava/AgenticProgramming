@@ -128,9 +128,9 @@ def _quote_outcome(sentence: str, reports: list[TravelReport], subject: str) -> 
         if not named and subject:
             named = [offer for offer in offers if offer.title.casefold() in subject.casefold()]
             if not named:
-                return "quote_needs_review"
+                return "quote_review_unmatched_heading"
         if not earlier and len({offer.title for offer in named}) > 1:
-            return "quote_needs_review"
+            return "quote_review_multiple_properties"
         evidence = named or offers
         candidates = {quote for offer in evidence for quote in _quotes(offer)}
         priced = {b for c, a, b in candidates if c == code and a == amount}
@@ -154,9 +154,11 @@ def _quote_outcome(sentence: str, reports: list[TravelReport], subject: str) -> 
         if hotel_quote and not any(offer.title.casefold() in context.casefold() for offer in named):
             words = set(re.findall(r"[a-z]+", context.casefold()))
             if words - GENERIC_RATE_WORDS:
-                return "quote_needs_review"
-        if not units or len(specific) > 1:
-            return "quote_needs_review"
+                return "quote_review_unclear_property"
+        if not units:
+            return "quote_review_missing_price_basis"
+        if len(specific) > 1:
+            return "quote_review_conflicting_price_bases"
         accepted = specific or {"party_total", "stay_total"}
         if priced.isdisjoint(accepted):
             return "unsupported_price"
@@ -204,7 +206,7 @@ def _block_outcome(text: str, reports: list[TravelReport], subject: str) -> str 
         if reason := _quote_outcome(sentence, reports, subject):
             return reason
         if WRITTEN_MONEY.search(sentence):
-            return "quote_needs_review" if offers else "unsupported_price"
+            return "quote_review_spelled_out_amount" if offers else "unsupported_price"
         # Searches give point-in-time evidence only. A stated availability guarantee exceeds every provider result.
         if GUARANTEE.search(re.sub(r"\b(?:not|never) guaranteed\b", "", sentence, flags=re.I)):
             return "unsupported_availability"

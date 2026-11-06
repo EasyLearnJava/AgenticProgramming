@@ -1,0 +1,64 @@
+{
+  "source": "Synthetic Open-Meteo daily response, GeoJSON NWS alert and paginated NPS response, for offline testing only.",
+  "forecast": {
+    "timezone": "America/Denver",
+    "utc_offset_seconds": -25200,
+    "daily_units": {
+      "temperature_2m_max": "°F"
+    },
+    "daily": {
+      "time": [
+        "2026-11-07",
+        "2026-11-08"
+      ],
+      "weather_code": [
+        0,
+        1
+      ],
+      "temperature_2m_min": [
+        42,
+        45
+      ],
+      "temperature_2m_max": [
+        62,
+        65
+      ],
+      "precipitation_probability_max": [
+        0,
+        0
+      ],
+      "sunrise": [
+        null,
+        null
+      ],
+      "sunset": [
+        null,
+        null
+      ]
+    }
+  },
+  "nws": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {
+          "event": "Flash Flood Warning",
+          "areaDesc": "Synthetic area",
+          "severity": "Severe",
+          "headline": "Synthetic warning for replay",
+          "status": "Actual",
+          "messageType": "Alert",
+          "effective": "2026-11-07T00:00:00-07:00",
+          "onset": "2026-11-07T06:00:00-07:00",
+          "expires": "2026-11-07T22:00:00-07:00",
+          "ends": "2026-11-07T22:00:00-07:00"
+        }
+      }
+    ]
+  },
+  "nps": {
+    "total": "0",
+    "data": []
+  }
+}

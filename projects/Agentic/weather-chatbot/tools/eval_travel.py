@@ -19,7 +19,7 @@ from nimbus.constants import PROJECT_ROOT
 from nimbus.errors import ANSWER_TOO_SLOW, MODEL_BUSY
 from nimbus.goldens import Expect, Golden
 from nimbus.travel.models import FlightSearch, HotelSearch, TravelReport
-from tools.evals import ANSWER_SECONDS, PAUSE_SECONDS, Answer, ask, grade, to_text
+from tools.evals import ANSWER_FRAGMENT, ANSWER_SECONDS, PAUSE_SECONDS, Answer, ask, grade, to_text
 from tools.travel_claims import check_claims
 
 CASES: Final = PROJECT_ROOT / "evals" / "travel.json"
@@ -28,7 +28,6 @@ CHIP: Final = re.compile(r'<li class="tool-chip tool-chip-[^"]+"[^>]*>.*?</detai
 NAME: Final = re.compile(r'<code class="tool-chip-name">([^<]+)</code>')
 INPUT: Final = re.compile(r'<p class="tool-chip-label">Input</p>\s*<pre>(.*?)</pre>', re.S)
 OUTPUT: Final = re.compile(r'<p class="tool-chip-label">Output</p>\s*<pre>(.*?)</pre>', re.S)
-ANSWER: Final = re.compile(r'<div class="answer"[^>]*>(.*?)</div>', re.S)
 LINK: Final = re.compile(r'<a\b[^>]*\bhref="([^"]+)"')
 
 
@@ -144,7 +143,9 @@ class _PlannerForm(HTMLParser):
         """Track only controls belonging to the planner form."""
         fields = dict(attrs)
         if tag == "form":
-            self.active = fields.get("action") == "/api/parks/trip"
+            self.active = (
+                fields.get("action") == "/api/parks/briefing" and "trip-form" in (fields.get("class") or "").split()
+            )
             if self.active:
                 self.count += 1
                 self.method = (fields.get("method") or "get").lower()
@@ -166,14 +167,16 @@ class _PlannerForm(HTMLParser):
             self.select = ""
 
 
-def outcome(case: TravelCase, today: date, answer: Answer, status: int, final: str) -> str:
+def outcome(
+    case: TravelCase, today: date, answer: Answer, status: int, final: str, *, checks: list[str] | None = None
+) -> str:
     """Grade one completed attempt, checking dynamic source identity and independent, unordered tool calls."""
     # ① An aborted answer says nothing about tools the model would have selected next.
     if status == 429 or (answer.failed and MODEL_BUSY in answer.text):
         return "request_throttled"
     if answer.failed and ANSWER_TOO_SLOW in answer.text:
         return "answer_timeout_after_tools" if answer.tools else "answer_timeout_before_tools"
-    body = ANSWER.search(final)
+    body = ANSWER_FRAGMENT.search(final)
     if status != 200 or answer.failed or body is None:
         return "answer_failed"
     form = _PlannerForm()
@@ -194,6 +197,10 @@ def outcome(case: TravelCase, today: date, answer: Answer, status: int, final: s
     if failure:
         return failure
     if reason := check_claims(body[1], reports):
+        if reason.startswith("quote_review_"):
+            if checks is not None:
+                checks.append(reason)
+            return "quote_needs_review"
         return reason
     if reports:
         # ③ A direct travel answer may link only to returned offers; a displayed quote link must be clickable.

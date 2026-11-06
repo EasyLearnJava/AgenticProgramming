@@ -1,10 +1,29 @@
 # Step 18 · Flights, Hotels and National Park Trips
 
 A visitor planning a trip to Zion, Grand Canyon or Yosemite can compare current flights and hotels alongside the
-park forecast, preparation guidance and official notices. A confirmed form runs the plan. A visitor who only
-wants a flight or a hotel can ask chat directly.
+park forecast, preparation guidance and official notices. A dated park request in chat starts with conditions.
+A visitor who only wants a flight or a hotel can ask chat directly.
 
-**In one line:** confirm the dates, party and route → run eligible checks together → compare sourced results.
+For “Plan a trip to Zion this weekend from DFW”, chat interprets the weekend in Dallas time, shows the actual
+dates, and checks the park forecast, current NPS notices and active National Weather Service alerts at the
+park reference point. An overlapping severe warning pauses the itinerary. With incomplete evidence, visitors
+can review the available sources before choosing travel options. During the weekend, Nimbus offers the remaining
+overnight stay or the following weekend. The dated briefing works with both travel providers disabled.
+
+With no dates, the in-chat form and weekend shortcuts lead to the same conditions check. “This Saturday” fills
+the arrival date and asks for the return date. A bare park choice after a multi-park question keeps the dates,
+origin and traveler preferences. “Thanksgiving weekend” uses the Friday through Sunday after US Thanksgiving.
+
+Comparing offers is a separate action. With no transport choice or origin, the visitor can search hotels alone.
+Flight searches have editable local departure and home-arrival windows. Nimbus sends these hours to Kiwi and checks
+each returned itinerary down to the minute. A Sunday return deadline also searches flights leaving the prior night
+that land on Sunday. When Friday night at the origin is already Saturday at the park, the outbound flight uses
+Friday and the park checks and lodging start on Saturday. The standalone planner accepts a fully specified search.
+
+Replay the chat prompt set with `python -m pytest tests/unit/test_briefing_chat.py`. The cases live in
+`evals/weekend.json` and use a fixed clock and offline sources. Try “We want to plan a trip to Zion this
+weekend from DFW. I need to be back by 3pm Sunday.” The conditions card should show Sunday at 15:00 and the
+quote form should carry that deadline. A driving request that also declines hotels should show conditions alone.
 
 ## What you'll build
 
@@ -56,7 +75,16 @@ service-level guarantee was established by the live checks.
 | `nimbus/travel/service.py`, `tools.py` | Shared lookup budget, privacy-safe telemetry and chat declarations |
 | `nimbus/travel/planner_intake.py`, `planner_page.py` | Recognize a park-planning question, show and validate trip intake |
 | `nimbus/travel/planner.py` | Run the five checks and select forecast days and guidance for the visit |
+| `nimbus/travel/weekend_dates.py`, `return_times.py` | Resolve local visit dates, return weekdays and arrival deadlines |
+| `nimbus/travel/airports.py`, `data/travel/` | Offline IATA airport clocks, pinned data source and license |
+| `nimbus/travel/briefing.py`, `briefing_page.py` | Build the dated briefing and validate in-chat follow-up forms |
+| `nimbus/travel/conditions.py`, `park_forecast.py` | Combine visit forecasts, official notices and park guidance |
+| `nimbus/nws_alerts.py` | Fetch active point alerts, distinguish hazard timing from bulletin expiry and log outcomes |
 | `templates/planner_form.html`, `park_trip.html`, `travel_parts.html` | Shared form, report and quote cards |
+| `templates/chat_trip.html`, `brief_content.html`, `brief_quotes.html` | Render the conditions check and optional quote form |
+| `templates/flight_windows.html`, `trip_report.html` | Editable local time windows and the confirmed report |
+| `public/static/chat-planner.js`, `planner.css` | In-chat submissions, accessible focus and planner styling |
+| `evals/weekend.json`, `tests/unit/test_weekend_intake.py` | Chat routing examples and fixed-clock parsing regressions |
 | `evals/travel.json`, `tools/eval_travel.py` | Predeclared tool, routing, citation and price expectations |
 
 ## How it works
@@ -68,7 +96,8 @@ visitor chooses a supported destination explicitly. Declining an itinerary keeps
 Intake ② prefills explicit trip details and leaves uncertain travel preferences for the visitor to choose.
 Room counts apply only when lodging is enabled. A flying
 visitor also confirms the departure point and gateway. Submitting the form sends a bounded, origin-checked POST
-to `/api/parks/trip`. Page ① validates the inputs before invoking a provider. Page ② starts one bounded turn.
+to `/api/parks/trip`. In chat, the report appears below that turn’s editable trip details. On the standalone planner,
+the same POST renders the full page. Page ① validates the inputs before invoking a provider. Page ② starts one bounded turn.
 
 ### `planner.py`
 
@@ -154,6 +183,11 @@ retrieval suite passed all 41 cases in each of the lexical and hybrid profiles.
 The existing 18-question suite passed 15 cases on the updated local app. The three misses were an unnecessary
 geocoding call beyond the forecast horizon, disallowed wording in the instruction-disclosure test, and looking
 up guidance for two parks before the undecided visitor chose one. This is local evidence for the working tree.
+
+On 6 November 2026, a live PHL–LAS search for 13–15 November returned five options with an evening outbound
+and a Sunday 15:00 home-arrival limit. The same filters for 6–8 November returned zero offers. A separate live
+Zion hotel search for 6–8 November using Gemini’s `checkin_date` and `checkout_date` fields returned five stays.
+The chat regression replays those same arguments against a recorded trivago response for a repeatable check.
 
 ## Deploy it
 

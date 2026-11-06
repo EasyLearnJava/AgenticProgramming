@@ -5,6 +5,23 @@
 #}
 {% from "nps_alert_parts.html" import notices %}
 {% from "travel_parts.html" import travel_results %}
+{% macro feedback_form(turn_id) -%}
+<details class="answer-feedback">
+  <summary>Give feedback</summary>
+  <form method="post" action="/api/feedback">
+    <input type="hidden" name="turn" value="{{ turn_id }}">
+    <label>How was this answer?
+      <select name="category" required>
+        <option value="">Choose a category</option>
+        {% for key, label in feedback_categories.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <p>Share the category and an answer reference in Nimbus’s public Activity log.</p>
+    <button type="submit">Send feedback</button>
+    <span role="status"></span>
+  </form>
+</details>
+{%- endmacro %}
 {% macro bot_meta() -%}
 <p class="message-meta"><span class="avatar" aria-hidden="true">N</span><span>Nimbus</span></p>
 {%- endmacro %}
@@ -103,6 +120,7 @@
     <p class="message-note">{{ note }}</p>
     {%- endif %}
   </div>
+  {% if not busy %}{{ feedback_form(turn_id) }}{% endif %}
 </li>
 {%- endmacro %}
 

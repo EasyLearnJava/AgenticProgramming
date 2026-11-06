@@ -1,0 +1,33 @@
+{
+  "source": "Synthetic model transcript shaped after Nimbus's Paris example. Input digests are explicitly reviewed.",
+  "now": "2026-10-29T12:00:00+00:00",
+  "question": "What's the weather in Paris tomorrow?",
+  "tool_steps": [
+    [
+      {
+        "name": "geocode_location",
+        "args": {
+          "query": "Paris"
+        }
+      }
+    ],
+    [
+      {
+        "name": "get_forecast",
+        "args": {
+          "latitude": 48.85341,
+          "longitude": 2.3488,
+          "days": 2,
+          "include_hourly": false,
+          "units": "metric"
+        }
+      }
+    ]
+  ],
+  "answer": "Paris will be mainly clear on Friday, with temperatures from 6 to 15 °C.",
+  "input_hashes": [
+    "28b253acf3faf18e3f86d1eb4bb395a5ae327feb924b60f5e38a16f50bf6565c",
+    "ac5c03b1202edd76e4f509a30545bc6857f950691e96635132a7f1b8ca373d63",
+    "eda6363c2ea1cffb8fa4aa456c728581e3ed633b2dab79ac707920081196f485"
+  ]
+}

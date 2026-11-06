@@ -21,6 +21,10 @@
     <a class="obs-tab" href="{{ href }}"{% if is_current %} aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
+  {% if show == "feedback" %}
+  <p class="obs-about">Visitors choose a category. Open a report for its answer reference, which also appears
+    on the original question’s timeline.</p>
+  {% endif %}
   {% if narrowed %}
   <p class="obs-narrowed">{{ narrowed | join(" · ") }}. <a href="{{ everything }}">Show them all</a></p>
   {% endif %}
@@ -59,6 +63,7 @@
             {% endfor %}
           </ol>
           <p class="obs-ref">Ref {{ item.ref }}: the one an error's sentence ends with.</p>
+          {% if item.answer_ref %}<p class="obs-ref">Answer reference {{ item.answer_ref }}</p>{% endif %}
           {% if item.trace_url %}
           <p class="obs-trace-link"><a href="{{ item.trace_url }}">View LangSmith trace<span class="visually-hidden">
             for request {{ item.ref }}</span></a></p>

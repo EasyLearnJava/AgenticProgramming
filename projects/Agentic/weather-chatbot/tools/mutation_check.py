@@ -44,7 +44,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "tools/build_park_index.py": ("test_park_hardening.py",),
     "tools/eval_parks.py": ("test_park_evals.py",),
     "nimbus/actor.py": ("test_actor.py", "test_auth_lanes.py"),
-    "nimbus/agent.py": ("test_agent.py", "test_answer.py"),
+    "nimbus/agent.py": ("test_agent.py", "test_answer.py", "test_harness_replay.py"),
     "nimbus/__init__.py": ("test_cache.py",),
     "nimbus/apify.py": ("test_apify.py", "test_privacy.py", "test_health.py"),
     "nimbus/axiom.py": ("test_axiom.py", "test_logger.py", "test_middleware.py"),
@@ -185,9 +185,15 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/chat.py",
-        "except (asyncio.CancelledError, GeneratorExit):",
-        "except asyncio.CancelledError:",
+        "\n    except (asyncio.CancelledError, GeneratorExit):",
+        "\n    except asyncio.CancelledError:",
         "Stop is logged however the server reports it",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        "\n            except (asyncio.CancelledError, GeneratorExit):",
+        "\n            except asyncio.CancelledError:",
+        "a park briefing also logs Stop before the first response is sent",
     ),
     Mutation("nimbus/chat.py", "await self.source.aclose()", "pass", "an answer's end is logged within its request"),
     Mutation(
@@ -1216,8 +1222,8 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/observability.py",
-        '    "health": \'event == "health.done"\',\n}',
-        '    "health": \'event == "health.check"\',\n}',
+        '    "health": \'event == "health.done"\',',
+        '    "health": \'event == "health.check"\',',
         "Activity's health view picks each run by its last line",
     ),
     Mutation(
@@ -1843,6 +1849,30 @@ TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/travel/planner_intake.py",
+        'zone = AIRPORT_ZONES.get(fields.get("origin", ""), time_zone)',
+        "zone = time_zone",
+        "weekend intake dates use the known departure airport clock",
+    ),
+    Mutation(
+        "nimbus/travel/planner_intake.py",
+        'skip_hotels = "hotel" in skipped or "lodging" in skipped',
+        "skip_hotels = False",
+        "weekend intake preserves the visitor's hotel opt-out",
+    ),
+    Mutation(
+        "nimbus/travel/weekend_dates.py",
+        "if today > friday:",
+        "if False:",
+        "weekend intake offers future alternatives once Friday has elapsed",
+    ),
+    Mutation(
+        "nimbus/travel/planner_intake.py",
+        "and chosen in previous.candidate_parks:",
+        ":",
+        "a typed park choice must belong to the preceding request",
+    ),
+    Mutation(
+        "nimbus/travel/planner_intake.py",
         "if not TRIP_WORDS.search(normalized) or DECLINES_PLAN.search(normalized):",
         "if not TRIP_WORDS.search(normalized):",
         "travel a declined itinerary stays in ordinary chat",
@@ -1852,6 +1882,24 @@ TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
         "driving = DRIVING.search(normalized) and not DECLINES_DRIVING.search(normalized)",
         "driving = DRIVING.search(normalized)",
         "travel a negated driving preference never selects driving",
+    ),
+    Mutation(
+        "nimbus/travel/kiwi.py",
+        "if not matches or not _upcoming(outbound.depart, checked):",
+        "if not matches:",
+        "Any time still excludes an elapsed departure",
+    ),
+    Mutation(
+        "nimbus/travel/kiwi.py",
+        'args["returnDateTo"] = query.return_date.strftime("%d/%m/%Y")',
+        "pass",
+        "an overnight return search includes the arrival day's departures as well as the previous day",
+    ),
+    Mutation(
+        "nimbus/travel/return_times.py",
+        "minutes = hour * 60 + minute",
+        "minutes = hour * 60",
+        "a stated return deadline retains its minute",
     ),
     Mutation(
         "nimbus/travel/kiwi.py",
@@ -1876,6 +1924,12 @@ TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
         "if not _arguments_match(tool, args, case.expected_args[tool], today):",
         "if False:",
         "travel evals match searches to the requested itinerary",
+    ),
+    Mutation(
+        "nimbus/travel/models.py",
+        'AliasChoices("check_in", "checkin_date")',
+        'AliasChoices("check_in")',
+        "regular chat accepts the date fields Gemini sends for hotels",
     ),
     Mutation(
         "nimbus/travel/models.py",
@@ -1921,8 +1975,8 @@ TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/travel/kiwi.py",
-        "if depart.date() != day or",
-        "if False or",
+        "if not (earliest or day) <= depart.date() <= day:",
+        "if False:",
         "travel flight dates must match the request",
     ),
     Mutation(
@@ -1974,10 +2028,34 @@ TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
         "travel driving skips flight search",
     ),
     Mutation(
-        "nimbus/travel/planner.py",
-        "if end < trip.arrival:",
+        "nimbus/travel/conditions.py",
+        "if end < arrival:",
         "if False:",
         "travel forecasts skip dates beyond the horizon",
+    ),
+    Mutation(
+        "nimbus/travel/conditions.py",
+        'if "pause" in effects:',
+        "if False:",
+        "weekend briefings pause for an explicitly timed whole-park closure",
+    ),
+    Mutation(
+        "nimbus/nws_alerts.py",
+        "if self.start < after and self.end > first",
+        "if self.start < after",
+        "weekend warning intervals exclude alerts expiring before the visit",
+    ),
+    Mutation(
+        "nimbus/nws_alerts.py",
+        "if response.status_code != 200:",
+        "if False:",
+        "weekend warning failures cannot claim a full alert check",
+    ),
+    Mutation(
+        "nimbus/nws_alerts.py",
+        "                    properties.ends,",
+        "                    properties.ends or properties.expires,",
+        "a CAP bulletin's expiry cannot supply a missing hazard end",
     ),
 )
 MUTATIONS += TRAVEL_MUTATIONS
@@ -2038,14 +2116,28 @@ for _travel_module in ("providers", "mcp_client", "kiwi", "trivago"):
 for _travel_module in ("service", "models"):
     TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_service.py",)
 TESTS_FOR["nimbus/travel/planner.py"] = ("test_planner.py",)
-TESTS_FOR["nimbus/travel/planner_intake.py"] = ("test_planner.py",)
+TESTS_FOR["nimbus/travel/conditions.py"] = ("test_planner.py", "test_weekend_conditions.py")
+TESTS_FOR["nimbus/nws_alerts.py"] = ("test_weekend_conditions.py",)
+TESTS_FOR["nimbus/travel/planner_intake.py"] = ("test_weekend_intake.py", "test_planner.py")
+TESTS_FOR["nimbus/travel/weekend_dates.py"] = ("test_weekend_intake.py",)
 TESTS_FOR["tools/eval_travel.py"] = ("test_travel_evals.py",)
 TESTS_FOR["nimbus/prompts.py"] += ("test_travel_integration.py",)
 TESTS_FOR["nimbus/chat.py"] += ("test_travel_integration.py", "test_planner.py")
 TESTS_FOR["nimbus/travel/planner_page.py"] = ("test_planner.py",)
-TESTS_FOR["templates/chat_trip.html"] = ("test_planner.py",)
+TESTS_FOR["templates/brief_content.html"] = ("test_planner.py", "test_briefing_chat.py")
+TESTS_FOR["nimbus/travel/park_forecast.py"] = ("test_planner.py",)
+TESTS_FOR["nimbus/travel/briefing.py"] = ("test_planner.py", "test_briefing_chat.py")
+TESTS_FOR["nimbus/travel/return_times.py"] = ("test_return_times.py",)
+TESTS_FOR["nimbus/travel/kiwi.py"] += ("test_weekend_flights.py",)
+TESTS_FOR["nimbus/travel/models.py"] += ("test_travel_integration.py", "test_harness_replay.py")
 # The review fixes of 6 November 2026 (issues 134 to 145): with the others, and in --travel's set.
-REVIEW_TRAVEL_MUTATIONS = (
+REVIEW_TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
+    Mutation(
+        "nimbus/travel/planner_page.py",
+        '"trip_report.html" if inline else "park_trip.html"',
+        '"park_trip.html"',
+        "the inline trip planner returns only the report for its own turn",
+    ),
     Mutation(
         "nimbus/chat.py",
         "deadline - TRAVEL_ANSWER_RESERVE_SECONDS,",
@@ -2066,20 +2158,20 @@ REVIEW_TRAVEL_MUTATIONS = (
         "a weather question that mentions a plan gets the weather, not the trip form",
     ),
     Mutation(
-        "templates/chat_trip.html",
+        "templates/brief_content.html",
         "For a place not on the list, ask here about its weather",
         "For a place not on the list, ask here",
         "the trip form says what the planner covers and where else to ask",
     ),
     Mutation(
-        "templates/chat_trip.html",
+        "templates/brief_content.html",
         "{% elif flights_enabled %} or flights{% elif hotels_enabled %} or hotels",
         "",
         "the trip form names only the enabled searches",
     ),
     Mutation(
-        "nimbus/travel/planner_page.py",
-        "units=units,",
+        "nimbus/travel/park_forecast.py",
+        "units=to_unit_system(locale),",
         'units="imperial",',
         "the plan's forecast uses the browser's units",
     ),
@@ -2091,14 +2183,59 @@ REVIEW_TRAVEL_MUTATIONS = (
         "a search without a currency takes the visitor's",
     ),
     Mutation(
-        "nimbus/chat.py",
-        'fields.setdefault("currency", to_currency(chat_request.locale))',
-        "pass",
+        "nimbus/travel/briefing.py",
+        'currency=fields.get("currency", to_currency(locale)),',
+        'currency="USD",',
         "the chat's trip form preselects the visitor's currency",
+    ),
+)
+REVIEW_TRAVEL_MUTATIONS += (
+    Mutation(
+        "nimbus/agent.py",
+        "len(last.tool_calls) > MAX_TOOL_CALLS_PER_ROUND",
+        "False",
+        "hardening excessive tool fan-out is rejected before any dispatch",
+    ),
+    Mutation(
+        "nimbus/travel/models.py",
+        'type FlightWindow = Annotated[str, StringConstraints(pattern=r"^(?:evening|morning|by_noon)?$")]',
+        'type FlightWindow = Literal["", "evening", "morning", "by_noon"]',
+        "travel Gemini accepts the optional flight window declaration",
     ),
 )
 TRAVEL_MUTATIONS += REVIEW_TRAVEL_MUTATIONS
 MUTATIONS += REVIEW_TRAVEL_MUTATIONS
+
+# The review workflow can only log an allowed label, and promotion must preserve what a person actually graded.
+HARNESS_MUTATIONS = (
+    Mutation(
+        "nimbus/harness_scorecard.py",
+        "if live.repeats < 3:",
+        "if False:",
+        "a single live trial cannot release a preview",
+    ),
+    Mutation(
+        "nimbus/harness_scorecard.py",
+        "or card.catalog() != cases:",
+        ":",
+        "a passing subset cannot qualify as complete coverage",
+    ),
+    Mutation(
+        "nimbus/feedback.py",
+        " or category not in CATEGORIES:",
+        ":",
+        "feedback refuses arbitrary text in place of a reviewed category",
+    ),
+    Mutation(
+        "tools/harness_review.py",
+        "review.model_dump_json(exclude_unset=True, indent=2)",
+        "review.model_dump_json(indent=2)",
+        "promoted regression cases score only the fields the reviewer specified",
+    ),
+)
+MUTATIONS += HARNESS_MUTATIONS
+TESTS_FOR["nimbus/feedback.py"] = TESTS_FOR["tools/harness_review.py"] = ("test_harness_feedback.py",)
+TESTS_FOR["nimbus/harness_scorecard.py"] = ("test_harness_scorecard.py",)
 
 
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
@@ -2144,6 +2281,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hardening", action="store_true", help="Check the reviewed production and privacy fixes")
     parser.add_argument("--travel", action="store_true", help="Check travel search and trip planning safeguards")
+    parser.add_argument("--harness", action="store_true", help="Check the feedback and reviewed regression rules")
     parser.add_argument("--nps", action="store_true", help="Check official park notice safeguards")
     parser.add_argument("--parks", action="store_true", help="Check the park rules and affected prompt guards")
     parser.add_argument("--knowledge", action="store_true", help="Check the knowledge browser safeguards")
@@ -2162,6 +2300,8 @@ def main() -> int:
     )
     if args.travel:
         selected = TRAVEL_MUTATIONS
+    if args.harness:
+        selected = HARNESS_MUTATIONS
     if args.traces:
         selected = TRACE_MUTATIONS
     if args.knowledge:

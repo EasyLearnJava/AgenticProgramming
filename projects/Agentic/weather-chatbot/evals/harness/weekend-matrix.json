@@ -1,0 +1,16 @@
+[
+  {"case_id":"typo-zion","question":"Play a trip to Zion this week end from {airport}","profile":"this","expected":{"kind":"briefing","park":"zion","origin":"{airport}","depart_window":"evening","return_window":"evening"}},
+  {"case_id":"polite-city","question":"I want to plan a weekend trip to Zion from {city}.","profile":"this","expected":{"kind":"briefing","park":"zion","origin":"{city}","transport":""}},
+  {"case_id":"yosemite-next","question":"Plan a trip to Yosemitte next weekend from {airport}.","profile":"next","expected":{"kind":"briefing","park":"yosemite","origin":"{airport}"}},
+  {"case_id":"yosemite-city","question":"I'd like to plan a trip to Yosmite this weekend from {city}.","profile":"this","expected":{"kind":"briefing","park":"yosemite","origin":"{city}"}},
+  {"case_id":"home-by-noon","question":"Plan a trip to Zion this weekend from {airport}. I need to be back by noon Sunday.","profile":"this","expected":{"kind":"briefing","park":"zion","origin":"{airport}","return_window":"by_noon"}},
+  {"case_id":"home-by-three","question":"We want to plan a trip to Zion this weekend from {airport}. Back Sunday by 3pm.","profile":"this","expected":{"kind":"briefing","park":"zion","origin":"{airport}","return_window":"by_15:00"}},
+  {"case_id":"driving","question":"Plan a driving trip to Zion this weekend. Skip hotels.","profile":"this","expected":{"kind":"briefing","park":"zion","transport":"drive","skip_hotels":true,"depart_window":"","return_window":""}},
+  {"case_id":"no-quotes","question":"Plan a trip to Zion this weekend, but no flights or hotels.","profile":"this","expected":{"kind":"briefing","park":"zion","skip_flights":true,"skip_hotels":true}},
+  {"case_id":"choose-park","question":"Plan a trip to Zion or Yosemite this weekend.","profile":"this","expected":{"kind":"choose_park","candidate_parks":["zion","yosemite"],"park":""}},
+  {"case_id":"typed-park","question":"Zion","previous_question":"Plan a trip to Zion or Yosemite this weekend from {airport}, back by noon Sunday.","profile":"this","expected":{"kind":"briefing","park":"zion","origin":"{airport}","return_window":"by_noon"}},
+  {"case_id":"there-after-weather","question":"Ok, plan a trip there this weekend from {airport}","previous_question":"Is there a flash flood warning in Zion?","profile":"this","expected":{"kind":"briefing","park":"zion","origin":"{airport}"}},
+  {"case_id":"missing-dates","question":"Let's plan a trip to Zion.","profile":"none","expected":{"kind":"form","park":"zion","arrival":"","departure":""}},
+  {"case_id":"weather-only","question":"Will it rain in Zion this weekend?","profile":"none","expected":{"kind":"chat"}},
+  {"case_id":"qualified-place","question":"Plan a trip to Zion, Illinois this weekend from {airport}.","profile":"this","expected":{"kind":"other_place","park":"","origin":"{airport}"}}
+]

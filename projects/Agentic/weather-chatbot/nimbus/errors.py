@@ -97,6 +97,17 @@ class AnswerTimeoutError(NimbusError):
         super().__init__("answer_timeout", ANSWER_TOO_SLOW, HTTPStatus.GATEWAY_TIMEOUT)
 
 
+class ToolCallLimitError(NimbusError):
+    """The model requested more operations than the graph can safely execute in this round."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "tool_call_limit",
+            "This question requested too many tool calls. Try a narrower question.",
+            HTTPStatus.BAD_GATEWAY,
+        )
+
+
 class ModelFailedError(NimbusError):
     """The model failed in any other way: an error from its API, or a connection that broke (502)."""
 

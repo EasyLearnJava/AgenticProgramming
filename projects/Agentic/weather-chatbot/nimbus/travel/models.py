@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Final, Literal, Self
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 MAX_OFFERS: Final = 5
 MAX_CONTEXT_BYTES: Final = 24_000
@@ -35,6 +35,12 @@ type TravelStatus = Literal[
     "invalid_input",
 ]
 type PriceBasis = Literal["party_total", "per_person", "per_night", "stay_total", "unknown"]
+# The planner submits an empty value for Any time. Gemini rejects empty enum members in a tool declaration.
+type FlightWindow = Annotated[str, StringConstraints(pattern=r"^(?:evening|morning|by_noon)?$")]
+# A return deadline is an inclusive airport-local clock time. Keep named windows for existing callers.
+type ReturnWindow = Annotated[
+    str, StringConstraints(pattern=r"^(?:evening|morning|by_noon|by_(?:[01][0-9]|2[0-3]):[0-5][0-9])?$")
+]
 type Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
 type Place = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100, pattern=r"^[^\x00-\x1f\x7f<>]+$")
@@ -81,6 +87,12 @@ class FlightSearch(_Search):
     destination: FlightPlace
     departure_date: SearchDate
     return_date: SearchDate | None = None
+    depart_window: FlightWindow = Field(
+        default="", description="Local departure window at the origin: morning, evening or by_noon. Omit for any time."
+    )
+    return_window: ReturnWindow = Field(
+        default="", description="Local arrival back at the origin: morning, evening, by_noon or by_HH:MM."
+    )
     adults: CountAdults = Field(default=1, description="Travelers aged 12 and older on the flight.")
     children: int = Field(default=0, ge=0, le=8, strict=True, description="Children aged 2 through 11.")
     infants: int = Field(default=0, ge=0, le=4, strict=True, description="Infants younger than 2.")
@@ -93,6 +105,8 @@ class FlightSearch(_Search):
             raise ValueError("origin and destination must be different")
         if self.return_date is not None and self.return_date < self.departure_date:
             raise ValueError("return must be on or after departure")
+        if self.return_window and self.return_date is None:
+            raise ValueError("a return arrival time requires a return date")
         if self.adults + self.children > 9 or self.infants > self.adults:
             raise ValueError("at most nine seated passengers and one infant per adult")
         return self
@@ -105,8 +119,8 @@ class HotelSearch(_Search):
     max_price: PriceLimit | None = Field(default=None, description="Maximum nightly accommodation price.")
     latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
     longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
-    check_in: SearchDate
-    check_out: SearchDate
+    check_in: SearchDate = Field(validation_alias=AliasChoices("check_in", "checkin_date"))
+    check_out: SearchDate = Field(validation_alias=AliasChoices("check_out", "checkout_date"))
     rooms: int = Field(default=1, ge=1, le=9, strict=True)
     children_ages: tuple[Annotated[int, Field(ge=0, le=17, strict=True)], ...] = Field(default=(), max_length=8)
 
@@ -155,6 +169,7 @@ class TravelReport(BaseModel):
     status: TravelStatus
     offers: tuple[TravelOffer, ...] = Field(default=(), max_length=MAX_OFFERS)
     checked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    empty_reason: Literal["time_window"] | None = None
 
     @model_validator(mode="after")
     def consistent(self) -> Self:
@@ -163,6 +178,8 @@ class TravelReport(BaseModel):
             raise ValueError("offer count and status disagree")
         if self.checked_at.utcoffset() is None:
             raise ValueError("checked_at requires a time zone")
+        if self.empty_reason and (self.provider != "kiwi" or self.status != "no_results"):
+            raise ValueError("only an empty flight report can have a time-window reason")
         return self
 
     def bounded(self) -> Self:

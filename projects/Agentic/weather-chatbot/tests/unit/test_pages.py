@@ -99,7 +99,12 @@ def test_the_chat_form_posts_each_question_and_adds_its_streamed_answer_to_the_c
 
 def test_the_chat_page_loads_htmx_its_stream_extension_and_our_script_and_nothing_inline(client: TestClient) -> None:
     page = _Elements(client.get("/").text)
-    assert page.scripts == ["/static/htmx.min.js", "/static/hx-sse.min.js", "/static/chat.js"]
+    assert page.scripts == [
+        "/static/htmx.min.js",
+        "/static/hx-sse.min.js",
+        "/static/chat.js",
+        "/static/chat-planner.js",
+    ]
     assert not [name for name in page.attribute_names if name.startswith(("on", "hx-on"))]
     content = page.metas["htmx-config"]
     assert content is not None

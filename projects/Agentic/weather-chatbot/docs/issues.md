@@ -843,8 +843,8 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 148. **A partial travel result counted as a failed plan section, and a switched-off provider as an error.**
      **Fix:** partial is a warning (Activity's tone, Errors as for NPS), not a failed section; `disabled` leaves Errors.
 149. **A repeated identical search showed its offer cards twice.** **Fix:** one set of cards for each distinct report.
-150. **The chat's trip form replaced the chat page.** The conversation lived only in the page. **Fix:** the form opens
-     the plan in a new tab, says so, and carries the chat's locale so the plan's units match the chat's.
+150. **The chat's trip form replaced the chat page.** The conversation lives in the page. The chat form now shows
+     the plan or validation error inside the turn that requested it. It carries the chat's locale for forecast units.
 151. **A travel answer could keep invented links when the question said "stay", "room" or "airport".** **Fix:** the
      words that restrict an answer's links to returned evidence include airline, airport, ticket, motel, lodge,
      resort, room and stay.
@@ -864,4 +864,16 @@ package's code**, **deploying**, or **testing a real API**. The TypeScript versi
 158. **The architecture's time limits named only 8 s for a tool.** **Fix:** they name 14 s for a travel search, ending
      12 s before the answer's deadline. Round 3 (146 to 158) was committed without running the test suite, at the
      user's request; CI runs it.
+159. **Common trip requests lost their park or dates.** Polite requests, a city origin, weekend and holiday phrasing,
+     and contextual park choices now reach the conditions check. A single stated date remains editable.
+160. **A return deadline could become a Sunday evening flight.** The named return day and clock now reach both the
+     quote form and Kiwi. Local-date and time checks cover previous-night flights and airports outside the original list.
+161. **Undecided travelers had to enter airports to search hotels.** The quote editor supports hotels alone and
+     editable flight windows. A late Friday departure retains the origin date while lodging uses the park’s local date.
+162. **A bulletin expiry could conceal a warning with an unknown end.** The briefing marks uncertain hazard timing.
+     NWS outcomes appear in Activity, and completed conditions checks count toward chat latency.
+163. **A preview alias can change while a live suite runs.** The harness checks the deployment identity before,
+     during and after the trial series. A mismatched response fails its attempt.
+164. **A reviewed case could gain unintended assertions when saved.** Promotion serializes only the expected fields
+     the reviewer supplied. An isolated mutation inserts the defaults again and the regression test catches it.
 

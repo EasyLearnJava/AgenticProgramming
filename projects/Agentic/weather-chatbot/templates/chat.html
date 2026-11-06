@@ -12,10 +12,14 @@
 {% from "chat_parts.html" import bot_meta, error_message %}
 {% block head %}
     <link rel="stylesheet" href="/static/alerts.css">
+    {% if request.app.state.settings.parks_enabled %}
+    <link rel="stylesheet" href="/static/planner.css">
+    {% endif %}
     <meta name="htmx-config" content='{"extensions": "sse", "includeIndicatorCSS": false, "history": false}'>
     <script src="/static/htmx.min.js" defer></script>
     <script src="/static/hx-sse.min.js" defer></script>
     <script src="/static/chat.js" defer></script>
+    <script src="/static/chat-planner.js" defer></script>
 {% endblock %}
 {% block content %}
 {% set features = request.app.state.settings %}

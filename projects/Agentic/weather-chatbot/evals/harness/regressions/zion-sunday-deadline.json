@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "category": "trip-dates",
+  "case": {
+    "case_id": "zion-sunday-deadline",
+    "question": "We want to plan a trip to Zion this weekend from DFW. I need to be back by 3pm Sunday.",
+    "now": "2026-11-05T18:00:00Z",
+    "time_zone": "America/Chicago",
+    "expected": {
+      "kind": "briefing",
+      "park": "zion",
+      "origin": "DFW",
+      "arrival": "2026-11-06",
+      "departure": "2026-11-08",
+      "return_window": "by_15:00"
+    }
+  }
+}

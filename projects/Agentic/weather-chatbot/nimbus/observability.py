@@ -40,7 +40,9 @@ from nimbus.constants import (
     REQUEST_ID_PATTERN,
 )
 from nimbus.errors import AXIOM_NOT_CONNECTED, NimbusError, ObservabilityError
+from nimbus.feedback import CATEGORIES, TURN_ID
 from nimbus.goldens import LastRun, read_goldens, read_last_run
+from nimbus.harness_scorecard import public_reports
 from nimbus.health import to_report
 from nimbus.lanes import LANES
 from nimbus.model import is_tracing_allowed
@@ -58,7 +60,7 @@ MS_PER_SECOND = 1000
 HTTP_CLIENT_ERROR = 400
 HTTP_SERVER_ERROR = 500
 LANE_LABELS: Final = {lane.id: lane.label for lane in LANES}
-TOOL_NAMES: Final = TRACE_TOOL_NAMES | {"retrieval_playground", "park_alerts", "park_trip_plan"}
+TOOL_NAMES: Final = TRACE_TOOL_NAMES | {"retrieval_playground", "park_alerts", "park_trip_plan", "park_trip_briefing"}
 CHECK_LABELS: Final = {
     "open-meteo": "Open-Meteo",
     "our-mcp": "Our MCP server",
@@ -94,8 +96,11 @@ TIMELINE_EVENTS: Final = (
     *TOOL_EVENTS,
     "knowledge.call",
     "nps.alerts",
+    "nws.alerts",
     "travel.call",
     "travel.plan",
+    "travel.briefing",
+    "answer.feedback",
     "lane.open.failed",
     "mcp.call",
     "lane.connect",
@@ -141,6 +146,8 @@ TIMELINE_FIELDS: Final = (
     "failedSections",
     "missingSections",
     "traceId",
+    "category",
+    "answerRef",
 )
 
 
@@ -169,13 +176,19 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
     "questions": to_in("event", ("chat.request", "chat.rejected")),
     "errors": (
         f'{to_in("event", TIMELINE_EVENTS)} and (level == "error" or {STATUS} in ("failed", "down") '
-        f'or event == "lane.fallback" or (event == "nps.alerts" and {STATUS} == "partial") '
+        f'or event == "lane.fallback" or (event in ("nps.alerts", "nws.alerts") and {STATUS} == "partial") '
         f'or (event == "travel.call" and {STATUS} !in ("found", "no_results", "disabled")) '
         f'or (event == "travel.plan" and toint({to_field("failedSections", "0")}) > 0))'
     ),
     "health": 'event == "health.done"',
+    "feedback": 'event == "answer.feedback"',
 }
-ACTIVITY_TABS: Final = (("questions", "Questions"), ("errors", "Errors"), ("health", "Health"))
+ACTIVITY_TABS: Final = (
+    ("questions", "Questions"),
+    ("errors", "Errors"),
+    ("health", "Health"),
+    ("feedback", "Feedback"),
+)
 DAY_PATTERN: Final = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
 NO_REASON: Final = "none given"
 
@@ -207,7 +220,18 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
     "tool": (
         TOOL_NAMES,
         "Questions that called {label}",
-        to_in("event", ("tool.call", "knowledge.call", "nps.alerts", "travel.call", "travel.plan"))
+        to_in(
+            "event",
+            (
+                "tool.call",
+                "knowledge.call",
+                "nps.alerts",
+                "nws.alerts",
+                "travel.call",
+                "travel.plan",
+                "travel.briefing",
+            ),
+        )
         + f' and {to_field("tool")} == "{{value}}"',
     ),
     "asked": (
@@ -240,7 +264,7 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
 # Evaluations' reasons, each event's by the narrowing that finds its questions.
 REASON_LINKS: Final = {"chat.rejected": "refused", "chat.failed": "failed", "lane.fallback": "fellback"}
 ANSWERS: Final = (
-    # A turn answered by the trip form took no model call: its milliseconds aren't an answer's.
+    # Exclude quick intake forms; dated briefings perform upstream checks and contribute to answer latency.
     f'where event == "chat.done" and tostring({to_field("tripForm")}) != "true"',
     "summarize answers = count(), p50 = percentile(ms, 50), p95 = percentile(ms, 95), p99 = percentile(ms, 99), "
     f"avgToolCalls = avg({to_field('toolCalls', '0')}), avgTokensIn = avg({to_field('tokensIn', '0')}), "
@@ -327,6 +351,8 @@ def to_narrowing(links: Mapping[str, str | None]) -> Narrowing | None:
     if value not in known:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
     label = LANE_LABELS.get(value) or ENDED_WORDS.get(value) or value
+    if kind == "tool" and value == "park_trip_briefing":
+        return Narrowing(kind, "Park trip briefings", where.format(value=value))
     if kind == "tool" and value == "park_trip_plan":
         return Narrowing(kind, "Park trip plans", where.format(value=value))
     if kind == "tool" and value in {"search_flights", "search_hotels"}:
@@ -548,6 +574,9 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
     lane, error_class = to_lane_label(to_words(row, "lane")), to_words(row, "errorClass")
     if event == "chat.request":
         return ActivityLine(at, "Question", f"on {lane}", "idle")
+    if event == "answer.feedback":
+        label = CATEGORIES.get(to_words(row, "category"), "Unrecognized category")
+        return ActivityLine(at, "Visitor feedback", label, "idle")
     if event == "chat.done":
         tokens_in, tokens_out = (round(to_number(row, name)) for name in ("tokensIn", "tokensOut"))
         calls = to_count(to_number(row, "toolCalls"), "tool call")
@@ -565,6 +594,9 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
         if to_words(row, "status") == "failed":
             return ActivityLine(at, tool, f"failed on {lane}: {error_class}, after {took}", "bad")
         return ActivityLine(at, tool, f"on {lane} in {took}", "ok")
+    if event == "travel.briefing":
+        status = to_words(row, "status")
+        return ActivityLine(at, "Park trip conditions", status, "ok" if status == "proceed" else "warn")
     if event == "travel.plan":
         failed = to_number(row, "failedSections")
         missing = to_number(row, "missingSections")
@@ -580,15 +612,15 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
         status = to_words(row, "status")
         detail = f"{status.replace('_', ' ')} in {took}"
         return ActivityLine(at, to_words(row, "tool"), detail, "bad" if status in {"failed", "unavailable"} else "ok")
-    if event == "nps.alerts":
+    if event in {"nps.alerts", "nws.alerts"}:
         status = to_words(row, "status")
         source = "cached result" if to_words(row, "cached").lower() == "true" else "live fetch"
         if status in {"not_configured", "unsupported"}:
             source = "not requested"
         reasons = {
             "authentication_failed": "authentication failed",
-            "rate_limited": "NPS rate limit",
-            "upstream_error": "NPS server error",
+            "rate_limited": "rate limit",
+            "upstream_error": "upstream server error",
             "timeout": "timeout",
             "network_error": "network error",
             "invalid_response": "invalid response",
@@ -601,7 +633,8 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
             if status in {"failed", "unavailable"}
             else ("warn" if status in {"not_configured", "partial", "unsupported"} else "ok")
         )
-        return ActivityLine(at, to_words(row, "tool"), detail, tone)
+        name = "NWS weather alerts" if event == "nws.alerts" else to_words(row, "tool")
+        return ActivityLine(at, name, detail, tone)
     if event == "lane.open.failed":
         return ActivityLine(at, "Weather connection", f"failed on {lane}: {error_class}", "bad")
     if event == "lane.fallback":
@@ -681,6 +714,7 @@ class ActivityRequest:
     steps: list[tuple[str, ActivityLine]]
     is_chat: bool
     trace_url: str | None
+    answer_ref: str
 
 
 def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLine:
@@ -700,6 +734,8 @@ def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLi
         ]
         detail = f"{done.detail}: {', '.join(down)}" if down else done.detail
         return ActivityLine(first.at, "Health check", detail, done.tone)
+    if "answer.feedback" in by_event:
+        return by_event["answer.feedback"][1]
     question = by_event.get("chat.request")
     on = f" · {question[1].detail}" if question else ""
     ending = next((by_event[event][1] for event in ENDING_EVENTS if event in by_event), None)
@@ -761,7 +797,10 @@ def to_activity_requests(
             ending, _ = endings[0]
             if ending.get("event") in ("chat.done", "chat.failed", "chat.aborted"):
                 href = trace_url(settings, to_words(ending, "traceId"), beginnings[0], ref, now)
-        requests.append(ActivityRequest(start, to_summary(rows_of, lines_of), ref, steps, is_chat, href))
+        answer_ref = next(
+            (to_words(row, "answerRef") for row in rows_of if TURN_ID.fullmatch(to_words(row, "answerRef"))), ""
+        )
+        requests.append(ActivityRequest(start, to_summary(rows_of, lines_of), ref, steps, is_chat, href, answer_ref))
     # By when each began: the first query found each by the line that picked it, which may come later.
     return sorted(requests, key=lambda request: request.at, reverse=True)
 
@@ -1047,6 +1086,7 @@ async def evaluations_page(request: Request) -> HTMLResponse:
         "title": "Evaluations",
         "answers": answers,
         "goldens": [(golden, results.get(golden.id)) for golden in read_goldens()],
+        "scorecards": public_reports(),
         "last_run": last_run,
         "passed": sum(result.passed for result in kept),
         "endings": to_endings(answers.rows.get("endings", [])),

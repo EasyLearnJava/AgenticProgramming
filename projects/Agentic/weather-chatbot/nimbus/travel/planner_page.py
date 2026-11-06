@@ -2,14 +2,14 @@
 
 import asyncio
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import ValidationError
 
-from nimbus.chat import open_lane_tools
+from nimbus.chat import TIME_ZONES, open_lane_tools
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.forms import read_form_fields
 from nimbus.lanes import Lane, get_lane, is_open
@@ -17,11 +17,14 @@ from nimbus.nps_alerts import PARKS
 from nimbus.pages import render_page
 from nimbus.parks import Destination
 from nimbus.retrieval_gate import RetrievalGate
-from nimbus.tools import GET_FORECAST, ForecastInput, ForecastOutput
+from nimbus.tools import ForecastOutput
+from nimbus.travel import briefing
+from nimbus.travel.airports import AIRPORT_ZONES, normalize_origin
 from nimbus.travel.models import MAX_DAYS_AHEAD
+from nimbus.travel.park_forecast import park_forecast
 from nimbus.travel.planner import ParkPlan, ParkTrip, make_plan, park_destination
 from nimbus.travel.service import TravelService
-from nimbus.utils import is_usable_locale, to_browser_locale, to_unit_system
+from nimbus.utils import is_usable_locale, to_browser_locale
 
 router = APIRouter()
 FORM_ERRORS = {
@@ -36,10 +39,11 @@ FORM_ERRORS = {
 def _render(
     request: Request, fields: Mapping[str, str], plan: ParkPlan | None = None, error: str = "", status: int = 200
 ) -> HTMLResponse:
-    """Render the same form after success or failure; CDN and browser caches must not retain trip details."""
+    """Return a report for chat or a full planner page for navigation, keeping trip details out of caches."""
+    inline = request.method == "POST" and request.headers.get("hx-request") == "true"
     response = render_page(
         request,
-        "park_trip.html",
+        "trip_report.html" if inline else "park_trip.html",
         {
             "fields": fields,
             "flights_enabled": request.app.state.settings.flights_enabled,
@@ -52,6 +56,8 @@ def _render(
         status_code=status,
     )
     response.headers["cache-control"] = "no-store"
+    if inline:
+        response.headers["x-nimbus-trip"] = "fragment"
     return response
 
 
@@ -84,18 +90,8 @@ async def _forecast(
     browser's first language, as the chat's rule 13 does.
     """
     chat_locale: str = getattr(request.state, "units_locale", "")
-    units = to_unit_system(chat_locale or to_browser_locale(request.headers.get("accept-language", "")))
-    async with open_lane_tools(request, lane, deadline) as tools:
-        params = ForecastInput(
-            latitude=destination.latitude,
-            longitude=destination.longitude,
-            days=days,
-            include_hourly=False,
-            units=units,
-        )
-        tool = next(tool for tool in tools if tool.name == GET_FORECAST.name)
-        result = await tool.ainvoke(params.model_dump())
-        return ForecastOutput.model_validate_json(result)
+    locale = chat_locale or to_browser_locale(request.headers.get("accept-language", ""))
+    return await park_forecast(destination, days, locale, open_lane_tools(request, lane, deadline))
 
 
 @router.post("/api/parks/trip", response_class=HTMLResponse)
@@ -109,6 +105,9 @@ async def build_trip(request: Request) -> HTMLResponse:
         fields = await read_form_fields(request, max_bytes=4096, max_fields=len(ParkTrip.model_fields))
         if not state.settings.flights_enabled:
             fields["transport"] = "skip"
+        elif fields.get("skip_flights") == "true":
+            if fields.get("transport") != "drive":
+                fields["transport"] = "skip"
         elif fields.get("transport") == "skip":
             return _render(request, fields, error="Choose flying or driving.", status=400)
         if not state.settings.hotels_enabled:
@@ -120,17 +119,30 @@ async def build_trip(request: Request) -> HTMLResponse:
         if not is_open(lane, state.settings):
             return _render(request, fields, error="The selected weather lane is unavailable.", status=400)
         destination = park_destination(state.park_knowledge, trip)
-        now = datetime.now(UTC)
+        now = briefing.utc_now()
         # With a missing park record, allow a same-day arrival everywhere in the supported mainland US.
-        today = (
+        park_today = (
             now.astimezone(ZoneInfo(destination.time_zone)).date() if destination else (now - timedelta(hours=8)).date()
         )
+        if trip.time_zone and trip.time_zone not in TIME_ZONES:
+            return _render(request, fields, error="Choose a valid time zone for the trip.", status=400)
+        origin_zone = (
+            (AIRPORT_ZONES.get(normalize_origin(trip.origin)) or trip.time_zone) if trip.transport == "fly" else None
+        )
+        today = now.astimezone(ZoneInfo(origin_zone)).date() if origin_zone else park_today
         if trip.arrival < today:
-            return _render(request, fields, error="Choose today or a future date at the park for check-in.", status=400)
+            return _render(request, fields, error="Choose today or a future date to begin the trip.", status=400)
         if trip.arrival > today + timedelta(days=MAX_DAYS_AHEAD):
             return _render(request, fields, error="Choose a check-in date within the next year.", status=400)
-        flight_query = trip.flight() if trip.transport == "fly" else None
-        hotel_query = trip.hotel(destination) if state.settings.hotels_enabled else None
+        flight_query = trip.flight() if trip.transport == "fly" and not trip.skip_flights else None
+        check_in = max(trip.arrival, park_today)
+        if check_in != trip.arrival:
+            fields["hotel_check_in"] = check_in.isoformat()
+        hotel_query = (
+            trip.hotel(destination, check_in=check_in)
+            if state.settings.hotels_enabled and not trip.skip_hotels and check_in < trip.departure
+            else None
+        )
         gate: RetrievalGate = state.planner_gate
         async with gate.reserve(request.client.host if request.client else "unknown"):
             # ② The same deadline and turn budget cover every travel request.
@@ -148,6 +160,7 @@ async def build_trip(request: Request) -> HTMLResponse:
                 state.nps_alerts,
                 service.new_turn(deadline, today=today),
                 forecast,
+                park_start=check_in,
                 flight_query=flight_query,
                 hotel_query=hotel_query,
                 now=now,

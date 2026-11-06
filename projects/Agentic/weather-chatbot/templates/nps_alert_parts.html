@@ -1,6 +1,6 @@
 {# Public notice text is escaped. Indexing, fetching, missing data and partial results are kept distinct. #}
-{% macro notices(report) -%}
-<section class="nps-report" aria-label="Official NPS notices">
+{% macro notices(report, landmark=true) -%}
+<section class="nps-report"{% if landmark %} aria-label="Official NPS notices"{% endif %}>
   {% if report.status == 'not_configured' %}
   <p>Park alerts are not configured on this server. Weather and preparation guidance remain available.</p>
   {% elif report.status == 'unavailable' %}

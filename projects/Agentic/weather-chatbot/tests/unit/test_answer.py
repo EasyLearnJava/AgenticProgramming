@@ -248,8 +248,8 @@ def test_a_picture_is_never_loaded() -> None:
 
 
 def test_a_link_opens_in_a_new_tab_and_tells_the_other_site_nothing() -> None:
-    html = render_answer("See [the forecast](https://example.com/forecast).")
-    assert f'<a href="https://example.com/forecast" rel="{LINK_REL}" target="_blank">the forecast</a>' in html
+    html = render_answer("See [the forecast](https://www.weather.gov/).")
+    assert f'<a href="https://www.weather.gov/" rel="{LINK_REL}" target="_blank">the forecast</a>' in html
 
 
 def test_a_script_address_never_becomes_a_link() -> None:

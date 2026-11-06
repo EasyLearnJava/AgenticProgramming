@@ -100,3 +100,24 @@ says Axiom didn't answer. The token the app already has can only ingest, and sta
 3. **Check it.** Open https://weather-chatbot-hazel.vercel.app/performance: numbers, not the notice. The app's start
    line in Vercel's logs says `"axiomQuery": true`. When the token expires, the pages say Axiom didn't answer, and
    Sentry hears of it once on each copy of the app: make a new one, and change the variable.
+
+## Step 19 preview evidence and production approval
+
+1. Create an immutable Vercel Preview from the candidate commit. Set the preview’s Gemini and NPS credentials
+   and the park, flight and hotel switches required by the live scenarios. Check the preview’s `/api/build`
+   for its full commit and deployment ID. The Actions runner must be able to reach the preview through HTTPS.
+   If its access policy blocks the runner, configure authorized preview access before running the evaluation.
+2. Set the GitHub Actions repository variable `NIMBUS_HARNESS_PREVIEW_URL` to that preview origin.
+   The nightly workflow uses it for smoke trials. To collect full evidence, dispatch **Weather chatbot** for
+   the candidate revision with its `release_deployment` ID. Review the `nimbus-preview` artifact and job summary.
+3. Decide who may release. GitHub’s required reviewer protection applies to jobs that reference the configured
+   environment. Public repositories can use required reviewers on GitHub Free. For a future promotion job,
+   configure a protected `production` environment, select the reviewer and prevent self-review. The current
+   workflow produces evidence. An operator makes the final promotion decision. [GitHub deployment rules][gh-env]
+4. Configure Vercel’s production branch and domain assignment to honor that decision. Preview-to-production
+   promotion rebuilds with production settings. Record the production deployment ID and smoke-test it before
+   tagging. If the operator needs to release a pretested production build, Vercel also supports disabling
+   automatic domain assignment and promoting a staged production deployment. [Vercel deployment promotion][vc-promo]
+
+[gh-env]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments
+[vc-promo]: https://vercel.com/docs/deployments/promoting-a-deployment

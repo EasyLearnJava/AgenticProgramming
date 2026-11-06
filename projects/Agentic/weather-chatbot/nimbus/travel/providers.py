@@ -3,7 +3,7 @@
 import re
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
-from typing import Any, Final
+from typing import Any, Final, Literal
 from urllib.parse import urlsplit
 
 from markdown_it.common.normalize_url import normalizeLink
@@ -64,8 +64,14 @@ def short_text(value: object) -> str:
     return " ".join(value.split())
 
 
-def records_report(provider: Provider, rows: object, parse: Callable[[dict[str, Any]], TravelOffer]) -> TravelReport:
-    """Keep up to five distinct valid offers. A malformed row never discards its valid neighbors."""
+def records_report(
+    provider: Provider,
+    rows: object,
+    parse: Callable[[dict[str, Any]], TravelOffer | None],
+    *,
+    empty_reason: Literal["time_window"] | None = None,
+) -> TravelReport:
+    """Keep up to five distinct eligible offers. A parser returns None for a valid but ineligible result."""
     if not isinstance(rows, list):
         raise TravelProviderError("invalid_response")
     if not rows:
@@ -81,6 +87,8 @@ def records_report(provider: Provider, rows: object, parse: Callable[[dict[str, 
         except (ValueError, KeyError, TypeError):
             skipped = True
             continue
+        if offer is None:
+            continue
         if offer.url is not None:
             if offer.url in seen:
                 continue
@@ -88,6 +96,8 @@ def records_report(provider: Provider, rows: object, parse: Callable[[dict[str, 
         offers.append(offer)
         if len(offers) == MAX_OFFERS:
             break
-    if not offers:
+    if not offers and skipped:
         raise TravelProviderError("invalid_response")
+    if not offers:
+        return TravelReport(provider=provider, status="no_results", empty_reason=empty_reason)
     return TravelReport(provider=provider, status="partial" if skipped else "found", offers=tuple(offers))

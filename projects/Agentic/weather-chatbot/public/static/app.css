@@ -333,6 +333,34 @@ body {
   display: none;
 }
 
+.answer-feedback {
+  margin-top: 0.4rem;
+  color: var(--user-text);
+  font-size: 0.875rem;
+}
+.answer-feedback summary {
+  width: fit-content;
+  color: var(--accent);
+  cursor: pointer;
+}
+.answer-feedback form {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+.answer-feedback select, .answer-feedback button {
+  font: inherit;
+}
+.answer-feedback select {
+  display: block;
+  margin-top: 0.25rem;
+  max-width: 100%;
+}
+.answer-feedback form p {
+  margin: 0.5rem 0;
+}
+
 .tool-chip {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -929,6 +957,11 @@ body {
 [data-tone="bad"] > .obs-dot,
 [data-tone="down"] > .obs-dot {
   background: #b91c1c;
+}
+
+.harness-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .obs-table {

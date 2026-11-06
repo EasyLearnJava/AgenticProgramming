@@ -211,7 +211,7 @@ def test_vercel_defers_a_bounded_sdk_flush_only_for_a_traced_question(
     monkeypatch.setattr(KeepingClient, "flush", broken_flush)
     with TestClient(traced_app) as client, capture_logs() as lines:
         intake = client.post("/api/chat", data={"question": "Plan a trip to Zion National Park"})
-        assert 'action="/api/parks/trip"' in intake.text
+        assert 'action="/api/parks/briefing"' in intake.text
         assert waiting == []
         assert all("traceId" not in line for line in lines)
         answer = client.post("/api/chat", data={"question": "Paris?"})

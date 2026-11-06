@@ -1,0 +1,51 @@
+{% set fly = flights_enabled and not prefs.skip_flights and prefs.transport != 'drive' %}
+{% from "flight_windows.html" import flight_windows %}
+{% set stay = hotels_enabled and not prefs.skip_hotels and hotel_arrival < departure %}
+{% set start_with_hotels = stay and not (prefs.transport == 'fly' or prefs.origin or prefs.gateway) %}
+<details class="trip-editor">
+  <summary>{% if conditions.decision == 'review' %}Continue to travel options{% else %}Compare travel options{% endif %}</summary>
+  <form action="/api/parks/trip" method="post" class="trip-form" hx-post="/api/parks/trip"
+    hx-target="#trip-result-{{ turn_id }}" hx-swap="innerHTML" hx-sync="this:drop" hx-disable="find button[type='submit']">
+    <input type="hidden" name="arrival" value="{{ hotel_arrival if (not fly or start_with_hotels) else arrival }}"
+      data-flight-date="{{ arrival }}" data-hotel-date="{{ hotel_arrival }}">
+    {% for key in ['park','departure','activity','currency','locale','lane'] %}
+    {% if fields.get(key) %}<input type="hidden" name="{{ key }}" value="{{ fields[key] }}">{% endif %}{% endfor %}
+    <input type="hidden" name="transport" value="{{ 'fly' if fly else 'drive' if prefs.transport == 'drive' else 'skip' }}">
+    {% if fly and stay %}
+    <label class="trip-field">Search for
+      <select name="skip_flights" data-quote-mode>
+        <option value="true"{% if start_with_hotels %} selected{% endif %}>Hotels only</option>
+        <option value="false"{% if not start_with_hotels %} selected{% endif %}>Round-trip flights and hotels</option>
+      </select>
+    </label>
+    {% elif prefs.skip_flights %}<input type="hidden" name="skip_flights" value="true">{% endif %}
+    {% if prefs.skip_hotels %}<input type="hidden" name="skip_hotels" value="true">{% endif %}
+    {% if fly %}<fieldset data-flight-fields{% if start_with_hotels %} hidden disabled{% endif %}>
+      <legend>Round-trip flights</legend>
+      <p class="trip-hint">Searching shares your route, dates, time windows, passenger counts and currency with Kiwi.</p>
+      <input type="hidden" name="time_zone" value="{{ prefs.time_zone }}">
+      <div class="trip-fields trip-fields-route">
+      <label class="trip-field">Flying from<input required name="origin" maxlength="100" value="{{ prefs.origin }}"></label>
+      <label class="trip-field">Flying into
+        {% if fields.park == 'zion' and not prefs.gateway %}
+        <select name="gateway" required><option value="">Choose an airport</option>
+          <option value="SGU">St. George (SGU)</option><option value="LAS">Las Vegas (LAS)</option>
+        </select>
+        {% else %}<input name="gateway" value="{{ prefs.gateway }}" required maxlength="100">{% endif %}
+      </label></div>{{ flight_windows(fields, turn_id ~ '-quote') }}
+    </fieldset>{% endif %}
+    <fieldset><legend>Who’s traveling?</legend><div class="trip-fields trip-fields-party">
+      <label class="trip-field">Adults (18+)<input type="number" name="adults" min="1" max="9"
+        value="{{ prefs.adults }}" required></label>
+      {% if stay %}<label class="trip-field">Rooms near {{ park_name }}<input type="number" name="rooms" min="1" max="9"
+        value="{{ prefs.rooms }}" required></label>{% endif %}
+      <label class="trip-field">Children’s ages (separate with commas)<input name="children_ages" maxlength="24"
+        value="{{ prefs.children_ages }}"></label></div></fieldset>
+    {% if stay %}<p class="trip-hint">Searching shares the park location, dates, rooms, party, children's ages
+      and currency with trivago.</p>{% endif %}
+    <button type="submit" class="trip-submit">Search {{ 'flights and hotels' if fly and stay and not start_with_hotels
+      else 'hotels' if stay else 'flights' }}</button>
+    <p class="trip-status" role="status" data-trip-status></p>
+  </form>
+</details>
+<div id="trip-result-{{ turn_id }}" class="trip-inline-result"></div>

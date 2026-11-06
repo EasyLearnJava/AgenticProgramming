@@ -20,7 +20,14 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Send
 
-from nimbus.constants import AGENT_NAME, AGENT_RECURSION_LIMIT, MAX_MODEL_CALLS, MODEL_FIRST_CHUNK_SECONDS
+from nimbus.constants import (
+    AGENT_NAME,
+    AGENT_RECURSION_LIMIT,
+    MAX_MODEL_CALLS,
+    MAX_TOOL_CALLS_PER_ROUND,
+    MODEL_FIRST_CHUNK_SECONDS,
+)
+from nimbus.errors import ToolCallLimitError
 from nimbus.lanes import Lane
 
 
@@ -69,6 +76,8 @@ def make_agent(model: BaseChatModel, tools: Sequence[BaseTool]) -> CompiledState
         """② After a call: each tool call the model asked for to "tools", as a task of its own; words end the run."""
         last = state["messages"][-1]
         if isinstance(last, AIMessage) and last.tool_calls:
+            if len(last.tool_calls) > MAX_TOOL_CALLS_PER_ROUND or state["model_calls"] >= MAX_MODEL_CALLS:
+                raise ToolCallLimitError()
             return [Send("tools", [call]) for call in last.tool_calls]
         return END
 

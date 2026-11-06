@@ -5,6 +5,7 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -14,11 +15,48 @@ from structlog.testing import capture_logs
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.logger import LibraryLogHandler
 from nimbus.prompts import to_system_prompt
+from nimbus.travel import trivago
 from nimbus.travel.mcp_client import travel_mcp_active
 from nimbus.travel.models import TRAVEL_ANSWER_RESERVE_SECONDS
 from nimbus.travel.service import TravelTurn
 from tests.fakes import FakeModel
 from tests.travel_fakes import FLIGHT_LINK, travel_service
+from tests.unit.test_travel_providers import fixture
+
+
+def test_regular_chat_accepts_geminis_hotel_dates(
+    client: TestClient, chat_model: FakeModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Replay the exact Gemini arguments, through the real chat and Trivago adapter, on the day they were sent."""
+    app = cast(FastAPI, client.app)
+    app.state.settings.hotels_enabled = True
+    app.state.travel_service.hotels = trivago.search_hotels
+    monkeypatch.setattr("nimbus.travel.briefing.utc_now", lambda: datetime(2026, 11, 6, 18, tzinfo=UTC))
+    args = {"checkin_date": "2026-11-06", "checkout_date": "2026-11-08", "destination": "Zion National Park"}
+    chat_model.tool_steps = [[{"name": "search_hotels", "args": args}]]
+    example = fixture("trivago")
+    hotel = example["accommodations"][0]
+    hotel.update(arrival="2026-11-06", departure="2026-11-08")
+    search = AsyncMock(return_value=example)
+    monkeypatch.setattr(trivago, "call_search", search)
+
+    response = client.post("/api/chat", data={"question": "Find me a hotel near Zion for November 6 to 8."})
+
+    search.assert_awaited_once_with(
+        "trivago",
+        "trivago-accommodation-search",
+        {
+            "query": "Zion National Park",
+            "arrival": "2026-11-06",
+            "departure": "2026-11-08",
+            "adults": 1,
+            "rooms": 1,
+            "children": 0,
+            "currency": "USD",
+        },
+    )
+    assert response.status_code == 200
+    assert f"<strong>{hotel['accommodation_name']}</strong>" in response.text
 
 
 @pytest.mark.parametrize("success", [True, False])

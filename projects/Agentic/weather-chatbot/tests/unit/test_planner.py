@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -23,7 +23,7 @@ from nimbus.tools import GET_FORECAST, Day, ForecastOutput
 from nimbus.travel import planner_page
 from nimbus.travel.models import FlightSearch, HotelSearch, TravelOffer, TravelReport
 from nimbus.travel.planner import GENERAL_GUIDANCE
-from nimbus.travel.planner_intake import planner_intake
+from nimbus.travel.planner_intake import analyze_trip
 from nimbus.travel.service import TravelService
 from tests.unit.test_nps_alerts import notice, service
 
@@ -65,13 +65,15 @@ def knowledge(settings: Settings) -> ParkKnowledge:
 def test_chat_opens_trip_intake_only_for_intended_park_requests(
     question: str, park: str | None, knowledge: ParkKnowledge
 ) -> None:
-    fields = planner_intake(question, knowledge)
-    assert (fields.get("park", "") if fields is not None else None) == park
+    intent = analyze_trip(question, knowledge, "", datetime(2026, 11, 5, tzinfo=UTC), "UTC")
+    assert (intent.fields.get("park", "") if intent else None) == park
 
 
 def test_intake_keeps_explicit_airports_dates_and_traveler_counts(knowledge: ParkKnowledge) -> None:
     request = "Plan a trip to Zion from SEA to LAS 2027-04-03 to 2027-04-06 for two adults, 1 room"
-    assert planner_intake(request, knowledge) == {
+    intent = analyze_trip(request, knowledge, "", datetime(2026, 11, 5, tzinfo=UTC), "UTC")
+    assert intent is not None
+    assert intent.fields == {
         "park": "zion",
         "origin": "SEA",
         "gateway": "LAS",
@@ -95,7 +97,8 @@ def test_intake_keeps_explicit_airports_dates_and_traveler_counts(knowledge: Par
 def test_followup_uses_park_only_for_referential_request(
     question: str, expected: dict[str, str] | None, knowledge: ParkKnowledge
 ) -> None:
-    assert planner_intake(question, knowledge, "What should I wear in Zion?") == expected
+    intent = analyze_trip(question, knowledge, "What should I wear in Zion?", datetime(2026, 11, 5, tzinfo=UTC), "UTC")
+    assert (intent.fields if intent else None) == expected
 
 
 @pytest.mark.parametrize(
@@ -110,7 +113,7 @@ def test_followup_uses_park_only_for_referential_request(
 def test_unresolved_chat_destination_requires_an_explicit_park_selection(client: TestClient, place: str) -> None:
     _enable(client)
     html = client.post("/api/chat", data={"question": f"Plan my visit to {place}."}).text
-    assert 'action="/api/parks/trip"' in html
+    assert 'action="/api/parks/briefing"' in html
     for park in ("grand-canyon", "yosemite", "zion"):
         assert f'value="{park}" selected' not in html
     # Yellowstone, two parks at once, or a park the resolver missed: what the planner covers, and where else to ask.
@@ -129,7 +132,7 @@ def test_declining_a_plan_keeps_the_normal_chat_route(client: TestClient, questi
     _enable(client)
     response = client.post("/api/chat", data={"question": question})
     assert response.status_code == 200
-    assert 'action="/api/parks/trip"' not in response.text
+    assert 'action="/api/parks/briefing"' not in response.text
     assert 'class="answer"' in response.text
 
 
@@ -181,6 +184,7 @@ def _fields(days_out: int = 2) -> dict[str, str]:
         ({}, {"kiwi", "trivago", "nps", "weather", "guidance"}),
         ({"transport": "drive"}, {"trivago", "nps", "weather", "guidance"}),
         ({"far": "yes"}, {"kiwi", "trivago", "nps", "guidance"}),
+        ({"inline": "yes"}, {"kiwi", "trivago", "nps", "weather", "guidance"}),
         ({"outage": "hotel"}, {"kiwi", "trivago", "nps", "weather", "guidance"}),
         ({"boundary": "yes"}, {"kiwi", "trivago", "nps", "weather", "guidance"}),
         ({"hotels_only": "yes"}, {"trivago", "nps", "weather", "guidance"}),
@@ -283,7 +287,7 @@ def test_park_trip_acceptance(
     monkeypatch.setattr(planner_page, "_forecast", weather)
     monkeypatch.setattr(app.state.park_knowledge, "search", record_search)
     with capture_logs() as events:
-        response = client.post(PATH, data=fields)
+        response = client.post(PATH, data=fields, headers={"HX-Request": "true"} if "inline" in change else {})
     [aggregate] = [event for event in events if event["event"] == "travel.plan"]
     assert aggregate["missingSections"] == int(
         bool({"far", "outage", "boundary", "index_down", "empty_index"} & change.keys())
@@ -292,6 +296,15 @@ def test_park_trip_acceptance(
     assert aggregate["status"] == ("partial" if aggregate["missingSections"] else "ok")
     assert response.status_code == 200
     html = response.text
+    if "inline" in change:
+        assert response.headers["x-nimbus-trip"] == "fragment"
+        assert "data-trip-result-heading" in html
+        assert "<html" not in html
+        assert "<form" not in html
+    else:
+        assert "x-nimbus-trip" not in response.headers
+        assert "<html" in html
+        assert "Edit trip details" in html
     assert "2 nights" in html
     assert "Test notice" in html
     assert "Current official notices" in html
@@ -363,6 +376,18 @@ def test_invalid_plans_stop_before_provider_access(client: TestClient, kind: str
     assert response.status_code == status
     assert 'role="alert"' in response.text
     assert "application/json" not in response.headers["content-type"]
+
+
+def test_invalid_inline_plan_returns_only_its_error(client: TestClient) -> None:
+    _enable(client)
+    response = client.post(PATH, data={"park": "zion"}, headers={"HX-Request": "true"})
+    assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-nimbus-trip"] == "fragment"
+    assert 'role="alert"' in response.text
+    assert "data-trip-error" in response.text
+    assert "<form" not in response.text
+    assert "<html" not in response.text
 
 
 def test_planner_get_disabled_queries_and_throttling(client: TestClient) -> None:

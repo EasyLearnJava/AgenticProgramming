@@ -23,6 +23,7 @@ from nimbus.axiom_query import AxiomQuery
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
 from nimbus.nps_alerts import NpsAlertsService
+from nimbus.nws_alerts import NwsAlertsService
 from nimbus.observability import get_activity_trace_reader
 from nimbus.trace_view import TraceRow, TraceView
 from tests.fakes import PARIS_STEPS, AxiomRecordings, FakeCacheStore, FakeModel, OpenMeteoRecordings
@@ -147,6 +148,13 @@ def base_url(
         hotels_enabled=getattr(request, "param", None) == "travel",
     )
     app = create_app(settings)
+    app.state.nws_alerts = NwsAlertsService(
+        lambda: httpx2.AsyncClient(
+            transport=httpx2.MockTransport(
+                lambda _: httpx2.Response(200, json={"type": "FeatureCollection", "features": []})
+            )
+        )
+    )
     # Stand-ins answer: the model, and Open-Meteo, whose weather changes by the hour; and the cache.
     app.state.chat_model = chat_model
     if settings.flights_enabled:

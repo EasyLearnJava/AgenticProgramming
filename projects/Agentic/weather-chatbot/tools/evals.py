@@ -34,6 +34,7 @@ PAUSE_SECONDS: Final = 8
 ANSWER_SECONDS: Final = 90
 USAGE = "usage: uv run python -m tools.evals <the app's address> [--langsmith] [--save]"
 FLAGS: Final = frozenset({"--langsmith", "--save"})
+ANSWER_FRAGMENT: Final = re.compile(r'<div class="answer"[^>]*>(.*?)</div>', re.S)
 
 
 @dataclass(frozen=True)
@@ -60,10 +61,13 @@ def read_answer(events: Sequence[str], request_id: str = "") -> Answer:
     """An answer from its stream's events: the last holds the finished turn, its chips and its words."""
     last = events[-1] if events else ""
     tools = re.findall(r'<code class="tool-chip-name">(.*?)</code>', last)
-    words = last.split('<div class="answer', 1)[-1] if '<div class="answer' in last else ""
-    words = words.split(">", 1)[-1] if words else ""
+    failed = bool(re.search(r'class="[^"]*\bmessage-error\b[^"]*"', last)) or not events
+    fragment = ANSWER_FRAGMENT.search(last)
+    words = fragment[1] if fragment else ""
+    if failed and (note := re.search(r'<p class="message-note">(.*?)</p>', last, re.S)):
+        words += " " + note[1]
     citations = list(dict.fromkeys(html.unescape(href) for href in re.findall(r'<a\b[^>]*href=["\'](.*?)["\']', words)))
-    return Answer(tools, to_text(words), "message-error" in last or not events, request_id, citations)
+    return Answer(tools, to_text(words), failed, request_id, citations)
 
 
 def grade(golden: Golden, answer: Answer) -> list[str]:
@@ -94,20 +98,29 @@ async def ask(
     if history:
         form["history"] = json.dumps(history)
     headers = {"content-type": "application/x-www-form-urlencoded"}
-    events: list[str] = []
     async with http.stream("POST", f"{base}/api/chat", content=urllib.parse.urlencode(form), headers=headers) as sent:
         request_id = sent.headers.get("x-request-id", "")
-        buffer = ""
-        async for chunk in sent.aiter_text():
-            buffer += chunk
-            while "\n\n" in buffer:
-                raw, buffer = buffer.split("\n\n", 1)
-                events.append(
-                    "\n".join(line[5:].removeprefix(" ") for line in raw.split("\n") if line.startswith("data:"))
-                )
+        if sent.status_code != 200:
+            # Rejections are plain HTML, before a stream opens. Only the fixed refusal text is needed by a grader.
+            refusal = ""
+            async for chunk in sent.aiter_text():
+                refusal += chunk[: 8192 - len(refusal)]
+                if len(refusal) >= 8192:
+                    break
+            if observe is not None:
+                observe(sent.status_code, refusal)
+            return read_answer([], request_id)
+        final = ""
+        lines: list[str] = []
+        async for line in sent.aiter_lines():
+            if line.startswith("data:"):
+                lines.append(line[5:].removeprefix(" "))
+            elif line == "" and lines:
+                final = "\n".join(lines)
+                lines.clear()
         if observe is not None:
-            observe(sent.status_code, events[-1] if events else "")
-    return read_answer(events, request_id)
+            observe(sent.status_code, final)
+    return read_answer([final] if final else [], request_id)
 
 
 @dataclass(frozen=True)

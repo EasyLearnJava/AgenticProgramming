@@ -1,0 +1,133 @@
+{% from "planner_form.html" import trip_form %}
+{% from "nps_alert_parts.html" import notices %}
+{% set heading = ('Trip conditions · ' ~ park_name) if kind == 'briefing' else 'Park trip planner' %}
+{% set windows = {'evening':'in the evening', 'morning':'in the morning', 'by_noon':'by noon'} %}
+<header class="trip-card-header">
+  <div><h2 tabindex="-1" data-brief-heading>{{ heading }}</h2>
+    <div class="answer" id="answer-{{ turn_id }}"><p>
+      {%- if kind == 'other_place' %}The location you named is outside the supported park destinations.
+      {% elif kind == 'choose_park' %}Which park do you want to visit?
+      {% elif kind == 'choose_weekend' %}The weekend has already started. Which dates work for you?
+      {% elif kind == 'briefing' %}Forecast and official notices for your visit.
+      {% elif fields.park %}Choose your dates to check conditions at {{ park_name }}.
+{% else %}Choose your park from the list below: the planner covers those parks.
+      For a place not on the list, ask here about its weather{% if flights_enabled and hotels_enabled %}, flights or
+      hotels{% elif flights_enabled %} or flights{% elif hotels_enabled %} or hotels{% endif %}.{% endif -%}
+    </p></div>
+  </div>
+</header>
+{% macro action_fields() %}
+  <input type="hidden" name="prefs" value="{{ preference_json }}">
+{% endmacro %}
+{% macro post_attrs() -%}
+method="post" action="/api/parks/briefing" hx-post="/api/parks/briefing" hx-target="closest .trip-card"
+hx-swap="innerHTML" hx-sync="closest .trip-card:drop" hx-disable="find button" class="brief-action"
+{%- endmacro %}
+{% macro date_editor(label) %}
+<details class="brief-edit"><summary>{{ label }}</summary>
+  <form {{ post_attrs() }}>
+    {{ action_fields() }}<input type="hidden" name="park" value="{{ fields.park }}">
+    <label>Arrival date <input type="date" name="arrival" value="{{ fields.arrival }}" required></label>
+    <label>Departure date <input type="date" name="departure" value="{{ fields.departure }}" required></label>
+    <button class="trip-submit">Check these dates</button><span role="status"></span>
+  </form>
+</details>
+{% endmacro %}
+{% if error %}
+<div class="brief-body"><p role="alert">{{ error }}</p>
+{% if fields.park %}{{ date_editor('Change dates or retry') }}{% endif %}</div>
+{% elif kind == 'other_place' %}
+<p class="brief-body">Nimbus covers Zion, Yosemite and the Grand Canyon’s South Rim. You can ask about the weather
+  at your destination in chat.</p>
+{% elif kind == 'choose_park' %}
+<div class="brief-body"><form {{ post_attrs() }}>
+  {{ action_fields() }}
+  {% if options %}<label>Travel dates<select name="weekend" required><option value="">Choose a weekend</option>
+    {% for a,b,label in options %}<option value="{{ a }}/{{ b }}">{{ label }} · {{ a }} – {{ b }}</option>{% endfor %}
+  </select></label>{% else %}<input type="hidden" name="arrival" value="{{ fields.arrival }}">
+  <input type="hidden" name="departure" value="{{ fields.departure }}">{% endif %}
+  {% for key in candidates %}<button class="trip-option" name="park" value="{{ key }}">{{ parks[key][0] }}</button>{% endfor %}
+  <span role="status"></span>
+</form></div>
+{% elif kind != 'briefing' %}
+{% if fields.park %}<div class="brief-body">
+  {% if options %}<form {{ post_attrs() }}>
+    {{ action_fields() }}<input type="hidden" name="park" value="{{ fields.park }}">
+    {% for a, b, label in options %}
+    <button class="trip-option" name="weekend" value="{{ a }}/{{ b }}">{{ label }} · {{ a }} – {{ b }}</button>
+    {% endfor %}<span role="status"></span>
+  </form>{% endif %}
+  {% if kind == 'choose_weekend' %}{{ date_editor('Choose dates') }}{% endif %}
+</div>{% endif %}
+{% if kind != 'choose_weekend' %}
+<details open class="trip-editor"><summary>Trip details</summary>
+  {{ trip_form(fields, prefix=turn_id, flights_enabled=flights_enabled, hotels_enabled=hotels_enabled,
+              inline=true, brief_prefs=preference_json) }}
+</details><div id="trip-result-{{ turn_id }}" class="trip-inline-result"></div>
+{% endif %}
+{% elif conditions %}
+<div class="brief-body" data-brief-decision="{{ conditions.decision }}">
+  <p class="brief-dates"><strong>{{ arrival.strftime('%a, %b %d, %Y') }} – {{ departure.strftime('%a, %b %d, %Y') }}</strong>
+    · {{ nights }} {{ 'night' if nights == 1 else 'nights' }}{% if prefs.origin %} · from {{ prefs.origin }}{% endif %}</p>
+  {% if hotel_arrival != arrival %}<p>It is already {{ hotel_arrival.strftime('%a, %b %d') }} at {{ park_name }}.
+    Park conditions and lodging use the park’s local dates.</p>{% endif %}
+  {% set flight_times = prefs.transport != 'drive' and not prefs.skip_flights and (prefs.origin or prefs.transport == 'fly') %}
+  {% set return_time = windows.get(prefs.return_window, 'by ' ~ prefs.return_window[3:]) %}
+  {% if flight_times and (prefs.depart_window or prefs.return_window) %}
+  <p>{% if prefs.depart_window %}Leave {{ prefs.origin or 'home' }} {{ windows[prefs.depart_window] }}.{% endif %}
+    {% if prefs.return_window %}Arrive back {{ 'at ' ~ prefs.origin if prefs.origin else 'home' }}
+    {{ return_time }} on {{ departure.strftime('%A') }}.{% endif %}
+    {% if prefs.transport == 'fly' and not prefs.skip_flights %}Times use the origin airport’s local clock.{% endif %}</p>
+  {% endif %}
+  <p class="brief-decision">{{ conditions.reason }}</p>
+  <p><small>Checked {{ conditions.checked.strftime('%d %b %Y, %H:%M UTC') }}.</small></p>
+  {% if conditions.decision == 'pause' %}{{ date_editor('Change dates') }}{% endif %}
+  <section><h3>Weather for your dates</h3>
+    {% if conditions.weather.data %}{% set weather = conditions.weather.data %}
+    <p>{{ weather.reference }}</p>
+    {% if weather.partial %}<p>Only part of the visit has a forecast.</p>{% endif %}
+    <ul>{% for day in weather.days %}<li>{{ day.date }} · {{ day.condition }}
+      {% if day.temperature_min is not none %} · low {{ day.temperature_min }} {{ weather.unit }}{% endif %}
+      {% if day.temperature_max is not none %} · high {{ day.temperature_max }} {{ weather.unit }}{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p>{{ conditions.weather.message }}</p>{% endif %}
+  </section>
+  <section><h3>Official weather alerts</h3>
+    {% set nws = conditions.warnings.data %}
+    {% if nws %}<p>{{ point.forecast_reference if point else park_name }} ·
+      {{ nws.checked.strftime('%d %b, %H:%M UTC') if nws.checked else 'Check time unavailable' }}</p>
+      {% if not nws.complete %}<p>{{ nws.message or 'The National Weather Service check is incomplete.' }}</p>{% endif %}
+      {% if nws.complete and not nws.items %}<p>No active alerts were returned for this forecast point.</p>{% endif %}
+      {% for item in nws.items %}<p><strong>{{ item.event }}</strong> · {{ item.headline }}
+        {% if item.area %} · {{ item.area }}{% endif %}
+        {% if point %} · {{ {'outside':'outside your visit', 'overlaps':'overlaps your visit',
+          'unknown':'timing unverified'}[item.overlap(hotel_arrival, departure, point.time_zone)] }}{% endif %}
+        {% if item.end %} · ends {{ item.end.strftime('%d %b %H:%M %Z') }}{% else %} · end time unconfirmed{% endif %}</p>{% endfor %}
+      <a href="{{ nws.source_url }}" rel="noreferrer">National Weather Service alerts</a>
+    {% else %}<p>{{ conditions.warnings.message }}</p>{% endif %}
+  </section>
+  <section><h3>Current park notices</h3>
+    {% if conditions.alerts.data %}{{ notices(conditions.alerts.data, landmark=false) }}
+    {% else %}<p>{{ conditions.alerts.message }}</p>{% endif %}
+  </section>
+  {% if conditions.decision != 'pause' %}
+  {% if conditions.decision == 'review' %}<details><summary>Show a tentative itinerary</summary>{% endif %}
+  <section><h3>Your trip outline</h3><ol>
+    <li><strong>{{ arrival.strftime('%A') }}</strong> · Travel to the park area{% if arrival == hotel_arrival
+      %} and check in{% elif hotel_arrival < departure %}. Check in {{ hotel_arrival.strftime('%A') }}{% endif %}.</li>
+    {% if (departure - hotel_arrival).days > 1 %}<li><strong>{{ 'Park day' if nights == 2 else 'Park days' }}</strong> ·
+{% if conditions.decision == 'adapt' %}Choose an activity and time that avoid the conditions reported above.
+      {% elif conditions.decision == 'review' %}Keep activities flexible until you can verify the outstanding checks.
+      {% else %}Start at the visitor center and choose an activity that fits the forecast and available daylight.{% endif %}</li>{% endif %}
+    <li><strong>{{ departure.strftime('%A') }}</strong> · Check out and return
+      {{ 'to ' ~ prefs.origin if prefs.origin else 'home' }}{% if flight_times and prefs.return_window %} {{ return_time }}{% endif %}.</li>
+  </ol></section>{% if conditions.decision == 'review' %}</details>{% endif %}{% endif %}
+  {% if conditions.guidance.data %}<details><summary>Park preparation guidance</summary>
+    {% for p in conditions.guidance.data %}<p>{{ p.text }} <a href="{{ p.source_url }}" rel="noreferrer">{{ p.section }}</a></p>{% endfor %}
+  </details>{% elif conditions.guidance.message %}<p>{{ conditions.guidance.message }}</p>{% endif %}
+  {% if conditions.decision != 'pause' %}{{ date_editor('Change travel dates') }}{% endif %}
+</div>
+{% if conditions.decision != 'pause' and ((flights_enabled and not prefs.skip_flights and prefs.transport != 'drive')
+  or (hotels_enabled and not prefs.skip_hotels and hotel_arrival < departure)) %}
+{% include "brief_quotes.html" %}
+{% endif %}
+{% endif %}

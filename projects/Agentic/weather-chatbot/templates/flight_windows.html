@@ -1,0 +1,18 @@
+{% macro flight_windows(fields, prefix) %}
+<div class="trip-fields">
+  {% for key, label in [('depart_window', 'Departure at your origin'), ('return_window', 'Arrival back at your origin')] %}
+  <div class="trip-field">
+    <label for="{{ prefix }}-{{ key }}">{{ label }}</label>
+    <select id="{{ prefix }}-{{ key }}" name="{{ key }}">
+      {% for value, text in [('', 'Any time'), ('morning', 'Morning (6 AM to before noon)'),
+                             ('by_noon', 'By noon'), ('evening', 'Evening (6 PM or later)')] %}
+      <option value="{{ value }}"{% if fields.get(key, '') == value %} selected{% endif %}>{{ text }}</option>
+      {% endfor %}
+      {% if key == 'return_window' and fields.get(key, '').startswith('by_') and fields[key] != 'by_noon' %}
+      <option value="{{ fields[key] }}" selected>By {{ fields[key][3:] }} local time</option>
+      {% endif %}
+    </select>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

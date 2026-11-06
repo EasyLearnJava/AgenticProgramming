@@ -53,7 +53,8 @@ def make_travel_tools(turn: TravelTurn) -> list[StructuredTool]:
                 response_format="content_and_artifact",
                 description=(
                     "Search live Trivago hotels for a destination name OR known coordinates. Ask for missing check-in, "
-                    "check-out, guests, rooms and child ages. Use ISO dates. Distinguish nightly rates from stay "
+                    "check-out, guests, rooms and child ages. Use ISO dates in check_in and check_out. "
+                    "Distinguish nightly rates from stay "
                     "totals. A failed search says nothing about actual availability."
                 ),
                 handle_validation_error=HOTEL_INPUT_ERROR,

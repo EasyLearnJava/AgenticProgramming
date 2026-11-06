@@ -1,0 +1,46 @@
+{% from "nps_alert_parts.html" import notices %}
+{% from "travel_parts.html" import travel_results %}
+{% if error %}
+<p role="alert" class="nps-notice" data-trip-error tabindex="-1">{{ error }}</p>
+{% elif plan %}
+<div class="trip-result">
+  <header class="knowledge-header">
+    <div><h2 data-trip-result-heading tabindex="-1">{{ park_name }} trip plan</h2>
+      <p>{{ fields.arrival }} to {{ fields.departure }} ·
+        {{ plan.nights }} {{ 'night' if plan.nights == 1 else 'nights' }}</p>
+    </div>
+  </header>
+  {% if fields.transport == 'fly' %}<p>Round trip from {{ fields.origin }} to {{ fields.gateway }}.
+    {% if hotels_enabled %}Hotels are searched near {{ park_name }}.{% endif %}</p>{% endif %}
+  {% if fields.hotel_check_in %}<p>Local date at the park when checked: {{ fields.hotel_check_in }}.
+    {% if plan.hotels.data %}Lodging search started on that date.{% endif %}</p>{% endif %}
+  <p>Plan checked {{ plan.checked.strftime('%d %b %Y, %H:%M UTC') }}.</p>
+  {% for heading, section in [('Flights', plan.flights), ('Hotels near the park', plan.hotels)] %}
+  <section class="knowledge-panel"><h2>{{ heading }}</h2>
+    {% if section.data %}{{ travel_results(section.data) }}{% else %}<p>{{ section.message }}</p>{% endif %}
+  </section>{% endfor %}
+  <section class="knowledge-panel"><h2>Weather for your visit</h2>
+    {% if plan.weather.data %}{% set weather = plan.weather.data %}
+    <p>{{ weather.reference }}</p>
+    {% if weather.partial %}<p>Forecast covers part of your stay. Check again closer to departure.</p>{% endif %}
+    <ul>{% for day in weather.days %}<li>{{ day.date }} · {{ day.condition }}
+      {% if day.temperature_min is not none %} · Low {{ day.temperature_min }} {{ weather.unit }}{% endif %}
+      {% if day.temperature_max is not none %} · High {{ day.temperature_max }} {{ weather.unit }}{% endif %}
+    </li>{% endfor %}</ul>
+    {% else %}<p>{{ plan.weather.message }}</p>{% endif %}
+  </section>
+  <section class="knowledge-panel"><h2>Park preparation guidance</h2>
+    {% if plan.guidance.message %}<p>{{ plan.guidance.message }}</p>{% endif %}
+    {% for passage in plan.guidance.data or [] %}
+      <article><h3>{{ passage.section }}</h3><p>{{ passage.text }}</p>
+        <a href="{{ passage.source_url }}" rel="noreferrer">{{ passage.title }} · National Park Service</a>
+        {% if passage.source_updated_at %}<small>Updated {{ passage.source_updated_at }}</small>
+        {% else %}<small>Retrieved {{ passage.fetched_at[:10] }}</small>{% endif %}</article>
+    {% endfor %}
+  </section>
+  <section class="knowledge-panel"><h2>Current official notices</h2>
+    <p>These notices describe conditions reported now. Check again before your visit.</p>
+    {% if plan.alerts.data %}{{ notices(plan.alerts.data) }}{% else %}<p>{{ plan.alerts.message }}</p>{% endif %}
+  </section>
+</div>
+{% endif %}

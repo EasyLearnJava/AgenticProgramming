@@ -5,6 +5,7 @@ that gets an automated call past its protection, if that's on), which are read f
 the rest, in Vercel's project settings, or in .env.local on your computer, which git never sees.
 """
 
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
@@ -131,6 +132,11 @@ class Settings(BaseSettings):
         """The commit Vercel built, shortened as git shows it; None on a computer."""
         sha = self.vercel_git_commit_sha
         return None if sha is None else sha[:SHORT_COMMIT_CHARS]
+
+    @property
+    def public_deployment(self) -> str | None:
+        value = self.vercel_deployment_id or ""
+        return value if re.fullmatch(r"dpl_[a-zA-Z0-9_-]{1,96}", value) else None
 
     @property
     def build_label(self) -> str:

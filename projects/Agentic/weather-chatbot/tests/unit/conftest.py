@@ -13,6 +13,7 @@ from pydantic import AliasChoices
 from nimbus.app import create_app
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
+from nimbus.nws_alerts import NwsAlertsService
 from nimbus.parks import ParkKnowledge
 from tests.fakes import FakeCacheStore, FakeModel, OpenMeteoRecordings
 
@@ -67,6 +68,13 @@ def client(
 ) -> Iterator[TestClient]:
     """A client for the app built with those settings, which answers with the stand-ins: no call leaves the test."""
     app = create_app(settings)
+    app.state.nws_alerts = NwsAlertsService(
+        lambda: httpx2.AsyncClient(
+            transport=httpx2.MockTransport(
+                lambda _: httpx2.Response(200, json={"type": "FeatureCollection", "features": []})
+            )
+        )
+    )
     app.state.chat_model = chat_model
     app.state.make_http_client = lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(open_meteo))
     app.state.weather_cache = WeatherCache(cache_store)

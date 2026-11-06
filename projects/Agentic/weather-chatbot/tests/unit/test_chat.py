@@ -336,6 +336,35 @@ def test_stop_ends_the_answer_and_is_logged_as_aborted_not_failed(monkeypatch: p
     assert len([message for message in _bodies(sent) if message["body"]]) < len(ANSWER.split()) + 2
 
 
+def test_stopping_an_in_flight_briefing_cancels_its_checks(monkeypatch: pytest.MonkeyPatch) -> None:
+    body = b"question=Plan+a+trip+to+Zion+this+weekend"
+    started, closed = asyncio.Event(), asyncio.Event()
+    received = False
+
+    async def pending(*_args: object, **_kwargs: object) -> dict[str, object]:
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            closed.set()
+        return {}
+
+    async def receive() -> Message:
+        nonlocal received
+        if not received:
+            received = True
+            return {"type": "http.request", "body": body, "more_body": False}
+        await asyncio.wait_for(started.wait(), timeout=3)
+        return {"type": "http.disconnect"}
+
+    async def send(_message: Message) -> None:
+        pass
+
+    monkeypatch.setattr("nimbus.travel.briefing.briefing_context", pending)
+    _assert_aborted_within_its_request(_run(_scope(len(body)), receive, send))
+    assert closed.is_set()
+
+
 def test_stop_is_logged_the_same_when_the_server_reports_it_as_a_failed_send() -> None:
     # ASGI 2.4: a send to a closed connection raises OSError, and Starlette, relying on that, stops listening for
     # http.disconnect: the failed send becomes ClientDisconnect.
@@ -353,9 +382,8 @@ def test_stop_is_logged_the_same_when_the_server_reports_it_as_a_failed_send() -
     _assert_aborted_within_its_request(_run(_scope(len(body), "2.4"), receive, send))
 
 
-def test_a_browser_gone_before_the_response_starts_is_logged_the_same_under_asgi_2_4() -> None:
-    body = b"question=Paris%3F"
-
+@pytest.mark.parametrize("body", [b"question=Paris%3F", b"question=Plan+a+trip+to+Zion+this+weekend"])
+def test_a_browser_gone_before_the_response_starts_is_logged_the_same_under_asgi_2_4(body: bytes) -> None:
     async def receive() -> Message:
         return {"type": "http.request", "body": body, "more_body": False}
 

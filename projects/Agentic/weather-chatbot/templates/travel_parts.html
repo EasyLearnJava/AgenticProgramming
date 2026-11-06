@@ -22,6 +22,8 @@
     </li>
     {% endfor %}
   </ul>
+  {% elif report.empty_reason == 'time_window' %}
+  <p>None of the returned flights met your time preferences with a departure still ahead. Try a wider time window.</p>
   {% elif report.status == 'no_results' %}<p>The provider returned no matching offers.</p>
   {% else %}<p>Current offers could not be verified for this search.</p>{% endif %}
 </section>

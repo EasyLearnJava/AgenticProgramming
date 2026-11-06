@@ -2,9 +2,12 @@
 
 Nimbus answers questions about the weather anywhere, and shows each tool call behind an answer and the path it took.
 Its first version was built in TypeScript; this is its rebuild in Python, with FastAPI, LangGraph and Jinja2, as a
-production-grade app and a step-by-step tutorial at once. Each of its fifteen steps adds one idea, ends deployed and
-working, and has a chapter written while it was built: the design, the code that matters, the pitfalls, the issues
-met, and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
+production-grade app and a step-by-step tutorial at once. Each chapter covers the design, the code, the checks
+performed, the pitfalls and interview questions. Live at https://weather-chatbot-hazel.vercel.app/.
+
+Run `uv run python -m tools.harness run --mode replay` for a credential-free competition demonstration.
+Open **Observability → Evaluations** for the scorecard and weekend matrix. The chapter includes a three-minute
+walkthrough and instructions for a named preview. [The Evaluation Harness](docs/step-19.md)
 
 **The whole design on one page:** [Architecture and design](docs/architecture.md): what Nimbus does, how it's built,
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
@@ -80,6 +83,7 @@ Each step's chapter explains it, in order:
 | 16 | [Park Guidance with Retrieved Sources](docs/step-16.md) | Implemented |
 | 17 | [Official Park Notices](docs/step-17.md) | Implemented |
 | 18 | [Flights, Hotels and National Park Trips](docs/step-18.md) | Implemented, preview checks pending |
+| 19 | [The Evaluation Harness](docs/step-19.md) | Replay, scored live trials and reviewed regressions. Hosted release requires preview evidence |
 
 ## Run it
 
@@ -153,7 +157,7 @@ its platform line and each test's dot, and the mutation check a line per rule (e
 ## Documentation
 
 The app explains itself: open **Documentation** in its menu, or read the same pages in [`docs/`](docs/): a chapter per
-step ([step 1](docs/step-1.md) to [step 18](docs/step-18.md)), **Architecture and design**
+step ([step 1](docs/step-1.md) to [step 19](docs/step-19.md)), **Architecture and design**
 ([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
 ([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 255" role="img" aria-labelledby="title desc">
+  <title id="title">How Nimbus builds release evidence</title>
+  <desc id="desc">Visitor feedback informs a human-reviewed synthetic test. Offline replay and live preview
+    evaluations produce scorecards for a release reviewer.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto">
+      <path d="M0 0l7 3.5-7 3.5z" fill="#116860"/>
+    </marker>
+  </defs>
+  <rect width="840" height="255" rx="12" fill="#f1f8f6"/>
+  <g stroke="#116860" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <path d="M187 63h46"/><path d="M413 63h46"/><path d="M599 63h28v58h23"/>
+    <path d="M599 190h28v-46h23"/>
+  </g>
+  <g stroke="#5f8a82" fill="#fff">
+    <rect x="15" y="32" width="172" height="62" rx="8"/>
+    <rect x="235" y="32" width="178" height="62" rx="8"/>
+    <rect x="461" y="32" width="138" height="62" rx="8"/>
+    <rect x="417" y="159" width="182" height="62" rx="8"/>
+    <rect x="652" y="101" width="171" height="62" rx="8"/>
+  </g>
+  <g font-family="system-ui,sans-serif" font-size="15" fill="#153f37" text-anchor="middle">
+    <text x="101" y="57">Visitor feedback</text><text x="101" y="78">category</text>
+    <text x="324" y="57">Reviewer writes</text><text x="324" y="78">a synthetic case</text>
+    <text x="530" y="69">Offline replay</text>
+    <text x="508" y="184">Live preview</text><text x="508" y="205">trials</text>
+    <text x="738" y="126">Release reviewer</text><text x="738" y="147">checks evidence</text>
+  </g>
+</svg>

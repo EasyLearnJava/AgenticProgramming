@@ -3,7 +3,7 @@
 import asyncio
 import html
 import json
-from datetime import date
+from datetime import UTC, date, datetime, time
 from urllib.parse import parse_qs
 
 import httpx2
@@ -138,7 +138,7 @@ def test_date_templates_and_planner_intake_are_checked_at_the_user_interface() -
     assert "2033-01-04" in cases["kiwi-direct"].golden(TODAY).question
     assert "2033-02-08" in cases["beyond-forecast-window"].golden(TODAY).question
     form = (
-        '<form action="/api/parks/trip" method="post">'
+        '<form action="/api/parks/briefing" class="trip-form brief-action" method="post">'
         '<select name="park"><option selected value="zion">Zion</option></select>'
         '<input name="adults" value="2"></form>'
     )
@@ -152,7 +152,8 @@ def test_date_templates_and_planner_intake_are_checked_at_the_user_interface() -
     ):
         assert _result(cases["zion-intake"], answer + wrong) == "wrong_planner_intake"
     assert (
-        _result(cases["zion-intake"], answer + form.replace("/api/parks/trip", "/elsewhere")) == "wrong_planner_routing"
+        _result(cases["zion-intake"], answer + form.replace("/api/parks/briefing", "/elsewhere"))
+        == "wrong_planner_routing"
     )
     assert _result(cases["zion-intake"], answer) == "wrong_planner_routing"
     assert _result(cases["negated-planning"], answer + form) == "wrong_planner_routing"
@@ -327,8 +328,11 @@ def test_clarification_cannot_quote_inventory_without_a_provider(words: str, exp
 
 
 @pytest.mark.parametrize(("location", "expected"), [("Springdale, UT", "pass"), ("Denver", "wrong_search_arguments")])
-def test_full_chat_search_grades_what_the_provider_was_asked(settings: Settings, location: str, expected: str) -> None:
-    """Run the real agent/service/HTML/SSE path with deliberate correct and incorrect model queries."""
+def test_full_chat_search_grades_what_the_provider_was_asked(
+    settings: Settings, location: str, expected: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Grade against the same clock used to construct the synthetic hotel's dates."""
+    monkeypatch.setattr("nimbus.travel.briefing.utc_now", lambda: datetime.combine(TODAY, time(18), UTC))
     case = next(case for case in read_cases() if case.id == "trivago-direct")
     app = create_app(settings.model_copy(update={"hotels_enabled": True, "flights_enabled": True}))
     app.state.chat_model = FakeModel(

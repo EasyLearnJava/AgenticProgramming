@@ -1,0 +1,56 @@
+<section class="obs-card" aria-labelledby="harness">
+  <h2 id="harness">Harness scorecards</h2>
+  {% for card in scorecards %}
+  <article aria-label="{{ card.mode | title }} scorecard">
+    <h3>{{ 'Offline replay' if card.mode == 'replay' else 'Live evaluation' }}
+      <span class="{{ 'obs-pass' if card.passed else 'obs-fail' }}">{{ 'Passed' if card.passed else 'Failed' }}</span>
+    </h3>
+    <p>Saved {{ card.finished_at.strftime('%d %b %Y, %H:%M %Z') }} · {{ card.profile }} run ·
+      {{ card.attempts | length }} attempts ·
+      {% if card.source.commit %}source <code>{{ card.source.commit[:12] }}</code>{% else %}source revision unavailable{% endif %}
+      {% if card.source.dirty %} with local changes{% endif %}.
+      {% if card.target %}Target {{ card.target.environment }}
+      {% if card.target.deployment %}<code>{{ card.target.deployment }}</code>{% endif %}.{% endif %}</p>
+    <div class="harness-table-wrap">
+    <table class="obs-table">
+      <caption class="visually-hidden">{{ card.mode | title }} results by suite</caption>
+      <thead><tr><th scope="col">Suite</th><th scope="col">First try</th>
+        {% if card.repeats >= 3 %}<th scope="col">All three tries</th>{% endif %}
+        <th scope="col">Median</th><th scope="col">95th percentile</th></tr></thead>
+      <tbody>{% for suite in card.suites() %}<tr>
+        <th scope="row">{{ suite.suite | replace('_', ' ') | replace('-', ' ') }}</th>
+        <td>{{ suite.first_pass }}/{{ suite.cases }}</td>
+        {% if card.repeats >= 3 %}<td>{{ suite.all_three }}/{{ suite.cases }}</td>{% endif %}
+        <td>{{ suite.p50_ms }} ms</td><td>{{ suite.p95_ms }} ms</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% set grid = card.weekend_grid() %}{% if grid %}
+    <details class="obs-details"><summary>Explore the weekend matrix</summary>
+      <div class="harness-table-wrap"><table class="obs-table">
+        <caption>Trip phrasings passed at 11:30 pm local time</caption>
+        <thead><tr><th scope="col">Origin clock</th>
+          {% for day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<th scope="col">{{ day }}</th>{% endfor %}
+        </tr></thead><tbody>
+        {% for zone, days in grid.items() %}<tr><th scope="row">{{ zone | upper }}</th>
+          {% for cell in days %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+        </tbody></table></div>
+    </details>{% endif %}
+    {% if card.mode == 'replay' %}<p class="obs-about">Replay timings measure local code and fixtures.</p>{% endif %}
+    {% for provider, counts in card.providers().items() %}
+    <p>{{ provider | title }} · {% for status, count in counts.items() %}{{ count }} {{ status | replace('_',' ') }}
+        {% if not loop.last %} · {% endif %}{% endfor %}</p>
+    {% endfor %}
+    {% if not card.passed %}
+    <details class="obs-details"><summary>See failed attempts</summary>
+      <ul>{% for row in card.attempts if row.outcome != 'pass' %}<li>
+        <code>{{ row.suite }}/{{ row.case_id }}</code> · try {{ row.attempt }} · {{ row.outcome | replace('_',' ') }}
+        {% if row.checks %} · {{ row.checks | join(', ') }}{% endif %}</li>{% endfor %}</ul>
+    </details>{% endif %}
+  </article>
+  {% else %}
+  <p>Run <code>uv run python -m tools.harness run --mode replay</code> to generate the first scorecard.</p>
+  {% endfor %}
+  {% if scorecards and not (scorecards | selectattr('mode', 'equalto', 'live') | list) %}
+  <p class="obs-about">A live harness scorecard has yet to be published.</p>{% endif %}
+  <p><a href="/docs/step-19">Run the harness or reproduce a regression</a></p>
+</section>

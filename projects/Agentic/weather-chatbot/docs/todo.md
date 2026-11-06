@@ -9,6 +9,10 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 
 ## Done
 
+- **Repeated live evaluation and visitor feedback (step 19).** The harness keeps all three trials and reports both
+  first-try and all-three scores. Visitors can share a category and answer reference in Activity. Reviewers can
+  promote human-written park intake regressions. [The Evaluation Harness](step-19.md)
+
 - **The Framework Preset is FastAPI** (2026-10-30), with no command overrides: step 1's deploy built with it.
 - **LangSmith's variables** are set in Vercel (2026-10-30): `LANGSMITH_API_KEY`, `LANGSMITH_TRACING`,
   `LANGSMITH_PROJECT`, `LANGSMITH_HIDE_INPUTS` and `LANGSMITH_HIDE_OUTPUTS`. Step 3 is the first to use them.
@@ -49,11 +53,6 @@ The rebuild is complete (step 13); these could come after it.
 - **The cache's own errors as our warning (issues 60 and 72):** on Vercel, the runtime gives each request its cache,
   through the request's context, with the package's own `on_error`, which prints; an app can't give it one of its own.
   Open until the vercel package lets it.
-- **Each golden asked three times (issue 92):** the storm question missed twice in ten asks, and a golden asked once
-  can't show a rule that fails one time in five. Asking each three times and grading all three would show how often
-  any golden misses.
-- **Visitors' feedback:** a thumb on each answer, kept with its request id, would grade answers the golden questions
-  never ask.
 - **certifi 2026.10.19, from 4 November, and pyasn1 0.6.5, from 11 November (issue 94):** a cutoff at midnight two
   weeks back takes each from that day on, not before: certifi's was uploaded at 02:24 UTC on 20 October, pyasn1's
   at 06:32 UTC on 27 October. certifi's puts back the emSign roots that weren't affected, as its advisory asks: move

@@ -141,7 +141,7 @@ def test_network_errors_have_a_safe_distinct_reason() -> None:
 
 def test_activity_shows_cache_and_reason_without_changing_guidance_tones() -> None:
     assert {"cached", "reason", "complete"} <= set(TIMELINE_FIELDS)
-    assert 'event == "nps.alerts" and tostring(status) == "partial"' in ACTIVITY_VIEWS["errors"]
+    assert 'event in ("nps.alerts", "nws.alerts") and tostring(status) == "partial"' in ACTIVITY_VIEWS["errors"]
     row = {
         "_time": "2026-11-03T00:00:00Z",
         "event": "nps.alerts",
