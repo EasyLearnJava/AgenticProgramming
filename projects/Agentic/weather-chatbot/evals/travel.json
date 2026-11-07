@@ -35,12 +35,81 @@
   {
     "id": "missing-hotel-dates",
     "question": "Find a hotel in Springdale for two adults, one room. We haven't picked dates.",
-    "forbids": ["search_flights", "search_hotels", "geocode_location"], "says": ["date|check.in|when"]
+    "forbids": [
+      "search_flights", "search_hotels", "geocode_location", "get_current_weather", "get_forecast",
+      "get_air_quality", "resolve_destination", "get_park_alerts", "search_park_guidance"
+    ],
+    "says": ["\\b(?:what|which|provide|share|enter)\\b[^?!.]{0,35}\\b(?:dates?|check.in|check.out)\\b|\\bwhen\\b[^?!.]{0,35}\\b(?:check|stay|arriv|depart)"],
+    "never_says": ["\\b20\\d{2}-\\d{2}-\\d{2}\\b|\\b(?:picked|chose|assumed|selected)\\b[^?!.]{0,25}\\bdates?\\b"]
   },
   {
     "id": "plain-weather",
     "question": "What is the current temperature in Seattle, Washington?",
     "requires": ["get_current_weather"], "forbids": ["search_flights", "search_hotels"]
+  },
+  {
+    "id": "dallas-trip-intake",
+    "question": "plan a trip to dallas",
+    "says": [
+      "\\bDallas\\b", "\\b(?:forecast|weather)\\b", "\\bflights?\\b", "\\b(?:hotels?|lodging)\\b",
+      "\\bwhen\\b[^?!.]{0,45}\\b(?:visit|travel|go|arrive|leave)|\\b(?:what|which|share|choose|enter|tell me)\\b[^?!.]{0,30}\\bdates?\\b"
+    ],
+    "never_says": [
+      "\\b\\d+(?:\\.\\d+)?\\s*(?:°|degrees?\\b|celsius\\b|fahrenheit\\b|[FC]\\b)",
+      "\\b(?:is|will be)\\s+(?:(?:mainly|mostly|partly)\\s+)?(?:sunny|overcast|cloudy|clear|rainy|snowy)\\b",
+      "\\b20\\d{2}-\\d{2}-\\d{2}\\b"
+    ],
+    "forbids": [
+      "geocode_location", "get_current_weather", "get_forecast", "get_air_quality", "resolve_destination",
+      "get_park_alerts", "search_park_guidance", "search_flights", "search_hotels"
+    ]
+  },
+  {
+    "id": "dallas-trip-date-follow-up",
+    "history": [
+      {
+        "role": "user",
+        "text": "plan a trip to dallas"
+      },
+      {
+        "role": "assistant",
+        "text": "What dates will you be in Dallas? Which would you like me to check: the forecast, flights or hotels?"
+      }
+    ],
+    "question": "{arrival} to {departure}.",
+    "says": [
+      "\\bDallas\\b",
+      "{arrival}\\s*(?:to|through|until|[–—-])\\s*{departure}",
+      "\\b(?:what|which|would you like)\\b[^?!.]*\\?",
+      "\\b(?:forecast|weather)\\b",
+      "\\bflights?\\b",
+      "\\b(?:hotels?|lodging)\\b"
+    ],
+    "never_says": [
+      "\\b\\d+(?:\\.\\d+)?\\s*(?:°|degrees?\\b|celsius\\b|fahrenheit\\b|[FC]\\b)",
+      "\\b(?:what|which|choose|enter|share|tell me)\\b[^?!.]{0,30}\\bdates?\\b|\\bwhen\\b[^?!.]{0,45}\\b(?:visit|travel|go|arriv|leav)"
+    ],
+    "forbids": [
+      "geocode_location",
+      "get_current_weather",
+      "get_forecast",
+      "get_air_quality",
+      "resolve_destination",
+      "get_park_alerts",
+      "search_park_guidance",
+      "search_flights",
+      "search_hotels"
+    ]
+  },
+  {
+    "id": "dallas-weather-during-trip",
+    "question": "I'm planning a trip to Dallas, Texas. Will it rain there tomorrow?",
+    "requires": ["geocode_location", "get_forecast"],
+    "says": [
+      "\\bDallas\\b", "\\b(?:rain\\w*|showers?|precipitation|dry|thunderstorms?)\\b",
+      "\\b(?:tomorrow|{tomorrow_weekday}|{tomorrow}|{tomorrow_month}[a-z]*\\.?\\s+{tomorrow_day}(?:st|nd|rd|th)?)\\b"
+    ],
+    "forbids": ["resolve_destination", "search_park_guidance", "get_park_alerts", "search_flights", "search_hotels"]
   },
   {
     "id": "negated-planning",

@@ -49,15 +49,30 @@ class TravelCase(BaseModel):
     requires: tuple[str, ...] = ()
     forbids: tuple[str, ...] = ()
     says: list[str] = Field(default_factory=list)
+    never_says: list[str] = Field(default_factory=list)
     intake: dict[str, str] = Field(default_factory=dict)
     history: list[dict[str, str]] = Field(default_factory=list)
 
     def golden(self, today: date) -> Golden:
         """Resolve dates once per run so future searches keep their intended forecast-window relationship."""
+        dates = _dates(today)
+        tomorrow = today + timedelta(days=1)
+        dates.update(
+            tomorrow=tomorrow.isoformat(),
+            tomorrow_weekday=tomorrow.strftime("%A"),
+            tomorrow_month=tomorrow.strftime("%b"),
+            tomorrow_day=str(tomorrow.day),
+        )
+        # Expand only named tokens. Leave regex quantifiers such as {0,30} in the reviewed patterns.
+        patterns = [re.sub(r"\{([a-z_]+)\}", lambda match: re.escape(dates[match[1]]), p) for p in self.says]
         return Golden(
             id=self.id,
-            question=self.question.format(**_dates(today)),
-            expect=Expect(no_tools=list(self.forbids), says=self.says),
+            question=self.question.format(**dates),
+            expect=Expect(
+                no_tools=list(self.forbids),
+                says=patterns,
+                never_says=self.never_says,
+            ),
         )
 
 
@@ -223,7 +238,7 @@ def outcome(
     return "pass"
 
 
-async def _attempt(http: httpx2.AsyncClient, base: str, case: TravelCase, today: date) -> str:
+async def run_case(http: httpx2.AsyncClient, base: str, case: TravelCase, today: date) -> str:
     """Keep all private HTML local to a single attempt and expose only its fixed outcome code."""
     golden = case.golden(today)
     raw: list[tuple[int, str]] = []
@@ -250,7 +265,7 @@ async def run(base: str, cases: list[TravelCase], repeats: int, *, pause: float 
             for case in cases:
                 if counts:
                     await asyncio.sleep(pause)
-                code = await _attempt(http, base, case, today)
+                code = await run_case(http, base, case, today)
                 counts[code] += 1
                 print(f"{case.id} attempt={repeat} {code}", flush=True)
     print(" ".join(f"{code}={count}" for code, count in sorted(counts.items())))
@@ -258,7 +273,7 @@ async def run(base: str, cases: list[TravelCase], repeats: int, *, pause: float 
 
 
 def main() -> int:
-    """Parse an explicit target URL; by default repeat all ten synthetic cases three times."""
+    """Parse an explicit target URL; by default repeat the full synthetic catalog three times."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base", help="Address of a running Nimbus with flights and hotels enabled")
     parser.add_argument("--repeats", type=int, choices=range(1, 4), default=3)

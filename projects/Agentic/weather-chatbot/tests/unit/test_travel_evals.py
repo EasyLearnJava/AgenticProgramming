@@ -18,7 +18,7 @@ from nimbus.errors import ANSWER_TOO_SLOW
 from nimbus.travel.models import HotelSearch, TravelCallRecord, TravelOffer, TravelReport
 from nimbus.travel.service import TravelService
 from tests.fakes import FakeModel
-from tools.eval_travel import TravelCase, _attempt, outcome, read_cases
+from tools.eval_travel import TravelCase, outcome, read_cases, run_case
 from tools.evals import Answer, ask, read_answer
 
 TODAY = date(2032, 12, 30)
@@ -132,6 +132,62 @@ def test_model_timeout_before_any_selection_is_not_a_missed_search() -> None:
         assert outcome(case, TODAY, Answer(called, ANSWER_TOO_SLOW, True, ""), 200, "") == expected
 
 
+def test_city_trip_grades_the_clarification_and_rejects_the_weather_only_reply() -> None:
+    """The exact reported prompt needs a date question for Dallas before any lookups."""
+    case = next(case for case in read_cases() if case.id == "dallas-trip-intake")
+    assert case.question == "plan a trip to dallas"
+    right = (
+        '<div class="answer">What dates would you like to visit Dallas? '
+        "I can check the forecast, flights or hotels.</div>"
+    )
+    weather = '<div class="answer">In Dallas, it is mainly clear today and overcast tomorrow.</div>'
+    assert _result(case, right) == "pass"
+    assert _result(case, right.replace("Dallas", "Denver")) == "wording_failed"
+    assert _result(case, right.replace("flights or hotels", "local conditions")) == "wording_failed"
+    for claim in ("Current Dallas temperature is 38 degrees.", "Dallas is mainly clear.", "You go on 2033-01-04."):
+        assert _result(case, right.replace("</div>", f" {claim}</div>")) == "wording_failed"
+    assert _result(case, weather) == "wording_failed"
+    assert _result(case, '<div class="answer">When will it rain in Dallas?</div>') == "wording_failed"
+    assert _result(case, weather + "<p>What dates would you like?</p>") == "wording_failed"
+    for tool in ("geocode_location", "get_current_weather", "get_forecast", "search_flights", "search_hotels"):
+        assert _result(case, f'<code class="tool-chip-name">{tool}</code>' + right) == "forbidden_tool"
+
+
+def test_city_date_reply_keeps_both_dates_and_waits_for_a_choice() -> None:
+    """Reject a swapped day, forgotten destination, premature lookup or another request for known dates."""
+    case = next(case for case in read_cases() if case.id == "dallas-trip-date-follow-up")
+    right = (
+        '<div class="answer">Dallas from 2033-01-04 to 2033-01-07. '
+        "Which would you like me to check: the forecast, flights or hotels?</div>"
+    )
+    assert case.golden(TODAY).question == "2033-01-04 to 2033-01-07."
+    assert _result(case, right) == "pass"
+    assert _result(case, right.replace("2033-01-04 to 2033-01-07", "2033-01-07 to 2033-01-04")) == "wording_failed"
+    for missing in ("Dallas", "2033-01-04", "2033-01-07", "Which would you like", "flights", "hotels", "forecast"):
+        assert _result(case, right.replace(missing, "")) == "wording_failed"
+    assert _result(case, right.replace("</div>", " What dates will you be in Dallas?</div>")) == "wording_failed"
+    assert _result(case, '<code class="tool-chip-name">get_forecast</code>' + right) == "forbidden_tool"
+
+
+def test_dallas_weather_during_a_trip_checks_place_rain_and_tomorrow() -> None:
+    """Correct tools alone cannot earn a pass for a forecast about another city or day."""
+    case = next(case for case in read_cases() if case.id == "dallas-weather-during-trip")
+    chips = "".join(f'<code class="tool-chip-name">{tool}</code>' for tool in ("geocode_location", "get_forecast"))
+    assert _result(case, chips + '<div class="answer">Dallas will see rain tomorrow.</div>') == "pass"
+    assert _result(case, chips + '<div class="answer">Dallas should be dry on December 31.</div>') == "pass"
+    for wrong in ("In Tokyo it will rain tomorrow.", "Dallas will see rain next month.", "Dallas tomorrow is warm."):
+        assert _result(case, chips + f'<div class="answer">{wrong}</div>') == "wording_failed"
+
+
+def test_undecided_hotel_dates_require_a_request_and_forbid_unrelated_forecasts() -> None:
+    case = next(case for case in read_cases() if case.id == "missing-hotel-dates")
+    body = '<div class="answer">What are your check-in and check-out dates?</div>'
+    assert _result(case, body) == "pass"
+    assert _result(case, '<div class="answer">I picked your dates for you.</div>') == "wording_failed"
+    assert _result(case, body.replace("</div>", " I picked your dates for you.</div>")) == "wording_failed"
+    assert _result(case, '<code class="tool-chip-name">get_forecast</code>' + body) == "forbidden_tool"
+
+
 def test_date_templates_and_planner_intake_are_checked_at_the_user_interface() -> None:
     """Cases survive a calendar rollover and assert routing from the presence of a real submission form."""
     cases = {case.id: case for case in read_cases()}
@@ -191,7 +247,7 @@ def test_zion_intake_case_passes_through_actual_chat_without_a_model_or_network(
 
     async def check() -> None:
         async with httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app)) as client:
-            assert await _attempt(client, "http://test", case, TODAY) == "pass"
+            assert await run_case(client, "http://test", case, TODAY) == "pass"
 
     asyncio.run(check())
 
@@ -361,7 +417,7 @@ def test_full_chat_search_grades_what_the_provider_was_asked(
     async def check() -> None:
         app.state.travel_service = TravelService(hotels=hotels)
         async with httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app)) as client:
-            assert await _attempt(client, "http://test", case, TODAY) == expected
+            assert await run_case(client, "http://test", case, TODAY) == expected
 
     asyncio.run(check())
 

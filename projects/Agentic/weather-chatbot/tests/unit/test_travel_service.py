@@ -187,6 +187,19 @@ def test_timeout_cancels_provider_and_tool_preserves_typed_artifact() -> None:
     asyncio.run(check())
 
 
+def test_registered_hotel_tool_uses_cards_by_default_and_attributes_requested_quotes() -> None:
+    """Keep direct pricing questions available without inviting unlabeled amounts in a search summary."""
+
+    async def hotels(_: HotelSearch) -> TravelReport:
+        raise AssertionError("Registering a tool must not fetch prices.")
+
+    (tool,) = make_travel_tools(TravelService(hotels=hotels).new_turn(0, today=DAY))
+    assert tool.name == "search_hotels"
+    assert "verified offer cards by default" in tool.description
+    assert "asks for prices or a price comparison" in tool.description
+    assert "exact returned property name, currency and nightly or stay-total basis" in tool.description
+
+
 def test_model_reads_offer_facts_but_only_verified_cards_receive_booking_links() -> None:
     """Both agent tools keep opaque, potentially identifying provider parameters out of the next model request."""
 

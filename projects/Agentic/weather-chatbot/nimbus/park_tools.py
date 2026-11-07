@@ -6,6 +6,7 @@ logs.
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -16,11 +17,37 @@ import structlog
 from langchain_core.tools import StructuredTool, ToolException
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from nimbus.nps_alerts import AlertsCallRecord, AlertsReport, NpsAlertsService, ParkId
+from nimbus.nps_alerts import PARKS, AlertsCallRecord, AlertsReport, NpsAlertsService, ParkId
 from nimbus.utils import checked_source_url, to_ms
 
 PARK_TOOL_SECONDS = 6.0
 PARK_GUIDANCE_UNAVAILABLE = "The park guidance is unavailable right now. I can still check the weather."
+_PARK_NAME = "(?:" + "|".join(re.escape(item[0]) for item in PARKS.values()) + ")(?: National Park)?"
+_ALTERNATIVES = re.compile(
+    rf"\b(?:either|undecided between|torn between)\s+({_PARK_NAME})\s+(?:or|and)\s+({_PARK_NAME})(?=\s*[;.!?]|\s*$)",
+    re.I,
+)
+
+
+def undecided_park_query(question: str) -> str | None:
+    """Recognize an explicit choice between parks. Keep comparisons and qualified place names in ordinary chat."""
+    choice = _ALTERNATIVES.search(question)
+    if not choice or not re.search(
+        r"\b(?:which (?:park |destination )?(?:preparation |packing |safety )?(?:guidance|advice|guide)|"
+        r"what should (?:I|we) (?:pack|wear|bring)|how should (?:I|we) prepare)\b",
+        question,
+        re.I,
+    ):
+        return None
+    if re.search(
+        r"\b(?:compare|comparison|both|each|differences?|versus|vs|better|instead|chose|chosen|"
+        r"actually|decided|also|separately|forecast|hotels?|flights?|not either)\b",
+        question,
+        re.I,
+    ):
+        return None
+    first, second = (name.casefold().removesuffix(" national park") for name in choice.groups())
+    return f"{choice[1]} or {choice[2]}" if first != second else None
 
 
 class KnowledgeService(Protocol):
@@ -204,18 +231,23 @@ async def _run_knowledge(name: str, run: Callable[[], Awaitable[dict[str, Any]]]
     return json.dumps(output, ensure_ascii=False), record
 
 
+async def resolve_park(knowledge: KnowledgeService, query: str) -> tuple[str, KnowledgeCallRecord]:
+    """Resolve the full place name using the same input, timeout, artifact and logs for both chat paths."""
+    params = ResolveDestinationInput(query=query)
+
+    async def run() -> dict[str, Any]:
+        """Return the registry's checked candidates."""
+        return knowledge.resolve(params.query)
+
+    return await _run_knowledge("resolve_destination", run)
+
+
 def make_park_tools(knowledge: KnowledgeService) -> list[StructuredTool]:
     """Two local knowledge tools, composed with any weather lane without changing the weather or MCP catalog."""
 
     async def resolve(query: str) -> tuple[str, KnowledgeCallRecord]:
         """Resolve a park or trail name to its approved forecast reference and document identity."""
-        params = ResolveDestinationInput(query=query)
-
-        async def run() -> dict[str, Any]:
-            """Return the registry's checked candidates."""
-            return knowledge.resolve(params.query)
-
-        return await _run_knowledge("resolve_destination", run)
+        return await resolve_park(knowledge, query)
 
     async def search(
         destination_id: str, query: str, visit_date: date | None = None

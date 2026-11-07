@@ -69,6 +69,7 @@ from nimbus.errors import (
     to_user_message,
 )
 from nimbus.feedback import answer_ref
+from nimbus.forecast_horizon import forecast_limit_reply
 from nimbus.lanes import MCP_NO_AUTH, MCP_WITH_AUTH, REST_WITH_AUTH, Lane, LaneId, get_lane, is_open
 from nimbus.mcp_lane import open_mcp_lane
 from nimbus.nps_alerts import AlertsCallRecord
@@ -76,6 +77,8 @@ from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
 from nimbus.travel import briefing
+from nimbus.travel.city_intake import city_trip_reply
+from nimbus.travel.hotel_intake import hotel_dates_reply
 from nimbus.travel.models import TRAVEL_ANSWER_RESERVE_SECONDS, TravelCallRecord
 from nimbus.travel.planner_intake import analyze_trip
 from nimbus.travel.service import TravelService
@@ -437,14 +440,28 @@ async def chat(request: Request) -> Response:
         for name, active in (("search_flights", settings.flights_enabled), ("search_hotels", settings.hotels_enabled))
         if active
     )
-    previous_user_text = next((m.text for m in reversed(chat_request.history) if m.role == "user"), "")
+    prior_questions = [message.text for message in chat_request.history if message.role == "user"]
+    previous_user_text = prior_questions[-1] if prior_questions else ""
     knowledge = request.app.state.park_knowledge
     now = briefing.utc_now()
-    if (
-        settings.parks_enabled
-        and (intent := analyze_trip(chat_request.question, knowledge, previous_user_text, now, chat_request.time_zone))
-        is not None
-    ):
+    intent = (
+        analyze_trip(chat_request.question, knowledge, previous_user_text, now, chat_request.time_zone)
+        if settings.parks_enabled
+        else None
+    )
+    intake_reply = None
+    reply_kind = "cityTripIntake"
+    if intent is None:
+        intake_reply = city_trip_reply(
+            chat_request.question, enabled, now, chat_request.time_zone, prior_questions, knowledge
+        )
+        if intake_reply is None and settings.hotels_enabled:
+            intake_reply = hotel_dates_reply(chat_request.question)
+            reply_kind = "hotelDateIntake"
+        if intake_reply is None:
+            intake_reply = forecast_limit_reply(chat_request.question, now, chat_request.time_zone)
+            reply_kind = "forecastHorizon"
+    if intent or intake_reply:
         turn_id = new_turn_id()
 
         async def intake_events() -> AsyncGenerator[str]:
@@ -453,16 +470,24 @@ async def chat(request: Request) -> Response:
                 yield to_sse_message(
                     render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question})
                 )
-                prefs = briefing.BriefPreferences.from_intent(intent, chat_request.locale, lane, chat_request.time_zone)
-                context = await briefing.briefing_context(request, intent, prefs, open_lane_tools, now, turn_id)
-                yield to_sse_message(render_part("chat_trip.html", context))
+                if intent is not None:
+                    prefs = briefing.BriefPreferences.from_intent(
+                        intent, chat_request.locale, lane, chat_request.time_zone
+                    )
+                    context = await briefing.briefing_context(request, intent, prefs, open_lane_tools, now, turn_id)
+                    yield to_sse_message(render_part("chat_trip.html", context))
+                    intake_type = {"tripForm": "conditions" not in context}
+                else:
+                    answer = render_answer(intake_reply or "", park_sources=())
+                    yield to_sse_message(render_part("chat_end.html", {"turn_id": turn_id, "answer": answer}))
+                    intake_type = {reply_kind: True}
                 log.info(
                     "chat.done",
                     answerRef=answer_ref(turn_id),
-                    answerChars=0,
+                    answerChars=len(intake_reply or ""),
                     toolCalls=0,
-                    tripForm="conditions" not in context,
                     ms=to_ms(time.perf_counter() - started),
+                    **intake_type,
                 )
             except (asyncio.CancelledError, GeneratorExit):
                 log.info("chat.aborted", answerChars=0, ms=to_ms(time.perf_counter() - started))

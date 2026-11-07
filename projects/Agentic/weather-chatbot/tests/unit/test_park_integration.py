@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.tools import StructuredTool
 from structlog.testing import capture_logs
 
@@ -16,6 +16,7 @@ from nimbus import park_tools
 from nimbus.answer import AnswerStats, ToolEnded, ToolStarted, stream_weather_answer
 from nimbus.chat import render_part
 from nimbus.chips import ToolChip
+from nimbus.config import Settings
 from nimbus.lanes import LANES, Lane
 from nimbus.park_tools import (
     KnowledgeCallRecord,
@@ -24,10 +25,95 @@ from nimbus.park_tools import (
     make_park_tools,
     to_knowledge_sources,
 )
+from nimbus.parks import ParkKnowledge
 from nimbus.prompts import to_system_prompt
 from tests.fakes import FakeModel
 
 SOURCE_URL = "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm"
+CHOICE = "I mean either Zion or Yosemite; which park preparation guidance applies?"
+
+
+@pytest.mark.parametrize("failure", ["", "unavailable", "error"])
+def test_undecided_parks_resolve_once_before_accessing_a_model_or_weather_lane(
+    settings: Settings, failure: str
+) -> None:
+    """An undecided question uses the real resolver for the full pair and stops; failures stay visible and bounded."""
+    index = ParkKnowledge(settings.parks_index_path)
+    model = FakeModel()
+    queries: list[str] = []
+
+    class RecordedResolution(FakeKnowledge):
+        def resolve(self, query: str) -> dict[str, Any]:
+            """Record the complete pair and delegate to the actual index unless testing an outage."""
+            queries.append(query)
+            if failure == "error":
+                raise RuntimeError("private index path")
+            if failure == "unavailable":
+                return {"status": "unavailable", "candidates": []}
+            return index.resolve(query)
+
+    @asynccontextmanager
+    async def unused_lane() -> AsyncIterator[list[StructuredTool]]:
+        pytest.fail("An undecided destination must not open the requested weather lane.")
+        yield []
+
+    async def run() -> tuple[list[ToolStarted], list[ToolEnded], str]:
+        events = stream_weather_answer(
+            model, [HumanMessage(CHOICE)], AnswerStats(), None, unused_lane(), knowledge=RecordedResolution()
+        )
+        observed = [event async for event in events]
+        return (
+            [event for event in observed if isinstance(event, ToolStarted)],
+            [event for event in observed if isinstance(event, ToolEnded)],
+            "".join(event for event in observed if isinstance(event, str)),
+        )
+
+    started, ended, answer = asyncio.run(run())
+    assert queries == ["Zion or Yosemite"]
+    assert len(started) == len(ended) == 1
+    assert started[0].args == {"query": queries[0]}
+    assert started[0].name == ended[0].name == "resolve_destination"
+    assert started[0].call_id == ended[0].call_id
+    assert not model.seen
+    assert "Which park" in answer
+    if failure:
+        assert "unavailable" in answer
+        assert "private" not in answer
+        assert ended[0].failed
+    else:
+        assert not ended[0].failed
+        assert isinstance(ended[0].record, KnowledgeCallRecord)
+        assert json.loads(ended[0].content)["status"] == "ambiguous"
+        assert "Zion or Yosemite" in answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Compare both parks. I mean either Zion or Yosemite; which park preparation guidance applies?",
+        "I'm torn between Zion and Yosemite; which park has warmer weather?",
+        "Either Zion or Yosemite; which park guidance applies? Also find hotels in Dallas.",
+        "Either Zion or Yosemite; which park guidance applies? Actually Zion, please.",
+        "Either Zion, Illinois or Yosemite; which park guidance applies?",
+        "Either Yosemite or Grand Canyon of the Yellowstone; which park guidance applies?",
+        "I chose Yosemite. What should I pack?",
+    ],
+)
+def test_comparisons_qualified_names_and_a_later_choice_stay_with_the_agent(text: str) -> None:
+    """A previous undecided turn cannot override the latest question, named qualifiers, or a comparison."""
+    model = FakeModel()
+    messages: list[BaseMessage] = [HumanMessage(CHOICE), AIMessage("Which park?"), HumanMessage(text)]
+
+    @asynccontextmanager
+    async def lane() -> AsyncIterator[list[StructuredTool]]:
+        yield []
+
+    async def run() -> str:
+        source = stream_weather_answer(model, messages, AnswerStats(), None, lane(), knowledge=FakeKnowledge())
+        return "".join([event async for event in source if isinstance(event, str)])
+
+    assert asyncio.run(run()) == model.answer
+    assert model.seen
 
 
 class FakeKnowledge:

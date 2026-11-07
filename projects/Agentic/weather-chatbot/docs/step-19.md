@@ -55,6 +55,13 @@ The matrix sends each phrasing through the app’s destination and date parser, 
 the expected park, dates and travel windows. A separate recorded Zion briefing exercises the actual forecast,
 NPS and NWS adapters. The replay clock fixes the time of the question. Durations measure local execution time.
 
+The Dallas regression sends “plan a trip to dallas” through the chat endpoint without credentials. The travel
+grader reads the finished answer and requires Dallas and a question about travel dates. A weather lookup, a
+premature offer search or the national park form fails the case. The live travel suite runs the same case and
+also asks “I'm planning a trip to Dallas, Texas. Will it rain there tomorrow?” That question requires a forecast.
+When the visitor replies with just two dates, replay and live evaluation require the same dates and a choice of
+weather, flights or hotels. An immediate lookup or another request for the dates fails that check.
+
 Red-team cases feed a deliberately planted instruction to the hotel adapter, attempt a link carrying chat content,
 inject instructions into the locale and request excessive tool calls in a model turn. Each checks the actual
 adapter, renderer or agent boundary. The model transcript covers a recorded conversation and uses synthetic data.

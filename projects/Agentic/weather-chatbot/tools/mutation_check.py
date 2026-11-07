@@ -60,6 +60,9 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/cache.py": ("test_cache.py", "test_open_meteo.py"),
     "nimbus/app.py": ("test_model.py", "test_pages.py", "test_chat.py"),
     "nimbus/chat.py": ("test_chat.py",),
+    "nimbus/travel/city_intake.py": ("test_city_intake.py",),
+    "nimbus/travel/hotel_intake.py": ("test_hotel_intake.py",),
+    "nimbus/forecast_horizon.py": ("test_forecast_horizon.py",),
     "nimbus/chips.py": ("test_chips.py", "test_chat.py"),
     "nimbus/config.py": ("test_config.py", "test_model.py"),
     "nimbus/docs.py": ("test_docs.py", "test_pages.py"),
@@ -96,6 +99,12 @@ class Mutation(NamedTuple):
 
 
 MUTATIONS: tuple[Mutation, ...] = (
+    Mutation(
+        "nimbus/park_tools.py",
+        "choice = _ALTERNATIVES.search(question)",
+        "choice = None",
+        "undecided parks require one full-pair lookup before guidance",
+    ),
     Mutation("nimbus/constants.py", r'r"[\w:.-]{1,128}", re.ASCII', r'r"[\w:.-]{1,128}"', "a request id is ASCII"),
     Mutation("nimbus/constants.py", "{1,128}", "{1,129}", "a request id is at most 128 characters"),
     Mutation("nimbus/docs.py", '{"html": False}', '{"html": True}', "the docs never render raw HTML"),
@@ -1836,6 +1845,36 @@ for _review_module in ("nimbus/utils.py", "nimbus/observability.py", "nimbus/pro
 
 TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
     Mutation(
+        "nimbus/travel/hotel_intake.py",
+        "if not HOTEL_REQUEST.search(text) or not UNKNOWN_DATES.search(text):",
+        "if True:",
+        "travel explicitly undecided stay dates never reach a hotel provider",
+    ),
+    Mutation(
+        "nimbus/forecast_horizon.py",
+        "if requested <= last_day:",
+        "if requested < last_day:",
+        "travel forecast limit leaves the final available day searchable",
+    ),
+    Mutation(
+        "nimbus/travel/city_intake.py",
+        "match = CITY_REQUEST.fullmatch(text)",
+        "match = None",
+        "travel city trip intake asks for details before any model or provider",
+    ),
+    Mutation(
+        "nimbus/travel/city_intake.py",
+        '"search_hotels" in travel_tools',
+        "True",
+        "travel city trip intake only offers enabled searches",
+    ),
+    Mutation(
+        "nimbus/travel/city_intake.py",
+        "if WEATHER_ASK.search(positive) or OTHER_TASK.search(positive):",
+        "if False:",
+        "travel city trip intake leaves specific searches to the existing tools",
+    ),
+    Mutation(
         "nimbus/prompts.py",
         "last_forecast = local.date() + timedelta(days=MAX_FORECAST_DAYS - 1)",
         "last_forecast = now.date() + timedelta(days=MAX_FORECAST_DAYS)",
@@ -2113,7 +2152,7 @@ TESTS_FOR["nimbus/trace_links.py"] = ("test_activity_traces.py",)
 TESTS_FOR["nimbus/trace_view.py"] = ("test_trace_view.py",)
 for _travel_module in ("providers", "mcp_client", "kiwi", "trivago"):
     TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_providers.py",)
-for _travel_module in ("service", "models"):
+for _travel_module in ("service", "models", "tools"):
     TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_service.py",)
 TESTS_FOR["nimbus/travel/planner.py"] = ("test_planner.py",)
 TESTS_FOR["nimbus/travel/conditions.py"] = ("test_planner.py", "test_weekend_conditions.py")
@@ -2191,6 +2230,12 @@ REVIEW_TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
 )
 REVIEW_TRAVEL_MUTATIONS += (
     Mutation(
+        "nimbus/travel/tools.py",
+        "Show prices in the verified offer cards by default.",
+        "Repeat all prices without labeling the property.",
+        "hotel searches default to verified cards and attribute prices on request",
+    ),
+    Mutation(
         "nimbus/agent.py",
         "len(last.tool_calls) > MAX_TOOL_CALLS_PER_ROUND",
         "False",
@@ -2231,6 +2276,12 @@ HARNESS_MUTATIONS = (
         "review.model_dump_json(exclude_unset=True, indent=2)",
         "review.model_dump_json(indent=2)",
         "promoted regression cases score only the fields the reviewer specified",
+    ),
+    Mutation(
+        "tools/eval_travel.py",
+        "never_says=self.never_says,",
+        "never_says=[],",
+        "travel intake rejects another request for dates the visitor supplied",
     ),
 )
 MUTATIONS += HARNESS_MUTATIONS
@@ -2293,6 +2344,7 @@ def main() -> int:
             mutation
             for mutation in MUTATIONS
             if mutation.file in {"nimbus/parks.py", "nimbus/park_embeddings.py"}
+            or mutation.rule == "undecided parks require one full-pair lookup before guidance"
             or mutation.rule in {"the conversation so far comes before the question", "no message can change the rules"}
         )
         if args.parks

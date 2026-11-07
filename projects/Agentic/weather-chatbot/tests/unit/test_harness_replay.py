@@ -39,6 +39,9 @@ def test_replay_passes_without_live_http_and_includes_the_reviewed_catalog(monke
     monkeypatch.setattr(httpx2.AsyncHTTPTransport, "handle_async_request", live_http)
     rows = replay_cases()
     assert not attempts
+    assert {"dallas-trip-intake", "dallas-trip-date-follow-up", "missing-hotel-dates"} <= {
+        row["case_id"] for row in rows if row["suite"] == "golden_replay"
+    }
     assert [(row["case_id"], row.get("checks")) for row in rows if row["outcome"] != "pass"] == []
     assert {row["suite"] for row in rows} == {"regressions", "weekend", "red_team", "provider_replay", "golden_replay"}
     assert len({(row["suite"], row["case_id"]) for row in rows}) == len(rows)

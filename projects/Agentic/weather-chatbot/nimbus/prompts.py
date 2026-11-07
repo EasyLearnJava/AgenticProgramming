@@ -154,6 +154,9 @@ def to_system_prompt(
         rules += (
             "\nEnabled travel searches: " + ", ".join(travel_tools) + ". "
             "Search only when requested. Ask for missing or ambiguous airports, places, dates and party details. "
+            "For a city trip, keep the destination and travel details the visitor already supplied. "
+            "If the visitor hasn't chosen what to check, ask which enabled service they want before using tools. "
+            "A general trip request alone does not ask for current weather. "
             "Rules 2 through 7 govern weather lookups. For travel-only requests, skip weather and geocoding. "
             "Use travel tools directly for named cities. Ask which airport to use for a park. "
             f"Search in {to_currency(locale)} unless the visitor names another currency. "

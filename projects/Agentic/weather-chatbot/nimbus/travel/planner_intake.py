@@ -152,7 +152,8 @@ WEATHER_QUESTION = re.compile(
 EXTRA_CLAUSE = re.compile(r"[.!?;]|\b(?:with|because|we(?:'ll)?|i(?:'ll)?|can you|will there be)\b", re.I)
 
 
-def _normalized(text: str) -> str:
+def normalize_trip_text(text: str) -> str:
+    """Normalize a small set of planning and weekend phrases shared by city and park intake."""
     text = " ".join(text.replace("\N{RIGHT SINGLE QUOTATION MARK}", "'").split())
     # "Play a song about a trip" is a different request. Only repair the anchored imperative.
     text = re.sub(r"^(please\s+)?play(?=\s+(?:(?:a|my|our|the)\s+)?trip\b)", r"\1plan", text, flags=re.I)
@@ -208,7 +209,7 @@ def analyze_trip(
 ) -> TripIntent | None:
     """Resolve a park before any lookup; route a valid dated visit to conditions and incomplete details to intake."""
     # ① Ambiguous parks and an unsupported qualified name require an explicit selection.
-    normalized = _normalized(question)
+    normalized = normalize_trip_text(question)
     if previous_user_text and not TRIP_WORDS.search(normalized):
         # A bare park name only continues a park choice made by the preceding user request.
         answer = normalized.rstrip(".!? ").casefold()
@@ -254,7 +255,7 @@ def analyze_trip(
         referent = re.sub(r"[,.?!;:]", " ", referent)
         referent = re.sub(r"\b(?:for|with|and)\s*$", " ", referent, flags=re.I)
     place_context = (
-        WEATHER_PREFIX.sub("", _normalized(previous_user_text))
+        WEATHER_PREFIX.sub("", normalize_trip_text(previous_user_text))
         if previous_user_text and FOLLOW_UP.fullmatch(" ".join(referent.split()))
         else return_pref.text
     )

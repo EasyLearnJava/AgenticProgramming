@@ -1,5 +1,6 @@
 """Build and edit a trip in its chat turn, or submit the standalone planner as a full page."""
 
+import json
 import re
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
@@ -16,6 +17,38 @@ from nimbus.travel.service import TravelService
 # Start a fresh server for each travel case so other visitors in the suite cannot exhaust its rate limit.
 INTAKE = 'form.trip-form[action="/api/parks/briefing"]'
 QUOTES = 'form[action="/api/parks/trip"]'
+
+
+@pytest.mark.parametrize("base_url", ["travel", "weather-only"], indirect=True, scope="function")
+def test_city_trip_asks_for_dates_and_keeps_context_for_the_follow_up(page: Page, base_url: str) -> None:
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(base_url)
+    question = "plan a trip to dallas"
+    box = page.get_by_label("Your question")
+    box.fill(question)
+    box.press("Enter")
+    turn = page.locator('li[id^="turn-"]')
+    answer = turn.locator(".answer")
+    expect(answer).to_contain_text(re.compile("Dallas", re.I))
+    expect(answer).to_contain_text(re.compile(r"dates|when", re.I))
+    expect(turn.locator(".tool-chip")).to_have_count(0)
+    expect(turn.locator(INTAKE)).to_have_count(0)
+    expect(turn.get_by_text("Give feedback", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Send", exact=True)).to_be_visible()
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    first_reply = answer.inner_text().strip()
+
+    # The real browser should send the completed city clarification with the next question.
+    box.fill("Can you check the forecast there for tomorrow?")
+    with page.expect_request(lambda req: req.url.endswith("/api/chat") and req.method == "POST") as sent:
+        box.press("Enter")
+    fields = sent.value.post_data_json
+    assert isinstance(fields, dict)
+    assert json.loads(fields["history"]) == [
+        {"role": "user", "text": question},
+        {"role": "assistant", "text": first_reply},
+    ]
+    expect(turn.nth(1).locator(".tool-chip-done .tool-chip-name").filter(has_text="get_forecast")).to_be_visible()
 
 
 def open_quotes(turn: Locator) -> Locator:

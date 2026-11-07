@@ -5,6 +5,7 @@ turned into one of our errors. And the finished answer's Markdown, made into HTM
 """
 
 import asyncio
+import json
 from collections.abc import AsyncGenerator, AsyncIterator, Collection, Iterator, Sequence
 from contextlib import AbstractAsyncContextManager, aclosing, asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ from langchain_core.exceptions import (
 )
 from langchain_core.exceptions import ModelTimeoutError as LangChainModelTimeoutError
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.tools import StructuredTool, ToolException
 from langgraph.graph.state import CompiledStateGraph
 from langsmith import tracing_context
@@ -50,7 +51,15 @@ from nimbus.lanes import REST_NO_AUTH, Lane
 from nimbus.model import Tracer
 from nimbus.nps_alerts import AlertsCallRecord, NpsAlertsService
 from nimbus.open_meteo import OpenMeteoClient
-from nimbus.park_tools import KnowledgeCallRecord, KnowledgeService, make_alert_tools, make_park_tools
+from nimbus.park_tools import (
+    PARK_GUIDANCE_UNAVAILABLE,
+    KnowledgeCallRecord,
+    KnowledgeService,
+    make_alert_tools,
+    make_park_tools,
+    resolve_park,
+    undecided_park_query,
+)
 from nimbus.tools import WEATHER_TOOLS, ToolCallRecord, ToolContext, WeatherTool, make_tools
 from nimbus.travel.models import TravelCallRecord
 from nimbus.travel.service import TravelTurn
@@ -337,6 +346,31 @@ async def stream_weather_answer(
     The answer, by the agent with the four weather tools of the question's lane (step 9), open for as long as the
     answer is, and closed with it. Setup failures remain in per-turn state so chat can report their original class.
     """
+    latest = messages[-1] if messages else None
+    if (
+        knowledge is not None
+        and isinstance(latest, HumanMessage)
+        and isinstance(latest.content, str)
+        and (query := undecided_park_query(latest.content))
+    ):
+        # A genuine local registry call, observed in Activity and the chat chip. Neither park was chosen.
+        name, call_id = "resolve_destination", uuid4().hex
+        yield ToolStarted(call_id, name, {"query": query})
+        try:
+            content, record = await resolve_park(knowledge, query)
+            status = json.loads(content).get("status", "unavailable")
+        except ToolException:
+            status = "unavailable"
+        if status == "unavailable":
+            yield ToolEnded(call_id, name, PARK_GUIDANCE_UNAVAILABLE, None, True)
+            yield "The park guidance is unavailable right now. Which park would you like to check?"
+        else:
+            yield ToolEnded(call_id, name, content, record, False)
+            if status == "ambiguous":
+                yield f"Preparation guidance depends on the destination. Which park are you visiting, {query}?"
+            else:
+                yield "I couldn't verify both destinations in the park guides. Which park would you like to check?"
+        return
     context = lazy_weather_tools(tools, lane, stats) if knowledge is not None or travel is not None else tools
     async with context as weather_tools:
         knowledge_tools = make_park_tools(knowledge) if knowledge is not None else []
