@@ -1,0 +1,53 @@
+question,answer
+My VPN keeps timing out when I work from home,VPN Connection Timeout
+vpn wont connect from home???,VPN Connection Timeout
+Which ports does the VPN need open on the firewall?,VPN Connection Timeout
+Remote access connection drops during peak hours,VPN Connection Timeout
+How do I clear the VPN client's cache?,VPN Connection Timeout
+VPN problems with High priority,VPN Connection Timeout
+I can't finish setting up multi-factor authentication on my phone,MFA Setup Failure
+Microsoft Authenticator won't take the QR code,MFA Setup Failure
+MFA setup fails on my new iPhone,MFA Setup Failure
+Authenticator codes are rejected; maybe the phone's clock is wrong,MFA Setup Failure
+How do I enter the MFA code by hand instead of scanning it?,MFA Setup Failure
+My new laptop is extremely slow,Laptop Performance Degradation
+Apps keep freezing on my work computer after updates,Laptop Performance Degradation
+High CPU usage makes everything lag,Laptop Performance Degradation
+Computer is sluggish with lots of browser tabs open,Laptop Performance Degradation
+PC very slow since I joined last week,Laptop Performance Degradation
+I get access denied in Salesforce,SaaS Access Permission Denied
+Salesforce stopped working after my role changed,SaaS Access Permission Denied
+How long until a new role's permissions reach the SSO app?,SaaS Access Permission Denied
+SaaS app says I don't have permission,SaaS Access Permission Denied
+WiFi keeps dropping in Building C,WiFi Connectivity Issues Office
+Wireless connection in the office disconnects every few minutes,WiFi Connectivity Issues Office
+Several of us lose the office wifi at the same time,WiFi Connectivity Issues Office
+Access points overloaded during all-hands meetings,WiFi Connectivity Issues Office
+Self-service password reset isn't working,Password Reset Failed
+I get error 0x80070005 when I reset my password,Password Reset Failed
+Can't change my Active Directory password through the portal,Password Reset Failed
+Password reset portal says I don't have permission,Password Reset Failed
+I can't find the network printer HP-Floor3-Color,Printer Not Found
+Printer is missing after my laptop was reimaged,Printer Not Found
+How do I add the color printer on floor 3?,Printer Not Found
+Print drivers missing after a reimage,Printer Not Found
+I can't send an email with a big attachment,Email Attachment Size Limit
+Outlook says Message Size Exceeded,Email Attachment Size Limit
+What's the largest attachment I can email?,Email Attachment Size Limit
+How should I share a file that's too big for email?,Email Attachment Size Limit
+Production database connections are timing out,Database Connection Timeout
+The application can't reach the database between 9 and 11 AM,Database Connection Timeout
+Database connection pool runs out during peak hours,Database Connection Timeout
+Should we add query caching for the database?,Database Connection Timeout
+No sound in Microsoft Teams meetings,Microsoft Teams Audio Issues
+Nobody can hear me in Teams calls,Microsoft Teams Audio Issues
+My USB headset stopped working in Teams after a Windows update,Microsoft Teams Audio Issues
+How do I test my audio before a Teams meeting?,Microsoft Teams Audio Issues
+What's on the cafeteria menu today?,
+How do I book annual leave?,
+When is the next company holiday?,
+How do I expense a taxi ride?,
+Can I bring my dog to the office?,
+What's the weather tomorrow?,
+How do I order a new office chair?,
+Who won the football match last night?,

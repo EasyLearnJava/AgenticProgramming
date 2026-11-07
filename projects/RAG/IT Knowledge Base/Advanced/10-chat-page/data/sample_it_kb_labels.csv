@@ -1,0 +1,12 @@
+title,problem,resolution,system,category,notes,priority,tags,visibility,team
+VPN Connection Timeout,Users experience timeout errors when attempting to connect to the corporate VPN from remote locations,1. Verify internet connection stability. 2. Check firewall settings and ensure VPN ports (UDP 500 and 4500) are open. 3. Restart VPN client application. 4. Clear VPN cache in application settings. 5. If issue persists restart the VPN service on the server. 6. Contact network team if problem continues.,VPN,Remote Access,Common issue during peak hours especially for users on home networks. May be related to ISP throttling.,High,vpn;timeout;remote;connection,internal,Network
+WiFi Drops in Meeting Rooms,Laptops lose WiFi in the meeting rooms on floor 2,1. Move the access point away from the screen. 2. Update the WiFi driver.,Wi-Fi,Network,Started after the rooms got new screens.,high,WiFi; wifi ;Meeting Rooms;;,Public,
+WiFi Slow on Floor 3,Downloads crawl on floor 3,1. Check the channel width. 2. Add an access point.,wifi,Networking,,Medium,wifi;speed,internal,Network
+WiFi Certificate Warning,Laptops warn about the WiFi certificate,1. Install the new root certificate.,WiFi,Security,The certificate was renewed on Monday.,P1,wifi;certificate,internal,Security
+Kiosk Screen Frozen,The lobby kiosk shows a frozen screen,1. Restart the kiosk from its power button.,Kiosk,Hardware,,Low,kiosk,public,Facilities
+Badge Reader Offline,The badge reader at door 4 rejects every badge,1. Restart the reader's controller.,Badge Reader,Hardware,,Urgent,badge;door,internal,Facilities
+Shared Drive Missing,The S: drive is gone after sign-in,1. Run the drive mapping script again.,File Shares,Infrastructure,,Medium,drive;mapping,secret,Infrastructure
+Outlook Shows Cannot Start Microsoft Outlook and Cannot Open the Outlook Window Because the Set of Folders Cannot Be Opened After the Latest Monthly Update on Windows 11 Laptops in the Finance Team Offices,Outlook doesn't start,1. Run outlook.exe /resetnavpane.,Email,Communication,,Medium,outlook,internal,Messaging
+Laptop Battery Drains Fast,The battery lasts two hours,,Laptop,Hardware,,Low,battery,internal,Endpoint
+VPN Connection Timeout,VPN drops when the laptop changes networks,1. Turn on the client's reconnect setting.,VPN,Remote Access,,Medium,vpn;roaming,internal,Network
+Teams Meeting Recording Missing,A meeting's recording doesn't appear in the chat,1. Check the organizer's OneDrive has space. 2. Wait up to 24 hours.,Teams,Collaboration,,Medium,teams;recording,restricted,Collaboration Tools
