@@ -1,0 +1,2121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2B: Brief to Architecture</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1f2328; --muted: #5d6470; --border: #e3e0d8;
+    --accent: #2f5fb3; --accent-soft: #e9f0fb; --good: #1d7a46; --good-soft: #e6f4ec;
+    --warn: #9a5b00; --warn-soft: #fbf1e0; --bad: #b3261e; --bad-soft: #fbe9e7; --violet: #6a4bb3; --violet-soft: #f0ebfa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16181c; --surface: #1d2026; --text: #e7e9ee; --muted: #a2a9b5; --border: #2e333c;
+      --accent: #8fb2f0; --accent-soft: #1f2a3d; --good: #6fcf97; --good-soft: #1b2e24;
+      --warn: #f0b860; --warn-soft: #33291a; --bad: #f28b82; --bad-soft: #3a2220; --violet: #b9a3f0; --violet-soft: #272236;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16181c; --surface: #1d2026; --text: #e7e9ee; --muted: #a2a9b5; --border: #2e333c;
+    --accent: #8fb2f0; --accent-soft: #1f2a3d; --good: #6fcf97; --good-soft: #1b2e24;
+    --warn: #f0b860; --warn-soft: #33291a; --bad: #f28b82; --bad-soft: #3a2220; --violet: #b9a3f0; --violet-soft: #272236;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  header { max-width: 1560px; margin: 0 auto; padding: 28px 16px 8px; }
+  .eyebrow { color: var(--muted); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 6px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  .src { color: var(--muted); font-size: 14.5px; margin: 0; }
+  .src a { color: var(--accent); }
+  figure { max-width: 1560px; margin: 12px auto 32px; padding: 0 16px; }
+  .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 10px; }
+  svg { display: block; width: 100%; min-width: 1100px; height: auto; color: var(--text); }
+  svg text { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .t { font-size: 14.5px; font-weight: 650; fill: currentColor; }
+  .s { font-size: 12.5px; fill: var(--muted); }
+  .m { font-size: 12px; fill: var(--muted); }
+  .mf { font-size: 12px; font-weight: 650; fill: currentColor; font-family: Consolas, Menlo, monospace; }
+  .tag { font-size: 11px; fill: var(--muted); font-family: Consolas, Menlo, monospace; }
+  .h { font-size: 13.5px; font-weight: 750; letter-spacing: .07em; fill: currentColor; }
+  .hs { font-size: 12.5px; fill: var(--muted); }
+  .lbl { font-size: 12px; font-style: italic; fill: var(--muted); }
+  .lblc { font-size: 12px; font-style: italic; fill: var(--violet); }
+  .pt { font-size: 12.5px; font-weight: 600; fill: currentColor; }
+  .bx { fill: var(--bg); stroke: currentColor; stroke-opacity: .45; stroke-width: 1.2; }
+  .dt { fill: var(--warn-soft); stroke: var(--warn); stroke-opacity: .6; stroke-width: 1.2; }
+  .nd { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; }
+  .lp { fill: var(--violet-soft); stroke: var(--violet); stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .pc { fill: var(--good-soft); stroke: var(--good); stroke-width: 1.4; }
+  .cy { fill: var(--surface); stroke: var(--good); stroke-width: 1.3; }
+  .cyt { fill: var(--good-soft); stroke: var(--good); stroke-width: 1.3; }
+  .cf { fill: var(--bg); stroke: currentColor; stroke-opacity: .3; stroke-width: 1.1; stroke-dasharray: 3 3; }
+  .ep { fill: var(--bg); stroke: currentColor; stroke-opacity: .55; stroke-width: 1.3; }
+  .st { fill: var(--bg); stroke: var(--accent); stroke-opacity: .7; stroke-width: 1.2; }
+  .ex { fill: var(--bg); stroke: currentColor; stroke-opacity: .35; stroke-width: 1.1; }
+  .nt { fill: var(--warn-soft); stroke: var(--warn); stroke-opacity: .5; stroke-width: 1.1; }
+  .ct { fill: var(--bg); stroke: currentColor; stroke-opacity: .35; stroke-width: 1.1; }
+  .lg { fill: none; stroke: currentColor; stroke-opacity: .25; stroke-width: 1; }
+  .pl { fill: var(--surface); stroke: currentColor; stroke-opacity: .6; stroke-width: 1.3; }
+  .dm { fill: var(--violet-soft); stroke: var(--violet); stroke-width: 1.3; }
+  .dmt { font-size: 12px; font-weight: 650; fill: var(--violet); font-family: Consolas, Menlo, monospace; }
+  .llm { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1; }
+  .llmt { font-size: 11px; font-weight: 700; fill: var(--warn); }
+  .wb { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 1.1; }
+  .wbt { font-size: 11px; font-weight: 700; fill: var(--bad); }
+  .dot { fill: var(--accent); }
+  .ln { fill: none; stroke: currentColor; stroke-opacity: .6; stroke-width: 1.5; }
+  .lnc { fill: none; stroke: var(--violet); stroke-width: 1.5; stroke-dasharray: 6 4; }
+  .ah { fill: currentColor; fill-opacity: .7; }
+  .ahc { fill: var(--violet); }
+  .bnd { fill: none; stroke: currentColor; stroke-opacity: .4; stroke-width: 1.3; stroke-dasharray: 8 5; }
+  .bndc { fill: var(--accent-soft); fill-opacity: .35; stroke: var(--accent); stroke-opacity: .6; stroke-width: 1.3;
+    stroke-dasharray: 8 5; }
+  .pa { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.3; }
+  .chip { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
+  .cht { font-size: 12.5px; font-weight: 650; fill: currentColor; }
+  .lnd { fill: none; stroke: currentColor; stroke-opacity: .5; stroke-width: 1.3; stroke-dasharray: 4 4; }
+  section { max-width: 1560px; margin: 0 auto; padding: 0 16px; }
+  h2 { font-size: 20px; margin: 22px 0 2px; }
+  h2 .num { color: var(--accent); margin-right: 6px; }
+  .cap { color: var(--muted); font-size: 14.5px; margin: 0; }
+  .t2 { font-size: 13.5px; font-weight: 650; fill: currentColor; }
+  .t3 { font-size: 12.5px; font-weight: 650; fill: currentColor; }
+  .mi { font-size: 11.5px; font-style: italic; fill: var(--good); }
+  .lbs { font-size: 11.5px; font-style: italic; fill: var(--muted); }
+  .msg { font-size: 12.5px; fill: currentColor; }
+  .pm { font-size: 12px; fill: currentColor; font-family: Consolas, Menlo, monospace; }
+  .rl { font-size: 11px; font-weight: 750; letter-spacing: .06em; fill: var(--muted); }
+  .pr { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; }
+  .prl { stroke: var(--accent); stroke-opacity: .6; stroke-width: 1; fill: none; }
+  .pid { font-size: 11.5px; font-weight: 750; fill: var(--accent); }
+  .ee { fill: var(--surface); stroke: currentColor; stroke-opacity: .75; stroke-width: 1.8; }
+  .dupl { stroke: currentColor; stroke-opacity: .75; stroke-width: 1.5; }
+  .dsf { fill: var(--good-soft); }
+  .dsl { fill: none; stroke: var(--good); stroke-width: 1.5; }
+  .dsid { font-size: 12.5px; font-weight: 750; fill: var(--good); }
+  .cn { fill: var(--surface); stroke: var(--violet); stroke-width: 1.5; }
+  .cnt { font-size: 12px; font-weight: 750; fill: var(--violet); }
+  .life { fill: none; stroke: currentColor; stroke-opacity: .35; stroke-width: 1.2; stroke-dasharray: 5 5; }
+  .act { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+  .frame { fill: none; stroke: currentColor; stroke-opacity: .4; stroke-width: 1.1; }
+  .frtab { fill: var(--bg); stroke: currentColor; stroke-opacity: .4; stroke-width: 1.1; }
+  .frt { font-size: 11.5px; font-weight: 700; fill: currentColor; }
+  .ret { fill: none; stroke: currentColor; stroke-opacity: .55; stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .lnr { fill: none; stroke: var(--bad); stroke-width: 1.6; }
+  .ahr { fill: var(--bad); }
+  .tb { fill: none; stroke: var(--bad); stroke-opacity: .7; stroke-width: 1.6; stroke-dasharray: 9 5; }
+  .tbl { fill: none; stroke: var(--bad); stroke-opacity: .7; stroke-width: 1.6; stroke-dasharray: 9 5; }
+  .tbt { font-size: 12.5px; font-weight: 750; fill: var(--bad); }
+  .sysb { fill: var(--violet-soft); stroke: var(--violet); stroke-width: 1.1; }
+  .humb { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.1; }
+  .repb { fill: var(--good-soft); stroke: var(--good); stroke-width: 1.1; }
+  nav { max-width: 1560px; margin: 14px auto 0; padding: 0 16px; }
+  nav .grp { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0 0 10px; }
+  nav .gl { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    width: 200px; }
+  nav .pills { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 360px; }
+  .callout, blockquote.req { max-width: 1000px; }
+  .prose p, .prose li { max-width: 96ch; }
+  .prose p { margin: 8px 0; }
+  .prose a { color: var(--accent); }
+  .part { margin-top: 36px; }
+  .partno { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    margin: 0 !important; }
+  h2.parth { font-size: 25px; margin: 2px 0 6px; }
+  .lede { font-size: 16.5px; }
+  h3 { font-size: 19.5px; margin: 34px 0 6px; }
+  h3 .sn { color: var(--accent); margin-right: 8px; }
+  h4 { font-size: 15.5px; margin: 22px 0 4px; }
+  h4 .who { font-weight: 400; color: var(--muted); font-size: 13.5px; margin-left: 8px; }
+  blockquote.req { margin: 12px 0 8px; padding: 12px 20px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent); border-radius: 10px; }
+  .reqt { font-size: 17px; font-weight: 700; margin: 4px 0 6px !important; }
+  .reqh { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    margin: 12px 0 0 !important; }
+  .callout { margin: 14px 0; padding: 8px 16px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 4px solid var(--violet); border-radius: 10px; }
+  .callout.warnc { border-left-color: var(--warn); }
+  .callout.goodc { border-left-color: var(--good); }
+  .callout ul, .callout ol { margin: 4px 0 8px; padding-left: 22px; }
+  .legend { font-size: 14px; color: var(--muted); line-height: 1.9; }
+  .habits li, .steps li { margin: 7px 0; }
+  .tw { overflow-x: auto; margin: 10px 0 16px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); }
+  table.qt { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 14.5px; line-height: 1.45; }
+  table.qt th { text-align: left; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); background: var(--bg); padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  table.qt td { vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  table.qt tr:last-child td { border-bottom: 0; }
+  table.q3 th:nth-child(1) { width: 38%; }
+  table.q3 th:nth-child(2) { width: 26%; }
+  table.dt5 { min-width: 1120px; }
+  table.dt5 th:nth-child(1) { width: 12%; }
+  table.dt5 th:nth-child(5) { width: 31%; }
+  .tg { display: inline-block; font-size: 11.5px; font-weight: 650; line-height: 1.6; padding: 0 7px; border-radius: 999px;
+    white-space: nowrap; vertical-align: 1px; }
+  .tg.doc { color: var(--good); background: var(--good-soft); }
+  .tg.code { color: var(--accent); background: var(--accent-soft); }
+  .tg.asm { color: var(--warn); background: var(--warn-soft); }
+  .first { color: var(--warn); font-weight: 700; }
+  code { font-family: Consolas, Menlo, monospace; font-size: .9em; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0 4px; }
+  nav a { padding: 6px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+    color: var(--text); text-decoration: none; font-size: 13.5px; }
+  nav a:hover { border-color: var(--accent); }
+  nav a b { color: var(--accent); margin-right: 5px; }
+  .why { color: var(--accent); font-weight: 600; }
+  .notebg { fill: var(--surface); fill-opacity: .9; }
+  .aho { fill: none; stroke: currentColor; stroke-opacity: .75; stroke-width: 1.3; }
+  .altsep { fill: none; stroke: currentColor; stroke-opacity: .45; stroke-width: 1.1; stroke-dasharray: 6 4; }
+  @media (max-width: 560px) { h1 { font-size: 23px; } }
+  .legend .li { display: inline-block; margin-right: 14px; }
+  .nw { white-space: nowrap; }
+  @media (max-width: 560px) {
+    nav .gl { width: auto; }
+    .prose table.qt thead { display: none; }
+    .prose table.qt, .prose table.qt tbody, .prose table.qt tr, .prose table.qt td { display: block; min-width: 0;
+      width: auto; }
+    .prose table.qt tr { border-bottom: 1px solid var(--border); padding: 6px 0; }
+    .prose table.qt tr:last-child { border-bottom: 0; }
+    .prose table.qt td { border: 0; padding: 3px 12px; }
+    .prose table.qt td::before { content: attr(data-h); display: block; font-size: 11px; font-weight: 700;
+      letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  }
+  .tg.chk { color: var(--violet); background: var(--violet-soft); }
+  .prose p.note { font-size: 14px; color: var(--muted); margin-top: -6px; }
+
+</style>
+</head>
+<body>
+<header>
+  <p class="eyebrow">Requirement → FDE analysis → architecture · The Gen Academy · Week 2, project 2B</p>
+  <h1>Financial Document Intelligence Pipeline</h1>
+  <p class="src">Drawn from the notebook at commit <a href="https://github.com/The-Gen-Academy/2B-Financial-Document-Intelligence-Pipeline/tree/39d2249c8135d24af99e99d2a6c33488ad2f6dc0">39d2249</a>, its saved outputs, and the <a href="https://docs.google.com/document/d/1QyqbNCXxlwfuvqAkR74GSfs7rPfF4NaG/edit">solution kit</a>.</p>
+</header>
+<nav aria-label="Contents"><div class="grp"><span class="gl">Part 1</span><span class="pills"><a href="#requirement">The requirement</a></span></div><div class="grp"><span class="gl">Part 2 · FDE analysis</span><span class="pills"><a href="#fde-mindset"><b>2.1</b>How an FDE reads this brief</a><a href="#fde-brief"><b>2.2</b>The brief, phrase by phrase</a><a href="#fde-people"><b>2.3</b>Who to talk to</a><a href="#fde-questions"><b>2.4</b>Questions to ask</a><a href="#fde-decisions"><b>2.5</b>Decision trace</a><a href="#fde-assumptions"><b>2.6</b>Hidden assumptions</a><a href="#fde-stress"><b>2.7</b>Checking the comparison</a><a href="#fde-plan"><b>2.8</b>Engagement steps</a><a href="#fde-diagrams"><b>2.9</b>Diagrams and questions</a><a href="#fde-takeaways"><b>2.10</b>What to take away</a></span></div><div class="grp"><span class="gl">Part 3 · Architecture</span><span class="pills"><a href="#context"><b>1</b>System context</a><a href="#architecture"><b>2</b>High-level architecture</a><a href="#dataflow"><b>3</b>Data flow (level 1)</a><a href="#datamodel"><b>4</b>Data model</a><a href="#design"><b>5</b>Detailed design: the notebook</a><a href="#chunking"><b>6</b>The two chunking paths</a><a href="#sequence"><b>7</b>Sequence: one question</a><a href="#prompts"><b>8</b>Context assembly</a><a href="#threats"><b>9</b>Threat model</a><a href="#evaluation"><b>10</b>The comparison: A, B and C</a><a href="#recommended"><b>11</b>The recommended architecture</a></span></div></nav>
+<section class="prose part" id="requirement">
+  <p class="partno">Part 1</p>
+  <h2 class="parth">The requirement, as given</h2>
+  <p class="lede">This is the brief exactly as the FDE receives it. Everything after it works backwards from these
+    words to the pipeline that The Gen Academy built (repository
+    <code>2B-Financial-Document-Intelligence-Pipeline</code>, commit 39d2249).</p>
+  <blockquote class="req">
+    <p class="reqt">Project 2: Financial Document Intelligence Pipeline RAG</p>
+    <p class="reqh">Description</p>
+    <p>Build a RAG pipeline that answers questions across financial documents - SEC filings, earnings call
+      transcripts, insurance claims, or loan documents. Implement two chunking strategies (fixed-size vs. semantic
+      chunking) and compare retrieval quality on the same set of queries. Add a reranking step and measure the
+      improvement. This project is particularly relevant for anyone working in financial services, insurance, or
+      regulated industries, but the techniques apply to any domain with dense, structured documents. This project now
+      has code and n8n in the Week 2 project list.</p>
+    <p class="reqh">Best For</p>
+    <p>Data Scientists/Analysts (financial analysis), Finance roles (Wells Fargo, JPMC, Citi, Morgan Stanley, NYLife),
+      Architects (pipeline design), Consultants (client financial analysis).</p>
+  </blockquote>
+</section>
+
+<section class="prose part" id="fde">
+  <p class="partno">Part 2</p>
+  <h2 class="parth">FDE analysis: from the brief to the design</h2>
+  <p class="lede">Imagine a bank's research team hands you this brief on day one. You are the forward deployed
+    engineer: you sit with their analysts, find out what they actually need, and ship something that works in their
+    environment. This part walks the route from the brief to 2B's design, and it checks 2B's own evidence the way an
+    FDE would before showing it to a customer.</p>
+  <div class="callout">
+    <p><b>How to read this part.</b> The notebook, its saved outputs, the README and the solution kit show what was
+      built and some of why. No interviews were recorded, so the people, questions and answers below are a
+      reconstruction. We also re-ran parts of 2B offline, with no API keys, on the same two SEC filings, supplying the
+      solution kit's <code>remove_edgar_header</code> and the <code>import re</code> that the committed notebook
+      lacks. Statements about 2B carry a tag:</p>
+    <p class="legend"><span class="li"><span class="tg doc">Documented</span> stated in the solution kit or
+      README</span> <span class="li"><span class="tg code">In code</span> visible in the notebook, its outputs or a
+      library's source</span> <span class="li"><span class="tg asm">Inferred</span> our reading of what the build
+      implies; no source says it directly</span> <span class="li"><span class="tg chk">Checked</span> measured by our
+      offline <span class="nw">re-run</span></span> <span class="li"><span class="first">★</span> ask in your first meeting with that
+      team</span></p>
+  </div>
+  <div class="callout goodc">
+    <p><b>2B in one paragraph.</b> The notebook downloads Apple's two latest annual reports (<i>10-K</i> filings)
+      from SEC <i>EDGAR</i>, the SEC's filing system, as “full submission” text files. Each file holds the 10-K plus
+      everything filed with it: about 70 <i>XBRL viewer pages</i> (the financial statements rendered as web pages), a
+      JSON metadata file, exhibits, and ZIP and image files encoded as text (<i>uuencoded</i>). It strips the HTML and
+      cuts the text two ways. <i>Fixed-size chunking</i> cuts every 512 characters (64 overlap). <i>Semantic
+      chunking</i> splits the text into sentences, embeds each with its neighbours, and cuts where the meaning shifts
+      most: at distances above the 65th <i>percentile</i>. Both sets are embedded with BAAI/<span class="nw">bge-base-en-v1.5</span>, which
+      reads at most 512 tokens of each text, and stored in one Pinecone index, one <i>namespace</i> (partition) each. A
+      question is embedded the same way and matched against the chunks: a <i>bi-encoder</i> search that returns the
+      <i><span class="nw">top-k</span></i> most similar. A <i>reranker</i> (a <span class="nw">cross-encoder</span>) then reads each question-and-chunk pair together
+      and re-sorts them. <span class="nw">gpt-4o-mini</span> writes the answer from three chunks. Three set-ups are compared on 10 questions:
+      <b>A</b> fixed, top 3; <b>B</b> semantic, top 3; <b>C</b> semantic, top 10 <span class="nw">re-ranked</span> to 3. <i>RAGAS</i> scores
+      them with an LLM as judge: <i>faithfulness</i> (is the answer supported by the chunks?), <i>context
+      precision</i> (are the chunks relevant, best first?) and <i>context recall</i> (do the chunks hold everything the
+      reference answer needs?). The <i>golden set</i> is the agreed list of test questions with expected answers and
+      sources. <i>XBRL</i> is the machine-readable tagging of the financial statements that every 10-K and 10-Q
+      carries.</p>
+  </div>
+</section>
+
+<section class="prose" id="fde-mindset">
+  <h3><span class="sn">2.1</span>How an FDE reads this brief</h3>
+  <ol class="habits">
+    <li><b>Find the real deliverable.</b> “compare retrieval quality on the same set of queries” and “measure the
+      improvement” make the output an experiment: a comparison someone can trust. The pipeline is the apparatus. So
+      the experiment design (what changes, what stays fixed, what is measured) comes first.</li>
+    <li><b>Pick the document type with the customer; it decides everything else.</b> The brief offers four. SEC
+      filings are public and machine-tagged. Earnings call transcripts are conversational and usually licensed from a
+      vendor. Insurance claims and loan files are private, full of personal data, and often scanned forms. 2B chose
+      the easiest of the four, which is a fine start if everyone knows it was a choice.</li>
+    <li><b>Look at the data before tuning anything.</b> Open the files you are about to index. In 2B the “10-K” is a
+      9.5 MB EDGAR submission package, and the annual report's text is about a tenth of what gets indexed
+      (2.7).</li>
+    <li><b>In finance a number is only right with its company, period, unit and source.</b> “$391,035” is wrong
+      without “million”, “fiscal 2024” and “Apple 10-K, page 22”. That decides the metadata and the citations, and
+      whether some questions belong to a database lookup instead of RAG.</li>
+    <li><b>A comparison is only fair if one thing changes at a time.</b> Same corpus, same filter, the same amount of
+      text handed to the model, enough questions to see past noise, and a judge whose blind spots you know.</li>
+    <li><b>Regulated means repeatable and explainable.</b> US banks validate models under model risk management
+      guidance (the Federal Reserve's SR 11-7, issued jointly with the OCC as Bulletin 2011-12); ask Model Risk Management (MRM) whether a GenAI
+      tool is in scope. Validators expect a run that can be repeated from pinned data, code and model versions, with
+      its run-to-run spread measured, because LLM calls are not repeatable bit for bit, even at temperature 0.</li>
+  </ol>
+</section>
+
+<section class="prose" id="fde-brief">
+  <h3><span class="sn">2.2</span>Reading the brief phrase by phrase</h3>
+  <p>Each phrase asks for something, and each one hides a question the brief does not answer. The last column is the
+    answer 2B's build gives, whether or not anyone asked.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Phrase in the brief</th><th>What it asks for</th><th>The question it hides</th>
+      <th>What 2B did</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Phrase in the brief">“a RAG pipeline that answers questions across financial documents”</td>
+      <td data-h="What it asks for">Grounded answers over a document set</td>
+      <td data-h="The question it hides">Whose documents, which companies and years, and which questions: look-ups, comparisons, calculations,
+        narrative?</td>
+      <td data-h="What 2B did">Apple only, two 10-Ks, 10 test questions (8 asking for reported figures, 2 narrative).
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“SEC filings, earnings call transcripts, insurance claims, or loan documents”</td>
+      <td data-h="What it asks for">Pick a document type</td>
+      <td data-h="The question it hides">Public or private? Born-digital or scanned? Personal data? Licensed content?</td>
+      <td data-h="What 2B did">SEC filings: public, no personal data, no licence. The other three are not attempted.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“Implement two chunking strategies (fixed-size vs. semantic chunking)”</td>
+      <td data-h="What it asks for">Two ways to cut the text</td>
+      <td data-h="The question it hides">On what text? Tables, headers and filing boilerplate decide more than the splitter does.</td>
+      <td data-h="What 2B did">512/64 recursive splitter and a 65th-percentile <code>SemanticChunker</code>, both over the whole EDGAR
+        submission. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“compare retrieval quality on the same set of queries”</td>
+      <td data-h="What it asks for">A controlled comparison</td>
+      <td data-h="The question it hides">What is held constant, and how is retrieval quality measured: by expected sources, or by an LLM judge?</td>
+      <td data-h="What 2B did">The same 10 questions for all three set-ups, scored by RAGAS with <span class="nw">gpt-4o-mini</span> as judge.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“Add a reranking step”</td>
+      <td data-h="What it asks for">A second, more careful scoring stage</td>
+      <td data-h="The question it hides">Which reranker is allowed (a hosted API or a local model), and how much latency it may add?</td>
+      <td data-h="What 2B did">FlashRank <code><span class="nw">ms-marco-MiniLM-L-12-v2</span></code>, run locally, top 10 <span class="nw">re-ranked</span> to top 3; Cohere was rejected
+        over its free-tier limit. <span class="tg doc">Documented</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“and measure the improvement”</td>
+      <td data-h="What it asks for">A number with a baseline</td>
+      <td data-h="The question it hides">How big a difference counts, on how many questions, over how many runs?</td>
+      <td data-h="What 2B did">One run of 10 questions; context precision 0.725 → 0.950 from B to C. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td data-h="Phrase in the brief">“financial services, insurance, or regulated industries”</td>
+      <td data-h="What it asks for">An audience with rules</td>
+      <td data-h="The question it hides">Who validates the model, what must be logged, which vendors and regions are allowed?</td>
+      <td data-h="What 2B did">A Colab notebook; no logging, no validation pack, no vendor review. <span class="tg asm">Inferred</span></td>
+      </tr>
+    <tr><td data-h="Phrase in the brief">“dense, structured documents”</td>
+      <td data-h="What it asks for">Tables and sections matter</td>
+      <td data-h="The question it hides">Should tables be extracted as tables, and figures taken from structured data instead?</td>
+      <td data-h="What 2B did">Tables are flattened into running text by the cleaning; the XBRL data in the same files is indexed as text
+        rather than queried. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“This project now has code and n8n in the Week 2 project list.”</td>
+      <td data-h="What it asks for">Two build styles exist</td>
+      <td data-h="The question it hides">Which one is the customer going to run and maintain?</td>
+      <td data-h="What 2B did">This repository is the code version only: one notebook. The n8n version is not part of it.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“Best For: … Finance roles (Wells Fargo, JPMC, Citi, Morgan Stanley, NYLife)”</td>
+      <td data-h="What it asks for">Users inside banks and insurers</td>
+      <td data-h="The question it hides">What does their environment allow: Colab, OpenAI, Pinecone, public internet?</td>
+      <td data-h="What 2B did">Built for Colab with OpenAI and Pinecone keys; a bank would usually require approved, internal equivalents.
+        <span class="tg asm">Inferred</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-people">
+  <h3><span class="sn">2.3</span>Who the FDE talks to</h3>
+  <p>Meet the sponsor, the analysts and the finance subject-matter experts (SMEs) first, because they define the
+    golden set. Contact Model Risk Management, the AI governance committee, Third-Party Risk Management and Information
+    Security in week one, because their reviews take longest. 2B records no such meetings.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Who</th><th>Why them</th><th>What you leave the meeting with</th>
+      <th>What it settles in the design</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Who"><b>Business sponsor</b> (e.g. head of equity research, credit risk or claims)</td>
+      <td data-h="Why them">Owns the problem and the budget</td><td data-h="What you leave the meeting with">The decision this supports, the success metric, scope, deadline</td>
+      <td data-h="What it settles in the design">Document type; prototype or production</td></tr>
+    <tr><td data-h="Who"><b>Analysts who will ask</b></td><td data-h="Why them">They know the real questions</td>
+      <td data-h="What you leave the meeting with">30–50 real questions, the tools they use today, how they check an answer, what a wrong number costs them</td>
+      <td data-h="What it settles in the design">The golden set; citation format; which questions need calculation</td></tr>
+    <tr><td data-h="Who"><b>Finance subject-matter experts</b> (accounting, investor relations)</td>
+      <td data-h="Why them">Definitions and fiscal calendars</td>
+      <td data-h="What you leave the meeting with">“Net revenue” vs “net sales”, fiscal vs calendar years, restatements, which figure is authoritative</td>
+      <td data-h="What it settles in the design">Expected answers; year and period metadata; the as-reported rule</td></tr>
+    <tr><td data-h="Who"><b>Data owners and vendors</b> (EDGAR feeds, transcript vendors, loan and claims systems)</td>
+      <td data-h="Why them">Where the documents and their rights come from</td>
+      <td data-h="What you leave the meeting with">Source system, formats, update cadence, licence terms for AI use</td>
+      <td data-h="What it settles in the design">Ingestion source; what may be stored in a vector database</td></tr>
+    <tr><td data-h="Who"><b>Model Risk Management (MRM)</b></td><td data-h="Why them">Validates models before use in a bank</td>
+      <td data-h="What you leave the meeting with">Whether this tool is in scope; the documentation, testing and monitoring they require</td>
+      <td data-h="What it settles in the design">Repeatable runs; a held-out test set; an evaluation report</td></tr>
+    <tr><td data-h="Who"><b>AI governance committee</b></td><td data-h="Why them">Approves each GenAI use case</td>
+      <td data-h="What you leave the meeting with">The risk tier and the controls required</td><td data-h="What it settles in the design">What the pilot may do, and for whom</td></tr>
+    <tr><td data-h="Who"><b>Compliance and Legal</b></td><td data-h="Why them">Regulatory exposure</td>
+      <td data-h="What you leave the meeting with">Rules on material non-public information (MNPI) and information barriers; record keeping; “not investment
+        advice” wording; licence limits</td>
+      <td data-h="What it settles in the design">Which documents each user may query; logging; disclaimers</td></tr>
+    <tr><td data-h="Who"><b>Privacy office</b></td><td data-h="Why them">Personal data in loans and claims</td>
+      <td data-h="What you leave the meeting with">Which laws apply: for example GLBA for consumer financial data, FCRA for credit reports in loan files, HIPAA
+        for health-plan claims (life and property claims fall under state insurance privacy law); redaction rules</td>
+      <td data-h="What it settles in the design">Redaction before indexing; vendor and region choices</td></tr>
+    <tr><td data-h="Who"><b>Information Security</b></td><td data-h="Why them">Approves data flows and secrets handling</td>
+      <td data-h="What you leave the meeting with">Data classification; secrets handling; network rules; state rules such as NYDFS Part 500 for New
+        York-regulated firms</td>
+      <td data-h="What it settles in the design">Where data may go; the threat model (figure 9)</td></tr>
+    <tr><td data-h="Who"><b>Third-Party Risk Management</b></td><td data-h="Why them">Onboards every new vendor; often the longest wait</td>
+      <td data-h="What you leave the meeting with">Due diligence and data terms for OpenAI and Pinecone, or the approved alternatives</td>
+      <td data-h="What it settles in the design">Approved vendors, or new ones and their lead time</td></tr>
+    <tr><td data-h="Who"><b>ML platform team</b></td><td data-h="Why them">Where models and GPUs are allowed to run</td>
+      <td data-h="What you leave the meeting with">Approved runtimes (Colab is rarely one), GPU capacity, model registry, the LLM gateway (the bank's one
+        approved route to LLM APIs)</td>
+      <td data-h="What it settles in the design">Where embedding and reranking run; how models are pinned</td></tr>
+    <tr><td data-h="Who"><b>Procurement and Finance</b></td><td data-h="Why them">Contracts and spend</td>
+      <td data-h="What you leave the meeting with">Vendor contracts and limits</td><td data-h="What it settles in the design">Generator and judge models; caps on calls</td></tr>
+    <tr><td data-h="Who"><b>The future owner</b></td><td data-h="Why them">Someone must keep filings current</td>
+      <td data-h="What you leave the meeting with">Who re-indexes each quarter, who <span class="nw">re-run</span>s the evaluation</td>
+      <td data-h="What it settles in the design">Scheduled ingestion; versioned indexes; a runbook</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-questions">
+  <h3><span class="sn">2.4</span>The questions to ask</h3>
+  <p>Grouped by theme, with who to ask. The <span class="first">★</span> questions change the architecture, so ask
+    them in your first meeting with that team; the rest change details. Follow every answer with “show me an
+    example”.</p>
+
+  <h4>A · Outcome and success <span class="who">ask the sponsor and the analysts</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> What decision will these answers feed, and what does a wrong number
+      cost?</td>
+      <td data-h="Why it matters">Sets how strict grounding, citation and review must be.</td>
+      <td data-h="What 2B&#x27;s build implies">Not stated; a learning project. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> What do you use today for these answers (Bloomberg, FactSet, Capital IQ,
+      EDGAR full-text search), and where does it fall short?</td>
+      <td data-h="Why it matters">If figures are one keystroke away, the value is in narrative, footnotes and change across filings.</td>
+      <td data-h="What 2B&#x27;s build implies">Not asked; 8 of 10 test questions ask for figures a terminal returns. <span class="tg asm">Inferred</span></td>
+      </tr>
+    <tr><td data-h="Question"><span class="first">★</span> Which comparison result would change what we build?</td>
+      <td data-h="Why it matters">An experiment needs a decision attached, or it is a demo.</td>
+      <td data-h="What 2B&#x27;s build implies">“Winner: Semantic Chunking + CrossEncoder Reranking”, from one run of 10 questions.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td data-h="Question">Is this a demo, a pilot or production?</td>
+      <td data-h="Why it matters">Sets the bar for repeatability, security and operations.</td>
+      <td data-h="What 2B&#x27;s build implies">A notebook for learning; the README calls it “a learning project”. <span class="tg doc">Documented</span></td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <h4>B · Users and their questions <span class="who">ask analysts and finance SMEs</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Can you give me 30 real questions, with the answer and the page you would
+      check?</td>
+      <td data-h="Why it matters">Real questions are the golden set; the page is what lets you score retrieval.</td>
+      <td data-h="What 2B&#x27;s build implies">10 questions written by the builders, with reference answers but no expected source.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> Which kinds: single figures, <span class="nw">year-on-year</span> changes, calculations, or
+      narrative (risks, strategy)?</td>
+      <td data-h="Why it matters">Calculations and comparisons need different machinery from look-ups.</td>
+      <td data-h="What 2B&#x27;s build implies">8 questions on reported FY2024 figures and 2 narrative ones; none asks for a comparison or calculation, though
+        two reference answers add one (“a 2% increase”, “approximately 24.6%”) and recall is scored against them.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Which companies and years, and fiscal or calendar years?</td>
+      <td data-h="Why it matters">Apple's fiscal 2024 ended in September 2024; other companies differ.</td>
+      <td data-h="What 2B&#x27;s build implies">One company; both filings loaded, but every test question is about 2024 or has no year.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Where do analysts want answers: a notebook, Excel, a chat tool?</td>
+      <td data-h="Why it matters">Adoption happens where they already work.</td>
+      <td data-h="What 2B&#x27;s build implies">Notebook cells only. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>C · The documents <span class="who">ask data owners and vendors</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Which document type, from which system, in which format: EDGAR HTML,
+      PDF, scans?</td>
+      <td data-h="Why it matters">Decides parsing, OCR, table extraction and privacy work.</td>
+      <td data-h="What 2B&#x27;s build implies">EDGAR “full submission” text files: the 10-K plus everything filed with it.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> Which part of each file is the content we want?</td>
+      <td data-h="Why it matters">Indexing boilerplate and machine data adds noise, cost and risk.</td>
+      <td data-h="What 2B&#x27;s build implies">The whole submission; about 9% of the fixed-size chunks come from the 10-K text itself.
+        <span class="tg chk">Checked</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> Which exact filings, and how do we pin them?</td>
+      <td data-h="Why it matters">“The latest two” changes when the company files again.</td>
+      <td data-h="What 2B&#x27;s build implies"><code>dl.get("10-K", "AAPL", limit=2)</code>: the latest two at run time. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td data-h="Question">Do amendments (<span class="nw">10-K/A</span>), restatements or quarterly filings (10-Q) matter?</td>
+      <td data-h="Why it matters">The latest figure for a year can sit in a later filing.</td>
+      <td data-h="What 2B&#x27;s build implies">Not handled. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td data-h="Question">Is the structured data (XBRL) available, and should figures come from it?</td>
+      <td data-h="Why it matters">Every 10-K tags its financial statements; a figure looked up there needs no text retrieval.</td>
+      <td data-h="What 2B&#x27;s build implies">The XBRL data is indexed as text, not queried. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>D · How answers should behave <span class="who">ask analysts, Compliance and finance SMEs</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Must every figure come with its period, unit and source (filing and
+      page)?</td>
+      <td data-h="Why it matters">Analysts verify before they reuse a number.</td>
+      <td data-h="What 2B&#x27;s build implies">The prompt says “cite specific numbers”, but no filing or page label is attached to the chunks, so the model
+        can name a source only when a page footer such as “Apple Inc. | 2024 Form 10-K | 22” happens to sit inside the
+        chunk text. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">May the bot calculate (growth rates, ratios), and must it show the working?</td>
+      <td data-h="Why it matters">Arithmetic by an LLM is a common source of wrong numbers.</td>
+      <td data-h="What 2B&#x27;s build implies">No calculation step. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">What should it say when the documents don't answer?</td>
+      <td data-h="Why it matters">A confident wrong number is worse than a refusal.</td>
+      <td data-h="What 2B&#x27;s build implies">“I don't have enough context to answer this.” <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Is a disclaimer required (“not investment advice”)?</td><td data-h="Why it matters">Regulatory exposure.</td>
+      <td data-h="What 2B&#x27;s build implies">None. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>E · Risk and validation <span class="who">ask MRM, the AI governance committee and Compliance</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> What evidence will validation need before anyone relies on this?</td>
+      <td data-h="Why it matters">Decides the size of the test set, repeat runs and documentation.</td>
+      <td data-h="What 2B&#x27;s build implies">One run of 10 questions; the judge is the generator's own model. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Must a person review answers before they are used?</td><td data-h="Why it matters">Human review changes the interface.</td>
+      <td data-h="What 2B&#x27;s build implies">Not addressed. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td data-h="Question">Must results be repeatable months later?</td><td data-h="Why it matters">Audit and model validation.</td>
+      <td data-h="What 2B&#x27;s build implies">No pinned filings, packages or model versions. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>F · Security, privacy and licensing <span class="who">ask Information Security, Privacy, Legal and Third-Party
+    Risk</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> May document text and questions go to OpenAI and Pinecone, in which
+      region?</td>
+      <td data-h="Why it matters">Fine for public filings; usually not for loan files, claims or non-public deal documents.</td>
+      <td data-h="What 2B&#x27;s build implies">Yes: chunk text is stored in Pinecone (AWS <span class="nw">us-east-1</span>) and sent to OpenAI twice, to answer and to judge.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> Do any documents carry personal data or MNPI?</td>
+      <td data-h="Why it matters">Decides redaction, access control and information barriers.</td>
+      <td data-h="What 2B&#x27;s build implies">Not with public 10-Ks; not addressed for the other document types. <span class="tg asm">Inferred</span></td>
+      </tr>
+    <tr><td data-h="Question">Do licences allow indexing and sending text to an LLM?</td>
+      <td data-h="Why it matters">Transcript and research vendors often restrict this.</td>
+      <td data-h="What 2B&#x27;s build implies">Not applicable to EDGAR; not addressed. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td data-h="Question">Where do secrets live?</td><td data-h="Why it matters">Leaked keys.</td>
+      <td data-h="What 2B&#x27;s build implies">Three Colab Secrets; the Hugging Face token is put in a variable the library doesn't read, so downloads run
+        unauthenticated. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">May notebook outputs, which contain document text and answers, be committed to git?</td>
+      <td data-h="Why it matters">With client documents, outputs leak data into the repository history.</td>
+      <td data-h="What 2B&#x27;s build implies">The notebook is committed with its outputs. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>G · Platform <span class="who">ask the ML platform team</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Where may this run, and is a GPU available there?</td>
+      <td data-h="Why it matters">Embedding is the slow step, and semantic chunking embeds every sentence as well; the doc estimates 30–40
+        minutes on a CPU just to embed the chunks.</td>
+      <td data-h="What 2B&#x27;s build implies">Google Colab with a T4 GPU. <span class="tg doc">Documented</span></td></tr>
+    <tr><td data-h="Question">Is there an approved vector database, LLM gateway and model registry?</td>
+      <td data-h="Why it matters">Reusing approved services beats new vendor reviews.</td>
+      <td data-h="What 2B&#x27;s build implies">Pinecone and OpenAI called directly; models pulled from Hugging Face at run time.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>H · Speed and cost <span class="who">ask the sponsor and Finance</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question">How many companies and filings, and how often?</td>
+      <td data-h="Why it matters">Two filings took minutes on a GPU; a coverage universe is thousands each quarter.</td>
+      <td data-h="What 2B&#x27;s build implies">Two filings; upload took about 4.5 minutes (fixed) and 1.5 minutes (semantic) on a T4.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">What latency per question is acceptable?</td><td data-h="Why it matters">The reranker adds a second model per question.</td>
+      <td data-h="What 2B&#x27;s build implies">Not measured. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">What may evaluation cost?</td><td data-h="Why it matters">Judges multiply LLM calls.</td>
+      <td data-h="What 2B&#x27;s build implies">The doc says 90 judge calls; RAGAS's code makes 6 per question per set-up (5 when an answer yields no
+        statements), so about 180. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>I · Operations <span class="who">ask the future owner</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Who adds each new filing, and how are old versions kept?</td>
+      <td data-h="Why it matters">Every quarter brings new filings; answers must say which one they used.</td>
+      <td data-h="What 2B&#x27;s build implies">Manual <span class="nw">re-run</span>; each upload starts with <code>delete_all</code> on the namespace, and ids are random.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Does the notebook run top to bottom on a fresh runtime?</td><td data-h="Why it matters">The first test of any handoff.</td>
+      <td data-h="What 2B&#x27;s build implies">No: the cleaning cell uses <code>re</code> without importing it and calls <code>remove_edgar_header</code>,
+        which no cell defines. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Do the docs match the code?</td><td data-h="Why it matters">Handoff quality.</td>
+      <td data-h="What 2B&#x27;s build implies">Several drifts: “top-20” candidates in a markdown cell (the code uses 10), a <code>primary-document.txt</code>
+        source path (the code loads <code><span class="nw">full-submission.txt</span></code>), a query-instruction prefix the code never
+        adds, and an OpenAI embedding model for RAGAS that no metric uses. <span class="tg code">In code</span></td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <h4>J · Evaluation <span class="who">ask the sponsor, analysts and MRM</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> What must stay constant between set-ups for the comparison to be
+      fair?</td>
+      <td data-h="Why it matters">Otherwise the winner may be the set-up that got more text, not the better method.</td>
+      <td data-h="What 2B&#x27;s build implies">A and B differ in boundaries, chunk size and the amount of text handed to the model.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> How is retrieval scored: against an expected source, or by an LLM
+      judge?</td>
+      <td data-h="Why it matters">Expected sources give a cheap, repeatable hit rate; a judge adds cost and its own errors.</td>
+      <td data-h="What 2B&#x27;s build implies">LLM judge only (RAGAS); nothing scores whether an answer is correct. <span class="tg code">In code</span></td>
+      </tr>
+    <tr><td data-h="Question">How many questions and runs show a real difference?</td>
+      <td data-h="Why it matters">With 10 questions, one question moves a score by 0.1 or more.</td>
+      <td data-h="What 2B&#x27;s build implies">10 questions, one run, no spread reported. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Which questions are kept back from tuning?</td><td data-h="Why it matters">Tuning on the test set inflates scores.</td>
+      <td data-h="What 2B&#x27;s build implies">Four of the evaluation questions (one slightly reworded) were also used to inspect retrieval while building.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-decisions">
+  <h3><span class="sn">2.5</span>From answers to design: the decision trace</h3>
+  <p>Each decision in 2B, the answer that drives it (reconstructed), the options an FDE weighs, and 2B's choice
+    (tagged). The last column names the answer or evidence that would flip the choice, then the new choice.</p>
+  <div class="tw"><table class="qt dt5">
+    <thead><tr><th>Decision</th><th>Driving answer</th><th>Options weighed</th><th>2B's choice</th>
+      <th>What would change it</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Decision"><b>1 · Document type</b></td><td data-h="Driving answer">Public data, no privacy work (inferred)</td>
+      <td data-h="Options weighed">SEC filings · transcripts · claims · loan files</td>
+      <td data-h="2B&#x27;s choice">Apple 10-Ks for FY2024 and FY2025 <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">The bank's real use case is loan or claims files → OCR, redaction and access control come before any
+        chunking question.</td></tr>
+    <tr><td data-h="Decision"><b>2 · What gets indexed</b></td><td data-h="Driving answer">The download is the document (inferred)</td>
+      <td data-h="Options weighed">Whole EDGAR submission · the 10-K document only · the 10-K plus selected exhibits</td>
+      <td data-h="2B&#x27;s choice">The whole submission <span class="tg code">In code</span></td>
+      <td data-h="What would change it">A data audit shows most chunks aren't the 10-K (our check: about 9% are; 38% XBRL XML files, mostly viewer
+        pages; 35% JSON; about 9% uuencoded binary <span class="tg chk">Checked</span>) → index the 10-K document
+        alone. In A's <span class="nw">re-run</span> the noise never reached the top 3, so here it costs size and risk rather than these
+        scores.</td></tr>
+    <tr><td data-h="Decision"><b>3 · Which filings</b></td><td data-h="Driving answer">“last 2 annual reports” (cell 16)</td>
+      <td data-h="Options weighed">Latest N at run time · pinned accession numbers (EDGAR's unique ID for each filing)</td>
+      <td data-h="2B&#x27;s choice">Latest 2 (<code>limit=2</code>) <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Answers must be repeatable → pin <code>0000320193-24-000123</code> and <code>0000320193-25-000079</code>;
+        any rerun after Apple's next 10-K otherwise changes the corpus.</td></tr>
+    <tr><td data-h="Decision"><b>4 · Cleaning and tables</b></td><td data-h="Driving answer">Strip markup, keep words</td>
+      <td data-h="Options weighed">Regex cleaning · an HTML parser that keeps table rows and headers · table-to-markdown</td>
+      <td data-h="2B&#x27;s choice"><code>html.unescape</code>, then regex: drop tags and <code>ix:</code> fragments, collapse space
+        <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Table questions matter → keep each row with its column headers and the table's title.</td></tr>
+    <tr><td data-h="Decision"><b>5 · Fixed-size chunks</b></td><td data-h="Driving answer">The baseline to beat</td>
+      <td data-h="Options weighed">Size 512, 1,000, 2,000 · overlap · filtering</td>
+      <td data-h="2B&#x27;s choice">512 characters, 64 overlap; drop chunks under 100 characters or under 40% letters
+        <span class="tg code">In code</span></td>
+      <td data-h="What would change it">B's win might come from length, not boundaries → add a fixed baseline near 2,000 characters.</td></tr>
+    <tr><td data-h="Decision"><b>6 · Semantic chunks</b></td><td data-h="Driving answer">Keep topics and tables together</td>
+      <td data-h="Options weighed">Percentile 65 to 95 · other breakpoint types · a size cap</td>
+      <td data-h="2B&#x27;s choice">65th percentile and a split at 8,000 characters <span class="tg doc">Documented</span><br>then the same filter <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Table questions matter → a table-aware parser. Tables survive the semantic chunker only because the library
+        splits sentences where “.”, “?” or “!” meets whitespace, which a flattened table rarely has.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Decision"><b>7 · Embedding model</b></td><td data-h="Driving answer">Free, fast on a GPU</td>
+      <td data-h="Options weighed">bge-base (768) · an API model · a finance-tuned model</td>
+      <td data-h="2B&#x27;s choice">BAAI/<span class="nw">bge-base-en-v1.5</span> on Colab's T4 <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">Short questions miss, or chunks run past 512 tokens → add BGE's query instruction and keep chunks inside the
+        window; measure with and without the instruction. The doc says LangChain adds it;
+        <code>HuggingFaceEmbeddings</code> doesn't. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Decision"><b>8 · Vector store</b></td><td data-h="Driving answer">Free tier, one index</td>
+      <td data-h="Options weighed">Two indexes · one index, two namespaces · local store</td>
+      <td data-h="2B&#x27;s choice">Pinecone serverless, one index, namespaces <code>fixed</code> and <code>semantic</code>
+        <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">Bank data → an approved store inside the bank's cloud, with versioned indexes per filing set.</td></tr>
+    <tr><td data-h="Decision"><b>9 · Metadata</b></td><td data-h="Driving answer">Only as a future extension (README: metadata filtering for more
+      companies)</td>
+      <td data-h="Options weighed">Source path only · company, form, fiscal year, section, page, column period</td>
+      <td data-h="2B&#x27;s choice">Source path only <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Year-specific questions over several filings → store the filing's fiscal year on every chunk and, for
+        table rows, the period of each column; finance SMEs decide whether a FY2024 question takes the figure as first
+        reported or as latest reported, and the filter follows that rule.</td></tr>
+    <tr><td data-h="Decision"><b>10 · Retrieval depth</b></td><td data-h="Driving answer">The reranker needs room</td>
+      <td data-h="Options weighed">k = 3 · k = 10 · k = 20</td>
+      <td data-h="2B&#x27;s choice">A and B: top 3; C: top 10, <span class="nw">re-ranked</span> to 3 <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">A fair comparison → hand every set-up the same number of characters, not the same number of chunks.</td></tr>
+    <tr><td data-h="Decision"><b>11 · Reranker</b></td><td data-h="Driving answer">No API key, no rate limit</td>
+      <td data-h="Options weighed">Cohere Rerank (API) · FlashRank (local) · an LLM as reranker</td>
+      <td data-h="2B&#x27;s choice">FlashRank <code><span class="nw">ms-marco-MiniLM-L-12-v2</span></code> <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">Chunks longer than about 2,000 characters, as many semantic ones are → smaller chunks or a longer-window
+        reranker. FlashRank reads 512 tokens per pair, question included. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Decision"><b>12 · Generator</b></td><td data-h="Driving answer">The kit: Groq breaks RAGAS (it rejects n &gt; 1, which the kit ties to answer_relevancy, a metric 2B doesn't use)</td>
+      <td data-h="Options weighed"><span class="nw">gpt-4o-mini</span> · Groq Llama · others</td>
+      <td data-h="2B&#x27;s choice"><span class="nw">gpt-4o-mini</span>, temperature 0 <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">Validation → pin a dated model snapshot and measure run-to-run spread (the kit's “deterministic” temperature
+        0 doesn't hold for this API); an approved <span class="nw">in-house</span> model → <span class="nw">re-run</span> the whole comparison on it. The generator
+        need not be the judge.</td></tr>
+    <tr><td data-h="Decision"><b>13 · Citations</b></td><td data-h="Driving answer">Not discussed</td>
+      <td data-h="Options weighed">None · filing and page per chunk · quoted figures</td>
+      <td data-h="2B&#x27;s choice">None added: chunks are pasted without labels <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Analysts and auditors verify → label each chunk with filing, year and page, and require the answer to cite
+        them.</td></tr>
+    <tr><td data-h="Decision"><b>14 · Figures path</b></td><td data-h="Driving answer">Not discussed</td>
+      <td data-h="Options weighed">RAG for everything · look up tagged XBRL facts for figures, RAG for narrative</td>
+      <td data-h="2B&#x27;s choice">RAG for everything <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Most questions ask for reported figures → an XBRL lookup. All eight here are tagged: four are plain facts
+        any XBRL API returns by concept and period; four (iPhone, Mac, Services, Americas) are dimensional facts that
+        need the filing's own XBRL instance. Mapping a question to concept, period and dimension becomes the new hard
+        part.</td></tr>
+    <tr><td data-h="Decision"><b>15 · Evaluation</b></td><td data-h="Driving answer">Cheap and quick</td>
+      <td data-h="Options weighed">RAGAS judge · expected-source hit rate · numeric exact match</td>
+      <td data-h="2B&#x27;s choice">RAGAS with <span class="nw">gpt-4o-mini</span> as judge, 10 questions <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">Model validation → deterministic retrieval and answer checks first, then a judge calibrated on a
+        human-labelled sample (2.7).</td></tr>
+    <tr><td data-h="Decision"><b>16 · Runtime and repeatability</b></td><td data-h="Driving answer">Free GPU</td>
+      <td data-h="Options weighed">Colab notebook · a pinned pipeline in an approved environment</td>
+      <td data-h="2B&#x27;s choice">Colab; unpinned <code>pip install</code>s; outputs kept from earlier runs <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Any handoff → pinned versions, a script that runs end to end, and stored run results.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-assumptions">
+  <h3><span class="sn">2.6</span>Assumptions 2B made without saying so</h3>
+  <p>Each one shows in the notebook and none is checked. Some are stated as choices (two filing years, ten questions,
+    <span class="nw">gpt-4o-mini</span> as judge), but never with their risk.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Assumption</th><th>Where it shows</th><th>What breaks if it's wrong</th><th>Who confirms</th></tr>
+    </thead>
+    <tbody>
+    <tr><td data-h="Assumption">The downloaded file is the annual report.</td><td data-h="Where it shows">Cell 19 collects <code><span class="nw">full-submission.txt</span></code></td>
+      <td data-h="What breaks if it&#x27;s wrong">Most of the index is XBRL viewer pages, JSON and encoded binaries</td><td data-h="Who confirms">Data owners</td></tr>
+    <tr><td data-h="Assumption">“The latest two” are FY2024 and FY2025.</td><td data-h="Where it shows"><code>limit=2</code> in cell 17</td>
+      <td data-h="What breaks if it&#x27;s wrong">After the next filing, the corpus and the reference answers drift apart</td><td data-h="Who confirms">Data owners, MRM</td></tr>
+    <tr><td data-h="Assumption">The embedding finds the right year.</td><td data-h="Where it shows">No year in the metadata; both filings report FY2024</td>
+      <td data-h="What breaks if it&#x27;s wrong">FY2023 or FY2025 figures answer a FY2024 question</td><td data-h="Who confirms">Analysts, finance SMEs</td></tr>
+    <tr><td data-h="Assumption">Library defaults don't matter.</td><td data-h="Where it shows">bge-base and FlashRank both stop at 512 tokens; no BGE query
+      instruction</td>
+      <td data-h="What breaks if it&#x27;s wrong">Long chunks are embedded and reranked on their opening only</td><td data-h="Who confirms">ML platform team</td></tr>
+    <tr><td data-h="Assumption">Ten questions show the difference.</td><td data-h="Where it shows">Cell 53</td>
+      <td data-h="What breaks if it&#x27;s wrong">A difference of 0.1 can be one question</td><td data-h="Who confirms">MRM, sponsor</td></tr>
+    <tr><td data-h="Assumption"><span class="nw">gpt-4o-mini</span> can judge <span class="nw">gpt-4o-mini</span>.</td><td data-h="Where it shows">Cells 49 and 57</td>
+      <td data-h="What breaks if it&#x27;s wrong">Faithfulness may be inflated by shared blind spots</td><td data-h="Who confirms">MRM</td></tr>
+    <tr><td data-h="Assumption">Public data means no privacy work.</td><td data-h="Where it shows">Text to OpenAI and Pinecone; outputs committed</td>
+      <td data-h="What breaks if it&#x27;s wrong">The same notebook on loan or claims files leaks personal data</td><td data-h="Who confirms">Privacy, Information Security</td></tr>
+    <tr><td data-h="Assumption">Colab is an acceptable runtime.</td><td data-h="Where it shows">Colab Secrets, T4 GPU, <code>/content</code> paths</td>
+      <td data-h="What breaks if it&#x27;s wrong">Not allowed for bank data</td><td data-h="Who confirms">ML platform, Information Security</td></tr>
+    <tr><td data-h="Assumption">Whatever <code>pip</code> installs today behaves like last time.</td><td data-h="Where it shows">Cell 4, no versions</td>
+      <td data-h="What breaks if it&#x27;s wrong">Results cannot be repeated</td><td data-h="Who confirms">MRM, future owner</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-stress">
+  <h3><span class="sn">2.7</span>Checking the comparison, as an FDE would</h3>
+  <p>The brief's core is “compare … on the same set of queries” and “measure the improvement”. Before quoting 2B's
+    table to a customer, check what it can and cannot show. In the engagement this design comes before any build
+    (step 4 in 2.8); it sits here because it refers to the parts chosen in 2.5.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>RAGAS metric</th><th>A · fixed, top 3</th><th>B · semantic, top 3</th>
+      <th>C · semantic, top 10 → 3</th></tr></thead>
+    <tbody>
+    <tr><td data-h="RAGAS metric">Faithfulness</td><td data-h="A · fixed, top 3">0.75</td><td data-h="B · semantic, top 3">1.000</td><td data-h="C · semantic, top 10 → 3">0.988</td></tr>
+    <tr><td data-h="RAGAS metric">Context precision</td><td data-h="A · fixed, top 3">0.00</td><td data-h="B · semantic, top 3">0.725</td><td data-h="C · semantic, top 10 → 3">0.950</td></tr>
+    <tr><td data-h="RAGAS metric">Context recall</td><td data-h="A · fixed, top 3">0.00</td><td data-h="B · semantic, top 3">0.775</td><td data-h="C · semantic, top 10 → 3">1.000</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">From the notebook's last cell (run of 16 May 2026). <span class="tg code">In code</span></p>
+  <div class="callout warnc">
+    <p><b>What the table cannot show</b></p>
+    <ul>
+      <li><b>A → B changes several things at once:</b> where chunks end; how long they are (431 characters against
+        about 2,000 as stored); how much text the model gets (three average chunks are about 1,300 characters in A and
+        6,000 in B); which text survives the filter, which judges small and large chunks differently (by our check, it
+        drops 11 of the 13 fixed chunks holding the Americas figure with its label); and how much of each chunk bge-base sees, since it reads 512
+        tokens. The win cannot be credited to semantic boundaries alone. B → C changes one thing, the reranker, and is
+        the cleaner step. <span class="tg code">In code</span></li>
+      <li><b>The docs' explanation of A's zero does not hold.</b> The solution kit says fixed chunks cut tables so
+        that “none of the 12,142 chunks was useful”. Our <span class="nw">re-run</span> of cells 21–25 reproduces their counts exactly
+        (14,119 raw, 12,142 kept, 431 average) and finds each reference figure with its row label in kept chunks: 19
+        hold both “Total net sales” and “391,035”. An offline <span class="nw">re-run</span> of set-up A's search (the same chunks, the same bge
+        model, exact cosine search instead of Pinecone) puts no chunk holding the figure with its row label in the top
+        3 for any of the eight figure questions; the first such chunk ranks between 5th and 137th. The top 3 are 10-K
+        prose, mostly about 2024, not noise. Cell 39 prints the fixed-size top result for three of the evaluation
+        questions, and our top result matches the notebook's for all three. So for the eight figure questions, A's
+        0.00 is a ranking failure; our reading is that number-dense table chunks (about 500 characters, a fifth of them
+        digits) lose to shorter prose sharing the question's words. With k = 10, four of the eight would have been found. <span class="tg chk">Checked</span></li>
+      <li><b>The corpus is mostly not the 10-K.</b> Each EDGAR full submission bundles the 10-K with about 70 XBRL
+        viewer pages, a JSON metadata file, XBRL linkbases, exhibits, and uuencoded ZIP and image files (plus an Excel
+        workbook in the FY2024 submission). Chunking each part separately, about 9% of the fixed-size chunks come from
+        the 10-K text, 38% from EDGAR's XML documents (mostly the viewer pages, including their JavaScript; about 3%
+        the XBRL instance), 35% from JSON, and about 9% from encoded binary that passes the letter filter.
+        In A's <span class="nw">re-run</span> none of it reached the top 3, so here it costs size and risk rather than these scores.
+        <span class="tg chk">Checked</span></li>
+      <li><b>Nothing scores correctness.</b> Faithfulness checks that the answer is supported by the chunks, not that
+        it agrees with the reference. A refusal can yield no statements and score NaN (no score), which cell 59 drops, so each
+        average may cover a different number of questions. <span class="tg code">In code</span></li>
+      <li><b>Ten questions, one run, no spread.</b> One question moves a score by 0.1 or more. All ten are about fiscal
+        2024 (or have no year); none asks for FY2025, compares years, needs a calculation, or has no answer in the
+        filings. <span class="tg code">In code</span></li>
+      <li><b>The judge is the generator's own model.</b> That can flatter faithfulness, which grades the model's own
+        answers. Precision and recall grade chunks against the reference, so their risk is judge variance and the
+        absence of labelled sources. Four of the evaluation questions were also used to inspect retrieval while
+        building (cells 37–51). <span class="tg code">In code</span></li>
+      <li><b>The judge-call count is understated.</b> RAGAS makes two calls per question for faithfulness (one when an
+        answer yields no statements), one per retrieved chunk for context precision and one for context recall: about
+        180 calls for the three set-ups (at least 150), not 90. <span class="tg code">In code</span></li>
+    </ul>
+  </div>
+  <p>An FDE's version keeps the idea and changes the design (figure 11 draws the result):</p>
+  <ol class="steps">
+    <li><b>Fix the corpus first.</b> Index the 10-K document only, pinned by accession number, with fiscal year,
+      form and section on every chunk.</li>
+    <li><b>Change one thing at a time.</b> Fixed at 512 and at about 2,000 characters, and semantic, each with and
+      without the reranker: all chunking the same text, filtered by part of the submission before chunking rather
+      than after, with chunks kept inside the embedder's and reranker's <span class="nw">512-token</span> windows, and every set-up given the
+      same character budget.</li>
+    <li><b>Grow the golden set to 30–50 questions</b> written with analysts: figures from both years, <span class="nw">year-on-year</span>
+      comparisons, a calculation, narrative questions, questions the filings don't answer, and a wrong premise. Each
+      has an expected answer and an expected section, signed off by a finance SME.</li>
+    <li><b>Lead with deterministic, budget-neutral metrics.</b> Did the expected section reach the model at a fixed
+      character budget? Does the answer's figure match the reference exactly? Then RAGAS, with a judge calibrated
+      against a human-labelled sample.</li>
+    <li><b>Repeat each run three times</b> and report per question; hold out a third of the golden set from all
+      tuning; before running, write down the decision rule: a gain counts only if it exceeds the run-to-run spread and
+      holds question by question. Store every run's results.</li>
+    <li><b>Give every failure one cause</b>, the earliest stage that went wrong:</li>
+  </ol>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Cause</th><th>What it looks like</th><th>Where the fix goes</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Cause">Wrong source</td><td data-h="What it looks like">Retrieved JSON, script or encoded binary; or a viewer page or exhibit when the question
+      needs the 10-K's own wording</td><td data-h="Where the fix goes">Corpus selection (decision 2)</td></tr>
+    <tr><td data-h="Cause">Filtered out</td><td data-h="What it looks like">The answer chunk was dropped by the filter</td>
+      <td data-h="Where the fix goes">Filter by part of the submission before chunking (decisions 2, 5)</td></tr>
+    <tr><td data-h="Cause">Wrong period</td><td data-h="What it looks like">A FY2023 or FY2025 figure for a FY2024 question</td>
+      <td data-h="Where the fix goes">Year metadata, filters and the as-reported rule (decision 9)</td></tr>
+    <tr><td data-h="Cause">Retrieval miss</td><td data-h="What it looks like">The expected section is not in the top k</td>
+      <td data-h="Where the fix goes">Embedding, k, hybrid search, which combines keyword matching such as BM25 with vectors (decisions 7, 10)</td></tr>
+    <tr><td data-h="Cause">Broken table</td><td data-h="What it looks like">The figure is retrieved without its row or column label</td>
+      <td data-h="Where the fix goes">Table-aware parsing (decision 4)</td></tr>
+    <tr><td data-h="Cause">Truncated</td><td data-h="What it looks like">The answer sits past the embedder's or the reranker's <span class="nw">512-token</span> window</td>
+      <td data-h="Where the fix goes">Smaller chunks or longer-window models (decisions 6, 7, 11)</td></tr>
+    <tr><td data-h="Cause">Generation error</td><td data-h="What it looks like">The right chunk was there; wrong figure, unit or arithmetic</td>
+      <td data-h="Where the fix goes">Prompt, model, a calculation tool (decisions 12, 14)</td></tr>
+    <tr><td data-h="Cause">Unsupported answer</td><td data-h="What it looks like">Answered when the filings don't say, or added a figure not in the chunks</td>
+      <td data-h="Where the fix goes">Refusal rule, citations (decision 13)</td></tr>
+    <tr><td data-h="Cause">Judge error</td><td data-h="What it looks like">A person reading the case disagrees with the verdict</td>
+      <td data-h="Where the fix goes">Calibrate the judge on a human-labelled sample (decision 15)</td></tr>
+    <tr><td data-h="Cause">Knowledge gap or test-set error</td><td data-h="What it looks like">No stage failed: the filings lack it, or the reference is wrong</td>
+      <td data-h="Where the fix goes">The golden set, confirmed with a finance SME</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-plan">
+  <h3><span class="sn">2.8</span>The engagement, step by step</h3>
+  <p>Steps 2–5 overlap: request vendor and data approvals on day one, and show a thin slice on pinned public filings,
+    run against a first draft of the golden set, within the first week or two.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Step</th><th>What you produce</th><th>In 2B</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Step">1 · Kickoff with the sponsor</td><td data-h="What you produce">The decision supported, success metric, document type, scope</td>
+      <td data-h="In 2B">The brief</td></tr>
+    <tr><td data-h="Step">2 · Discovery interviews (2.3)</td><td data-h="What you produce">Answers to 2.4; assumptions log; approval requests</td>
+      <td data-h="In 2B">Not recorded</td></tr>
+    <tr><td data-h="Step">3 · Data audit</td><td data-h="What you produce">What each file contains, which part to index, how to pin it</td>
+      <td data-h="In 2B">None recorded: the docs call each file the annual report “bundled with EDGAR filing metadata”, and the whole
+        submission is indexed</td></tr>
+    <tr><td data-h="Step">4 · Golden set and experiment design</td><td data-h="What you produce">Questions with expected answers and sections; what each
+      set-up changes; the decision rule</td><td data-h="In 2B">10 questions with reference answers; set-ups A, B and C</td></tr>
+    <tr><td data-h="Step">5 · Thin slice</td><td data-h="What you produce">One configuration end to end with a baseline score</td><td data-h="In 2B">Cells 1–51</td></tr>
+    <tr><td data-h="Step">6 · Controlled comparison</td><td data-h="What you produce">One change at a time, repeated runs, per-question results</td>
+      <td data-h="In 2B">One run of A, B and C; RAGAS averages only</td></tr>
+    <tr><td data-h="Step">7 · Findings readout</td><td data-h="What you produce">Results, causes of failure, what each change gained, a recommendation</td>
+      <td data-h="In 2B">The results table and the winner, in the README and the solution kit</td></tr>
+    <tr><td data-h="Step">8 · Validation and security review</td><td data-h="What you produce">MRM evidence, AI governance approval, threat model, vendor
+      approvals</td><td data-h="In 2B">None; figure 9 below is a first draft</td></tr>
+    <tr><td data-h="Step">9 · Pilot with analysts</td><td data-h="What you produce">Feedback and unanswered questions</td><td data-h="In 2B">None</td></tr>
+    <tr><td data-h="Step">10 · Handoff</td><td data-h="What you produce">A pinned pipeline, a runbook, scheduled ingestion and evaluation</td>
+      <td data-h="In 2B">A notebook that does not run top to bottom as committed</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-diagrams">
+  <h3><span class="sn">2.9</span>Which diagram answers which question</h3>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Diagram</th><th>The question it answers</th><th>Who reads it</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Diagram"><a href="#context">1 · System context</a></td><td data-h="The question it answers">What is in scope and which outside services it uses</td>
+      <td data-h="Who reads it">Sponsor, Information Security</td></tr>
+    <tr><td data-h="Diagram"><a href="#architecture">2 · High-level architecture</a></td><td data-h="The question it answers">What runs where: Colab, GPU, cloud
+      APIs</td><td data-h="Who reads it">ML platform team</td></tr>
+    <tr><td data-h="Diagram"><a href="#dataflow">3 · Data flow</a></td><td data-h="The question it answers">Where filing text, questions and scores go and are
+      stored</td><td data-h="Who reads it">Privacy office, Information Security</td></tr>
+    <tr><td data-h="Diagram"><a href="#datamodel">4 · Data model</a></td><td data-h="The question it answers">The shape of documents, chunks, vectors and results</td>
+      <td data-h="Who reads it">Engineers</td></tr>
+    <tr><td data-h="Diagram"><a href="#design">5 · Detailed design</a></td><td data-h="The question it answers">Which cell and setting implements each step, and what
+      is broken</td><td data-h="Who reads it">Engineers, the future owner</td></tr>
+    <tr><td data-h="Diagram"><a href="#chunking">6 · The two chunking paths</a></td><td data-h="The question it answers">What each strategy does to the same text, and
+      what that text really is</td><td data-h="Who reads it">Analysts, MRM</td></tr>
+    <tr><td data-h="Diagram"><a href="#sequence">7 · Sequence</a></td><td data-h="The question it answers">One question through set-up C, call by call</td>
+      <td data-h="Who reads it">Sponsor (speed), engineers</td></tr>
+    <tr><td data-h="Diagram"><a href="#prompts">8 · Context assembly</a></td><td data-h="The question it answers">Exactly what the generator and the judge are sent</td>
+      <td data-h="Who reads it">Compliance, Information Security, MRM</td></tr>
+    <tr><td data-h="Diagram"><a href="#threats">9 · Threat model</a></td><td data-h="The question it answers">What can go wrong, and what protects it today</td>
+      <td data-h="Who reads it">Information Security</td></tr>
+    <tr><td data-h="Diagram"><a href="#evaluation">10 · The comparison</a></td><td data-h="The question it answers">What A, B and C change, and what the scores can
+      show</td><td data-h="Who reads it">Sponsor, MRM, analysts</td></tr>
+    <tr><td data-h="Diagram"><a href="#recommended">11 · The recommended architecture</a></td><td data-h="The question it answers">What an FDE would build instead, and the 2.5 decision each numbered part answers</td>
+      <td data-h="Who reads it">Everyone; the sponsor and the ML platform team first</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-takeaways">
+  <h3><span class="sn">2.10</span>What to take away</h3>
+  <ol class="habits">
+    <li>The deliverable is a trustworthy comparison: decide what changes, what stays constant and what counts as a
+      win before building.</li>
+    <li>Open the files before tuning. About 9% of 2B's fixed-size index is annual-report text; no chunking strategy
+      fixes indexing the wrong text.</li>
+    <li>Check the story behind a striking number, and measure your own counter-story too. A's 0.00 was explained as
+      broken tables; the answers were in the fixed index, and an offline <span class="nw">re-run</span> of A's search showed, for the eight
+      figure questions, the answer chunks ranking below 10-K prose about the same year.</li>
+    <li>In finance, period, unit and source are part of the answer: they belong in the metadata, the filters and the
+      citations, and some figures belong to a structured lookup, not RAG.</li>
+    <li>Regulated customers need repeatability: pinned filings, packages and model versions, a notebook that runs top
+      to bottom, repeated runs with their spread, and a judge whose errors you have measured.</li>
+  </ol>
+</section>
+
+<section class="prose part" id="part3">
+  <p class="partno">Part 3</p>
+  <h2 class="parth">The architecture it led to</h2>
+  <p class="lede">Eleven diagrams in the order a design is reasoned out: scope, parts, data, the notebook itself, the
+    chunking comparison, behaviour, risk and the evidence, then the design an FDE would build instead. Each answers a group of the questions above (see 2.9).</p>
+</section>
+<section id="context">
+  <h2><span class="num">1</span>System context</h2>
+  <p class="cap"><span class="why">Why here:</span> Before anything else: what the system is, who uses it, and what it depends on.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 580" role="img" aria-label="System context: a notebook user runs the Financial RAG notebook on Google Colab; it downloads two Apple 10-K submissions from SEC EDGAR, model weights from the Hugging Face Hub and packages from PyPI, stores vectors in its own Pinecone index and calls the OpenAI API to answer and to judge.">
+<defs><marker id="cxar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="cxarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="cxarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="cxarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="cxarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="cxaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="470" y="28" width="700" height="426" rx="14" class="bnd"/>
+<text x="1158" y="48" class="lbs" text-anchor="end">system boundary: the notebook and its own Pinecone index (hosted by Pinecone)</text>
+<rect x="600" y="58" width="260" height="92" rx="9" class="pc"/>
+<text x="612" y="80" class="t" text-anchor="start">Pinecone index</text>
+<text x="612" y="100" class="s" text-anchor="start">&#x27;financial-rag&#x27; · 768-d · cosine</text>
+<text x="612" y="116" class="s" text-anchor="start">fixed 12,142 · semantic 2,529</text>
+<text x="612" y="132" class="s" text-anchor="start">serverless, AWS us-east-1</text>
+<rect x="520" y="190" width="380" height="165" rx="9" class="nd"/>
+<text x="532" y="212" class="t" text-anchor="start">Financial RAG notebook</text>
+<text x="532" y="232" class="s" text-anchor="start">59 cells, run on Google Colab</text>
+<text x="532" y="248" class="s" text-anchor="start">downloads and cleans two Apple 10-Ks</text>
+<text x="532" y="264" class="s" text-anchor="start">chunks them two ways, embeds, uploads</text>
+<text x="532" y="280" class="s" text-anchor="start">answers questions; scores set-ups A, B, C</text>
+<text x="532" y="296" class="s" text-anchor="start">LangChain · FlashRank · RAGAS · gpt-4o-mini</text>
+<path d="M680 190 V152" class="ln" marker-end="url(#cxar)"/>
+<text x="672" y="176" class="lbl" text-anchor="end">upsert 14,671 vectors · search</text>
+<path d="M780 152 V190" class="ln" marker-end="url(#cxar)"/>
+<text x="788" y="176" class="lbl" text-anchor="start">matching chunks</text>
+<circle cx="160" cy="194" r="13" class="pa"/>
+<path d="M136 242 Q136 212 160 212 Q184 212 184 242 Z" class="pa"/>
+<text x="160" y="262" class="t" text-anchor="middle">Notebook user</text>
+<text x="160" y="279" class="s" text-anchor="middle">student or analyst</text>
+<path d="M196 225 H518" class="ln" marker-end="url(#cxar)"/>
+<text x="357" y="217" class="lbl" text-anchor="middle">runs the cells, edits the questions</text>
+<path d="M518 300 H196" class="ln" marker-end="url(#cxar)"/>
+<text x="357" y="292" class="lbl" text-anchor="middle">answers and the A/B/C score table</text>
+<rect x="1240" y="40" width="300" height="90" rx="9" class="ex"/>
+<text x="1252" y="62" class="t" text-anchor="start">SEC EDGAR</text>
+<text x="1252" y="82" class="s" text-anchor="start">public filings, no API key</text>
+<text x="1252" y="98" class="s" text-anchor="start">asks for a contact in the User-Agent</text>
+<rect x="1240" y="150" width="300" height="90" rx="9" class="ex"/>
+<text x="1252" y="172" class="t" text-anchor="start">Hugging Face Hub</text>
+<text x="1252" y="192" class="s" text-anchor="start">bge-base-en-v1.5 weights, 438 MB</text>
+<text x="1252" y="208" class="s" text-anchor="start">FlashRank model zip, 21.6 MiB</text>
+<rect x="1240" y="255" width="300" height="90" rx="9" class="ex"/>
+<text x="1252" y="277" class="t" text-anchor="start">OpenAI API</text>
+<text x="1252" y="297" class="s" text-anchor="start">gpt-4o-mini: answers and RAGAS judging</text>
+<text x="1252" y="313" class="s" text-anchor="start">text-embedding-3-small: created, unused</text>
+<rect x="1240" y="365" width="300" height="80" rx="9" class="ex"/>
+<text x="1252" y="387" class="t" text-anchor="start">PyPI</text>
+<text x="1252" y="407" class="s" text-anchor="start">15 packages, no versions pinned</text>
+<path d="M1240 85 H1190 V210 H902" class="ln" marker-end="url(#cxar)"/>
+<text x="1040" y="203" class="lbl" text-anchor="middle">2 full submissions, ~9.5 MB each</text>
+<path d="M1240 195 H1205 V242 H902" class="ln" marker-end="url(#cxar)"/>
+<text x="1040" y="235" class="lbl" text-anchor="middle">model weights, on first use</text>
+<path d="M902 280 H1238" class="ln" marker-end="url(#cxar)"/>
+<text x="1040" y="273" class="lbl" text-anchor="middle">prompts with chunks</text>
+<path d="M1238 312 H902" class="ln" marker-end="url(#cxar)"/>
+<text x="1040" y="305" class="lbl" text-anchor="middle">answers, judge verdicts</text>
+<path d="M1240 405 H1205 V342 H902" class="ln" marker-end="url(#cxar)"/>
+<text x="1040" y="335" class="lbl" text-anchor="middle">packages, on every new runtime</text>
+<rect x="560" y="486" width="300" height="76" rx="9" class="ex"/>
+<text x="572" y="508" class="t" text-anchor="start">Google Colab</text>
+<text x="572" y="528" class="s" text-anchor="start">the runtime: T4 GPU, disk, Python</text>
+<text x="572" y="544" class="s" text-anchor="start">Colab Secrets: 3 API keys</text>
+<path d="M710 486 V357" class="ln" marker-end="url(#cxar)"/>
+<text x="718" y="432" class="lbl" text-anchor="start">GPU, disk, keys</text>
+  </svg>
+  </div>
+</figure>
+<section id="architecture">
+  <h2><span class="num">2</span>High-level architecture</h2>
+  <p class="cap"><span class="why">Why here:</span> Then the parts and where they run: the Colab runtime or cloud APIs.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 610" role="img" aria-label="High-level architecture: inside the Colab runtime, ingestion downloads, cleans, chunks two ways, embeds and uploads; the question path retrieves, reranks, generates and evaluates; bge-base runs on the T4 GPU and FlashRank on the CPU; Pinecone and OpenAI are cloud services.">
+<defs><marker id="arar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="ararc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="ararr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="ararb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="ararrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="araro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="250" y="40" width="960" height="550" rx="14" class="bndc"/>
+<text x="270" y="66" class="h" text-anchor="start">GOOGLE COLAB RUNTIME · a Google cloud VM with a T4 GPU · one notebook, 59 cells</text>
+<rect x="270" y="110" width="190" height="110" rx="9" class="ep"/>
+<text x="282" y="132" class="t" text-anchor="start">Download</text>
+<text x="282" y="152" class="s" text-anchor="start">sec-edgar-downloader</text>
+<text x="282" y="168" class="s" text-anchor="start">AAPL 10-K, latest 2</text>
+<text x="282" y="184" class="s" text-anchor="start">full submissions</text>
+<text x="448" y="210" class="tag" text-anchor="end">cells 17–19</text>
+<rect x="490" y="110" width="210" height="110" rx="9" class="ep"/>
+<text x="502" y="132" class="t" text-anchor="start">Load and clean</text>
+<text x="502" y="152" class="s" text-anchor="start">TextLoader, 1 doc per file</text>
+<text x="502" y="168" class="s" text-anchor="start">unescape; regex: tags, ix:</text>
+<text x="502" y="184" class="s" text-anchor="start">→ 5.5 M chars (our check)</text>
+<text x="688" y="210" class="tag" text-anchor="end">cells 21–23</text>
+<rect x="730" y="96" width="210" height="66" rx="9" class="ep"/>
+<text x="742" y="118" class="t" text-anchor="start">Fixed-size → 12,142</text>
+<text x="742" y="138" class="s" text-anchor="start">512 / 64, then filter</text>
+<rect x="730" y="172" width="210" height="66" rx="9" class="ep"/>
+<text x="742" y="194" class="t" text-anchor="start">Semantic → 2,529</text>
+<text x="742" y="214" class="s" text-anchor="start">65th pct, filter, split</text>
+<rect x="970" y="110" width="220" height="110" rx="9" class="ep"/>
+<text x="982" y="132" class="t" text-anchor="start">Embed and upload</text>
+<text x="982" y="152" class="s" text-anchor="start">bge-base on the T4</text>
+<text x="982" y="168" class="s" text-anchor="start">batches of 100</text>
+<text x="982" y="184" class="s" text-anchor="start">delete_all first</text>
+<text x="1178" y="210" class="tag" text-anchor="end">cells 27–33</text>
+<path d="M460 165 H488" class="ln" marker-end="url(#arar)"/>
+<path d="M700 150 H715 V129 H728" class="ln" marker-end="url(#arar)"/>
+<path d="M700 180 H715 V205 H728" class="ln" marker-end="url(#arar)"/>
+<path d="M940 129 H955 V150 H968" class="ln" marker-end="url(#arar)"/>
+<path d="M940 205 H955 V180 H968" class="ln" marker-end="url(#arar)"/>
+<rect x="270" y="330" width="190" height="100" rx="9" class="nd"/>
+<text x="282" y="352" class="t" text-anchor="start">Retrieve</text>
+<text x="282" y="372" class="s" text-anchor="start">embed the question</text>
+<text x="282" y="388" class="s" text-anchor="start">top 3, or top 10 for C</text>
+<text x="448" y="420" class="tag" text-anchor="end">cells 43–45</text>
+<rect x="490" y="330" width="210" height="100" rx="9" class="nd"/>
+<text x="502" y="352" class="t" text-anchor="start">Rerank (C only)</text>
+<text x="502" y="372" class="s" text-anchor="start">FlashRank: 10 pairs → best 3</text>
+<text x="502" y="388" class="s" text-anchor="start">A and B skip it: their</text>
+<text x="502" y="404" class="s" text-anchor="start">top 3 go straight on</text>
+<text x="688" y="420" class="tag" text-anchor="end">cell 43</text>
+<rect x="730" y="330" width="210" height="100" rx="9" class="nd"/>
+<text x="742" y="352" class="t" text-anchor="start">Generate</text>
+<text x="742" y="372" class="s" text-anchor="start">one prompt, 3 chunks</text>
+<text x="742" y="388" class="s" text-anchor="start">gpt-4o-mini, temp. 0</text>
+<text x="928" y="420" class="tag" text-anchor="end">cell 49</text>
+<rect x="970" y="330" width="220" height="100" rx="9" class="nd"/>
+<text x="982" y="352" class="t" text-anchor="start">Evaluate</text>
+<text x="982" y="372" class="s" text-anchor="start">RAGAS: 3 metrics</text>
+<text x="982" y="388" class="s" text-anchor="start">10 questions × A, B, C</text>
+<text x="1178" y="420" class="tag" text-anchor="end">cells 53–59</text>
+<path d="M460 380 H488" class="ln" marker-end="url(#arar)"/>
+<path d="M700 380 H728" class="ln" marker-end="url(#arar)"/>
+<path d="M940 380 H968" class="ln" marker-end="url(#arar)"/>
+<rect x="270" y="476" width="430" height="64" rx="9" class="cf"/>
+<text x="282" y="498" class="t" text-anchor="start">Local model · bge-base-en-v1.5</text>
+<text x="282" y="518" class="s" text-anchor="start">PyTorch on the T4: semantic chunking, upload, queries</text>
+<rect x="730" y="476" width="210" height="64" rx="9" class="cf"/>
+<text x="742" y="498" class="t" text-anchor="start">Local model · FlashRank</text>
+<text x="742" y="518" class="s" text-anchor="start">ONNX Runtime, CPU</text>
+<rect x="970" y="476" width="220" height="64" rx="9" class="cf"/>
+<text x="982" y="498" class="t" text-anchor="start">Colab Secrets</text>
+<text x="982" y="518" class="s" text-anchor="start">3 API keys → env variables</text>
+<rect x="1260" y="100" width="280" height="130" rx="9" class="pc"/>
+<text x="1272" y="122" class="t" text-anchor="start">Pinecone</text>
+<text x="1272" y="142" class="s" text-anchor="start">index &#x27;financial-rag&#x27;</text>
+<text x="1272" y="158" class="s" text-anchor="start">namespace &#x27;fixed&#x27;: 12,142</text>
+<text x="1272" y="174" class="s" text-anchor="start">namespace &#x27;semantic&#x27;: 2,529</text>
+<text x="1272" y="190" class="s" text-anchor="start">serverless, AWS us-east-1</text>
+<rect x="1260" y="300" width="280" height="110" rx="9" class="ex"/>
+<text x="1272" y="322" class="t" text-anchor="start">OpenAI API</text>
+<text x="1272" y="342" class="s" text-anchor="start">gpt-4o-mini: answers</text>
+<text x="1272" y="358" class="s" text-anchor="start">gpt-4o-mini: RAGAS judge</text>
+<text x="1272" y="374" class="s" text-anchor="start">embedding model: created, unused</text>
+<path d="M1190 165 H1258" class="ln" marker-end="url(#arar)"/>
+<text x="1214" y="157" class="lbl" text-anchor="start">upsert</text>
+<path d="M1258 215 H1230 V285 H365 V328" class="ln" marker-start="url(#ararb)" marker-end="url(#ararb)"/>
+<text x="800" y="279" class="lbl" text-anchor="middle">question vector → top 3 or top 10 chunks, with their text</text>
+<path d="M835 330 V306 H1244 V330 H1258" class="ln" marker-start="url(#ararb)" marker-end="url(#ararb)"/>
+<text x="1040" y="321" class="lbl" text-anchor="middle">prompt with 3 chunks ↔ answer</text>
+<path d="M1190 385 H1258" class="ln" marker-start="url(#ararb)" marker-end="url(#ararb)"/>
+<text x="1214" y="377" class="lbl" text-anchor="start">judge</text>
+<rect x="20" y="120" width="180" height="90" rx="9" class="ex"/>
+<text x="32" y="142" class="t" text-anchor="start">SEC EDGAR</text>
+<text x="32" y="162" class="s" text-anchor="start">public 10-K filings</text>
+<text x="32" y="178" class="s" text-anchor="start">no API key</text>
+<path d="M200 165 H268" class="ln" marker-end="url(#arar)"/>
+<text x="225" y="157" class="lbl" text-anchor="middle">2 files</text>
+<circle cx="115" cy="314" r="13" class="pa"/>
+<path d="M91 362 Q91 332 115 332 Q139 332 139 362 Z" class="pa"/>
+<text x="115" y="382" class="t" text-anchor="middle">Notebook user</text>
+<text x="115" y="399" class="s" text-anchor="middle">in a browser</text>
+<path d="M150 362 H268" class="ln" marker-end="url(#arar)"/>
+<text x="209" y="354" class="lbl" text-anchor="middle">question</text>
+<path d="M1080 430 V452 H115 V402" class="ln" marker-end="url(#arar)"/>
+<path d="M835 430 V452" class="ln"/>
+<text x="640" y="446" class="lbl" text-anchor="middle">answers (cell 51) and the A/B/C score table (cell 59)</text>
+<rect x="20" y="470" width="180" height="76" rx="9" class="ex"/>
+<text x="32" y="492" class="t" text-anchor="start">Hugging Face Hub</text>
+<text x="32" y="512" class="s" text-anchor="start">model weights</text>
+<text x="32" y="528" class="s" text-anchor="start">on first use</text>
+<path d="M200 508 H268" class="ln" marker-end="url(#arar)"/>
+<path d="M120 546 V568 H835 V542" class="ln" marker-end="url(#arar)"/>
+<text x="480" y="562" class="lbl" text-anchor="middle">FlashRank model zip</text>
+  </svg>
+  </div>
+</figure>
+<section id="dataflow">
+  <h2><span class="num">3</span>Data flow (level 1)</h2>
+  <p class="cap"><span class="why">Why here:</span> Then what data moves between those parts, and where it is stored.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 820" role="img" aria-label="Level-1 data flow: filings flow from SEC EDGAR through download, cleaning and two chunkers into two Pinecone namespaces; questions flow through retrieval, reranking and generation; evaluation sends answers and chunks to the OpenAI judge and returns the score table.">
+<defs><marker id="dfar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dfarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="dfarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dfarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dfarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dfaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="20" y="86" width="170" height="60" class="ee"/>
+<text x="105.0" y="113.0" class="t2" text-anchor="middle">E1 · SEC EDGAR</text>
+<text x="105.0" y="130.0" class="m" text-anchor="middle">public filings</text>
+<rect x="270" y="70" width="170" height="92" rx="12" class="pr"/>
+<path d="M270 94 H440" class="prl"/>
+<text x="355.0" y="87" class="pid" text-anchor="middle">P1</text>
+<text x="355.0" y="113" class="t2" text-anchor="middle">Download</text>
+<text x="355.0" y="130" class="m" text-anchor="middle">sec-edgar-downloader</text>
+<text x="355.0" y="144" class="m" text-anchor="middle">AAPL 10-K, limit=2</text>
+<rect x="480" y="70" width="170" height="92" rx="12" class="pr"/>
+<path d="M480 94 H650" class="prl"/>
+<text x="565.0" y="87" class="pid" text-anchor="middle">P2</text>
+<text x="565.0" y="113" class="t2" text-anchor="middle">Load and clean</text>
+<text x="565.0" y="130" class="m" text-anchor="middle">load, unescape, regex</text>
+<text x="565.0" y="144" class="m" text-anchor="middle">→ 5.5 M chars (our check)</text>
+<rect x="720" y="18" width="170" height="92" rx="12" class="pr"/>
+<path d="M720 42 H890" class="prl"/>
+<text x="805.0" y="35" class="pid" text-anchor="middle">P3</text>
+<text x="805.0" y="61" class="t2" text-anchor="middle">Chunk, fixed-size</text>
+<text x="805.0" y="78" class="m" text-anchor="middle">512 / 64, then filter</text>
+<text x="805.0" y="92" class="m" text-anchor="middle">14,119 → 12,142</text>
+<rect x="720" y="130" width="170" height="92" rx="12" class="pr"/>
+<path d="M720 154 H890" class="prl"/>
+<text x="805.0" y="147" class="pid" text-anchor="middle">P4</text>
+<text x="805.0" y="173" class="t2" text-anchor="middle">Chunk, semantic</text>
+<text x="805.0" y="190" class="m" text-anchor="middle">65th pct · filter · split</text>
+<text x="805.0" y="204" class="m" text-anchor="middle">3,080 → 2,529</text>
+<rect x="980" y="70" width="170" height="92" rx="12" class="pr"/>
+<path d="M980 94 H1150" class="prl"/>
+<text x="1065.0" y="87" class="pid" text-anchor="middle">P5</text>
+<text x="1065.0" y="113" class="t2" text-anchor="middle">Embed and upload</text>
+<text x="1065.0" y="130" class="m" text-anchor="middle">bge-base on the T4</text>
+<text x="1065.0" y="144" class="m" text-anchor="middle">batches of 100</text>
+<rect x="270" y="230" width="380" height="50" class="dsf"/>
+<path d="M650 230 H270 V280 H650 M314 230 V280" class="dsl"/>
+<text x="292" y="260.0" class="dsid" text-anchor="middle">D1</text>
+<text x="324" y="249" class="t2" text-anchor="start">sec-edgar-filings/ (Colab disk)</text>
+<text x="324" y="265" class="m" text-anchor="start">2 × full-submission.txt, ~9.5 MB each</text>
+<rect x="1230" y="30" width="310" height="50" class="dsf"/>
+<path d="M1540 30 H1230 V80 H1540 M1274 30 V80" class="dsl"/>
+<text x="1252" y="60.0" class="dsid" text-anchor="middle">D2</text>
+<text x="1284" y="49" class="t2" text-anchor="start">Pinecone · namespace &#x27;fixed&#x27;</text>
+<text x="1284" y="65" class="m" text-anchor="start">12,142 vectors + chunk text</text>
+<rect x="1230" y="150" width="310" height="50" class="dsf"/>
+<path d="M1540 150 H1230 V200 H1540 M1274 150 V200" class="dsl"/>
+<text x="1252" y="180.0" class="dsid" text-anchor="middle">D3</text>
+<text x="1284" y="169" class="t2" text-anchor="start">Pinecone · namespace &#x27;semantic&#x27;</text>
+<text x="1284" y="185" class="m" text-anchor="start">2,529 vectors + chunk text</text>
+<path d="M190 116 H268" class="ln" marker-end="url(#dfar)"/>
+<text x="229" y="108" class="lbl" text-anchor="middle">2 filings</text>
+<path d="M355 162 V228" class="ln" marker-end="url(#dfar)"/>
+<text x="363" y="200" class="lbl" text-anchor="start">full-submission.txt × 2</text>
+<path d="M565 228 V164" class="ln" marker-end="url(#dfar)"/>
+<text x="573" y="200" class="lbl" text-anchor="start">raw text</text>
+<path d="M650 100 H685 V64 H718" class="ln" marker-end="url(#dfar)"/>
+<path d="M650 130 H685 V176 H718" class="ln" marker-end="url(#dfar)"/>
+<text x="686" y="122" class="lbs" text-anchor="middle">cleaned text</text>
+<path d="M890 64 H930 V100 H978" class="ln" marker-end="url(#dfar)"/>
+<text x="897" y="58" class="lbs" text-anchor="start">12,142 chunks</text>
+<path d="M890 176 H930 V135 H978" class="ln" marker-end="url(#dfar)"/>
+<text x="897" y="194" class="lbs" text-anchor="start">2,529 chunks</text>
+<path d="M1150 95 H1190 V55 H1228" class="ln" marker-end="url(#dfar)"/>
+<path d="M1150 135 H1190 V175 H1228" class="ln" marker-end="url(#dfar)"/>
+<text x="1190" y="119" class="lbs" text-anchor="middle">vectors + text</text>
+<rect x="600" y="300" width="190" height="50" class="ee"/>
+<text x="695.0" y="330.0" class="t2" text-anchor="middle">E2 · Hugging Face Hub</text>
+<path d="M790 325 H1065 V164" class="ln" marker-end="url(#dfar)"/>
+<text x="925" y="318" class="lbl" text-anchor="middle">bge weights (cell 15)</text>
+<path d="M760 300 V224" class="ln" marker-end="url(#dfar)"/>
+<text x="768" y="262" class="lbs" text-anchor="start">bge weights (cell 15)</text>
+<path d="M790 342 H1000 V418" class="ln" marker-end="url(#dfar)"/>
+<text x="1008" y="382" class="lbs" text-anchor="start">bge weights (cell 15)</text>
+<path d="M695 350 V418" class="ln" marker-end="url(#dfar)"/>
+<text x="703" y="392" class="lbl" text-anchor="start">FlashRank weights (cell 41)</text>
+<rect x="950" y="420" width="190" height="92" rx="12" class="pr"/>
+<path d="M950 444 H1140" class="prl"/>
+<text x="1045.0" y="437" class="pid" text-anchor="middle">P6</text>
+<text x="1045.0" y="463" class="t2" text-anchor="middle">Retrieve</text>
+<text x="1045.0" y="480" class="m" text-anchor="middle">embeds the question (bge)</text>
+<text x="1045.0" y="494" class="m" text-anchor="middle">A fixed, B semantic: 3</text>
+<text x="1045.0" y="508" class="m" text-anchor="middle">C semantic: top 10</text>
+<rect x="600" y="420" width="190" height="92" rx="12" class="pr"/>
+<path d="M600 444 H790" class="prl"/>
+<text x="695.0" y="437" class="pid" text-anchor="middle">P7</text>
+<text x="695.0" y="463" class="t2" text-anchor="middle">Rerank</text>
+<text x="695.0" y="480" class="m" text-anchor="middle">FlashRank, set-up C</text>
+<text x="695.0" y="494" class="m" text-anchor="middle">10 pairs → best 3</text>
+<rect x="250" y="420" width="190" height="92" rx="12" class="pr"/>
+<path d="M250 444 H440" class="prl"/>
+<text x="345.0" y="437" class="pid" text-anchor="middle">P8</text>
+<text x="345.0" y="463" class="t2" text-anchor="middle">Generate</text>
+<text x="345.0" y="480" class="m" text-anchor="middle">one prompt + 3 chunks</text>
+<text x="345.0" y="494" class="m" text-anchor="middle">gpt-4o-mini</text>
+<rect x="20" y="436" width="180" height="60" class="ee"/>
+<text x="110.0" y="463.0" class="t2" text-anchor="middle">E3 · Notebook user</text>
+<text x="110.0" y="480.0" class="m" text-anchor="middle">in a browser</text>
+<path d="M1300 200 V448 H1142" class="ln" marker-end="url(#dfar)"/>
+<text x="1310" y="330" class="lbl" text-anchor="start">semantic chunks (B, C)</text>
+<path d="M1540 55 H1552 V470 H1142" class="ln" marker-end="url(#dfar)"/>
+<text x="1544" y="300" class="lbl" text-anchor="end">fixed chunks (A)</text>
+<path d="M948 466 H792" class="ln" marker-end="url(#dfar)"/>
+<text x="870" y="458" class="lbs" text-anchor="middle">10 chunks (C)</text>
+<path d="M598 466 H442" class="ln" marker-end="url(#dfar)"/>
+<text x="520" y="458" class="lbs" text-anchor="middle">best 3 (C)</text>
+<path d="M1045 512 V545 H420 V514" class="ln" marker-end="url(#dfar)"/>
+<text x="700" y="539" class="lbs" text-anchor="middle">3 chunks (A, B: no rerank)</text>
+<path d="M248 466 H202" class="ln" marker-end="url(#dfar)"/>
+<text x="225" y="458" class="lbs" text-anchor="middle">answer</text>
+<rect x="250" y="600" width="390" height="50" class="ee"/>
+<text x="445.0" y="622.0" class="t2" text-anchor="middle">E4 · OpenAI API</text>
+<text x="445.0" y="639.0" class="m" text-anchor="middle">gpt-4o-mini: answers and judge verdicts</text>
+<path d="M270 512 V598" class="ln" marker-end="url(#dfar)"/>
+<text x="264" y="562" class="lbs" text-anchor="end">prompt +</text>
+<text x="264" y="576" class="lbs" text-anchor="end">3 chunks</text>
+<path d="M310 598 V514" class="ln" marker-end="url(#dfar)"/>
+<text x="316" y="572" class="lbs" text-anchor="start">answer</text>
+<rect x="720" y="586" width="190" height="92" rx="12" class="pr"/>
+<path d="M720 610 H910" class="prl"/>
+<text x="815.0" y="603" class="pid" text-anchor="middle">P9</text>
+<text x="815.0" y="629" class="t2" text-anchor="middle">Evaluate</text>
+<text x="815.0" y="646" class="m" text-anchor="middle">RAGAS, 3 metrics</text>
+<text x="815.0" y="660" class="m" text-anchor="middle">per question, A/B/C</text>
+<path d="M360 512 V560 H760 V584" class="ln" marker-end="url(#dfar)"/>
+<text x="560" y="574" class="lbs" text-anchor="middle">answer + 3 chunks, per question and set-up</text>
+<path d="M720 612 H642" class="ln" marker-end="url(#dfar)"/>
+<text x="681" y="606" class="lbs" text-anchor="middle">judge calls</text>
+<path d="M642 640 H718" class="ln" marker-end="url(#dfar)"/>
+<text x="681" y="634" class="lbs" text-anchor="middle">verdicts</text>
+<rect x="700" y="720" width="340" height="50" class="dsf"/>
+<path d="M1040 720 H700 V770 H1040 M744 720 V770" class="dsl"/>
+<text x="722" y="750.0" class="dsid" text-anchor="middle">D4</text>
+<text x="754" y="739" class="t2" text-anchor="start">eval_dataset (in memory)</text>
+<text x="754" y="755" class="m" text-anchor="start">10 questions + reference answers</text>
+<path d="M800 720 V680" class="ln" marker-end="url(#dfar)"/>
+<text x="808" y="704" class="lbs" text-anchor="start">references</text>
+<path d="M1040 745 H1120 V514" class="ln" marker-end="url(#dfar)"/>
+<text x="1128" y="640" class="lbs" text-anchor="start">evaluation questions (cell 55)</text>
+<path d="M720 665 H160 V498" class="ln" marker-end="url(#dfar)"/>
+<text x="440" y="680" class="lbs" text-anchor="middle">the A/B/C score table</text>
+<rect x="420" y="690" width="200" height="70" rx="12" class="pr"/>
+<path d="M420 714 H620" class="prl"/>
+<text x="520.0" y="707" class="pid" text-anchor="middle">P10</text>
+<text x="520.0" y="733" class="t2" text-anchor="middle">Write the eval set</text>
+<text x="520.0" y="750" class="m" text-anchor="middle">cell 53</text>
+<path d="M140 496 V721 H418" class="ln" marker-end="url(#dfar)"/>
+<text x="280" y="715" class="lbs" text-anchor="middle">10 questions + references</text>
+<path d="M620 745 H698" class="ln" marker-end="url(#dfar)"/>
+<path d="M110 496 V800 H1520 V500 H1142" class="ln" marker-end="url(#dfar)"/>
+<text x="800" y="794" class="lbs" text-anchor="middle">a question (cells 47–51)</text>
+  </svg>
+  </div>
+</figure>
+<section id="datamodel">
+  <h2><span class="num">4</span>Data model</h2>
+  <p class="cap"><span class="why">Why here:</span> Then the exact shape of each piece of data in those flows.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 652" role="img" aria-label="Data model: the EDGAR file, LangChain Documents and chunks, Pinecone records, retrieved chunks, FlashRank requests and results, rag_answer results, evaluation questions, results rows and RAGAS scores, and the settings.">
+<defs><marker id="dmar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dmarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="dmarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dmarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dmarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dmaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="20" y="20" width="480" height="143" rx="9" class="dt"/>
+<text x="32" y="42" class="t2" text-anchor="start">EDGAR full submission · a file</text>
+<text x="32" y="60" class="m" text-anchor="start">downloaded by cell 17</text>
+<text x="32" y="78" class="mf" text-anchor="start">path</text>
+<text x="102" y="78" class="m" text-anchor="start">sec-edgar-filings/AAPL/10-K/&lt;accession&gt;/</text>
+<text x="32" y="95" class="mf" text-anchor="start"></text>
+<text x="102" y="95" class="m" text-anchor="start">full-submission.txt</text>
+<text x="32" y="112" class="mf" text-anchor="start">size</text>
+<text x="102" y="112" class="m" text-anchor="start">about 9.5 MB each, 2 files</text>
+<text x="32" y="129" class="mf" text-anchor="start">holds</text>
+<text x="102" y="129" class="m" text-anchor="start">the 10-K + ~70 XBRL viewer pages, the XBRL instance,</text>
+<text x="32" y="146" class="mf" text-anchor="start"></text>
+<text x="102" y="146" class="m" text-anchor="start">JSON, linkbases, exhibits, uuencoded ZIP and images</text>
+<rect x="20" y="183" width="480" height="92" rx="9" class="bx"/>
+<text x="32" y="205" class="t2" text-anchor="start">Document · LangChain</text>
+<text x="32" y="223" class="m" text-anchor="start">TextLoader (cell 21), then cell 23&#x27;s cleaning</text>
+<text x="32" y="241" class="mf" text-anchor="start">page_content</text>
+<text x="162" y="241" class="m" text-anchor="start">cleaned text, 2.7–2.8 M characters (our check)</text>
+<text x="32" y="258" class="mf" text-anchor="start">metadata.source</text>
+<text x="162" y="258" class="m" text-anchor="start">the file path</text>
+<rect x="20" y="295" width="480" height="109" rx="9" class="bx"/>
+<text x="32" y="317" class="t2" text-anchor="start">Chunk · a Document</text>
+<text x="32" y="335" class="m" text-anchor="start">cells 25, 31 and 33</text>
+<text x="32" y="353" class="mf" text-anchor="start">page_content</text>
+<text x="162" y="353" class="m" text-anchor="start">fixed: ≤ 512 characters, average 431</text>
+<text x="32" y="370" class="mf" text-anchor="start"></text>
+<text x="162" y="370" class="m" text-anchor="start">semantic: ~2,000 avg (2,246 pre-split), ≤ 8,000</text>
+<text x="32" y="387" class="mf" text-anchor="start">metadata.source</text>
+<text x="162" y="387" class="m" text-anchor="start">copied from the Document</text>
+<rect x="540" y="20" width="480" height="143" rx="9" class="pc"/>
+<text x="552" y="42" class="t2" text-anchor="start">Pinecone record</text>
+<text x="552" y="60" class="m" text-anchor="start">index &#x27;financial-rag&#x27; · cosine · langchain-pinecone</text>
+<text x="552" y="78" class="mf" text-anchor="start">id</text>
+<text x="682" y="78" class="m" text-anchor="start">a random UUID (uuid4)</text>
+<text x="552" y="95" class="mf" text-anchor="start">values</text>
+<text x="682" y="95" class="m" text-anchor="start">768 floats, bge-base, normalized</text>
+<text x="552" y="112" class="mf" text-anchor="start">metadata.text</text>
+<text x="682" y="112" class="m" text-anchor="start">the chunk text</text>
+<text x="552" y="129" class="mf" text-anchor="start">metadata.source</text>
+<text x="682" y="129" class="m" text-anchor="start">the file path</text>
+<text x="552" y="146" class="mf" text-anchor="start">namespace</text>
+<text x="682" y="146" class="m" text-anchor="start">&#x27;fixed&#x27; or &#x27;semantic&#x27;</text>
+<rect x="540" y="183" width="480" height="93" rx="9" class="bx"/>
+<text x="552" y="205" class="t2" text-anchor="start">Retrieved chunk · a Document</text>
+<text x="552" y="225" class="mf" text-anchor="start">page_content</text>
+<text x="722" y="225" class="m" text-anchor="start">read back from metadata.text</text>
+<text x="552" y="242" class="mf" text-anchor="start">metadata.source</text>
+<text x="722" y="242" class="m" text-anchor="start">the file path</text>
+<text x="552" y="259" class="mf" text-anchor="start">metadata.rerank_score</text>
+<text x="722" y="259" class="m" text-anchor="start">set in place, set-up C only</text>
+<rect x="540" y="296" width="480" height="76" rx="9" class="bx"/>
+<text x="552" y="318" class="t2" text-anchor="start">FlashRank RerankRequest</text>
+<text x="552" y="338" class="mf" text-anchor="start">query</text>
+<text x="632" y="338" class="m" text-anchor="start">the question</text>
+<text x="552" y="355" class="mf" text-anchor="start">passages</text>
+<text x="632" y="355" class="m" text-anchor="start">a list of 10 {id: 0–9, text}</text>
+<rect x="540" y="392" width="480" height="76" rx="9" class="bx"/>
+<text x="552" y="414" class="t2" text-anchor="start">FlashRank result · a list</text>
+<text x="552" y="434" class="mf" text-anchor="start">each item</text>
+<text x="632" y="434" class="m" text-anchor="start">id, text, score</text>
+<text x="552" y="451" class="mf" text-anchor="start">order</text>
+<text x="632" y="451" class="m" text-anchor="start">best score first; the top 3 are kept</text>
+<rect x="1060" y="20" width="480" height="76" rx="9" class="nd"/>
+<text x="1072" y="42" class="t2" text-anchor="start">rag_answer() result</text>
+<text x="1072" y="62" class="mf" text-anchor="start">answer</text>
+<text x="1152" y="62" class="m" text-anchor="start">a string, from StrOutputParser</text>
+<text x="1072" y="79" class="mf" text-anchor="start">sources</text>
+<text x="1152" y="79" class="m" text-anchor="start">the 3 Documents used</text>
+<rect x="1060" y="116" width="480" height="76" rx="9" class="dt"/>
+<text x="1072" y="138" class="t2" text-anchor="start">eval_dataset item · 10 of them</text>
+<text x="1072" y="158" class="mf" text-anchor="start">question</text>
+<text x="1182" y="158" class="m" text-anchor="start">8 reported figures, 2 narrative</text>
+<text x="1072" y="175" class="mf" text-anchor="start">ground_truth</text>
+<text x="1182" y="175" class="m" text-anchor="start">a reference answer, no source</text>
+<rect x="1060" y="212" width="480" height="110" rx="9" class="bx"/>
+<text x="1072" y="234" class="t2" text-anchor="start">results row · 3 lists × 10 rows</text>
+<text x="1072" y="254" class="mf" text-anchor="start">question</text>
+<text x="1182" y="254" class="m" text-anchor="start">from eval_dataset</text>
+<text x="1072" y="271" class="mf" text-anchor="start">answer</text>
+<text x="1182" y="271" class="m" text-anchor="start">gpt-4o-mini&#x27;s answer</text>
+<text x="1072" y="288" class="mf" text-anchor="start">contexts</text>
+<text x="1182" y="288" class="m" text-anchor="start">the 3 chunk texts</text>
+<text x="1072" y="305" class="mf" text-anchor="start">ground_truth</text>
+<text x="1182" y="305" class="m" text-anchor="start">the reference answer</text>
+<rect x="1060" y="342" width="480" height="110" rx="9" class="bx"/>
+<text x="1072" y="364" class="t2" text-anchor="start">RAGAS scores → comparison table</text>
+<text x="1072" y="384" class="mf" text-anchor="start">per row</text>
+<text x="1182" y="384" class="m" text-anchor="start">faithfulness, context_precision,</text>
+<text x="1072" y="401" class="mf" text-anchor="start"></text>
+<text x="1182" y="401" class="m" text-anchor="start">context_recall, each 0–1</text>
+<text x="1072" y="418" class="mf" text-anchor="start">extract_score</text>
+<text x="1182" y="418" class="m" text-anchor="start">the mean, ignoring NaN</text>
+<text x="1072" y="435" class="mf" text-anchor="start">DataFrame</text>
+<text x="1182" y="435" class="m" text-anchor="start">Metric × A, B, C (cell 59)</text>
+<rect x="20" y="488" width="480" height="144" rx="9" class="cf"/>
+<text x="32" y="510" class="t2" text-anchor="start">Settings · spread across cells</text>
+<text x="32" y="530" class="mf" text-anchor="start">index</text>
+<text x="112" y="530" class="m" text-anchor="start">&#x27;financial-rag&#x27; · 768 · cosine · aws us-east-1</text>
+<text x="32" y="547" class="mf" text-anchor="start">fixed</text>
+<text x="112" y="547" class="m" text-anchor="start">chunk_size 512, overlap 64</text>
+<text x="32" y="564" class="mf" text-anchor="start">semantic</text>
+<text x="112" y="564" class="m" text-anchor="start">percentile 65 · MAX_CHARS 8,000, overlap 100</text>
+<text x="32" y="581" class="mf" text-anchor="start">upload</text>
+<text x="112" y="581" class="m" text-anchor="start">BATCH_SIZE 100</text>
+<text x="32" y="598" class="mf" text-anchor="start">retrieval</text>
+<text x="112" y="598" class="m" text-anchor="start">k 3 (A, B) · k 10 → top_n 3 (C)</text>
+<text x="32" y="615" class="mf" text-anchor="start">models</text>
+<text x="112" y="615" class="m" text-anchor="start">bge-base-en-v1.5 · MiniLM-L-12-v2 · gpt-4o-mini</text>
+<rect x="540" y="488" width="1000" height="144" rx="9" class="nt"/>
+<text x="552" y="510" class="t2" text-anchor="start">How the structures turn into each other</text>
+<text x="552" y="534" class="m" text-anchor="start">file → Document: TextLoader; metadata.source = the path; cleaned in place by cell 23</text>
+<text x="552" y="551" class="m" text-anchor="start">Document → chunks: the splitter or SemanticChunker; metadata is copied to every chunk</text>
+<text x="552" y="568" class="m" text-anchor="start">chunk → Pinecone record: embedded by bge; text and source go into metadata; the id is random</text>
+<text x="552" y="585" class="m" text-anchor="start">record → retrieved Document: similarity_search turns metadata.text back into page_content</text>
+<text x="552" y="602" class="m" text-anchor="start">results rows → Dataset.from_list → RAGAS evaluate → per-row scores → means → DataFrame</text>
+<text x="552" y="619" class="m" text-anchor="start">no metadata field holds the fiscal year, section or page; the form and accession sit only in the path (and in any page footer inside the text)</text>
+  </svg>
+  </div>
+</figure>
+<section id="design">
+  <h2><span class="num">5</span>Detailed design: the notebook</h2>
+  <p class="cap"><span class="why">Why here:</span> Then every cell, function and setting, with what is broken.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 1000" role="img" aria-label="Detailed design: the notebook&#x27;s nine sections with their cells, functions and settings, and ten numbered review notes, from the undefined header function to the unpinned packages.">
+<defs><marker id="dsar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dsarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="dsarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dsarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dsarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dsaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="20" y="20" width="760" height="106" rx="9" class="ep"/>
+<text x="32" y="42" class="t" text-anchor="start">1 · Setup · cells 2–15</text>
+<text x="32" y="62" class="s" text-anchor="start">pip install 15 packages, no versions (cell 4) · checks the T4 GPU</text>
+<text x="32" y="78" class="s" text-anchor="start">Colab Secrets → 3 env variables · a test call to gpt-4o-mini</text>
+<text x="32" y="94" class="s" text-anchor="start">create or reuse index &#x27;financial-rag&#x27; (768, cosine, aws us-east-1)</text>
+<text x="32" y="110" class="s" text-anchor="start">load bge-base-en-v1.5 on cuda, normalize_embeddings=True</text>
+<circle cx="764" cy="36" r="9.5" class="wb"/>
+<text x="764" y="40" class="wbt" text-anchor="middle">9</text>
+<circle cx="740" cy="36" r="9.5" class="wb"/>
+<text x="740" y="40" class="wbt" text-anchor="middle">8</text>
+<rect x="20" y="138" width="760" height="90" rx="9" class="ep"/>
+<text x="32" y="160" class="t" text-anchor="start">2 · Ingestion · cells 17–21</text>
+<text x="32" y="180" class="s" text-anchor="start">Downloader(&#x27;LearningProject&#x27;, &#x27;test@example.com&#x27;)</text>
+<text x="32" y="196" class="s" text-anchor="start">.get(&#x27;10-K&#x27;, &#x27;AAPL&#x27;, limit=2) → 2 × full-submission.txt</text>
+<text x="32" y="212" class="s" text-anchor="start">TextLoader(utf-8, autodetect) · metadata[&#x27;source&#x27;] = path</text>
+<circle cx="764" cy="154" r="9.5" class="wb"/>
+<text x="764" y="158" class="wbt" text-anchor="middle">3</text>
+<circle cx="740" cy="154" r="9.5" class="wb"/>
+<text x="740" y="158" class="wbt" text-anchor="middle">2</text>
+<rect x="20" y="240" width="760" height="90" rx="9" class="ep"/>
+<text x="32" y="262" class="t" text-anchor="start">3 · Preprocessing · cell 23</text>
+<text x="32" y="282" class="s" text-anchor="start">clean_edgar_text: unescape entities, drop tags and ix: fragments,</text>
+<text x="32" y="298" class="s" text-anchor="start">blank symbol-only lines, collapse blank lines and runs of spaces</text>
+<text x="32" y="314" class="s" text-anchor="start">then remove_edgar_header(text): never defined · re: never imported</text>
+<circle cx="764" cy="256" r="9.5" class="wb"/>
+<text x="764" y="260" class="wbt" text-anchor="middle">1</text>
+<rect x="20" y="342" width="760" height="90" rx="9" class="nd"/>
+<text x="32" y="364" class="t" text-anchor="start">4A · Fixed-size · cells 25–29</text>
+<text x="32" y="384" class="s" text-anchor="start">RecursiveCharacterTextSplitter(512, 64, separators \n\n, \n, &#x27;. &#x27;, &#x27; &#x27;, &#x27;&#x27;)</text>
+<text x="32" y="400" class="s" text-anchor="start">is_clean_chunk: drop &lt; 100 chars or &lt; 40% letters · 14,119 → 12,142</text>
+<text x="32" y="416" class="s" text-anchor="start">delete_all(&#x27;fixed&#x27;) · from_documents + add_documents, 100 at a time</text>
+<circle cx="764" cy="358" r="9.5" class="wb"/>
+<text x="764" y="362" class="wbt" text-anchor="middle">4</text>
+<rect x="20" y="444" width="760" height="90" rx="9" class="nd"/>
+<text x="32" y="466" class="t" text-anchor="start">4B · Semantic · cells 31–33</text>
+<text x="32" y="486" class="s" text-anchor="start">SemanticChunker(embeddings, &#x27;percentile&#x27;, 65) · filter: 3,080 → 2,245</text>
+<text x="32" y="502" class="s" text-anchor="start">split chunks over 8,000 characters (overlap 100) → 2,529</text>
+<text x="32" y="518" class="s" text-anchor="start">delete_all(&#x27;semantic&#x27;) · upload 100 at a time</text>
+<circle cx="764" cy="460" r="9.5" class="wb"/>
+<text x="764" y="464" class="wbt" text-anchor="middle">6</text>
+<circle cx="740" cy="460" r="9.5" class="wb"/>
+<text x="740" y="464" class="wbt" text-anchor="middle">5</text>
+<rect x="20" y="546" width="760" height="58" rx="9" class="nd"/>
+<text x="32" y="568" class="t" text-anchor="start">5 · Retrieval testing · cells 35–39</text>
+<text x="32" y="588" class="s" text-anchor="start">connect to both namespaces · 5 test queries · top 1 of 3, side by side</text>
+<circle cx="764" cy="562" r="9.5" class="wb"/>
+<text x="764" y="566" class="wbt" text-anchor="middle">10</text>
+<rect x="20" y="616" width="760" height="90" rx="9" class="nd"/>
+<text x="32" y="638" class="t" text-anchor="start">6 · Reranking · cells 41–47</text>
+<text x="32" y="658" class="s" text-anchor="start">Ranker(&#x27;ms-marco-MiniLM-L-12-v2&#x27;), max_length 512 by default</text>
+<text x="32" y="674" class="s" text-anchor="start">retrieve_no_rerank(k=10) · retrieve_with_rerank(k=10, top_n=3)</text>
+<text x="32" y="690" class="s" text-anchor="start">retrieve_fixed(k=3)</text>
+<circle cx="764" cy="632" r="9.5" class="wb"/>
+<text x="764" y="636" class="wbt" text-anchor="middle">7</text>
+<circle cx="740" cy="632" r="9.5" class="wb"/>
+<text x="740" y="636" class="wbt" text-anchor="middle">6</text>
+<rect x="20" y="718" width="760" height="90" rx="9" class="nd"/>
+<text x="32" y="740" class="t" text-anchor="start">7 · Generation · cells 49–51</text>
+<text x="32" y="760" class="s" text-anchor="start">ChatPromptTemplate.from_template: one user message · temperature 0</text>
+<text x="32" y="776" class="s" text-anchor="start">format_context joins chunks with &#x27;---&#x27;</text>
+<text x="32" y="792" class="s" text-anchor="start">rag_answer(query, use_reranker=True, k=10, top_n=3)</text>
+<rect x="20" y="820" width="760" height="90" rx="9" class="nd"/>
+<text x="32" y="842" class="t" text-anchor="start">8 · RAGAS · cells 53–57</text>
+<text x="32" y="862" class="s" text-anchor="start">10 questions + ground truths · A, B and C answered in one loop (cell 55)</text>
+<text x="32" y="878" class="s" text-anchor="start">evaluate(Dataset.from_list(rows), [faithfulness, context_precision,</text>
+<text x="32" y="894" class="s" text-anchor="start">context_recall]) · judge gpt-4o-mini (RAGAS sets temperature 0.01)</text>
+<circle cx="764" cy="836" r="9.5" class="wb"/>
+<text x="764" y="840" class="wbt" text-anchor="middle">10</text>
+<rect x="20" y="922" width="760" height="58" rx="9" class="ep"/>
+<text x="32" y="944" class="t" text-anchor="start">9 · Results · cell 59</text>
+<text x="32" y="964" class="s" text-anchor="start">extract_score: the mean, ignoring NaN · comparison DataFrame · winner</text>
+<rect x="810" y="20" width="730" height="960" rx="9" class="nt"/>
+<text x="826" y="44" class="t2" text-anchor="start">Review notes · numbered on the cells they affect</text>
+<circle cx="838" cy="72" r="9.5" class="wb"/>
+<text x="838" y="76" class="wbt" text-anchor="middle">1</text>
+<text x="858" y="76" class="m" text-anchor="start">Cell 23 calls remove_edgar_header and re.sub, but no cell defines the function or imports re.</text>
+<text x="858" y="92" class="m" text-anchor="start">On a fresh runtime the notebook stops here, though the README says “Run all cells top to bottom”.</text>
+<circle cx="838" cy="160" r="9.5" class="wb"/>
+<text x="838" y="164" class="wbt" text-anchor="middle">2</text>
+<text x="858" y="164" class="m" text-anchor="start">limit=2 means the latest two 10-Ks at run time: FY2024 and FY2025 in the saved outputs (cell 19).</text>
+<text x="858" y="180" class="m" text-anchor="start">After Apple&#x27;s next filing the same cell fetches FY2025 and FY2026; nothing pins the filings used.</text>
+<circle cx="838" cy="248" r="9.5" class="wb"/>
+<text x="838" y="252" class="wbt" text-anchor="middle">3</text>
+<text x="858" y="252" class="m" text-anchor="start">full-submission.txt is the whole EDGAR package. About 9% of the fixed-size chunks are 10-K text;</text>
+<text x="858" y="268" class="m" text-anchor="start">the rest is XBRL (viewer pages, instance), JSON, linkbases, exhibits and uuencoded binary (our check).</text>
+<circle cx="838" cy="336" r="9.5" class="wb"/>
+<text x="838" y="340" class="wbt" text-anchor="middle">4</text>
+<text x="858" y="340" class="m" text-anchor="start">The filter keeps the answers: for every numeric evaluation question, kept chunks hold the figure with</text>
+<text x="858" y="356" class="m" text-anchor="start">its row label (19 hold “Total net sales” and “391,035”). It drops 11 of 13 for Americas (our check).</text>
+<circle cx="838" cy="424" r="9.5" class="wb"/>
+<text x="838" y="428" class="wbt" text-anchor="middle">5</text>
+<text x="858" y="428" class="m" text-anchor="start">Tables survive semantic chunking because the sentence splitter only breaks where “.”, “?” or “!”</text>
+<text x="858" y="444" class="m" text-anchor="start">meets whitespace, which a flattened table rarely contains (langchain-experimental source).</text>
+<circle cx="838" cy="512" r="9.5" class="wb"/>
+<text x="838" y="516" class="wbt" text-anchor="middle">6</text>
+<text x="858" y="516" class="m" text-anchor="start">bge-base (max_seq_length 512) and FlashRank (max_length 512, question included) read 512 tokens at most:</text>
+<text x="858" y="532" class="m" text-anchor="start">≈ the first 2,000 characters of prose; long chunks are embedded and scored on their opening only.</text>
+<circle cx="838" cy="600" r="9.5" class="wb"/>
+<text x="838" y="604" class="wbt" text-anchor="middle">7</text>
+<text x="858" y="604" class="m" text-anchor="start">A markdown cell says “Retrieve top-20 candidates”; the code retrieves 10.</text>
+<circle cx="838" cy="688" r="9.5" class="wb"/>
+<text x="838" y="692" class="wbt" text-anchor="middle">8</text>
+<text x="858" y="692" class="m" text-anchor="start">HuggingFaceEmbeddings adds no query instruction (langchain-huggingface source), though the</text>
+<text x="858" y="708" class="m" text-anchor="start">solution kit says LangChain adds BGE&#x27;s prefix automatically.</text>
+<circle cx="838" cy="776" r="9.5" class="wb"/>
+<text x="838" y="780" class="wbt" text-anchor="middle">9</text>
+<text x="858" y="780" class="m" text-anchor="start">No package versions are pinned. HUGGINGFACEHUB_API_TOKEN is not the variable the Hub reads,</text>
+<text x="858" y="796" class="m" text-anchor="start">so model downloads run unauthenticated (cell 15&#x27;s warning).</text>
+<circle cx="838" cy="864" r="9.5" class="wb"/>
+<text x="838" y="868" class="wbt" text-anchor="middle">10</text>
+<text x="858" y="868" class="m" text-anchor="start">Four evaluation questions (one reworded) were also used in cells 37–51 to inspect retrieval while</text>
+<text x="858" y="884" class="m" text-anchor="start">building; the ingestion cells (17–33) keep outputs from an earlier session.</text>
+  </svg>
+  </div>
+</figure>
+<section id="chunking">
+  <h2><span class="num">6</span>The two chunking paths</h2>
+  <p class="cap"><span class="why">Why here:</span> Then the comparison the brief asks for: the same text, cut two ways.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 712" role="img" aria-label="The two chunking paths: most of the indexed text is not the 10-K; fixed-size cuts at 512 characters and filters to 12,142 chunks; semantic chunking splits sentences, cuts at the 65th percentile of distances and ends with 2,529 chunks; top 3 hands the model about 1,300 or 6,000 characters.">
+<defs><marker id="char" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="charc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="charr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="charb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="charrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="charo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<text x="20" y="28" class="h" text-anchor="start">WHERE THE FIXED-SIZE CHUNKS COME FROM · our check: each part of the 2 submissions chunked separately</text>
+<rect x="20.0" y="46" width="136.1" height="38" class="pc"/>
+<text x="88.06340905376696" y="70" class="t3" text-anchor="middle">10-K text 9%</text>
+<rect x="156.1" y="46" width="577.0" height="38" class="nt"/>
+<text x="444.65108677888543" y="70" class="t3" text-anchor="middle">XBRL XML: viewer pages, instance 38%</text>
+<rect x="733.2" y="46" width="526.6" height="38" class="nt"/>
+<text x="996.4863539794085" y="70" class="t3" text-anchor="middle">JSON metadata 35%</text>
+<rect x="1259.8" y="46" width="143.6" height="38" class="nt"/>
+<text x="1331.586860598137" y="70" class="t3" text-anchor="middle">9%</text>
+<text x="1331.586860598137" y="102" class="lbs" text-anchor="middle">uuencoded binary</text>
+<rect x="1403.4" y="46" width="89.3" height="38" class="nt"/>
+<text x="1448.0274554665796" y="70" class="t3" text-anchor="middle">6%</text>
+<text x="1448.0274554665796" y="102" class="lbs" text-anchor="middle">exhibits</text>
+<rect x="1492.7" y="46" width="47.3" height="38" class="nt"/>
+<text x="1516.3392711227325" y="70" class="t3" text-anchor="middle">3%</text>
+<text x="1516.3392711227325" y="102" class="lbs" text-anchor="middle">linkbases</text>
+<text x="20" y="120" class="lbs" text-anchor="start">12,238 chunks in this estimate; the notebook chunks the whole cleaned text (5.52 M characters by our check; the docs say ~7.6 M) into 12,142</text>
+<text x="20" y="158" class="h" text-anchor="start">A · FIXED-SIZE</text>
+<text x="820" y="158" class="h" text-anchor="start">B AND C · SEMANTIC</text>
+<rect x="40" y="172" width="680" height="64" rx="9" class="bx"/>
+<text x="52" y="194" class="t" text-anchor="start">RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=64)</text>
+<text x="52" y="214" class="s" text-anchor="start">cuts at a blank line, a line break, &#x27;. &#x27; or a space, whichever keeps chunks under 512</text>
+<path d="M380 236 V370" class="ln" marker-end="url(#char)"/>
+<text x="390" y="306" class="lbl" text-anchor="start">14,119 chunks</text>
+<rect x="40" y="372" width="680" height="64" rx="9" class="bx"/>
+<text x="52" y="394" class="t" text-anchor="start">is_clean_chunk filter</text>
+<text x="52" y="414" class="s" text-anchor="start">drops chunks under 100 characters or under 40% letters</text>
+<path d="M380 436 V470" class="ln" marker-end="url(#char)"/>
+<text x="390" y="458" class="lbl" text-anchor="start">12,142 kept · average 431 characters</text>
+<rect x="40" y="472" width="680" height="64" rx="9" class="pc"/>
+<text x="52" y="494" class="t" text-anchor="start">embed with bge-base → namespace &#x27;fixed&#x27;</text>
+<text x="52" y="514" class="s" text-anchor="start">12,142 vectors, each with its text</text>
+<rect x="820" y="172" width="700" height="64" rx="9" class="bx"/>
+<text x="832" y="194" class="t" text-anchor="start">split into sentences</text>
+<text x="832" y="214" class="s" text-anchor="start">breaks only where &#x27;.&#x27;, &#x27;?&#x27; or &#x27;!&#x27; meets whitespace: a flattened table stays one “sentence”</text>
+<path d="M1170 236 V270" class="ln" marker-end="url(#char)"/>
+<rect x="820" y="272" width="700" height="64" rx="9" class="bx"/>
+<text x="832" y="294" class="t" text-anchor="start">embed each sentence with its neighbours (bge on the T4)</text>
+<text x="832" y="314" class="s" text-anchor="start">cut where the distance between neighbours is above its 65th percentile</text>
+<path d="M1170 336 V370" class="ln" marker-end="url(#char)"/>
+<text x="1180" y="358" class="lbl" text-anchor="start">3,080 chunks</text>
+<rect x="820" y="372" width="700" height="64" rx="9" class="bx"/>
+<text x="832" y="394" class="t" text-anchor="start">same filter, then split chunks over 8,000 characters</text>
+<text x="832" y="414" class="s" text-anchor="start">2,245 kept (average 2,246) → 2,529 after the split, about 2,000 each</text>
+<path d="M1170 436 V470" class="ln" marker-end="url(#char)"/>
+<rect x="820" y="472" width="700" height="64" rx="9" class="pc"/>
+<text x="832" y="494" class="t" text-anchor="start">embed with bge-base → namespace &#x27;semantic&#x27;</text>
+<text x="832" y="514" class="s" text-anchor="start">2,529 vectors, each with its text</text>
+<text x="20" y="586" class="h" text-anchor="start">WHAT TOP 3 HANDS THE MODEL · three average chunks</text>
+<rect x="40" y="602" width="108" height="26" rx="4" class="nd"/>
+<text x="160" y="620" class="s" text-anchor="start">A · about 1,300 characters</text>
+<rect x="40" y="640" width="500" height="26" rx="4" class="nd"/>
+<text x="552" y="658" class="s" text-anchor="start">B and C · about 6,000 (up to 24,000)</text>
+<rect x="820" y="572" width="700" height="120" rx="9" class="repb"/>
+<text x="832" y="594" class="t" text-anchor="start">Our checks on the same filings</text>
+<text x="832" y="614" class="s" text-anchor="start">the answers are in the fixed index: 19 kept chunks hold “Total net sales” and “391,035”</text>
+<text x="832" y="630" class="s" text-anchor="start">offline re-run of A&#x27;s search: for all 8 figure questions, no chunk with the figure and its</text>
+<text x="832" y="646" class="s" text-anchor="start">label in the top 3 (first at rank 5–137); the top 3 are 10-K prose, not noise</text>
+<text x="832" y="662" class="s" text-anchor="start">bge and FlashRank read 512 tokens: ~2,000 characters of prose, fewer of a table</text>
+  </svg>
+  </div>
+</figure>
+<section id="sequence">
+  <h2><span class="num">7</span>Sequence: one question</h2>
+  <p class="cap"><span class="why">Why here:</span> Then one request through set-up C, call by call, in time order.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 816" role="img" aria-label="Sequence of one question as cell 51 runs set-up C: rag_answer calls retrieve_with_rerank, which embeds the question, queries Pinecone for 10 chunks and has FlashRank score them in one batch, keeping the best 3; rag_answer makes one OpenAI call. Notes cover set-up B and the evaluation loop.">
+<defs><marker id="sqar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="sqarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="sqarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="sqarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="sqarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="sqaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="12" y="24" width="184" height="50" rx="8" class="ep"/>
+<text x="104" y="46" class="t2" text-anchor="middle">cell 51</text>
+<text x="104" y="63" class="m" text-anchor="middle">test answers</text>
+<path d="M104 74 V720" class="life"/>
+<rect x="208" y="24" width="184" height="50" rx="8" class="ep"/>
+<text x="300" y="46" class="t2" text-anchor="middle">rag_answer()</text>
+<text x="300" y="63" class="m" text-anchor="middle">cell 49</text>
+<path d="M300 74 V720" class="life"/>
+<rect x="448" y="24" width="184" height="50" rx="8" class="ep"/>
+<text x="540" y="46" class="t2" text-anchor="middle">retrieve_with_rerank()</text>
+<text x="540" y="63" class="m" text-anchor="middle">cell 43</text>
+<path d="M540 74 V720" class="life"/>
+<rect x="688" y="24" width="184" height="50" rx="8" class="ep"/>
+<text x="780" y="46" class="t2" text-anchor="middle">bge-base</text>
+<text x="780" y="63" class="m" text-anchor="middle">on the T4</text>
+<path d="M780 74 V720" class="life"/>
+<rect x="908" y="24" width="184" height="50" rx="8" class="ep"/>
+<text x="1000" y="46" class="t2" text-anchor="middle">Pinecone</text>
+<text x="1000" y="63" class="m" text-anchor="middle">namespace &#x27;semantic&#x27;</text>
+<path d="M1000 74 V720" class="life"/>
+<rect x="1108" y="24" width="184" height="50" rx="8" class="ep"/>
+<text x="1200" y="46" class="t2" text-anchor="middle">FlashRank</text>
+<text x="1200" y="63" class="m" text-anchor="middle">ONNX, CPU</text>
+<path d="M1200 74 V720" class="life"/>
+<rect x="1328" y="24" width="184" height="50" rx="8" class="ep"/>
+<text x="1420" y="46" class="t2" text-anchor="middle">OpenAI</text>
+<text x="1420" y="63" class="m" text-anchor="middle">gpt-4o-mini</text>
+<path d="M1420 74 V720" class="life"/>
+<rect x="294" y="116" width="12" height="524" class="act"/>
+<rect x="534" y="156" width="12" height="292" class="act"/>
+<path d="M110 116 H294" class="ln" marker-end="url(#sqar)"/>
+<text x="202.0" y="109" class="msg" text-anchor="middle">rag_answer(q, use_reranker=True)</text>
+<path d="M306 156 H534" class="ln" marker-end="url(#sqar)"/>
+<text x="420.0" y="149" class="msg" text-anchor="middle">retrieve_with_rerank(query, 10, 3)</text>
+<path d="M546 196 H774" class="ln" marker-end="url(#sqar)"/>
+<text x="660.0" y="189" class="msg" text-anchor="middle">embed_query(query)</text>
+<path d="M774 220 H546" class="ret" marker-end="url(#sqaro)"/>
+<text x="660.0" y="213" class="lbl" text-anchor="middle">768 numbers</text>
+<path d="M546 256 H994" class="ln" marker-end="url(#sqar)"/>
+<text x="770.0" y="249" class="msg" text-anchor="middle">query(namespace &#x27;semantic&#x27;, top_k 10)</text>
+<path d="M994 282 H546" class="ret" marker-end="url(#sqaro)"/>
+<text x="770.0" y="275" class="lbl" text-anchor="middle">10 matches: text + source</text>
+<path d="M546 322 H1194" class="ln" marker-end="url(#sqar)"/>
+<text x="870.0" y="315" class="msg" text-anchor="middle">rerank(RerankRequest(query, 10 passages))</text>
+<path d="M1206 340 H1246 V356 H1208" class="ln" marker-end="url(#sqar)"/>
+<text x="1254" y="352" class="msg" text-anchor="start">one batch of 10 pairs</text>
+<text x="1254" y="384" class="lbs" text-anchor="start">512 tokens each, sorted</text>
+<path d="M1194 404 H546" class="ret" marker-end="url(#sqaro)"/>
+<text x="870.0" y="397" class="lbl" text-anchor="middle">10 results, best score first</text>
+<path d="M546 420 H586 V436 H548" class="ln" marker-end="url(#sqar)"/>
+<text x="594" y="432" class="msg" text-anchor="start">keep the top 3; metadata[&#x27;rerank_score&#x27;] = score</text>
+<path d="M534 466 H306" class="ret" marker-end="url(#sqaro)"/>
+<text x="420.0" y="459" class="lbl" text-anchor="middle">3 Documents</text>
+<path d="M306 492 H346 V508 H308" class="ln" marker-end="url(#sqar)"/>
+<text x="354" y="504" class="msg" text-anchor="start">format_context: join the 3 texts with &#x27;---&#x27;</text>
+<path d="M306 552 H1414" class="ln" marker-end="url(#sqar)"/>
+<text x="860.0" y="545" class="msg" text-anchor="middle">one user message: rules + 3 chunks + question</text>
+<rect x="1440" y="539" width="20.6" height="19" rx="9.5" class="llm"/>
+<text x="1450.3" y="553" class="llmt" text-anchor="middle">1</text>
+<path d="M1414 580 H306" class="ret" marker-end="url(#sqaro)"/>
+<text x="860.0" y="573" class="lbl" text-anchor="middle">the answer, plain text</text>
+<path d="M294 636 H110" class="ret" marker-end="url(#sqaro)"/>
+<text x="202.0" y="629" class="lbl" text-anchor="middle">{answer, sources}</text>
+<text x="1500" y="742" class="lbs" text-anchor="end">use_reranker=False would call retrieve_no_rerank(query, k=3) instead (set-up B&#x27;s retrieval); no cell does.</text>
+<text x="1500" y="758" class="lbs" text-anchor="end">Cell 55 never calls rag_answer: it repeats these steps inline for A (retrieve_fixed, k=3, namespace &#x27;fixed&#x27;),</text>
+<text x="1500" y="774" class="lbs" text-anchor="end">B (retrieve_no_rerank, k=3) and C (retrieve_with_rerank, 10 → 3), then the same prompt and model.</text>
+<text x="1500" y="802" class="m" text-anchor="end">solid arrow: a call · dashed, open arrow: its reply · numbers: LLM calls</text>
+  </svg>
+  </div>
+</figure>
+<section id="prompts">
+  <h2><span class="num">8</span>Context assembly</h2>
+  <p class="cap"><span class="why">Why here:</span> Then exactly what the generator and the judge are sent.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 544" role="img" aria-label="Context assembly: the generator gets one user message with the rules, three chunks and the question; the RAGAS judge gets the question, answer, contexts and reference, and makes about six calls per row (five if an answer yields no statements).">
+<defs><marker id="paar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="paarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="paarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="paarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="paarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="paaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<text x="20" y="28" class="h" text-anchor="start">GENERATOR · cells 49 and 55 · one call per question and set-up</text>
+<rect x="20" y="44" width="740" height="260" rx="9" class="humb"/>
+<text x="36" y="66" class="rl" text-anchor="start">USER MESSAGE · the only message: from_template has no system part · line breaks added to fit</text>
+<text x="36" y="92" class="pm" text-anchor="start">You are a financial analyst assistant. Answer the question</text>
+<text x="36" y="109" class="pm" text-anchor="start">using ONLY the context provided below.</text>
+<text x="36" y="126" class="pm" text-anchor="start">If the context does not contain enough information to answer,</text>
+<text x="36" y="143" class="pm" text-anchor="start">say &quot;I don&#x27;t have enough context to answer this.&quot;</text>
+<text x="36" y="160" class="pm" text-anchor="start">Always cite specific numbers and figures when available.</text>
+<text x="36" y="177" class="pm" text-anchor="start"></text>
+<text x="36" y="194" class="pm" text-anchor="start">Context:</text>
+<text x="36" y="211" class="pm" text-anchor="start">{context}</text>
+<text x="36" y="228" class="pm" text-anchor="start"></text>
+<text x="36" y="245" class="pm" text-anchor="start">Question: {question}</text>
+<text x="36" y="262" class="pm" text-anchor="start"></text>
+<text x="36" y="279" class="pm" text-anchor="start">Answer:</text>
+<text x="380" y="211" class="lbs" text-anchor="start">← the 3 chunk texts, joined by a &#x27;---&#x27; line</text>
+<rect x="20" y="320" width="740" height="104" rx="9" class="nt"/>
+<text x="32" y="342" class="t" text-anchor="start">What {context} carries</text>
+<text x="32" y="362" class="s" text-anchor="start">A: three fixed-size chunks, about 1,300 characters · B and C: three semantic chunks, about 6,000</text>
+<text x="32" y="378" class="s" text-anchor="start">no filing, year or page label is added; a source shows only if a page footer falls inside the chunk</text>
+<text x="32" y="394" class="s" text-anchor="start">gpt-4o-mini · temperature 0 · StrOutputParser → the answer text</text>
+<text x="800" y="28" class="h" text-anchor="start">RAGAS JUDGE · cell 57 · per question and set-up</text>
+<rect x="800" y="44" width="740" height="70" rx="9" class="repb"/>
+<text x="812" y="66" class="t" text-anchor="start">Each row the judge sees</text>
+<text x="812" y="86" class="s" text-anchor="start">question · answer · contexts (the 3 chunk texts) · ground_truth</text>
+<rect x="800" y="130" width="740" height="88" rx="9" class="sysb"/>
+<text x="812" y="152" class="t" text-anchor="start">Faithfulness · 2 calls</text>
+<text x="812" y="172" class="s" text-anchor="start">call 1: split the answer into statements</text>
+<text x="812" y="188" class="s" text-anchor="start">call 2: is each statement supported by the contexts?</text>
+<text x="1528" y="208" class="tag" text-anchor="end">supported ÷ all statements</text>
+<rect x="800" y="232" width="740" height="88" rx="9" class="sysb"/>
+<text x="812" y="254" class="t" text-anchor="start">Context precision · 1 call per chunk</text>
+<text x="812" y="274" class="s" text-anchor="start">was this chunk useful for reaching the reference answer?</text>
+<text x="812" y="290" class="s" text-anchor="start">useful chunks ranked early count more</text>
+<text x="1528" y="310" class="tag" text-anchor="end">rank-weighted precision</text>
+<rect x="800" y="334" width="740" height="88" rx="9" class="sysb"/>
+<text x="812" y="356" class="t" text-anchor="start">Context recall · 1 call</text>
+<text x="812" y="376" class="s" text-anchor="start">which statements of the reference can be found</text>
+<text x="812" y="392" class="s" text-anchor="start">in the contexts?</text>
+<text x="1528" y="412" class="tag" text-anchor="end">found ÷ all statements</text>
+<rect x="800" y="436" width="740" height="88" rx="9" class="nt"/>
+<text x="812" y="458" class="t" text-anchor="start">The judge</text>
+<text x="812" y="478" class="s" text-anchor="start">gpt-4o-mini, temperature 0.01 (set by RAGAS): the generator&#x27;s own model</text>
+<text x="812" y="494" class="s" text-anchor="start">about 6 calls per row (5 if an answer yields no statements) · 10 rows per set-up · 3 set-ups</text>
+<text x="812" y="510" class="s" text-anchor="start">text-embedding-3-small is created but attached to none of them: no embeddings field</text>
+  </svg>
+  </div>
+</figure>
+<section id="threats">
+  <h2><span class="num">9</span>Threat model</h2>
+  <p class="cap"><span class="why">Why here:</span> With all of that drawn: where it could be attacked, and what protects it today.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 744" role="img" aria-label="Threat model: trust boundaries between the browser, the Colab runtime and third-party services; ten STRIDE threats, from unpinned packages to OpenAI calls with no budget or rate limit, each marked on the part it affects.">
+<defs><marker id="tmar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="tmarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="tmarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="tmarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="tmarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="tmaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="226" y="40" width="486" height="660" rx="12" class="tb"/>
+<text x="242" y="62" class="tbt" text-anchor="start">TB2 · Google Colab runtime</text>
+<rect x="760" y="40" width="244" height="660" rx="12" class="tb"/>
+<text x="776" y="62" class="tbt" text-anchor="start">TB3 · third-party services</text>
+<path d="M206 40 V730" class="tbl"/>
+<text x="200" y="56" class="tbt" text-anchor="end">TB1</text>
+<text x="200" y="72" class="lbs" text-anchor="end">browser</text>
+<circle cx="70" cy="124" r="13" class="pa"/>
+<path d="M46 172 Q46 142 70 142 Q94 142 94 172 Z" class="pa"/>
+<text x="70" y="192" class="t" text-anchor="middle">Notebook user</text>
+<text x="70" y="209" class="s" text-anchor="middle">in a browser</text>
+<rect x="246" y="90" width="446" height="160" rx="9" class="nd"/>
+<text x="258" y="112" class="t" text-anchor="start">Notebook kernel</text>
+<text x="258" y="132" class="s" text-anchor="start">59 cells; filing text and questions go into prompts;</text>
+<text x="258" y="148" class="s" text-anchor="start">filing text into Pinecone, questions only as query</text>
+<text x="258" y="164" class="s" text-anchor="start">vectors; answers only printed in the notebook</text>
+<rect x="656" y="227" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="240" class="wbt" text-anchor="middle">T8</text>
+<rect x="622" y="227" width="32" height="18" rx="9" class="wb"/>
+<text x="638" y="240" class="wbt" text-anchor="middle">T7</text>
+<rect x="588" y="227" width="32" height="18" rx="9" class="wb"/>
+<text x="604" y="240" class="wbt" text-anchor="middle">T3</text>
+<rect x="246" y="280" width="200" height="80" rx="9" class="cf"/>
+<text x="258" y="302" class="t" text-anchor="start">Colab Secrets</text>
+<text x="258" y="322" class="s" text-anchor="start">3 API keys</text>
+<rect x="410" y="337" width="32" height="18" rx="9" class="wb"/>
+<text x="426" y="350" class="wbt" text-anchor="middle">T9</text>
+<rect x="486" y="280" width="206" height="80" rx="9" class="dt"/>
+<text x="498" y="302" class="t" text-anchor="start">Disk</text>
+<text x="498" y="322" class="s" text-anchor="start">sec-edgar-filings/</text>
+<text x="498" y="338" class="s" text-anchor="start">no checksums</text>
+<rect x="656" y="337" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="350" class="wbt" text-anchor="middle">T2</text>
+<rect x="246" y="390" width="446" height="84" rx="9" class="bx"/>
+<text x="258" y="412" class="t" text-anchor="start">Local models</text>
+<text x="258" y="432" class="s" text-anchor="start">bge-base (PyTorch) · FlashRank (ONNX)</text>
+<text x="258" y="448" class="s" text-anchor="start">no pinned revision</text>
+<rect x="656" y="451" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="464" class="wbt" text-anchor="middle">T1</text>
+<rect x="246" y="500" width="446" height="70" rx="9" class="bx"/>
+<text x="258" y="522" class="t" text-anchor="start">Installed packages</text>
+<text x="258" y="542" class="s" text-anchor="start">15 packages via pip, no versions</text>
+<rect x="656" y="547" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="560" class="wbt" text-anchor="middle">T1</text>
+<rect x="780" y="90" width="204" height="96" rx="9" class="ex"/>
+<text x="792" y="112" class="t" text-anchor="start">OpenAI API</text>
+<text x="792" y="132" class="s" text-anchor="start">questions + chunk text,</text>
+<text x="792" y="148" class="s" text-anchor="start">twice: answer and judge</text>
+<rect x="948" y="163" width="32" height="18" rx="9" class="wb"/>
+<text x="964" y="176" class="wbt" text-anchor="middle">T10</text>
+<rect x="914" y="163" width="32" height="18" rx="9" class="wb"/>
+<text x="930" y="176" class="wbt" text-anchor="middle">T3</text>
+<rect x="780" y="200" width="204" height="90" rx="9" class="ex"/>
+<text x="792" y="222" class="t" text-anchor="start">Pinecone</text>
+<text x="792" y="242" class="s" text-anchor="start">stores chunk text</text>
+<text x="792" y="258" class="s" text-anchor="start">delete_all on upload</text>
+<rect x="948" y="267" width="32" height="18" rx="9" class="wb"/>
+<text x="964" y="280" class="wbt" text-anchor="middle">T5</text>
+<rect x="914" y="267" width="32" height="18" rx="9" class="wb"/>
+<text x="930" y="280" class="wbt" text-anchor="middle">T3</text>
+<rect x="780" y="306" width="204" height="70" rx="9" class="ex"/>
+<text x="792" y="328" class="t" text-anchor="start">SEC EDGAR</text>
+<text x="792" y="348" class="s" text-anchor="start">a made-up contact email</text>
+<rect x="948" y="353" width="32" height="18" rx="9" class="wb"/>
+<text x="964" y="366" class="wbt" text-anchor="middle">T6</text>
+<rect x="780" y="392" width="204" height="70" rx="9" class="ex"/>
+<text x="792" y="414" class="t" text-anchor="start">Hugging Face Hub</text>
+<text x="792" y="434" class="s" text-anchor="start">model downloads</text>
+<rect x="948" y="439" width="32" height="18" rx="9" class="wb"/>
+<text x="964" y="452" class="wbt" text-anchor="middle">T1</text>
+<rect x="780" y="478" width="204" height="70" rx="9" class="ex"/>
+<text x="792" y="500" class="t" text-anchor="start">PyPI</text>
+<text x="792" y="520" class="s" text-anchor="start">packages at every start</text>
+<rect x="948" y="525" width="32" height="18" rx="9" class="wb"/>
+<text x="964" y="538" class="wbt" text-anchor="middle">T1</text>
+<rect x="780" y="584" width="204" height="84" rx="9" class="ex"/>
+<text x="792" y="606" class="t" text-anchor="start">GitHub repository</text>
+<text x="792" y="626" class="s" text-anchor="start">notebook committed</text>
+<text x="792" y="642" class="s" text-anchor="start">with its outputs</text>
+<rect x="948" y="645" width="32" height="18" rx="9" class="wb"/>
+<text x="964" y="658" class="wbt" text-anchor="middle">T4</text>
+<path d="M110 130 H244" class="ln" marker-end="url(#tmar)"/>
+<text x="200" y="122" class="lbs" text-anchor="end">runs cells,</text>
+<text x="200" y="146" class="lbs" text-anchor="end">questions</text>
+<path d="M244 200 H110" class="ln" marker-end="url(#tmar)"/>
+<text x="200" y="216" class="lbs" text-anchor="end">answers, outputs</text>
+<path d="M694 115 H778" class="lnr" marker-end="url(#tmarr)"/>
+<text x="736" y="108" class="lbs" text-anchor="middle">prompts</text>
+<path d="M778 150 H694" class="lnr" marker-end="url(#tmarr)"/>
+<text x="736" y="143" class="lbs" text-anchor="middle">answers</text>
+<path d="M694 215 H778" class="lnr" marker-end="url(#tmarr)"/>
+<text x="736" y="208" class="lbs" text-anchor="middle">upsert</text>
+<path d="M778 245 H694" class="lnr" marker-end="url(#tmarr)"/>
+<text x="736" y="238" class="lbs" text-anchor="middle">chunks</text>
+<path d="M778 330 H694" class="lnr" marker-end="url(#tmarr)"/>
+<text x="736" y="323" class="lbs" text-anchor="middle">filings</text>
+<path d="M778 425 H694" class="lnr" marker-end="url(#tmarr)"/>
+<text x="736" y="418" class="lbs" text-anchor="middle">weights</text>
+<path d="M778 520 H694" class="lnr" marker-end="url(#tmarr)"/>
+<text x="736" y="513" class="lbs" text-anchor="middle">packages</text>
+<path d="M70 212 V722 H880 V670" class="lnr" marker-end="url(#tmarr)"/>
+<text x="470" y="716" class="lbs" text-anchor="middle">the notebook, with outputs, committed to git</text>
+<rect x="260" y="580" width="420" height="34" rx="8" class="nt"/>
+<text x="272" y="596" class="m" text-anchor="start">Red arrows: data crossing TB3, to or from a third party</text>
+<text x="272" y="609" class="m" text-anchor="start">TB1 browser → Colab · TB2 Google&#x27;s runtime · TB3 outside services</text>
+<rect x="1040" y="40" width="500" height="660" rx="12" class="nt"/>
+<text x="1056" y="64" class="t2" text-anchor="start">Threats (STRIDE) and what the notebook does today</text>
+<rect x="1054" y="79" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="92" class="wbt" text-anchor="middle">T1</text>
+<text x="1096" y="92" class="t3" text-anchor="start">Tampering · supply chain</text>
+<text x="1096" y="107" class="m" text-anchor="start">15 packages installed unpinned at every start; models pulled</text>
+<text x="1096" y="121" class="m" text-anchor="start">with no pinned revision, FlashRank&#x27;s from its author&#x27;s repo.</text>
+<text x="1096" y="135" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="141" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="154" class="wbt" text-anchor="middle">T2</text>
+<text x="1096" y="154" class="t3" text-anchor="start">Tampering · data integrity</text>
+<text x="1096" y="169" class="m" text-anchor="start">limit=2 fetches whatever is latest; filings are neither pinned</text>
+<text x="1096" y="183" class="m" text-anchor="start">nor checksummed, so the corpus can change between runs.</text>
+<text x="1096" y="197" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="203" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="216" class="wbt" text-anchor="middle">T3</text>
+<text x="1096" y="216" class="t3" text-anchor="start">Information disclosure · third parties</text>
+<text x="1096" y="231" class="m" text-anchor="start">Chunk text and questions go to OpenAI; chunk text is stored</text>
+<text x="1096" y="245" class="m" text-anchor="start">in Pinecone (AWS us-east-1): fine for 10-Ks, not for loan files.</text>
+<text x="1096" y="259" class="mi" text-anchor="start">today: public data only</text>
+<rect x="1054" y="265" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="278" class="wbt" text-anchor="middle">T4</text>
+<text x="1096" y="278" class="t3" text-anchor="start">Information disclosure · committed outputs</text>
+<text x="1096" y="293" class="m" text-anchor="start">Outputs with filing text and answers are committed;</text>
+<text x="1096" y="307" class="m" text-anchor="start">with client documents that leaks into the git history.</text>
+<text x="1096" y="321" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="327" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="340" class="wbt" text-anchor="middle">T5</text>
+<text x="1096" y="340" class="t3" text-anchor="start">Tampering · index control</text>
+<text x="1096" y="355" class="m" text-anchor="start">Every upload runs delete_all on a namespace; anyone with</text>
+<text x="1096" y="369" class="m" text-anchor="start">the Pinecone key can wipe or alter the experiment&#x27;s data.</text>
+<text x="1096" y="383" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="389" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="402" class="wbt" text-anchor="middle">T6</text>
+<text x="1096" y="402" class="t3" text-anchor="start">Denial of service · blocked by EDGAR</text>
+<text x="1096" y="417" class="m" text-anchor="start">The downloader declares test@example.com; EDGAR&#x27;s fair-</text>
+<text x="1096" y="431" class="m" text-anchor="start">access policy asks for a real contact and may block the IP.</text>
+<text x="1096" y="445" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="451" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="464" class="wbt" text-anchor="middle">T7</text>
+<text x="1096" y="464" class="t3" text-anchor="start">Tampering · prompt injection</text>
+<text x="1096" y="479" class="m" text-anchor="start">Filing text, including JSON and viewer-page script, is pasted</text>
+<text x="1096" y="493" class="m" text-anchor="start">into the prompt: low risk for 10-Ks, real for customer files.</text>
+<text x="1096" y="507" class="mi" text-anchor="start">today: the “ONLY the context” rule</text>
+<rect x="1054" y="513" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="526" class="wbt" text-anchor="middle">T8</text>
+<text x="1096" y="526" class="t3" text-anchor="start">Repudiation · no audit trail</text>
+<text x="1096" y="541" class="m" text-anchor="start">Questions, chunks and answers are only printed; nothing</text>
+<text x="1096" y="555" class="m" text-anchor="start">records who asked what, or which filings answered.</text>
+<text x="1096" y="569" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="575" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="588" class="wbt" text-anchor="middle">T9</text>
+<text x="1096" y="588" class="t3" text-anchor="start">Information disclosure · secrets</text>
+<text x="1096" y="603" class="m" text-anchor="start">Cell 8 copies 3 keys into os.environ, readable by any of the</text>
+<text x="1096" y="617" class="m" text-anchor="start">15 unpinned packages (T1); the HF token goes where nothing reads.</text>
+<text x="1096" y="631" class="mi" text-anchor="start">today: Colab Secrets</text>
+<rect x="1054" y="637" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="650" class="wbt" text-anchor="middle">T10</text>
+<text x="1096" y="650" class="t3" text-anchor="start">Denial of service · cost</text>
+<text x="1096" y="665" class="m" text-anchor="start">No budget or rate limit; the notebook sets no generator timeout;</text>
+<text x="1096" y="679" class="m" text-anchor="start">the judge makes ~180 calls, up to 10 attempts each on rate limits.</text>
+<text x="1096" y="693" class="mi" text-anchor="start">today: RAGAS&#x27;s 180 s judge timeout</text>
+  </svg>
+  </div>
+</figure>
+<section id="evaluation">
+  <h2><span class="num">10</span>The comparison: A, B and C</h2>
+  <p class="cap"><span class="why">Why here:</span> Then what the three set-ups change, and what the scores can show.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 446" role="img" aria-label="The comparison: ten questions run through set-ups A, B and C with the same prompt and model, scored by RAGAS; what changes between set-ups, what is not measured, and what our offline checks found.">
+<defs><marker id="evar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="evarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="evarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="evarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="evarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="evaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="14" y="40" width="290" height="150" rx="9" class="dt"/>
+<text x="26" y="62" class="t" text-anchor="start">eval_dataset · 10 questions</text>
+<text x="26" y="82" class="s" text-anchor="start">8 reported FY2024 figures</text>
+<text x="26" y="98" class="s" text-anchor="start">2 narrative: supply chain,</text>
+<text x="26" y="114" class="s" text-anchor="start">gross margin</text>
+<text x="26" y="130" class="s" text-anchor="start">reference answers, no source</text>
+<text x="292" y="180" class="tag" text-anchor="end">cell 53</text>
+<rect x="350" y="30" width="290" height="62" rx="9" class="ep"/>
+<text x="362" y="52" class="t" text-anchor="start">A · fixed, top 3</text>
+<text x="362" y="72" class="s" text-anchor="start">retrieve_fixed(q, k=3)</text>
+<rect x="350" y="102" width="290" height="62" rx="9" class="ep"/>
+<text x="362" y="124" class="t" text-anchor="start">B · semantic, top 3</text>
+<text x="362" y="144" class="s" text-anchor="start">retrieve_no_rerank(q, k=3)</text>
+<rect x="350" y="174" width="290" height="62" rx="9" class="ep"/>
+<text x="362" y="196" class="t" text-anchor="start">C · semantic, top 10 → best 3</text>
+<text x="362" y="216" class="s" text-anchor="start">retrieve_with_rerank(q, 10, 3)</text>
+<path d="M304 115 H327 V61 H348" class="ln" marker-end="url(#evar)"/>
+<path d="M304 115 H327 V133 H348" class="ln" marker-end="url(#evar)"/>
+<path d="M304 115 H327 V205 H348" class="ln" marker-end="url(#evar)"/>
+<rect x="690" y="70" width="240" height="130" rx="9" class="nd"/>
+<text x="702" y="92" class="t" text-anchor="start">Same prompt and model</text>
+<text x="702" y="112" class="s" text-anchor="start">gpt-4o-mini, temperature 0</text>
+<text x="702" y="128" class="s" text-anchor="start">3 lists × 10 rows:</text>
+<text x="702" y="144" class="s" text-anchor="start">question, answer,</text>
+<text x="702" y="160" class="s" text-anchor="start">contexts, ground_truth</text>
+<path d="M640 61 H665 V135 H688" class="ln" marker-end="url(#evar)"/>
+<path d="M640 133 H665 V135 H688" class="ln" marker-end="url(#evar)"/>
+<path d="M640 205 H665 V135 H688" class="ln" marker-end="url(#evar)"/>
+<rect x="970" y="70" width="230" height="130" rx="9" class="nd"/>
+<text x="982" y="92" class="t" text-anchor="start">RAGAS evaluate()</text>
+<text x="982" y="112" class="s" text-anchor="start">judge: gpt-4o-mini</text>
+<text x="982" y="128" class="s" text-anchor="start">faithfulness · context</text>
+<text x="982" y="144" class="s" text-anchor="start">precision · context recall</text>
+<text x="982" y="160" class="s" text-anchor="start">about 6 calls a row</text>
+<text x="1188" y="190" class="tag" text-anchor="end">cell 57</text>
+<path d="M930 135 H968" class="ln" marker-end="url(#evar)"/>
+<path d="M1200 135 H1238" class="ln" marker-end="url(#evar)"/>
+<rect x="1240" y="40" width="300" height="190" rx="9" class="repb"/>
+<text x="1252" y="62" class="t2" text-anchor="start">Results · cell 59, one run</text>
+<text x="1252" y="92" class="t3" text-anchor="start"></text>
+<text x="1412" y="92" class="t3" text-anchor="middle">A</text>
+<text x="1464" y="92" class="t3" text-anchor="middle">B</text>
+<text x="1516" y="92" class="t3" text-anchor="middle">C</text>
+<text x="1252" y="124" class="t3" text-anchor="start">Faithfulness</text>
+<text x="1412" y="124" class="s" text-anchor="middle">0.75</text>
+<text x="1464" y="124" class="s" text-anchor="middle">1.000</text>
+<text x="1516" y="124" class="s" text-anchor="middle">0.988</text>
+<text x="1252" y="156" class="t3" text-anchor="start">Context precision</text>
+<text x="1412" y="156" class="s" text-anchor="middle">0.00</text>
+<text x="1464" y="156" class="s" text-anchor="middle">0.725</text>
+<text x="1516" y="156" class="s" text-anchor="middle">0.950</text>
+<text x="1252" y="188" class="t3" text-anchor="start">Context recall</text>
+<text x="1412" y="188" class="s" text-anchor="middle">0.00</text>
+<text x="1464" y="188" class="s" text-anchor="middle">0.775</text>
+<text x="1516" y="188" class="s" text-anchor="middle">1.000</text>
+<rect x="14" y="260" width="500" height="166" rx="9" class="nt"/>
+<text x="26" y="282" class="t" text-anchor="start">What changes between set-ups</text>
+<text x="26" y="302" class="s" text-anchor="start">A → B: boundaries; size (431 against about 2,000 characters);</text>
+<text x="26" y="318" class="s" text-anchor="start">text handed to the model (~1,300 against ~6,000); which text</text>
+<text x="26" y="334" class="s" text-anchor="start">the filter drops; how much of each chunk bge&#x27;s 512 tokens see</text>
+<text x="26" y="350" class="s" text-anchor="start">B → C: the reranker only (top 10 → best 3)</text>
+<text x="26" y="366" class="s" text-anchor="start">so only B → C isolates one change</text>
+<rect x="534" y="260" width="500" height="166" rx="9" class="nt"/>
+<text x="546" y="282" class="t" text-anchor="start">Not measured</text>
+<text x="546" y="302" class="s" text-anchor="start">spread over repeated runs · per-question results (computed,</text>
+<text x="546" y="317" class="s" text-anchor="start">not shown) · answer correctness (nothing scores it)</text>
+<text x="546" y="332" class="s" text-anchor="start">whether the expected section was retrieved</text>
+<text x="546" y="347" class="s" text-anchor="start">exact match for the figures · latency and cost</text>
+<text x="546" y="362" class="s" text-anchor="start">FY2025, cross-year, calculation or unanswerable questions</text>
+<text x="546" y="377" class="s" text-anchor="start">a judge from another model family</text>
+<rect x="1054" y="260" width="486" height="166" rx="9" class="repb"/>
+<text x="1066" y="282" class="t" text-anchor="start">Our offline checks</text>
+<text x="1066" y="302" class="s" text-anchor="start">counts reproduce exactly (whole text): 14,119 → 12,142, avg 431</text>
+<text x="1066" y="318" class="s" text-anchor="start">the answers are in the fixed index with their row labels</text>
+<text x="1066" y="334" class="s" text-anchor="start">offline re-run of A&#x27;s search: no figure + label in any top 3</text>
+<text x="1066" y="350" class="s" text-anchor="start">(first at rank 5–137); the top 3 are 10-K prose, not noise</text>
+<text x="1066" y="366" class="s" text-anchor="start">so for the 8 figure questions, A&#x27;s 0.00 is a ranking failure</text>
+  </svg>
+  </div>
+</figure>
+<section id="recommended">
+  <h2><span class="num">11</span>The recommended architecture</h2>
+  <p class="cap"><span class="why">Why here:</span> Finally: the design an FDE would build, with the 2.5 decision each numbered part answers.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 716" role="img" aria-label="The recommended architecture: pinned 10-K documents parsed with tables intact, chunked with metadata and embedded into a versioned store in the bank&#x27;s cloud; a router sends figure questions to an XBRL lookup and narrative questions through retrieval, reranking and a pinned generator that cites its sources; governance and evaluation run alongside.">
+<defs><marker id="rcar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="rcarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="rcarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="rcarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="rcarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="rcaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<text x="20" y="28" class="h" text-anchor="start">WHAT AN FDE WOULD BUILD · the number in a corner is the 2.5 decision that part answers</text>
+<text x="20" y="52" class="rl" text-anchor="start">INGEST, ONCE PER PINNED FILING SET</text>
+<rect x="20" y="70" width="200" height="120" rx="9" class="ex"/>
+<text x="32" y="92" class="t" text-anchor="start">EDGAR filings</text>
+<text x="32" y="112" class="s" text-anchor="start">pinned by accession</text>
+<text x="32" y="128" class="s" text-anchor="start">number; the 10-K</text>
+<text x="32" y="144" class="s" text-anchor="start">document only</text>
+<text x="208" y="180" class="tag" text-anchor="end">2, 3</text>
+<rect x="250" y="70" width="210" height="120" rx="9" class="nd"/>
+<text x="262" y="92" class="t" text-anchor="start">Table-aware parser</text>
+<text x="262" y="112" class="s" text-anchor="start">rows keep their</text>
+<text x="262" y="128" class="s" text-anchor="start">column headers and</text>
+<text x="262" y="144" class="s" text-anchor="start">the table title</text>
+<text x="448" y="180" class="tag" text-anchor="end">4, 6</text>
+<rect x="490" y="70" width="230" height="120" rx="9" class="nd"/>
+<text x="502" y="92" class="t" text-anchor="start">Chunks + metadata</text>
+<text x="502" y="112" class="s" text-anchor="start">company, form, fiscal</text>
+<text x="502" y="128" class="s" text-anchor="start">year, section, page,</text>
+<text x="502" y="144" class="s" text-anchor="start">column period;</text>
+<text x="502" y="160" class="s" text-anchor="start">splitter: the comparison&#x27;s pick</text>
+<text x="708" y="180" class="tag" text-anchor="end">9</text>
+<rect x="750" y="70" width="220" height="120" rx="9" class="nd"/>
+<text x="762" y="92" class="t" text-anchor="start">Embed</text>
+<text x="762" y="112" class="s" text-anchor="start">bge; chunks inside</text>
+<text x="762" y="128" class="s" text-anchor="start">512 tokens; query</text>
+<text x="762" y="144" class="s" text-anchor="start">instruction if it</text>
+<text x="762" y="160" class="s" text-anchor="start">measures better</text>
+<text x="958" y="180" class="tag" text-anchor="end">7</text>
+<rect x="1000" y="70" width="250" height="120" rx="9" class="dt"/>
+<text x="1012" y="92" class="t" text-anchor="start">Vector store</text>
+<text x="1012" y="112" class="s" text-anchor="start">inside the bank&#x27;s cloud;</text>
+<text x="1012" y="128" class="s" text-anchor="start">versioned index per</text>
+<text x="1012" y="144" class="s" text-anchor="start">filing set</text>
+<text x="1238" y="180" class="tag" text-anchor="end">8</text>
+<path d="M222 130 H248" class="ln" marker-end="url(#rcar)"/>
+<path d="M462 130 H488" class="ln" marker-end="url(#rcar)"/>
+<path d="M722 130 H748" class="ln" marker-end="url(#rcar)"/>
+<path d="M972 130 H998" class="ln" marker-end="url(#rcar)"/>
+<rect x="1280" y="70" width="260" height="120" rx="9" class="nt"/>
+<text x="1292" y="92" class="t" text-anchor="start">Governance</text>
+<text x="1292" y="112" class="s" text-anchor="start">MRM validation, AI governance</text>
+<text x="1292" y="128" class="s" text-anchor="start">and vendor approvals;</text>
+<text x="1292" y="144" class="s" text-anchor="start">loan or claims files: OCR,</text>
+<text x="1292" y="160" class="s" text-anchor="start">redaction, access control first</text>
+<text x="1528" y="180" class="tag" text-anchor="end">1</text>
+<text x="20" y="252" class="rl" text-anchor="start">ANSWER A QUESTION</text>
+<path d="M1060 192 V262 H480 V288" class="ln" marker-end="url(#rcar)"/>
+<text x="770" y="256" class="lbl" text-anchor="middle">chunks for the asked fiscal year</text>
+<circle cx="60" cy="344" r="13" class="pa"/>
+<path d="M36 392 Q36 362 60 362 Q84 362 84 392 Z" class="pa"/>
+<text x="60" y="412" class="t" text-anchor="middle">Analyst</text>
+<text x="60" y="429" class="s" text-anchor="middle">signed in</text>
+<rect x="120" y="320" width="200" height="120" rx="9" class="nd"/>
+<text x="132" y="342" class="t" text-anchor="start">Question router</text>
+<text x="132" y="362" class="s" text-anchor="start">figures → XBRL lookup</text>
+<text x="132" y="378" class="s" text-anchor="start">narrative → retrieve</text>
+<text x="308" y="430" class="tag" text-anchor="end">14</text>
+<path d="M86 375 H118" class="ln" marker-end="url(#rcar)"/>
+<rect x="360" y="290" width="240" height="90" rx="9" class="nd"/>
+<text x="372" y="312" class="t" text-anchor="start">Retrieve</text>
+<text x="372" y="332" class="s" text-anchor="start">filter by fiscal year</text>
+<text x="372" y="348" class="s" text-anchor="start">(as-reported or latest);</text>
+<text x="372" y="364" class="s" text-anchor="start">fixed character budget</text>
+<text x="588" y="370" class="tag" text-anchor="end">9, 10</text>
+<rect x="640" y="290" width="210" height="90" rx="9" class="nd"/>
+<text x="652" y="312" class="t" text-anchor="start">Rerank</text>
+<text x="652" y="332" class="s" text-anchor="start">a window that fits</text>
+<text x="652" y="348" class="s" text-anchor="start">the chunk length</text>
+<text x="838" y="370" class="tag" text-anchor="end">11</text>
+<rect x="890" y="290" width="240" height="90" rx="9" class="nd"/>
+<text x="902" y="312" class="t" text-anchor="start">Generate</text>
+<text x="902" y="332" class="s" text-anchor="start">pinned model snapshot;</text>
+<text x="902" y="348" class="s" text-anchor="start">cites filing, year, page</text>
+<text x="1118" y="370" class="tag" text-anchor="end">12, 13</text>
+<rect x="360" y="430" width="240" height="80" rx="9" class="nd"/>
+<text x="372" y="452" class="t" text-anchor="start">XBRL lookup</text>
+<text x="372" y="472" class="s" text-anchor="start">concept, period and</text>
+<text x="372" y="488" class="s" text-anchor="start">dimension from the filing</text>
+<text x="588" y="500" class="tag" text-anchor="end">14</text>
+<rect x="1170" y="290" width="260" height="220" rx="9" class="nd"/>
+<text x="1182" y="312" class="t" text-anchor="start">Answer</text>
+<text x="1182" y="332" class="s" text-anchor="start">a figure with its tagged</text>
+<text x="1182" y="348" class="s" text-anchor="start">source, or narrative</text>
+<text x="1182" y="364" class="s" text-anchor="start">text with citations,</text>
+<text x="1182" y="380" class="s" text-anchor="start">or “not in the filings”</text>
+<path d="M322 350 H340 V335 H358" class="ln" marker-end="url(#rcar)"/>
+<path d="M322 410 H340 V470 H358" class="ln" marker-end="url(#rcar)"/>
+<path d="M602 335 H638" class="ln" marker-end="url(#rcar)"/>
+<path d="M852 335 H888" class="ln" marker-end="url(#rcar)"/>
+<path d="M1132 335 H1168" class="ln" marker-end="url(#rcar)"/>
+<path d="M602 470 H1168" class="ln" marker-end="url(#rcar)"/>
+<path d="M1432 400 H1472" class="ln" marker-end="url(#rcar)"/>
+<circle cx="1500" cy="386" r="13" class="pa"/>
+<path d="M1476 434 Q1476 404 1500 404 Q1524 404 1524 434 Z" class="pa"/>
+<text x="1500" y="454" class="t" text-anchor="middle">Analyst</text>
+<text x="1500" y="471" class="s" text-anchor="middle">same person</text>
+<rect x="360" y="540" width="240" height="48" rx="9" class="dt"/>
+<text x="372" y="562" class="t" text-anchor="start">XBRL fact table</text>
+<text x="588" y="578" class="tag" text-anchor="end">14</text>
+<path d="M480 538 V512" class="ln" marker-end="url(#rcar)"/>
+<path d="M20 150 H8 V564 H358" class="ln" marker-end="url(#rcar)"/>
+<text x="200" y="558" class="lbl" text-anchor="middle">the filing&#x27;s XBRL instance</text>
+<rect x="20" y="610" width="1520" height="90" rx="9" class="nt"/>
+<text x="32" y="632" class="t" text-anchor="start">Evaluation and operations</text>
+<text x="32" y="652" class="s" text-anchor="start">set-ups: fixed 512 and about 2,000 characters, and semantic, each with and without the reranker; golden set of 30–50 analyst questions with expected answer and section, signed off by a finance SME, a third held out</text>
+<text x="32" y="668" class="s" text-anchor="start">deterministic checks first: expected section at a fixed character budget, exact figure match; RAGAS judge calibrated on human labels; three runs per set-up and a written decision rule</text>
+<text x="32" y="684" class="s" text-anchor="start">every result stored; a pinned pipeline, a runbook, scheduled ingestion and evaluation</text>
+<text x="1528" y="690" class="tag" text-anchor="end">5, 11, 15, 16</text>
+  </svg>
+  </div>
+</figure>
+</body>
+</html>

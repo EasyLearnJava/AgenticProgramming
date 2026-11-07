@@ -1,0 +1,731 @@
+<section class="prose part" id="requirement">
+  <p class="partno">Part 1</p>
+  <h2 class="parth">The requirement, as given</h2>
+  <p class="lede">This is the brief exactly as the FDE receives it. Everything after it works backwards from these
+    words to the pipeline that The Gen Academy built (repository
+    <code>2B-Financial-Document-Intelligence-Pipeline</code>, commit 39d2249).</p>
+  <blockquote class="req">
+    <p class="reqt">Project 2: Financial Document Intelligence Pipeline RAG</p>
+    <p class="reqh">Description</p>
+    <p>Build a RAG pipeline that answers questions across financial documents - SEC filings, earnings call
+      transcripts, insurance claims, or loan documents. Implement two chunking strategies (fixed-size vs. semantic
+      chunking) and compare retrieval quality on the same set of queries. Add a reranking step and measure the
+      improvement. This project is particularly relevant for anyone working in financial services, insurance, or
+      regulated industries, but the techniques apply to any domain with dense, structured documents. This project now
+      has code and n8n in the Week 2 project list.</p>
+    <p class="reqh">Best For</p>
+    <p>Data Scientists/Analysts (financial analysis), Finance roles (Wells Fargo, JPMC, Citi, Morgan Stanley, NYLife),
+      Architects (pipeline design), Consultants (client financial analysis).</p>
+  </blockquote>
+</section>
+
+<section class="prose part" id="fde">
+  <p class="partno">Part 2</p>
+  <h2 class="parth">FDE analysis: from the brief to the design</h2>
+  <p class="lede">Imagine a bank's research team hands you this brief on day one. You are the forward deployed
+    engineer: you sit with their analysts, find out what they actually need, and ship something that works in their
+    environment. This part walks the route from the brief to 2B's design, and it checks 2B's own evidence the way an
+    FDE would before showing it to a customer.</p>
+  <div class="callout">
+    <p><b>How to read this part.</b> The notebook, its saved outputs, the README and the solution kit show what was
+      built and some of why. No interviews were recorded, so the people, questions and answers below are a
+      reconstruction. We also re-ran parts of 2B offline, with no API keys, on the same two SEC filings, supplying the
+      solution kit's <code>remove_edgar_header</code> and the <code>import re</code> that the committed notebook
+      lacks. Statements about 2B carry a tag:</p>
+    <p class="legend"><span class="li"><span class="tg doc">Documented</span> stated in the solution kit or
+      README</span> <span class="li"><span class="tg code">In code</span> visible in the notebook, its outputs or a
+      library's source</span> <span class="li"><span class="tg asm">Inferred</span> our reading of what the build
+      implies; no source says it directly</span> <span class="li"><span class="tg chk">Checked</span> measured by our
+      offline re-run</span> <span class="li"><span class="first">★</span> ask in your first meeting with that
+      team</span></p>
+  </div>
+  <div class="callout goodc">
+    <p><b>2B in one paragraph.</b> The notebook downloads Apple's two latest annual reports (<i>10-K</i> filings)
+      from SEC <i>EDGAR</i>, the SEC's filing system, as “full submission” text files. Each file holds the 10-K plus
+      everything filed with it: about 70 <i>XBRL viewer pages</i> (the financial statements rendered as web pages), a
+      JSON metadata file, exhibits, and ZIP and image files encoded as text (<i>uuencoded</i>). It strips the HTML and
+      cuts the text two ways. <i>Fixed-size chunking</i> cuts every 512 characters (64 overlap). <i>Semantic
+      chunking</i> splits the text into sentences, embeds each with its neighbours, and cuts where the meaning shifts
+      most: at distances above the 65th <i>percentile</i>. Both sets are embedded with BAAI/bge-base-en-v1.5, which
+      reads at most 512 tokens of each text, and stored in one Pinecone index, one <i>namespace</i> (partition) each. A
+      question is embedded the same way and matched against the chunks: a <i>bi-encoder</i> search that returns the
+      <i>top-k</i> most similar. A <i>reranker</i> (a cross-encoder) then reads each question-and-chunk pair together
+      and re-sorts them. gpt-4o-mini writes the answer from three chunks. Three set-ups are compared on 10 questions:
+      <b>A</b> fixed, top 3; <b>B</b> semantic, top 3; <b>C</b> semantic, top 10 re-ranked to 3. <i>RAGAS</i> scores
+      them with an LLM as judge: <i>faithfulness</i> (is the answer supported by the chunks?), <i>context
+      precision</i> (are the chunks relevant, best first?) and <i>context recall</i> (do the chunks hold everything the
+      reference answer needs?). The <i>golden set</i> is the agreed list of test questions with expected answers and
+      sources. <i>XBRL</i> is the machine-readable tagging of the financial statements that every 10-K and 10-Q
+      carries.</p>
+  </div>
+</section>
+
+<section class="prose" id="fde-mindset">
+  <h3><span class="sn">2.1</span>How an FDE reads this brief</h3>
+  <ol class="habits">
+    <li><b>Find the real deliverable.</b> “compare retrieval quality on the same set of queries” and “measure the
+      improvement” make the output an experiment: a comparison someone can trust. The pipeline is the apparatus. So
+      the experiment design (what changes, what stays fixed, what is measured) comes first.</li>
+    <li><b>Pick the document type with the customer; it decides everything else.</b> The brief offers four. SEC
+      filings are public and machine-tagged. Earnings call transcripts are conversational and usually licensed from a
+      vendor. Insurance claims and loan files are private, full of personal data, and often scanned forms. 2B chose
+      the easiest of the four, which is a fine start if everyone knows it was a choice.</li>
+    <li><b>Look at the data before tuning anything.</b> Open the files you are about to index. In 2B the “10-K” is a
+      9.5 MB EDGAR submission package, and the annual report's text is about a tenth of what gets indexed
+      (2.7).</li>
+    <li><b>In finance a number is only right with its company, period, unit and source.</b> “$391,035” is wrong
+      without “million”, “fiscal 2024” and “Apple 10-K, page 22”. That decides the metadata and the citations, and
+      whether some questions belong to a database lookup instead of RAG.</li>
+    <li><b>A comparison is only fair if one thing changes at a time.</b> Same corpus, same filter, the same amount of
+      text handed to the model, enough questions to see past noise, and a judge whose blind spots you know.</li>
+    <li><b>Regulated means repeatable and explainable.</b> US banks validate models under model risk management
+      guidance (the Federal Reserve's SR 11-7, issued jointly with the OCC as Bulletin 2011-12); ask Model Risk Management (MRM) whether a GenAI
+      tool is in scope. Validators expect a run that can be repeated from pinned data, code and model versions, with
+      its run-to-run spread measured, because LLM calls are not repeatable bit for bit, even at temperature 0.</li>
+  </ol>
+</section>
+
+<section class="prose" id="fde-brief">
+  <h3><span class="sn">2.2</span>Reading the brief phrase by phrase</h3>
+  <p>Each phrase asks for something, and each one hides a question the brief does not answer. The last column is the
+    answer 2B's build gives, whether or not anyone asked.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Phrase in the brief</th><th>What it asks for</th><th>The question it hides</th>
+      <th>What 2B did</th></tr></thead>
+    <tbody>
+    <tr><td>“a RAG pipeline that answers questions across financial documents”</td>
+      <td>Grounded answers over a document set</td>
+      <td>Whose documents, which companies and years, and which questions: look-ups, comparisons, calculations,
+        narrative?</td>
+      <td>Apple only, two 10-Ks, 10 test questions (8 asking for reported figures, 2 narrative).
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“SEC filings, earnings call transcripts, insurance claims, or loan documents”</td>
+      <td>Pick a document type</td>
+      <td>Public or private? Born-digital or scanned? Personal data? Licensed content?</td>
+      <td>SEC filings: public, no personal data, no licence. The other three are not attempted.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“Implement two chunking strategies (fixed-size vs. semantic chunking)”</td>
+      <td>Two ways to cut the text</td>
+      <td>On what text? Tables, headers and filing boilerplate decide more than the splitter does.</td>
+      <td>512/64 recursive splitter and a 65th-percentile <code>SemanticChunker</code>, both over the whole EDGAR
+        submission. <span class="tg code">In code</span></td></tr>
+    <tr><td>“compare retrieval quality on the same set of queries”</td>
+      <td>A controlled comparison</td>
+      <td>What is held constant, and how is retrieval quality measured: by expected sources, or by an LLM judge?</td>
+      <td>The same 10 questions for all three set-ups, scored by RAGAS with gpt-4o-mini as judge.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“Add a reranking step”</td>
+      <td>A second, more careful scoring stage</td>
+      <td>Which reranker is allowed (a hosted API or a local model), and how much latency it may add?</td>
+      <td>FlashRank <code>ms-marco-MiniLM-L-12-v2</code>, run locally, top 10 re-ranked to top 3; Cohere was rejected
+        over its free-tier limit. <span class="tg doc">Documented</span></td></tr>
+    <tr><td>“and measure the improvement”</td>
+      <td>A number with a baseline</td>
+      <td>How big a difference counts, on how many questions, over how many runs?</td>
+      <td>One run of 10 questions; context precision 0.725 → 0.950 from B to C. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td>“financial services, insurance, or regulated industries”</td>
+      <td>An audience with rules</td>
+      <td>Who validates the model, what must be logged, which vendors and regions are allowed?</td>
+      <td>A Colab notebook; no logging, no validation pack, no vendor review. <span class="tg asm">Inferred</span></td>
+      </tr>
+    <tr><td>“dense, structured documents”</td>
+      <td>Tables and sections matter</td>
+      <td>Should tables be extracted as tables, and figures taken from structured data instead?</td>
+      <td>Tables are flattened into running text by the cleaning; the XBRL data in the same files is indexed as text
+        rather than queried. <span class="tg code">In code</span></td></tr>
+    <tr><td>“This project now has code and n8n in the Week 2 project list.”</td>
+      <td>Two build styles exist</td>
+      <td>Which one is the customer going to run and maintain?</td>
+      <td>This repository is the code version only: one notebook. The n8n version is not part of it.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“Best For: … Finance roles (Wells Fargo, JPMC, Citi, Morgan Stanley, NYLife)”</td>
+      <td>Users inside banks and insurers</td>
+      <td>What does their environment allow: Colab, OpenAI, Pinecone, public internet?</td>
+      <td>Built for Colab with OpenAI and Pinecone keys; a bank would usually require approved, internal equivalents.
+        <span class="tg asm">Inferred</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-people">
+  <h3><span class="sn">2.3</span>Who the FDE talks to</h3>
+  <p>Meet the sponsor, the analysts and the finance subject-matter experts (SMEs) first, because they define the
+    golden set. Contact Model Risk Management, the AI governance committee, Third-Party Risk Management and Information
+    Security in week one, because their reviews take longest. 2B records no such meetings.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Who</th><th>Why them</th><th>What you leave the meeting with</th>
+      <th>What it settles in the design</th></tr></thead>
+    <tbody>
+    <tr><td><b>Business sponsor</b> (e.g. head of equity research, credit risk or claims)</td>
+      <td>Owns the problem and the budget</td><td>The decision this supports, the success metric, scope, deadline</td>
+      <td>Document type; prototype or production</td></tr>
+    <tr><td><b>Analysts who will ask</b></td><td>They know the real questions</td>
+      <td>30–50 real questions, the tools they use today, how they check an answer, what a wrong number costs them</td>
+      <td>The golden set; citation format; which questions need calculation</td></tr>
+    <tr><td><b>Finance subject-matter experts</b> (accounting, investor relations)</td>
+      <td>Definitions and fiscal calendars</td>
+      <td>“Net revenue” vs “net sales”, fiscal vs calendar years, restatements, which figure is authoritative</td>
+      <td>Expected answers; year and period metadata; the as-reported rule</td></tr>
+    <tr><td><b>Data owners and vendors</b> (EDGAR feeds, transcript vendors, loan and claims systems)</td>
+      <td>Where the documents and their rights come from</td>
+      <td>Source system, formats, update cadence, licence terms for AI use</td>
+      <td>Ingestion source; what may be stored in a vector database</td></tr>
+    <tr><td><b>Model Risk Management (MRM)</b></td><td>Validates models before use in a bank</td>
+      <td>Whether this tool is in scope; the documentation, testing and monitoring they require</td>
+      <td>Repeatable runs; a held-out test set; an evaluation report</td></tr>
+    <tr><td><b>AI governance committee</b></td><td>Approves each GenAI use case</td>
+      <td>The risk tier and the controls required</td><td>What the pilot may do, and for whom</td></tr>
+    <tr><td><b>Compliance and Legal</b></td><td>Regulatory exposure</td>
+      <td>Rules on material non-public information (MNPI) and information barriers; record keeping; “not investment
+        advice” wording; licence limits</td>
+      <td>Which documents each user may query; logging; disclaimers</td></tr>
+    <tr><td><b>Privacy office</b></td><td>Personal data in loans and claims</td>
+      <td>Which laws apply: for example GLBA for consumer financial data, FCRA for credit reports in loan files, HIPAA
+        for health-plan claims (life and property claims fall under state insurance privacy law); redaction rules</td>
+      <td>Redaction before indexing; vendor and region choices</td></tr>
+    <tr><td><b>Information Security</b></td><td>Approves data flows and secrets handling</td>
+      <td>Data classification; secrets handling; network rules; state rules such as NYDFS Part 500 for New
+        York-regulated firms</td>
+      <td>Where data may go; the threat model (figure 9)</td></tr>
+    <tr><td><b>Third-Party Risk Management</b></td><td>Onboards every new vendor; often the longest wait</td>
+      <td>Due diligence and data terms for OpenAI and Pinecone, or the approved alternatives</td>
+      <td>Approved vendors, or new ones and their lead time</td></tr>
+    <tr><td><b>ML platform team</b></td><td>Where models and GPUs are allowed to run</td>
+      <td>Approved runtimes (Colab is rarely one), GPU capacity, model registry, the LLM gateway (the bank's one
+        approved route to LLM APIs)</td>
+      <td>Where embedding and reranking run; how models are pinned</td></tr>
+    <tr><td><b>Procurement and Finance</b></td><td>Contracts and spend</td>
+      <td>Vendor contracts and limits</td><td>Generator and judge models; caps on calls</td></tr>
+    <tr><td><b>The future owner</b></td><td>Someone must keep filings current</td>
+      <td>Who re-indexes each quarter, who re-runs the evaluation</td>
+      <td>Scheduled ingestion; versioned indexes; a runbook</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-questions">
+  <h3><span class="sn">2.4</span>The questions to ask</h3>
+  <p>Grouped by theme, with who to ask. The <span class="first">★</span> questions change the architecture, so ask
+    them in your first meeting with that team; the rest change details. Follow every answer with “show me an
+    example”.</p>
+
+  <h4>A · Outcome and success <span class="who">ask the sponsor and the analysts</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> What decision will these answers feed, and what does a wrong number
+      cost?</td>
+      <td>Sets how strict grounding, citation and review must be.</td>
+      <td>Not stated; a learning project. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td><span class="first">★</span> What do you use today for these answers (Bloomberg, FactSet, Capital IQ,
+      EDGAR full-text search), and where does it fall short?</td>
+      <td>If figures are one keystroke away, the value is in narrative, footnotes and change across filings.</td>
+      <td>Not asked; 8 of 10 test questions ask for figures a terminal returns. <span class="tg asm">Inferred</span></td>
+      </tr>
+    <tr><td><span class="first">★</span> Which comparison result would change what we build?</td>
+      <td>An experiment needs a decision attached, or it is a demo.</td>
+      <td>“Winner: Semantic Chunking + CrossEncoder Reranking”, from one run of 10 questions.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td>Is this a demo, a pilot or production?</td>
+      <td>Sets the bar for repeatability, security and operations.</td>
+      <td>A notebook for learning; the README calls it “a learning project”. <span class="tg doc">Documented</span></td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <h4>B · Users and their questions <span class="who">ask analysts and finance SMEs</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Can you give me 30 real questions, with the answer and the page you would
+      check?</td>
+      <td>Real questions are the golden set; the page is what lets you score retrieval.</td>
+      <td>10 questions written by the builders, with reference answers but no expected source.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> Which kinds: single figures, year-on-year changes, calculations, or
+      narrative (risks, strategy)?</td>
+      <td>Calculations and comparisons need different machinery from look-ups.</td>
+      <td>8 questions on reported FY2024 figures and 2 narrative ones; none asks for a comparison or calculation, though
+        two reference answers add one (“a 2% increase”, “approximately 24.6%”) and recall is scored against them.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>Which companies and years, and fiscal or calendar years?</td>
+      <td>Apple's fiscal 2024 ended in September 2024; other companies differ.</td>
+      <td>One company; both filings loaded, but every test question is about 2024 or has no year.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>Where do analysts want answers: a notebook, Excel, a chat tool?</td>
+      <td>Adoption happens where they already work.</td>
+      <td>Notebook cells only. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>C · The documents <span class="who">ask data owners and vendors</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Which document type, from which system, in which format: EDGAR HTML,
+      PDF, scans?</td>
+      <td>Decides parsing, OCR, table extraction and privacy work.</td>
+      <td>EDGAR “full submission” text files: the 10-K plus everything filed with it.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> Which part of each file is the content we want?</td>
+      <td>Indexing boilerplate and machine data adds noise, cost and risk.</td>
+      <td>The whole submission; about 9% of the fixed-size chunks come from the 10-K text itself.
+        <span class="tg chk">Checked</span></td></tr>
+    <tr><td><span class="first">★</span> Which exact filings, and how do we pin them?</td>
+      <td>“The latest two” changes when the company files again.</td>
+      <td><code>dl.get("10-K", "AAPL", limit=2)</code>: the latest two at run time. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td>Do amendments (10-K/A), restatements or quarterly filings (10-Q) matter?</td>
+      <td>The latest figure for a year can sit in a later filing.</td>
+      <td>Not handled. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Is the structured data (XBRL) available, and should figures come from it?</td>
+      <td>Every 10-K tags its financial statements; a figure looked up there needs no text retrieval.</td>
+      <td>The XBRL data is indexed as text, not queried. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>D · How answers should behave <span class="who">ask analysts, Compliance and finance SMEs</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Must every figure come with its period, unit and source (filing and
+      page)?</td>
+      <td>Analysts verify before they reuse a number.</td>
+      <td>The prompt says “cite specific numbers”, but no filing or page label is attached to the chunks, so the model
+        can name a source only when a page footer such as “Apple Inc. | 2024 Form 10-K | 22” happens to sit inside the
+        chunk text. <span class="tg code">In code</span></td></tr>
+    <tr><td>May the bot calculate (growth rates, ratios), and must it show the working?</td>
+      <td>Arithmetic by an LLM is a common source of wrong numbers.</td>
+      <td>No calculation step. <span class="tg code">In code</span></td></tr>
+    <tr><td>What should it say when the documents don't answer?</td>
+      <td>A confident wrong number is worse than a refusal.</td>
+      <td>“I don't have enough context to answer this.” <span class="tg code">In code</span></td></tr>
+    <tr><td>Is a disclaimer required (“not investment advice”)?</td><td>Regulatory exposure.</td>
+      <td>None. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>E · Risk and validation <span class="who">ask MRM, the AI governance committee and Compliance</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> What evidence will validation need before anyone relies on this?</td>
+      <td>Decides the size of the test set, repeat runs and documentation.</td>
+      <td>One run of 10 questions; the judge is the generator's own model. <span class="tg code">In code</span></td></tr>
+    <tr><td>Must a person review answers before they are used?</td><td>Human review changes the interface.</td>
+      <td>Not addressed. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Must results be repeatable months later?</td><td>Audit and model validation.</td>
+      <td>No pinned filings, packages or model versions. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>F · Security, privacy and licensing <span class="who">ask Information Security, Privacy, Legal and Third-Party
+    Risk</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> May document text and questions go to OpenAI and Pinecone, in which
+      region?</td>
+      <td>Fine for public filings; usually not for loan files, claims or non-public deal documents.</td>
+      <td>Yes: chunk text is stored in Pinecone (AWS us-east-1) and sent to OpenAI twice, to answer and to judge.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> Do any documents carry personal data or MNPI?</td>
+      <td>Decides redaction, access control and information barriers.</td>
+      <td>Not with public 10-Ks; not addressed for the other document types. <span class="tg asm">Inferred</span></td>
+      </tr>
+    <tr><td>Do licences allow indexing and sending text to an LLM?</td>
+      <td>Transcript and research vendors often restrict this.</td>
+      <td>Not applicable to EDGAR; not addressed. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Where do secrets live?</td><td>Leaked keys.</td>
+      <td>Three Colab Secrets; the Hugging Face token is put in a variable the library doesn't read, so downloads run
+        unauthenticated. <span class="tg code">In code</span></td></tr>
+    <tr><td>May notebook outputs, which contain document text and answers, be committed to git?</td>
+      <td>With client documents, outputs leak data into the repository history.</td>
+      <td>The notebook is committed with its outputs. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>G · Platform <span class="who">ask the ML platform team</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Where may this run, and is a GPU available there?</td>
+      <td>Embedding is the slow step, and semantic chunking embeds every sentence as well; the doc estimates 30–40
+        minutes on a CPU just to embed the chunks.</td>
+      <td>Google Colab with a T4 GPU. <span class="tg doc">Documented</span></td></tr>
+    <tr><td>Is there an approved vector database, LLM gateway and model registry?</td>
+      <td>Reusing approved services beats new vendor reviews.</td>
+      <td>Pinecone and OpenAI called directly; models pulled from Hugging Face at run time.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>H · Speed and cost <span class="who">ask the sponsor and Finance</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td>How many companies and filings, and how often?</td>
+      <td>Two filings took minutes on a GPU; a coverage universe is thousands each quarter.</td>
+      <td>Two filings; upload took about 4.5 minutes (fixed) and 1.5 minutes (semantic) on a T4.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>What latency per question is acceptable?</td><td>The reranker adds a second model per question.</td>
+      <td>Not measured. <span class="tg code">In code</span></td></tr>
+    <tr><td>What may evaluation cost?</td><td>Judges multiply LLM calls.</td>
+      <td>The doc says 90 judge calls; RAGAS's code makes 6 per question per set-up (5 when an answer yields no
+        statements), so about 180. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>I · Operations <span class="who">ask the future owner</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Who adds each new filing, and how are old versions kept?</td>
+      <td>Every quarter brings new filings; answers must say which one they used.</td>
+      <td>Manual re-run; each upload starts with <code>delete_all</code> on the namespace, and ids are random.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>Does the notebook run top to bottom on a fresh runtime?</td><td>The first test of any handoff.</td>
+      <td>No: the cleaning cell uses <code>re</code> without importing it and calls <code>remove_edgar_header</code>,
+        which no cell defines. <span class="tg code">In code</span></td></tr>
+    <tr><td>Do the docs match the code?</td><td>Handoff quality.</td>
+      <td>Several drifts: “top-20” candidates in a markdown cell (the code uses 10), a <code>primary-document.txt</code>
+        source path (the code loads <code>full-submission.txt</code>), a query-instruction prefix the code never
+        adds, and an OpenAI embedding model for RAGAS that no metric uses. <span class="tg code">In code</span></td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <h4>J · Evaluation <span class="who">ask the sponsor, analysts and MRM</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2B's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> What must stay constant between set-ups for the comparison to be
+      fair?</td>
+      <td>Otherwise the winner may be the set-up that got more text, not the better method.</td>
+      <td>A and B differ in boundaries, chunk size and the amount of text handed to the model.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> How is retrieval scored: against an expected source, or by an LLM
+      judge?</td>
+      <td>Expected sources give a cheap, repeatable hit rate; a judge adds cost and its own errors.</td>
+      <td>LLM judge only (RAGAS); nothing scores whether an answer is correct. <span class="tg code">In code</span></td>
+      </tr>
+    <tr><td>How many questions and runs show a real difference?</td>
+      <td>With 10 questions, one question moves a score by 0.1 or more.</td>
+      <td>10 questions, one run, no spread reported. <span class="tg code">In code</span></td></tr>
+    <tr><td>Which questions are kept back from tuning?</td><td>Tuning on the test set inflates scores.</td>
+      <td>Four of the evaluation questions (one slightly reworded) were also used to inspect retrieval while building.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-decisions">
+  <h3><span class="sn">2.5</span>From answers to design: the decision trace</h3>
+  <p>Each decision in 2B, the answer that drives it (reconstructed), the options an FDE weighs, and 2B's choice
+    (tagged). The last column names the answer or evidence that would flip the choice, then the new choice.</p>
+  <div class="tw"><table class="qt dt5">
+    <thead><tr><th>Decision</th><th>Driving answer</th><th>Options weighed</th><th>2B's choice</th>
+      <th>What would change it</th></tr></thead>
+    <tbody>
+    <tr><td><b>1 · Document type</b></td><td>Public data, no privacy work (inferred)</td>
+      <td>SEC filings · transcripts · claims · loan files</td>
+      <td>Apple 10-Ks for FY2024 and FY2025 <span class="tg doc">Documented</span></td>
+      <td>The bank's real use case is loan or claims files → OCR, redaction and access control come before any
+        chunking question.</td></tr>
+    <tr><td><b>2 · What gets indexed</b></td><td>The download is the document (inferred)</td>
+      <td>Whole EDGAR submission · the 10-K document only · the 10-K plus selected exhibits</td>
+      <td>The whole submission <span class="tg code">In code</span></td>
+      <td>A data audit shows most chunks aren't the 10-K (our check: about 9% are; 38% XBRL XML files, mostly viewer
+        pages; 35% JSON; about 9% uuencoded binary <span class="tg chk">Checked</span>) → index the 10-K document
+        alone. In A's re-run the noise never reached the top 3, so here it costs size and risk rather than these
+        scores.</td></tr>
+    <tr><td><b>3 · Which filings</b></td><td>“last 2 annual reports” (cell 16)</td>
+      <td>Latest N at run time · pinned accession numbers (EDGAR's unique ID for each filing)</td>
+      <td>Latest 2 (<code>limit=2</code>) <span class="tg code">In code</span></td>
+      <td>Answers must be repeatable → pin <code>0000320193-24-000123</code> and <code>0000320193-25-000079</code>;
+        any rerun after Apple's next 10-K otherwise changes the corpus.</td></tr>
+    <tr><td><b>4 · Cleaning and tables</b></td><td>Strip markup, keep words</td>
+      <td>Regex cleaning · an HTML parser that keeps table rows and headers · table-to-markdown</td>
+      <td><code>html.unescape</code>, then regex: drop tags and <code>ix:</code> fragments, collapse space
+        <span class="tg code">In code</span></td>
+      <td>Table questions matter → keep each row with its column headers and the table's title.</td></tr>
+    <tr><td><b>5 · Fixed-size chunks</b></td><td>The baseline to beat</td>
+      <td>Size 512, 1,000, 2,000 · overlap · filtering</td>
+      <td>512 characters, 64 overlap; drop chunks under 100 characters or under 40% letters
+        <span class="tg code">In code</span></td>
+      <td>B's win might come from length, not boundaries → add a fixed baseline near 2,000 characters.</td></tr>
+    <tr><td><b>6 · Semantic chunks</b></td><td>Keep topics and tables together</td>
+      <td>Percentile 65 to 95 · other breakpoint types · a size cap</td>
+      <td>65th percentile and a split at 8,000 characters <span class="tg doc">Documented</span><br>then the same filter <span class="tg code">In code</span></td>
+      <td>Table questions matter → a table-aware parser. Tables survive the semantic chunker only because the library
+        splits sentences where “.”, “?” or “!” meets whitespace, which a flattened table rarely has.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td><b>7 · Embedding model</b></td><td>Free, fast on a GPU</td>
+      <td>bge-base (768) · an API model · a finance-tuned model</td>
+      <td>BAAI/bge-base-en-v1.5 on Colab's T4 <span class="tg doc">Documented</span></td>
+      <td>Short questions miss, or chunks run past 512 tokens → add BGE's query instruction and keep chunks inside the
+        window; measure with and without the instruction. The doc says LangChain adds it;
+        <code>HuggingFaceEmbeddings</code> doesn't. <span class="tg code">In code</span></td></tr>
+    <tr><td><b>8 · Vector store</b></td><td>Free tier, one index</td>
+      <td>Two indexes · one index, two namespaces · local store</td>
+      <td>Pinecone serverless, one index, namespaces <code>fixed</code> and <code>semantic</code>
+        <span class="tg doc">Documented</span></td>
+      <td>Bank data → an approved store inside the bank's cloud, with versioned indexes per filing set.</td></tr>
+    <tr><td><b>9 · Metadata</b></td><td>Only as a future extension (README: metadata filtering for more
+      companies)</td>
+      <td>Source path only · company, form, fiscal year, section, page, column period</td>
+      <td>Source path only <span class="tg code">In code</span></td>
+      <td>Year-specific questions over several filings → store the filing's fiscal year on every chunk and, for
+        table rows, the period of each column; finance SMEs decide whether a FY2024 question takes the figure as first
+        reported or as latest reported, and the filter follows that rule.</td></tr>
+    <tr><td><b>10 · Retrieval depth</b></td><td>The reranker needs room</td>
+      <td>k = 3 · k = 10 · k = 20</td>
+      <td>A and B: top 3; C: top 10, re-ranked to 3 <span class="tg doc">Documented</span></td>
+      <td>A fair comparison → hand every set-up the same number of characters, not the same number of chunks.</td></tr>
+    <tr><td><b>11 · Reranker</b></td><td>No API key, no rate limit</td>
+      <td>Cohere Rerank (API) · FlashRank (local) · an LLM as reranker</td>
+      <td>FlashRank <code>ms-marco-MiniLM-L-12-v2</code> <span class="tg doc">Documented</span></td>
+      <td>Chunks longer than about 2,000 characters, as many semantic ones are → smaller chunks or a longer-window
+        reranker. FlashRank reads 512 tokens per pair, question included. <span class="tg code">In code</span></td></tr>
+    <tr><td><b>12 · Generator</b></td><td>The kit: Groq breaks RAGAS (it rejects n &gt; 1, which the kit ties to answer_relevancy, a metric 2B doesn't use)</td>
+      <td>gpt-4o-mini · Groq Llama · others</td>
+      <td>gpt-4o-mini, temperature 0 <span class="tg doc">Documented</span></td>
+      <td>Validation → pin a dated model snapshot and measure run-to-run spread (the kit's “deterministic” temperature
+        0 doesn't hold for this API); an approved in-house model → re-run the whole comparison on it. The generator
+        need not be the judge.</td></tr>
+    <tr><td><b>13 · Citations</b></td><td>Not discussed</td>
+      <td>None · filing and page per chunk · quoted figures</td>
+      <td>None added: chunks are pasted without labels <span class="tg code">In code</span></td>
+      <td>Analysts and auditors verify → label each chunk with filing, year and page, and require the answer to cite
+        them.</td></tr>
+    <tr><td><b>14 · Figures path</b></td><td>Not discussed</td>
+      <td>RAG for everything · look up tagged XBRL facts for figures, RAG for narrative</td>
+      <td>RAG for everything <span class="tg code">In code</span></td>
+      <td>Most questions ask for reported figures → an XBRL lookup. All eight here are tagged: four are plain facts
+        any XBRL API returns by concept and period; four (iPhone, Mac, Services, Americas) are dimensional facts that
+        need the filing's own XBRL instance. Mapping a question to concept, period and dimension becomes the new hard
+        part.</td></tr>
+    <tr><td><b>15 · Evaluation</b></td><td>Cheap and quick</td>
+      <td>RAGAS judge · expected-source hit rate · numeric exact match</td>
+      <td>RAGAS with gpt-4o-mini as judge, 10 questions <span class="tg doc">Documented</span></td>
+      <td>Model validation → deterministic retrieval and answer checks first, then a judge calibrated on a
+        human-labelled sample (2.7).</td></tr>
+    <tr><td><b>16 · Runtime and repeatability</b></td><td>Free GPU</td>
+      <td>Colab notebook · a pinned pipeline in an approved environment</td>
+      <td>Colab; unpinned <code>pip install</code>s; outputs kept from earlier runs <span class="tg code">In code</span></td>
+      <td>Any handoff → pinned versions, a script that runs end to end, and stored run results.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-assumptions">
+  <h3><span class="sn">2.6</span>Assumptions 2B made without saying so</h3>
+  <p>Each one shows in the notebook and none is checked. Some are stated as choices (two filing years, ten questions,
+    gpt-4o-mini as judge), but never with their risk.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Assumption</th><th>Where it shows</th><th>What breaks if it's wrong</th><th>Who confirms</th></tr>
+    </thead>
+    <tbody>
+    <tr><td>The downloaded file is the annual report.</td><td>Cell 19 collects <code>full-submission.txt</code></td>
+      <td>Most of the index is XBRL viewer pages, JSON and encoded binaries</td><td>Data owners</td></tr>
+    <tr><td>“The latest two” are FY2024 and FY2025.</td><td><code>limit=2</code> in cell 17</td>
+      <td>After the next filing, the corpus and the reference answers drift apart</td><td>Data owners, MRM</td></tr>
+    <tr><td>The embedding finds the right year.</td><td>No year in the metadata; both filings report FY2024</td>
+      <td>FY2023 or FY2025 figures answer a FY2024 question</td><td>Analysts, finance SMEs</td></tr>
+    <tr><td>Library defaults don't matter.</td><td>bge-base and FlashRank both stop at 512 tokens; no BGE query
+      instruction</td>
+      <td>Long chunks are embedded and reranked on their opening only</td><td>ML platform team</td></tr>
+    <tr><td>Ten questions show the difference.</td><td>Cell 53</td>
+      <td>A difference of 0.1 can be one question</td><td>MRM, sponsor</td></tr>
+    <tr><td>gpt-4o-mini can judge gpt-4o-mini.</td><td>Cells 49 and 57</td>
+      <td>Faithfulness may be inflated by shared blind spots</td><td>MRM</td></tr>
+    <tr><td>Public data means no privacy work.</td><td>Text to OpenAI and Pinecone; outputs committed</td>
+      <td>The same notebook on loan or claims files leaks personal data</td><td>Privacy, Information Security</td></tr>
+    <tr><td>Colab is an acceptable runtime.</td><td>Colab Secrets, T4 GPU, <code>/content</code> paths</td>
+      <td>Not allowed for bank data</td><td>ML platform, Information Security</td></tr>
+    <tr><td>Whatever <code>pip</code> installs today behaves like last time.</td><td>Cell 4, no versions</td>
+      <td>Results cannot be repeated</td><td>MRM, future owner</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-stress">
+  <h3><span class="sn">2.7</span>Checking the comparison, as an FDE would</h3>
+  <p>The brief's core is “compare … on the same set of queries” and “measure the improvement”. Before quoting 2B's
+    table to a customer, check what it can and cannot show. In the engagement this design comes before any build
+    (step 4 in 2.8); it sits here because it refers to the parts chosen in 2.5.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>RAGAS metric</th><th>A · fixed, top 3</th><th>B · semantic, top 3</th>
+      <th>C · semantic, top 10 → 3</th></tr></thead>
+    <tbody>
+    <tr><td>Faithfulness</td><td>0.75</td><td>1.000</td><td>0.988</td></tr>
+    <tr><td>Context precision</td><td>0.00</td><td>0.725</td><td>0.950</td></tr>
+    <tr><td>Context recall</td><td>0.00</td><td>0.775</td><td>1.000</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">From the notebook's last cell (run of 16 May 2026). <span class="tg code">In code</span></p>
+  <div class="callout warnc">
+    <p><b>What the table cannot show</b></p>
+    <ul>
+      <li><b>A → B changes several things at once:</b> where chunks end; how long they are (431 characters against
+        about 2,000 as stored); how much text the model gets (three average chunks are about 1,300 characters in A and
+        6,000 in B); which text survives the filter, which judges small and large chunks differently (by our check, it
+        drops 11 of the 13 fixed chunks holding the Americas figure with its label); and how much of each chunk bge-base sees, since it reads 512
+        tokens. The win cannot be credited to semantic boundaries alone. B → C changes one thing, the reranker, and is
+        the cleaner step. <span class="tg code">In code</span></li>
+      <li><b>The docs' explanation of A's zero does not hold.</b> The solution kit says fixed chunks cut tables so
+        that “none of the 12,142 chunks was useful”. Our re-run of cells 21–25 reproduces their counts exactly
+        (14,119 raw, 12,142 kept, 431 average) and finds each reference figure with its row label in kept chunks: 19
+        hold both “Total net sales” and “391,035”. An offline re-run of set-up A's search (the same chunks, the same bge
+        model, exact cosine search instead of Pinecone) puts no chunk holding the figure with its row label in the top
+        3 for any of the eight figure questions; the first such chunk ranks between 5th and 137th. The top 3 are 10-K
+        prose, mostly about 2024, not noise. Cell 39 prints the fixed-size top result for three of the evaluation
+        questions, and our top result matches the notebook's for all three. So for the eight figure questions, A's
+        0.00 is a ranking failure; our reading is that number-dense table chunks (about 500 characters, a fifth of them
+        digits) lose to shorter prose sharing the question's words. With k = 10, four of the eight would have been found. <span class="tg chk">Checked</span></li>
+      <li><b>The corpus is mostly not the 10-K.</b> Each EDGAR full submission bundles the 10-K with about 70 XBRL
+        viewer pages, a JSON metadata file, XBRL linkbases, exhibits, and uuencoded ZIP and image files (plus an Excel
+        workbook in the FY2024 submission). Chunking each part separately, about 9% of the fixed-size chunks come from
+        the 10-K text, 38% from EDGAR's XML documents (mostly the viewer pages, including their JavaScript; about 3%
+        the XBRL instance), 35% from JSON, and about 9% from encoded binary that passes the letter filter.
+        In A's re-run none of it reached the top 3, so here it costs size and risk rather than these scores.
+        <span class="tg chk">Checked</span></li>
+      <li><b>Nothing scores correctness.</b> Faithfulness checks that the answer is supported by the chunks, not that
+        it agrees with the reference. A refusal can yield no statements and score NaN (no score), which cell 59 drops, so each
+        average may cover a different number of questions. <span class="tg code">In code</span></li>
+      <li><b>Ten questions, one run, no spread.</b> One question moves a score by 0.1 or more. All ten are about fiscal
+        2024 (or have no year); none asks for FY2025, compares years, needs a calculation, or has no answer in the
+        filings. <span class="tg code">In code</span></li>
+      <li><b>The judge is the generator's own model.</b> That can flatter faithfulness, which grades the model's own
+        answers. Precision and recall grade chunks against the reference, so their risk is judge variance and the
+        absence of labelled sources. Four of the evaluation questions were also used to inspect retrieval while
+        building (cells 37–51). <span class="tg code">In code</span></li>
+      <li><b>The judge-call count is understated.</b> RAGAS makes two calls per question for faithfulness (one when an
+        answer yields no statements), one per retrieved chunk for context precision and one for context recall: about
+        180 calls for the three set-ups (at least 150), not 90. <span class="tg code">In code</span></li>
+    </ul>
+  </div>
+  <p>An FDE's version keeps the idea and changes the design (figure 11 draws the result):</p>
+  <ol class="steps">
+    <li><b>Fix the corpus first.</b> Index the 10-K document only, pinned by accession number, with fiscal year,
+      form and section on every chunk.</li>
+    <li><b>Change one thing at a time.</b> Fixed at 512 and at about 2,000 characters, and semantic, each with and
+      without the reranker: all chunking the same text, filtered by part of the submission before chunking rather
+      than after, with chunks kept inside the embedder's and reranker's 512-token windows, and every set-up given the
+      same character budget.</li>
+    <li><b>Grow the golden set to 30–50 questions</b> written with analysts: figures from both years, year-on-year
+      comparisons, a calculation, narrative questions, questions the filings don't answer, and a wrong premise. Each
+      has an expected answer and an expected section, signed off by a finance SME.</li>
+    <li><b>Lead with deterministic, budget-neutral metrics.</b> Did the expected section reach the model at a fixed
+      character budget? Does the answer's figure match the reference exactly? Then RAGAS, with a judge calibrated
+      against a human-labelled sample.</li>
+    <li><b>Repeat each run three times</b> and report per question; hold out a third of the golden set from all
+      tuning; before running, write down the decision rule: a gain counts only if it exceeds the run-to-run spread and
+      holds question by question. Store every run's results.</li>
+    <li><b>Give every failure one cause</b>, the earliest stage that went wrong:</li>
+  </ol>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Cause</th><th>What it looks like</th><th>Where the fix goes</th></tr></thead>
+    <tbody>
+    <tr><td>Wrong source</td><td>Retrieved JSON, script or encoded binary; or a viewer page or exhibit when the question
+      needs the 10-K's own wording</td><td>Corpus selection (decision 2)</td></tr>
+    <tr><td>Filtered out</td><td>The answer chunk was dropped by the filter</td>
+      <td>Filter by part of the submission before chunking (decisions 2, 5)</td></tr>
+    <tr><td>Wrong period</td><td>A FY2023 or FY2025 figure for a FY2024 question</td>
+      <td>Year metadata, filters and the as-reported rule (decision 9)</td></tr>
+    <tr><td>Retrieval miss</td><td>The expected section is not in the top k</td>
+      <td>Embedding, k, hybrid search, which combines keyword matching such as BM25 with vectors (decisions 7, 10)</td></tr>
+    <tr><td>Broken table</td><td>The figure is retrieved without its row or column label</td>
+      <td>Table-aware parsing (decision 4)</td></tr>
+    <tr><td>Truncated</td><td>The answer sits past the embedder's or the reranker's 512-token window</td>
+      <td>Smaller chunks or longer-window models (decisions 6, 7, 11)</td></tr>
+    <tr><td>Generation error</td><td>The right chunk was there; wrong figure, unit or arithmetic</td>
+      <td>Prompt, model, a calculation tool (decisions 12, 14)</td></tr>
+    <tr><td>Unsupported answer</td><td>Answered when the filings don't say, or added a figure not in the chunks</td>
+      <td>Refusal rule, citations (decision 13)</td></tr>
+    <tr><td>Judge error</td><td>A person reading the case disagrees with the verdict</td>
+      <td>Calibrate the judge on a human-labelled sample (decision 15)</td></tr>
+    <tr><td>Knowledge gap or test-set error</td><td>No stage failed: the filings lack it, or the reference is wrong</td>
+      <td>The golden set, confirmed with a finance SME</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-plan">
+  <h3><span class="sn">2.8</span>The engagement, step by step</h3>
+  <p>Steps 2–5 overlap: request vendor and data approvals on day one, and show a thin slice on pinned public filings,
+    run against a first draft of the golden set, within the first week or two.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Step</th><th>What you produce</th><th>In 2B</th></tr></thead>
+    <tbody>
+    <tr><td>1 · Kickoff with the sponsor</td><td>The decision supported, success metric, document type, scope</td>
+      <td>The brief</td></tr>
+    <tr><td>2 · Discovery interviews (2.3)</td><td>Answers to 2.4; assumptions log; approval requests</td>
+      <td>Not recorded</td></tr>
+    <tr><td>3 · Data audit</td><td>What each file contains, which part to index, how to pin it</td>
+      <td>None recorded: the docs call each file the annual report “bundled with EDGAR filing metadata”, and the whole
+        submission is indexed</td></tr>
+    <tr><td>4 · Golden set and experiment design</td><td>Questions with expected answers and sections; what each
+      set-up changes; the decision rule</td><td>10 questions with reference answers; set-ups A, B and C</td></tr>
+    <tr><td>5 · Thin slice</td><td>One configuration end to end with a baseline score</td><td>Cells 1–51</td></tr>
+    <tr><td>6 · Controlled comparison</td><td>One change at a time, repeated runs, per-question results</td>
+      <td>One run of A, B and C; RAGAS averages only</td></tr>
+    <tr><td>7 · Findings readout</td><td>Results, causes of failure, what each change gained, a recommendation</td>
+      <td>The results table and the winner, in the README and the solution kit</td></tr>
+    <tr><td>8 · Validation and security review</td><td>MRM evidence, AI governance approval, threat model, vendor
+      approvals</td><td>None; figure 9 below is a first draft</td></tr>
+    <tr><td>9 · Pilot with analysts</td><td>Feedback and unanswered questions</td><td>None</td></tr>
+    <tr><td>10 · Handoff</td><td>A pinned pipeline, a runbook, scheduled ingestion and evaluation</td>
+      <td>A notebook that does not run top to bottom as committed</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-diagrams">
+  <h3><span class="sn">2.9</span>Which diagram answers which question</h3>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Diagram</th><th>The question it answers</th><th>Who reads it</th></tr></thead>
+    <tbody>
+    <tr><td><a href="#context">1 · System context</a></td><td>What is in scope and which outside services it uses</td>
+      <td>Sponsor, Information Security</td></tr>
+    <tr><td><a href="#architecture">2 · High-level architecture</a></td><td>What runs where: Colab, GPU, cloud
+      APIs</td><td>ML platform team</td></tr>
+    <tr><td><a href="#dataflow">3 · Data flow</a></td><td>Where filing text, questions and scores go and are
+      stored</td><td>Privacy office, Information Security</td></tr>
+    <tr><td><a href="#datamodel">4 · Data model</a></td><td>The shape of documents, chunks, vectors and results</td>
+      <td>Engineers</td></tr>
+    <tr><td><a href="#design">5 · Detailed design</a></td><td>Which cell and setting implements each step, and what
+      is broken</td><td>Engineers, the future owner</td></tr>
+    <tr><td><a href="#chunking">6 · The two chunking paths</a></td><td>What each strategy does to the same text, and
+      what that text really is</td><td>Analysts, MRM</td></tr>
+    <tr><td><a href="#sequence">7 · Sequence</a></td><td>One question through set-up C, call by call</td>
+      <td>Sponsor (speed), engineers</td></tr>
+    <tr><td><a href="#prompts">8 · Context assembly</a></td><td>Exactly what the generator and the judge are sent</td>
+      <td>Compliance, Information Security, MRM</td></tr>
+    <tr><td><a href="#threats">9 · Threat model</a></td><td>What can go wrong, and what protects it today</td>
+      <td>Information Security</td></tr>
+    <tr><td><a href="#evaluation">10 · The comparison</a></td><td>What A, B and C change, and what the scores can
+      show</td><td>Sponsor, MRM, analysts</td></tr>
+    <tr><td><a href="#recommended">11 · The recommended architecture</a></td><td>What an FDE would build instead, and the 2.5 decision each numbered part answers</td>
+      <td>Everyone; the sponsor and the ML platform team first</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-takeaways">
+  <h3><span class="sn">2.10</span>What to take away</h3>
+  <ol class="habits">
+    <li>The deliverable is a trustworthy comparison: decide what changes, what stays constant and what counts as a
+      win before building.</li>
+    <li>Open the files before tuning. About 9% of 2B's fixed-size index is annual-report text; no chunking strategy
+      fixes indexing the wrong text.</li>
+    <li>Check the story behind a striking number, and measure your own counter-story too. A's 0.00 was explained as
+      broken tables; the answers were in the fixed index, and an offline re-run of A's search showed, for the eight
+      figure questions, the answer chunks ranking below 10-K prose about the same year.</li>
+    <li>In finance, period, unit and source are part of the answer: they belong in the metadata, the filters and the
+      citations, and some figures belong to a structured lookup, not RAG.</li>
+    <li>Regulated customers need repeatability: pinned filings, packages and model versions, a notebook that runs top
+      to bottom, repeated runs with their spread, and a judge whose errors you have measured.</li>
+  </ol>
+</section>
