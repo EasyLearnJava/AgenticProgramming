@@ -1,0 +1,778 @@
+<section class="prose part" id="requirement">
+  <p class="partno">Part 1</p>
+  <h2 class="parth">The requirement, as given</h2>
+  <p class="lede">This is the brief exactly as the FDE receives it. Everything after it works backwards from these
+    words to the bot that The Gen Academy built (repository <code>2A-Enterprise-QandA-Bot</code>).</p>
+  <blockquote class="req">
+    <p class="reqt">Project 1: Enterprise Policy Q&amp;A Bot</p>
+    <p class="reqh">Description</p>
+    <p>Build a RAG-powered Q&amp;A system over real enterprise documents — HR policies, compliance manuals, product
+      documentation, or onboarding guides. Use a no-code/low-code tool or a guided RAG starter (e.g., Pinecone +
+      LangChain template) to ingest your documents, chunk and embed them, and stand up a question-answering interface.
+      Then stress-test it with 15 questions including edge cases: ambiguous queries, questions that span multiple
+      documents, and questions the knowledge base simply can’t answer. Document where retrieval succeeds, where it
+      fails, and why.</p>
+    <p class="reqh">Best For</p>
+    <p>All profiles — PMs use product docs, finance analysts use regulatory filings, consultants use client knowledge
+      bases, engineers use technical documentation. Everyone has documents they wish they could query.</p>
+  </blockquote>
+</section>
+
+<section class="prose part" id="fde">
+  <p class="partno">Part 2</p>
+  <h2 class="parth">FDE analysis: from the brief to the design</h2>
+  <p class="lede">Imagine ACME Corporation hands you this brief on day one. You are the forward deployed engineer:
+    you sit with their teams, find out what they actually need, and ship something that works in their environment.
+    This part walks the route from the brief to 2A's design: the habits, the people, the questions, and how each
+    answer becomes a design decision.</p>
+  <div class="callout">
+    <p><b>How to read this part.</b> The code and the solution doc show what was built, and the doc's “Key Design
+      Decisions” table gives some of the reasons. No interviews were recorded (this was a course brief, not a customer
+      engagement), so the people, questions and answers below are a reconstruction: what an FDE would have needed to
+      ask to arrive at this design. Every statement about 2A carries a tag:</p>
+    <p class="legend"><span class="li"><span class="tg doc">Documented</span> stated in the solution doc or
+      README</span> <span class="li"><span class="tg code">In code</span> visible in the code; the reason is not
+      written down</span> <span class="li"><span class="tg asm">Inferred</span> our reading of what the build implies;
+      neither the doc nor the code says it directly</span> <span class="li"><span class="first">★</span> ask in your
+      first meeting with that team</span></p>
+  </div>
+  <div class="callout goodc">
+    <p><b>2A in one paragraph.</b> The three manuals are cut into chunks of about 512 characters, turned into vectors,
+      and stored in Pinecone, one <i>namespace</i> (a separate partition of the index) per document family. For each
+      question, a <i>router</i> (one LLM call) picks a namespace; the <i>retriever</i> fetches the <i>top-k</i> chunks,
+      the k most similar to the question (4, or 2 from each namespace for <code>general</code>); a <i>grader</i> (one
+      LLM call per chunk) drops chunks it judges irrelevant; the <i>generator</i> writes the answer; and a
+      <i>checker</i> asks whether every claim is in the chunks. A check that cannot run can <i>fail open</i> (let the
+      answer through) or <i>fail closed</i> (refuse). A <i>re-ranker</i> is a small model that re-scores retrieved
+      chunks against the question. The <i>golden set</i> is the agreed list of test questions with expected answers
+      and sources. 2A's edge cases are Q11 (remote work and data security), Q12 (today's stock price), Q13 (“Tell me
+      about policies.”), Q14 (API uptime and incident response) and Q15 (the IRS 401k limit, which is not in the
+      documents).</p>
+  </div>
+</section>
+
+<section class="prose" id="fde-mindset">
+  <h3><span class="sn">2.1</span>How an FDE reads a brief</h3>
+  <ol class="habits">
+    <li><b>Find the real deliverable.</b> The last sentence of the description, “Document where retrieval succeeds,
+      where it fails, and why”, says the output is an analysis; the bot is the instrument that produces it. So the
+      evaluation is designed first, not last.</li>
+    <li><b>Ask what a wrong answer costs before choosing any tool.</b> A wrong API rate limit costs a developer ten
+      minutes. A wrong data-breach deadline is a regulatory failure. That cost decides how much checking to build.
+      2A's relevance grader, answer checker and fixed refusal sentence are that kind of checking, though 2A never
+      states the cost.</li>
+    <li><b>Turn words into examples.</b> “Ambiguous”, “span multiple documents” and “can’t answer” mean nothing until
+      they are real questions with expected answers. The 15 questions are the specification, not a test bolted on at
+      the end.</li>
+    <li><b>Separate what is said, implied and unknown.</b> “Stand up a question-answering interface” is said. “Show
+      sources so people can check” is implied. “Who may read the compliance manual” is unknown, and the unknowns are
+      where projects fail.</li>
+    <li><b>Write assumptions down and get them confirmed.</b> Building on an assumption is normal. Building on one
+      nobody knows you made is how a demo becomes an incident. Section 2.6 lists the ones 2A made silently.</li>
+    <li><b>Start simple; add a part only when a measured failure or a stated risk asks for it.</b> The solution doc
+      compares naive RAG, a LangGraph pipeline and full agentic RAG. An FDE builds the naive one first, runs the 15
+      questions, and lets the failures justify quality parts such as the router. Safety parts that a stated risk
+      demands (the refusal rule and the checker because wrong answers are costly, a login because some documents are
+      restricted) are built from the start: 15 questions cannot show a failure that happens once in 500 answers.</li>
+  </ol>
+</section>
+
+<section class="prose" id="fde-brief">
+  <h3><span class="sn">2.2</span>Reading the brief phrase by phrase</h3>
+  <p>Each phrase asks for something, and each one hides a question that the brief does not answer. The last column is
+    the answer 2A's build gives, whether or not anyone asked.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Phrase in the brief</th><th>What it asks for</th><th>The question it hides</th>
+      <th>What 2A did</th></tr></thead>
+    <tbody>
+    <tr><td>“RAG-powered Q&amp;A system over <b>real</b> enterprise documents”</td>
+      <td>Answers grounded in the company's documents, not the model's memory</td>
+      <td>Which documents, who owns them, and how messy are they? “Real” means PDFs, tables, old versions and
+        contradictions.</td>
+      <td>Three clean, invented ACME manuals in plain text: <code>hr_policy.txt</code>, <code>tech_docs.txt</code>,
+        <code>compliance_manual.txt</code> (5.8–7.6 KB, 55 chunks in all). <span class="tg code">In code</span></td></tr>
+    <tr><td>“HR policies, compliance manuals, product documentation, or onboarding guides”</td>
+      <td>Several document families</td>
+      <td>Do the families have different owners and readers? Should a question search one family or all of them?</td>
+      <td>One folder per family, one Pinecone namespace per folder, and an LLM router that picks the namespace.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td>“a no-code/low-code tool or a guided RAG starter (e.g., Pinecone + LangChain template)”</td>
+      <td>Speed over a custom build</td>
+      <td>Is this a throwaway prototype or the start of production? May document text go to a cloud vector
+        database?</td>
+      <td>Pinecone and LangChain as suggested, plus LangGraph: a five-node graph with loops, well beyond a starter
+        template. The doc rejects a simple LCEL chain (LangChain's fixed pipe of steps) because routing and retries
+        need state. <span class="tg doc">Documented</span></td></tr>
+    <tr><td>“ingest your documents, chunk and embed them”</td>
+      <td>A loading pipeline</td>
+      <td>How are the documents structured? How often do they change? Must embeddings be computed in-house?</td>
+      <td>A script run by hand; a recursive splitter at 512 characters with 64 overlap; MiniLM embeddings computed
+        locally on the CPU (free, no API key). <span class="tg code">In code</span>
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td>“stand up a question-answering interface”</td>
+      <td>Something people can use</td>
+      <td>Who uses it, and where do they already work: a browser, Teams, Slack? Is a login needed?</td>
+      <td>A Streamlit chat page with no login. Each answer lists the source file names, the namespace and a
+        “Retries” number (a shared counter of retrieval retries and checker passes, so it shows 1 when nothing was
+        retried).
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“stress-test it with 15 questions”</td>
+      <td>A fixed-size evaluation</td>
+      <td>Who writes the questions, from what source, and what counts as a pass?</td>
+      <td><code>evaluate.py</code>: 10 direct questions (4 HR, 3 technical, 3 compliance) and 5 edge cases, written by
+        the builders. <span class="tg code">In code</span></td></tr>
+    <tr><td>“ambiguous queries”</td>
+      <td>Behaviour for vague questions</td>
+      <td>Should the bot ask a clarifying question or give a broad overview?</td>
+      <td>The router sends unclear questions to <code>general</code> (2 chunks from each namespace). There is no
+        clarifying step, and each question is answered on its own, without the chat history.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“questions that span multiple documents”</td>
+      <td>Answers that combine sources</td>
+      <td>How should one answer draw on, and cite, several documents?</td>
+      <td>The <code>general</code> route mixes chunks from all three namespaces, and the sources list shows every file
+        used. <span class="tg code">In code</span></td></tr>
+    <tr><td>“questions the knowledge base simply can’t answer”</td>
+      <td>Safe refusal</td>
+      <td>What exactly should the bot say, and where should it send the person instead?</td>
+      <td>The grader drops irrelevant chunks; the generator must reply “I couldn't find a definitive answer in the
+        knowledge base…”; a checker tests the answer against the chunks. No next step is offered.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td>“Document where retrieval succeeds, where it fails, and why”</td>
+      <td>A failure analysis</td>
+      <td>What counts as retrieval success, and how will we know the cause of each failure?</td>
+      <td>The report records the route, how many chunks were kept and their source files, the grader and checker
+        results, latency and the answer, but scores only routing and refusal. The “why” is left to whoever reads the
+        JSON. <span class="tg code">In code</span></td></tr>
+    <tr><td>“Best For: All profiles … Everyone has documents”</td>
+      <td>A reusable pattern</td>
+      <td>How easy must it be to swap in another document set?</td>
+      <td>The namespace list is a setting in <code>config.py</code>, but the folders are fixed in
+        <code>ingestion.py</code>, the router prompt lists ACME's topics and the generator prompt says “for ACME
+        Corporation”, so a new domain also needs new prompts and new test questions.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-people">
+  <h3><span class="sn">2.3</span>Who the FDE talks to</h3>
+  <p>In a real engagement the first week goes here. In 2A, the brief and the course stood in for all of these people,
+    which is why so many answers in 2.4 are tagged <span class="tg asm">Inferred</span>. Meet the sponsor, the
+    helpdesk and the document owners first, because they unblock the golden set; contact Information Security in week
+    one, because approvals take longest. Ask each team for artefacts (ticket exports, the document folder, the
+    approved-vendor list), not only opinions.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Who</th><th>Why them</th><th>What you leave the meeting with</th>
+      <th>What it settles in the design</th></tr></thead>
+    <tbody>
+    <tr><td><b>Business sponsor</b> (e.g. head of People Operations)</td><td>Owns the problem and the budget</td>
+      <td>The problem in one sentence, the success metric, the deadline, what is out of scope</td>
+      <td>Prototype or production; the cost ceiling per question</td></tr>
+    <tr><td><b>Employees who will ask</b> (new hires, managers, engineers)</td>
+      <td>They know how questions are really worded</td>
+      <td>20–50 real questions in their own words; where they would want to ask</td>
+      <td>The interface; the router's categories; the wording of the test set</td></tr>
+    <tr><td><b>HR helpdesk and IT service desk</b> (who answer today)</td>
+      <td>Their ticket history is the best source of questions</td>
+      <td>Top question types, the hard ones, today's time to answer, where they send people</td>
+      <td>The golden set; the refusal and escalation message; the baseline to beat</td></tr>
+    <tr><td><b>Document owners</b> (HR policy, compliance, product/API docs)</td><td>They own the truth</td>
+      <td>An inventory: files, format, size, version, how often each changes, which one wins in a conflict</td>
+      <td>Loaders and chunking; the re-index schedule; namespaces</td></tr>
+    <tr><td><b>Content platform owners</b> (SharePoint, Confluence, the intranet)</td>
+      <td>The documents and their permissions live in their system</td>
+      <td>Connector or API access, how permissions are stored, change notifications</td>
+      <td>The ingestion connector; permissions copied into chunk metadata; incremental re-indexing (decision 14)</td>
+      </tr>
+    <tr><td><b>Legal and Compliance</b></td><td>Liability for wrong answers</td>
+      <td>What the bot must never answer (legal advice, individual cases); disclaimer wording; record-keeping duties;
+        whether an AI governance or model-risk review must approve it; whether users must be told they are talking to
+        an AI</td>
+      <td>Refusal rules; how strict the grader and checker are; fail-open or fail-closed; logging</td></tr>
+    <tr><td><b>Information Security</b></td><td>Approves vendors and data flows</td>
+      <td>The data classification of each document; approved LLM and vector-database vendors; secrets handling;
+        penetration-test needs</td>
+      <td>Pinecone, Groq or OpenAI; login; <code>.env</code> or a secret store; the threat model (figure 8)</td></tr>
+    <tr><td><b>Privacy office / Data Protection Officer</b></td><td>Personal data and where it goes</td>
+      <td>Whether questions or documents hold personal data; data-residency rules; vendor retention terms; data
+        processing agreements</td>
+      <td>The hosting region (2A uses AWS us-east-1); which LLM; whether questions may be logged</td></tr>
+    <tr><td><b>Identity and access team</b> (SSO)</td><td>Who the user is decides what they may see</td>
+      <td>The sign-on method and user groups (employee, manager, contractor, country)</td>
+      <td>Login; per-group document filters (decision 18)</td></tr>
+    <tr><td><b>Platform / cloud / DevOps</b></td><td>Where it will run</td>
+      <td>Approved hosting, network egress rules, CI/CD, the monitoring stack, any existing LLM gateway</td>
+      <td>Deployment; observability; whether CPU embedding on the server is acceptable</td></tr>
+    <tr><td><b>Procurement and Finance</b></td><td>Contracts and money</td>
+      <td>Existing vendor contracts; spending limits</td>
+      <td>Groq or OpenAI; the Pinecone tier; caps on LLM calls</td></tr>
+    <tr><td><b>Internal communications</b> (and, in some countries, the works council)</td><td>Rollout and trust</td>
+      <td>The launch plan, training, a feedback channel; whether employee questions may be recorded</td>
+      <td>Feedback buttons; the logging policy</td></tr>
+    <tr><td><b>The future owner</b> (the support team after handoff)</td><td>Someone must run it next year</td>
+      <td>Who is on call, the re-index runbook, who keeps the test set current</td>
+      <td>The runbook; README quality; an evaluation schedule</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-questions">
+  <h3><span class="sn">2.4</span>The questions to ask</h3>
+  <p>Grouped by theme, with who to ask. The <span class="first">★</span> questions change the architecture, so ask
+    them in your first meeting with that team; the rest change details. Don't email this list as a questionnaire:
+    ask in conversation, and follow every answer with “show me an example”.</p>
+
+  <h4>A · Outcome and success <span class="who">ask the sponsor</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> What problem are we solving, and for whom?</td>
+      <td>Sets the scope and the success metric (fewer HR tickets? faster onboarding?).</td>
+      <td>Not stated; the brief is a learning exercise. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td><span class="first">★</span> How will we know it works: which number, measured how, by when?</td>
+      <td>Without a metric, “done” is a feeling.</td>
+      <td>Two numbers out of 15: routing accuracy and answerability pass. <span class="tg code">In code</span></td></tr>
+    <tr><td>What happens today when an employee has one of these questions?</td>
+      <td>The baseline to beat: time to answer, tickets a month.</td>
+      <td>Not captured. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td><span class="first">★</span> Is this a demo, a pilot or production?</td>
+      <td>Sets the bar for security, operations and cost.</td>
+      <td>The README calls it “production-grade”, but it has no login, manual ingestion and fail-open checks: a
+        demo-grade build. Settle the label with the sponsor early. <span class="tg code">In code</span></td></tr>
+    <tr><td>What is out of scope?</td>
+      <td>Stops scope creep, e.g. personal look-ups such as “how many leave days do I have left?”.</td>
+      <td>Implicitly: personal data, actions such as booking leave, other languages. <span class="tg asm">Inferred</span>
+      </td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>B · Users and their questions <span class="who">ask employees and the helpdesk</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Who will ask, and how many of them?</td>
+      <td>Sizes the load and the access control.</td>
+      <td>One user on a laptop running Streamlit. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td><span class="first">★</span> Can you give me 30 real questions, in the words people actually use?</td>
+      <td>Real wording breaks routers and retrieval in ways invented questions don't.</td>
+      <td>15 questions chosen by the builders; the README calls them “15 curated questions”.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td>Do people ask follow-ups (“and for part-timers?”)?</td>
+      <td>Decides single-turn or conversational retrieval (decision 16).</td>
+      <td>Single-turn: <code>run_query</code> receives only the new question; the history is shown, not used.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>What should happen with a vague question: ask back, or give an overview?</td>
+      <td>The brief names ambiguity but not the behaviour it wants.</td>
+      <td>Neither is designed: the <code>general</code> route plus whatever the generator writes; Q13 passes with any
+        answer. <span class="tg code">In code</span></td></tr>
+    <tr><td>Which languages?</td>
+      <td>Drives the embedding model and the prompts.</td>
+      <td>English only; all-MiniLM-L6-v2 was trained mainly on English text. <span class="tg asm">Inferred</span></td>
+      </tr>
+    <tr><td>Where do people want to ask: a web page, Teams, Slack, intranet search?</td>
+      <td>Adoption is won or lost where people already work.</td>
+      <td>A Streamlit web page. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>C · The documents <span class="who">ask the document and content platform owners</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Which documents, exactly, and who owns each one?</td>
+      <td>No owner means nobody to fix wrong content.</td>
+      <td>Three files about a fictional company, ACME Corporation; no owner is named. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td><span class="first">★</span> Where do the documents live today, and where are their permissions kept?</td>
+      <td>Permissions have to be copied from the source system, or the bot shows people what the intranet hides from
+        them.</td>
+      <td>Files in the repository; no permissions. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> What format and structure: PDF, Word, wiki pages, tables, scans?</td>
+      <td>Decides loaders and chunking; tables and scans break plain-text pipelines.</td>
+      <td>Plain text with numbered sections. The loader reads <code>.txt</code>, and <code>.pdf</code> if pypdf is
+        installed. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> How often do they change, and how will we hear about it?</td>
+      <td>Decides how re-indexing works.</td>
+      <td>Treated as static: ingestion is run by hand, and re-running it adds duplicates because chunk ids are
+        random. <span class="tg code">In code</span></td></tr>
+    <tr><td>Are there versions, regional variants, or documents that contradict each other? Which one wins?</td>
+      <td>Two “correct” answers are worse than none.</td>
+      <td>Not handled: one version per family. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Is every document meant for every employee?</td>
+      <td>Access control.</td>
+      <td>Yes: everything is searchable by anyone who can open the page. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Do any documents contain personal or confidential data?</td>
+      <td>Privacy and vendor rules.</td>
+      <td>Not considered; chunk text is stored in Pinecone and sent to the LLM. <span class="tg asm">Inferred</span>
+      </td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>D · How answers should behave <span class="who">ask employees, Legal and the helpdesk</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Must every answer show where it came from, and how precisely?</td>
+      <td>People trust what they can check (decision 17).</td>
+      <td>File names under each answer; no section or quote. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> When the documents don't cover it, what exactly should the bot say, and
+      where should it send people?</td>
+      <td>A refusal with no next step is a dead end.</td>
+      <td>A fixed sentence, “I couldn't find a definitive answer in the knowledge base…”, with no contact or link.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>May one answer combine facts from several documents?</td>
+      <td>Needed for multi-document questions.</td>
+      <td>Yes, through the <code>general</code> route. <span class="tg code">In code</span></td></tr>
+    <tr><td>Should it quote the policy or summarise it?</td>
+      <td>Quoting is safer where exact wording matters (compliance).</td>
+      <td>Summarise: “concise, professional, and factual”. <span class="tg code">In code</span></td></tr>
+    <tr><td>Is a disclaimer required (“not legal advice”, “confirm with HR”)?</td>
+      <td>Liability.</td>
+      <td>None. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>E · Risk and accuracy <span class="who">ask the sponsor, Legal and Compliance</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> What does a wrong answer cost, for each document family?</td>
+      <td>Decides how much checking to build, and whether refusing beats guessing.</td>
+      <td>Treated as high, judging by the build: a grader, a checker, temperature 0, “Do NOT make up numbers”. No
+        source states the cost. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Is “I don't know” acceptable, and how often?</td>
+      <td>Stricter grounding means more refusals.</td>
+      <td>Preferred to guessing. <span class="tg doc">Documented</span></td></tr>
+    <tr><td><span class="first">★</span> If a safety check fails to run, or keeps failing, should the bot answer or
+      refuse?</td>
+      <td>Fail-open shows unchecked answers as if they were checked.</td>
+      <td>Fail-open in four places: a grader error (bad JSON or a failed call) keeps the chunk; a checker error counts
+        as grounded; with no chunks left, the answer passes unchecked; and once the shared retry budget (2) is spent,
+        the checker is skipped or its “not grounded” verdict is ignored. The Streamlit chat page never says an answer
+        failed its check. <span class="tg doc">Documented</span> <span class="tg code">In code</span></td></tr>
+    <tr><td>Are there questions it must never answer (legal advice, a named person's case)?</td>
+      <td>Hard limits belong in the design, not only in a prompt.</td>
+      <td>None defined. <span class="tg asm">Inferred</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>F · Security and privacy <span class="who">ask Information Security and the privacy office</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> May document text and employee questions go to third-party cloud services?
+      Which ones, in which region?</td>
+      <td>Decides the vendors and the hosting.</td>
+      <td>Yes: Pinecone (AWS us-east-1) stores the chunk text; Groq or OpenAI receive the questions and the chunks.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>What are each vendor's retention and training terms?</td>
+      <td>Questions can contain personal data.</td>
+      <td>Not addressed (threat T4 in figure 8). <span class="tg asm">Inferred</span></td></tr>
+    <tr><td><span class="first">★</span> Who may use the bot? Is a login required?</td>
+      <td>Spoofing and data leaks (decision 18).</td>
+      <td>No login (T1). <span class="tg code">In code</span></td></tr>
+    <tr><td>Where do secrets live, and who can read them?</td>
+      <td>Leaked keys.</td>
+      <td>Three API keys in a local <code>.env</code> file, kept out of git. <span class="tg code">In code</span></td></tr>
+    <tr><td>Must questions and answers be logged for audit, and for how long?</td>
+      <td>Record-keeping duties; proving what the bot said.</td>
+      <td>Nothing is kept: <code>print()</code> to the console and an in-memory chat (T8).
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>Could a document or a question steer the model (prompt injection)?</td>
+      <td>Document text is pasted into the grader, generator and checker prompts.</td>
+      <td>No mitigation (T2, T3). <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>G · Platform and integration <span class="who">ask the platform and identity teams</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> How do I get access to the documents and to an environment to build in, and
+      how long does approval take?</td>
+      <td>Access is often the longest wait in an engagement; ask on day one.</td>
+      <td>Not an issue: the documents sit in the repository. <span class="tg code">In code</span></td></tr>
+    <tr><td>Where must it run: our cloud, a vendor's, a laptop?</td>
+      <td>Hosting and network rules.</td>
+      <td>A developer's machine, with Streamlit on its default port, 8501. <span class="tg code">In code</span></td></tr>
+    <tr><td>Is there an approved LLM gateway or vector database already?</td>
+      <td>Reusing approved services beats onboarding new vendors.</td>
+      <td>Pinecone and Groq or OpenAI are called directly, with no gateway. <span class="tg code">In code</span></td>
+      </tr>
+    <tr><td>Which identity provider and user groups?</td>
+      <td>Needed for per-group permissions.</td>
+      <td>None used. <span class="tg code">In code</span></td></tr>
+    <tr><td>What monitoring and alerting is standard here?</td>
+      <td>Someone has to notice when it breaks.</td>
+      <td>None. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>H · Speed and cost <span class="who">ask the sponsor and Finance</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> How fast must an answer come back?</td>
+      <td>Each extra LLM call adds time, and the calls run one after another.</td>
+      <td>No target. A question takes about 7 LLM calls (the doc's estimate) and up to 20 when retrieval is retried
+        twice. <span class="tg doc">Documented</span> <span class="tg code">In code</span></td></tr>
+    <tr><td>What may one question cost? What is the monthly budget?</td>
+      <td>The grader, one call per chunk, is “the most expensive node”.</td>
+      <td>Groq's free tier for testing, gpt-4o-mini “for production”. <span class="tg doc">Documented</span></td></tr>
+    <tr><td>How many questions a day, and at what peak?</td>
+      <td>Vendor rate limits and concurrency.</td>
+      <td>Not considered: no rate limit, timeout or cache. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>I · Operations and ownership <span class="who">ask the future owner and the document owners</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Who updates the index when a policy changes, and how soon must the bot
+      reflect it?</td>
+      <td>A stale policy answer is a wrong answer.</td>
+      <td>Nobody is named to do it; the re-run itself appends (see C). <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Who owns the test set and re-runs it after changes?</td>
+      <td>Catches silent regressions.</td>
+      <td><code>evaluate.py</code> exists; no owner or schedule. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>How do users report a bad answer?</td>
+      <td>Feedback is the cheapest source of new test questions.</td>
+      <td>No feedback control. <span class="tg code">In code</span></td></tr>
+    <tr><td>What documentation does the support team need?</td>
+      <td>Handoff quality.</td>
+      <td>README setup steps, but the docs have drifted from the code: the README and doc name Groq
+        <code>llama-3.1-70b</code>, the code uses <code>llama-3.3-70b</code>, and two docstrings still say embeddings
+        come from OpenAI. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>J · Evaluation <span class="who">ask the sponsor, the helpdesk and the document owners</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2A's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> For each test question: what is the expected answer, the source section,
+      and the expected behaviour (answer, refuse or ask back)?</td>
+      <td>Without expected sources you cannot say whether retrieval succeeded, which is what the description's last
+        sentence asks.</td>
+      <td>The code scores only an expected route and an answerable flag. Free-text notes name a key fact for some
+        questions (“15 days”, “72-hour GDPR rule”) but nothing checks them; the full expected answers live in the
+        solution doc. <span class="tg code">In code</span> <span class="tg doc">Documented</span></td></tr>
+    <tr><td>What pass rate is good enough to launch?</td>
+      <td>The acceptance line.</td>
+      <td>None set. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Who judges correctness: a person, a rule, or an LLM judge?</td>
+      <td>Cost and trustworthiness of the evaluation.</td>
+      <td>A phrase-matching rule, applied to refusals only. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-decisions">
+  <h3><span class="sn">2.5</span>From answers to design: the decision trace</h3>
+  <p>This is the reverse engineering: each decision in 2A, the answer that drives it, the options an FDE weighs, and
+    the answer that would flip it. The driving answers are reconstructed, as the callout at the top of Part 2
+    explains; the tags apply to 2A's choice. The last column is where an FDE earns their keep: it says what to
+    re-check when the customer's answers turn out different. Figure 10 draws the design they lead to.</p>
+  <div class="tw"><table class="qt dt5">
+    <thead><tr><th>Decision</th><th>Driving answer</th><th>Options weighed</th><th>2A's choice</th>
+      <th>What would change it</th></tr></thead>
+    <tbody>
+    <tr><td><b>1 · Overall approach</b></td><td>Wrong answers are costly; answers must come only from the
+      documents</td>
+      <td>A: naive RAG, about 2 calls · B: a graph with grading and checking, about 7 calls · C: agentic RAG with web
+        search and query rewriting</td>
+      <td>B <span class="tg doc">Documented</span></td>
+      <td>If A passes the 15 questions and the sponsor and Legal accept the remaining risk, B's extra calls are not
+        earned; a clean run on 15 questions does not prove the checker is unnecessary. C breaks the generator's rule to
+        answer “using ONLY the information in the provided context documents”.</td></tr>
+    <tr><td><b>2 · Orchestration</b></td><td>The flow needs branches (retry, regenerate) and shared state</td>
+      <td>An LCEL chain · a LangGraph StateGraph · plain Python</td>
+      <td>LangGraph <span class="tg doc">Documented</span></td>
+      <td>A plain Python loop also works for five steps; LangGraph pays off as steps, checkpoints or human review are
+        added.</td></tr>
+    <tr><td><b>3 · Separating the families</b></td><td>Three document families; the doc's reason is “targeted
+      retrieval”</td>
+      <td>One flat index · one index with a <code>doc_type</code> filter · a namespace per family</td>
+      <td>A namespace per family <span class="tg doc">Documented</span></td>
+      <td>A re-run of 2A's own retrieval (same MiniLM model, same 55 chunks, no LLM) found the key facts it checks (one
+        or two per question) for all 12 fact questions with a flat top-4 search, the same as searching each question's
+        expected namespace. So at this size the namespaces don't help recall. “Targeted retrieval” is about
+        precision, which the re-run did not measure: count how many flat top-4 chunks come from the wrong family before
+        dropping the router.</td></tr>
+    <tr><td><b>4 · Who picks the family</b></td><td>Users don't know which manual holds the answer</td>
+      <td>The user picks · an LLM router · no routing</td>
+      <td>An LLM router with 4 labels, including <code>general</code> <span class="tg doc">Documented</span></td>
+      <td>One label per question: a cross-family question routed to one family searches only that family, unless
+        the grader keeps nothing. Multi-label routing, or always searching every family, fixes it.</td></tr>
+    <tr><td><b>5 · Chunking</b></td><td>Short manuals with numbered sections</td>
+      <td>Fixed size · recursive splitter · heading-aware sections</td>
+      <td>Recursive splitter, 512 characters, 64 overlap <span class="tg code">In code</span></td>
+      <td>Long documents, tables, or answers spread over a section call for heading-aware chunks that carry the
+        section title.</td></tr>
+    <tr><td><b>6 · Embedding model</b></td><td>Free, with no extra API key</td>
+      <td>An API model (OpenAI, Gemini) · a local open model</td>
+      <td>all-MiniLM-L6-v2 on the local CPU, 384 dimensions <span class="tg doc">Documented</span></td>
+      <td>Quality on the golden set. On a different corpus (the IT knowledge base used in this course's Basic
+        projects, 10 test questions, 512-character chunks), MiniLM ranked the right chunk first for 5 questions and
+        Gemini embeddings for 9. Measure before you trust. Local embedding does not make 2A private: the chunk text
+        still goes to Pinecone and to the LLM.</td></tr>
+    <tr><td><b>7 · Vector database</b></td><td>Text may be stored in a managed cloud</td>
+      <td>Pinecone · self-hosted (Qdrant, Chroma, pgvector) · in memory</td>
+      <td>Pinecone serverless, AWS us-east-1 <span class="tg code">In code</span>; the brief suggests Pinecone</td>
+      <td>EU data residency, or “no document text outside our cloud”, means another region or self-hosting.</td></tr>
+    <tr><td><b>8 · LLM</b></td><td>Budget and approved vendors</td>
+      <td>Groq Llama 3.3 70B · OpenAI gpt-4o-mini · others</td>
+      <td>Groq by default, OpenAI through one <code>.env</code> setting <span class="tg doc">Documented</span></td>
+      <td>Vendor approval, retention terms, the latency target, and quality on the golden set. Test on the model you
+        will ship: results from Groq Llama do not carry over to gpt-4o-mini, so re-run the set after any switch.</td>
+      </tr>
+    <tr><td><b>9 · Filtering weak chunks</b></td><td>Off-topic chunks crowd the context and invite wrong answers</td>
+      <td>A similarity threshold · a cross-encoder re-ranker · an LLM grader per chunk</td>
+      <td>An LLM grader told to “be generous” <span class="tg doc">Documented</span></td>
+      <td>Cost: 4–6 calls a question, more on retries. A re-ranker is the usual cheaper middle ground between a
+        threshold and a per-chunk LLM grader. But no relevance filter stops a near-miss trap. The same re-run shows
+        why: the trap Q15 tops out at 0.438 and the vague but answerable Q13 at 0.399, while the lowest fact question
+        is at 0.466, so any threshold that refuses Q15 also refuses Q13. Q15's chunk is genuinely about the 401k, so
+        refusing Q15 is the generator's and the checker's job.</td></tr>
+    <tr><td><b>10 · Checking the answer</b></td><td>Invented numbers are the main risk</td>
+      <td>No check · an LLM checker with regeneration · required quotes that are verified</td>
+      <td>A checker that sends ungrounded answers back to the generator <span class="tg doc">Documented</span>; at most
+        one regeneration in practice (none after a retrieval retry), though the README says “max 2 retries”, and an
+        answer that still fails is shown anyway <span class="tg code">In code</span></td>
+      <td>A tight latency budget; or a stricter design that makes the model quote its sources.</td></tr>
+    <tr><td><b>11 · When a check can't run or keeps failing</b></td><td>Not discussed: the doc describes most of the
+      fail-open paths (not the checker's error default) but gives no reason</td>
+      <td>Fail-open · fail-closed</td>
+      <td>Fail-open, including at the retry cap <span class="tg doc">Documented</span>
+        <span class="tg code">In code</span></td>
+      <td>Compliance content usually needs fail-closed: show the refusal plus a next step instead, or at least label
+        the answer “not verified”.</td></tr>
+    <tr><td><b>12 · Refusal</b></td><td>The brief's “can’t answer” questions</td>
+      <td>Free text · a fixed sentence · a fixed sentence plus a next step</td>
+      <td>A fixed sentence in the generator prompt <span class="tg code">In code</span></td>
+      <td>The helpdesk's answer to “where should people go instead?”.</td></tr>
+    <tr><td><b>13 · Interface</b></td><td>A demo for one person</td>
+      <td>Streamlit · a Teams or Slack bot · an intranet widget</td>
+      <td>Streamlit, no login, with debug metrics <span class="tg code">In code</span></td>
+      <td>Real users: their own channel, single sign-on, no debug metrics.</td></tr>
+    <tr><td><b>14 · Ingestion</b></td><td>Documents treated as static</td>
+      <td>A manual script · a scheduled sync with stable ids · events from the document system</td>
+      <td>A manual script with random ids <span class="tg code">In code</span></td>
+      <td>Documents that change: stable ids (file plus chunk hash) and delete-then-upsert per file.</td></tr>
+    <tr><td><b>15 · Evaluation</b></td><td>The brief: 15 questions, three edge-case types</td>
+      <td>Pass/fail counts · expected sources (retrieval hits) · expected answers (correctness) · an LLM judge</td>
+      <td>Routing plus a refusal-phrase check <span class="tg code">In code</span></td>
+      <td>The brief's “where it fails, and why”: expected sources for every question and a failure taxonomy
+        (2.7).</td></tr>
+    <tr><td><b>16 · Follow-up questions</b></td><td>Each question stands alone (inferred)</td>
+      <td>Single-turn · rewrite the follow-up into a standalone question using the chat history · pass the history to
+        the generator</td>
+      <td>Single-turn: <code>run_query</code> gets only the new question <span class="tg code">In code</span></td>
+      <td>Tickets show follow-ups (“and for part-timers?”): add a rewrite step before the router and test it with
+        question pairs.</td></tr>
+    <tr><td><b>17 · Citations</b></td><td>A file name is enough (inferred)</td>
+      <td>File name · section number and title · a quoted sentence</td>
+      <td>File names under the answer <span class="tg code">In code</span></td>
+      <td>Legal or compliance readers need the clause: keep each chunk's section heading (decision 5) and show it, or
+        require verified quotes (decision 10).</td></tr>
+    <tr><td><b>18 · Who may see what</b></td><td>Everyone may read everything (inferred)</td>
+      <td>No login · login only · login plus a per-group filter on chunk metadata</td>
+      <td>No login <span class="tg code">In code</span></td>
+      <td>Any restricted document: single sign-on, permissions copied from the source system at ingestion, and a
+        filter on every search. Namespaces can't do this, because readers don't line up with document families.</td>
+      </tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-assumptions">
+  <h3><span class="sn">2.6</span>Assumptions 2A made without saying so</h3>
+  <p>An FDE keeps this list in writing and gets each line confirmed by the person in the last column. In 2A each one
+    shows in the code, and the doc describes some of the behaviour (one label per question, about 7 calls,
+    fail-open), but none is stated as a choice or justified.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Assumption</th><th>Where it shows</th><th>What breaks if it's wrong</th><th>Who confirms</th></tr>
+    </thead>
+    <tbody>
+    <tr><td>Every user may read every document.</td><td>No login; every namespace is searchable</td>
+      <td>A contractor reads a manager-only HR policy</td><td>HR, Information Security, identity team</td></tr>
+    <tr><td>Documents rarely change.</td><td>Manual ingestion; random ids; a re-run appends</td>
+      <td>Old and new policy are both retrieved; answers contradict each other</td><td>Document owners</td></tr>
+    <tr><td>Sending questions and policy text to US cloud services is acceptable.</td>
+      <td>Pinecone in AWS us-east-1; Groq or OpenAI</td><td>A privacy or contract breach</td>
+      <td>Privacy office, Information Security, Procurement</td></tr>
+    <tr><td>One question at a time is enough.</td><td><code>run_query(question)</code> gets no history</td>
+      <td>Follow-ups are answered without their context</td><td>Employees, helpdesk</td></tr>
+    <tr><td>A question belongs to one family, or to <code>general</code>.</td><td>The router returns exactly one
+      label</td><td>Cross-family questions get half an answer</td><td>Helpdesk (the real mix of questions)</td></tr>
+    <tr><td>When a check can't run or keeps failing, answering beats refusing.</td>
+      <td><code>try/except</code> defaults; the checker is forced to “grounded” at the retry cap</td>
+      <td>An unchecked or rejected answer looks checked</td><td>Legal, Compliance</td></tr>
+    <tr><td>About 7, and up to 20, sequential LLM calls per question is fast and cheap enough.</td>
+      <td>No timeout, cache or rate limit</td><td>Slow answers, free-tier rate limits, cost</td>
+      <td>Sponsor, Finance</td></tr>
+    <tr><td>Documents are English plain text.</td><td>A text loader; an English embedding model</td>
+      <td>Scanned PDFs, tables and other languages fail quietly</td><td>Document owners, employees</td></tr>
+    <tr><td>A file name is a good enough citation.</td><td>Sources list file names only</td>
+      <td>People can't find the clause behind an answer</td><td>Employees, Legal</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-stress">
+  <h3><span class="sn">2.7</span>The stress test, designed as an FDE would</h3>
+  <p>The description's last sentence asks where retrieval succeeds, where it fails, and why. In the engagement this is
+    designed before any build (step 4 in 2.8); it sits here because its failure causes refer to the parts chosen in
+    2.5. Start by checking what 2A's <code>evaluate.py</code> can actually catch.</p>
+  <div class="callout warnc">
+    <p><b>What the 15-question run can and cannot fail on</b></p>
+    <ul>
+      <li>15 routing checks: the 4 questions that expect <code>general</code> (Q11–Q14) pass whatever the route, so
+        11 can fail.</li>
+      <li>15 answerability checks: the 13 answerable questions pass whatever the answer says, even the refusal
+        sentence, so a bot that refused everything would score 15/15. Only 2 can fail (Q12 and Q15), and they are
+        checked by phrase matching. One accepted phrase is “knowledge base”, so an answer that begins “According to the
+        knowledge base, the IRS limit is…” would pass.</li>
+      <li>So 17 of the 30 checks pass whatever the bot answers (only a crash stops them), and retrieval itself,
+        whether the right chunk came back, is never checked.</li>
+      <li>The routing check reads the final namespace, which a retry overwrites with <code>general</code>, and the
+        chunks retrieved before grading are thrown away. So the run cannot tell a routing miss from a retrieval miss or
+        from over-filtering.</li>
+      <li>No results are published either: <code>evaluate.py</code> writes <code>evaluation_report.json</code> locally,
+        but the file is listed in <code>.gitignore</code>, and the solution doc gives the expected answers, not a run's
+        results. The brief's “where it fails, and why” has no artefact in the repository.</li>
+    </ul>
+  </div>
+  <p>An FDE's version keeps the 15 questions and changes what is recorded and scored:</p>
+  <ol class="steps">
+    <li><b>Each question carries</b> a category, the expected behaviour (answer, refuse or ask back), the expected
+      facts and the expected source section, signed off by the document owner.</li>
+    <li><b>Each run records every stage</b> (the router's first label, the chunks before and after grading, each
+      checker verdict) <b>and scores</b> a retrieval hit (did the expected section reach the generator?), answer
+      correctness (are the facts there, with nothing contradicting them?), groundedness, a correct refusal, latency and
+      the number of LLM calls.</li>
+    <li><b>The question mix</b> covers the brief's three edge types plus what real users do: paraphrases and typos,
+      follow-ups, wrong premises (“since we get 20 days of leave…”), near-miss traps like Q15, and questions a given
+      user is not allowed to see answered.</li>
+    <li><b>Each run is repeated three times</b> and reported per question, not only as a percentage: with 15
+      questions one flip moves the score by about 7 points. Keep three or four questions back that you never tune
+      prompts on. Feed the checker a few deliberately wrong answers to measure how often it catches them.</li>
+    <li><b>Every failure gets one cause: the earliest stage that went wrong</b>, because an early miss causes the
+      later ones; if no stage went wrong, the cause is a knowledge gap or a test-set error. That is the “why” the brief
+      asks for:</li>
+  </ol>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Cause</th><th>What it looks like</th><th>Where the fix goes</th></tr></thead>
+    <tbody>
+    <tr><td>Routing miss</td><td>Sent to the wrong family</td><td>Router prompt, multi-label routing</td></tr>
+    <tr><td>Retrieval miss</td><td>The expected section is not in the top-k</td>
+      <td>Embedding model, k, hybrid (keyword + vector) search</td></tr>
+    <tr><td>Chunking split</td><td>The answer is cut across two chunks</td><td>Chunk size, heading-aware chunks</td>
+      </tr>
+    <tr><td>Over-filtering</td><td>The grader dropped the right chunk</td><td>Grader prompt, a re-ranker</td></tr>
+    <tr><td>Generation error</td><td>The right chunk was there; the answer misread or ignored it</td>
+      <td>Generator prompt, model choice</td></tr>
+    <tr><td>Unsafe answer</td><td>Answered a question it should have refused, or a claim not in the chunks got past
+      the checker (the Q15 trap)</td><td>Generator refusal rule, checker prompt, fail-closed (decision 11)</td></tr>
+    <tr><td>False refusal or false alarm</td><td>An answerable question was refused, or a good answer was
+      regenerated</td><td>Checker and refusal rules</td></tr>
+    <tr><td>Knowledge gap</td><td>A real question the documents don't answer (seen in pilot logs; in the golden set
+      its expected behaviour is “refuse”)</td><td>The documents, not the bot: send it to the owner</td></tr>
+    <tr><td>Test-set error</td><td>The expected answer or source is itself wrong</td>
+      <td>The golden set; confirm with the document owner</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout goodc">
+    <p><b>A cheap experiment answers part of the “why” today.</b> Re-running 2A's retrieval offline, with the same
+      MiniLM model and the same 55 chunks and no LLM, put the key facts the script checks (one or two per question,
+      such as “15 days of paid annual leave”) in the retrieved chunks for all 12 questions that have a fact to find,
+      both with each question's expected route and with a flat top-4 search. On this corpus, a missing key fact in the
+      full run therefore points to routing, grading or generation, not to vector search. It took one script, and it
+      is the kind of evidence the description's last sentence asks for.</p>
+  </div>
+</section>
+
+<section class="prose" id="fde-plan">
+  <h3><span class="sn">2.8</span>The engagement, step by step</h3>
+  <p>How an FDE would sequence the work, what each step produces, and where 2A has (or lacks) that artefact. Steps
+    2–5 overlap: request vendor and data-flow approval on day one, and show a thin slice on approved or sample
+    documents, run against a first draft of the golden set, within the first week or two. A working answer is itself
+    a discovery tool.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Step</th><th>What you produce</th><th>In 2A</th></tr></thead>
+    <tbody>
+    <tr><td>1 · Kickoff with the sponsor</td><td>A one-page problem statement, success metric and scope</td>
+      <td>The brief</td></tr>
+    <tr><td>2 · Discovery interviews (the teams in 2.3)</td><td>Answers to 2.4; a written assumptions log; the vendor
+      and data-flow approval request</td><td>Not recorded</td></tr>
+    <tr><td>3 · Document audit</td><td>An inventory: owner, format, size, change rate, sensitivity, audience</td>
+      <td>Three <code>.txt</code> files</td></tr>
+    <tr><td>4 · Golden set</td><td>15+ questions with expected answers, sources and behaviour, signed off by the
+      helpdesk and the document owners</td>
+      <td><code>evaluate.py</code> and the solution doc's §7 (full answers in the doc; the code's notes name a few key
+        facts, unscored)</td></tr>
+    <tr><td>5 · Thin slice</td><td>Naive RAG end to end on approved or sample documents, then a baseline run of the
+      test set</td><td>Considered as option A (§6.1); not shipped</td></tr>
+    <tr><td>6 · Fix the biggest failure cause, re-run, repeat</td><td>Each added quality part justified by a measured
+      failure</td>
+      <td>Router, grader, checker and retries (option B), chosen as one design against options A and C; the doc shows
+        no measured failure behind each part</td></tr>
+    <tr><td>7 · Findings readout</td><td>The brief's deliverable: per-question results, the cause of each failure
+      (2.7), what each fix gained, and a go/no-go for a pilot</td>
+      <td>None: <code>evaluation_report.json</code> is git-ignored and no run's results are recorded</td></tr>
+    <tr><td>8 · Security review before the pilot</td><td>Threat model, penetration-test findings, approvals
+      confirmed</td><td>None; figure 8 below is a first draft</td></tr>
+    <tr><td>9 · Pilot with a small group</td><td>Feedback and a list of unanswered questions</td><td>None</td></tr>
+    <tr><td>10 · Handoff</td><td>A runbook, a named owner, re-index and evaluation schedules, docs that match the
+      code</td><td>README setup steps (with the drift noted in 2.4 I)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-diagrams">
+  <h3><span class="sn">2.9</span>Which diagram answers which question</h3>
+  <p>The ten diagrams in Part 3 are the artefacts an FDE puts in front of each team. Each one answers a group of the
+    questions above.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Diagram</th><th>The question it answers</th><th>Who reads it</th></tr></thead>
+    <tbody>
+    <tr><td><a href="#context">1 · System context</a></td><td>What is in scope, who uses it, which outside services
+      it depends on</td><td>Sponsor, Information Security</td></tr>
+    <tr><td><a href="#architecture">2 · High-level architecture</a></td><td>What runs where; what we would host</td>
+      <td>Platform team</td></tr>
+    <tr><td><a href="#dataflow">3 · Data flow</a></td><td>Where every piece of data goes and where it is stored</td>
+      <td>Privacy office, Information Security</td></tr>
+    <tr><td><a href="#datamodel">4 · Data model</a></td><td>The exact shape of documents, chunks, state and
+      reports</td><td>Engineers, document owners</td></tr>
+    <tr><td><a href="#design">5 · Detailed design</a></td><td>Which file and setting implements each decision</td>
+      <td>Engineers; the owner after handoff</td></tr>
+    <tr><td><a href="#sequence">6 · Sequence</a></td><td>How many calls one question makes, and in what order</td>
+      <td>Sponsor (speed), Finance (cost)</td></tr>
+    <tr><td><a href="#prompts">7 · Context assembly</a></td><td>Exactly what text is sent to the LLM vendor</td>
+      <td>Legal, Information Security, privacy office</td></tr>
+    <tr><td><a href="#threats">8 · Threat model</a></td><td>What can go wrong, and what protects it today</td>
+      <td>Information Security</td></tr>
+    <tr><td><a href="#evaluation">9 · Evaluation pipeline</a></td><td>How we know it works, and what is not
+      measured</td><td>Sponsor, helpdesk</td></tr>
+    <tr><td><a href="#recommended">10 · The recommended architecture</a></td><td>What an FDE would build instead,
+      and the 2.5 decision each numbered part answers</td><td>Everyone; the sponsor and the platform team first</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-takeaways">
+  <h3><span class="sn">2.10</span>What to take away</h3>
+  <ol class="habits">
+    <li>The description's last sentence is the deliverable: design the evaluation before the bot, and end with a
+      findings readout.</li>
+    <li>2A's biggest additions, the grader, the checker and the fixed refusal, all guard against wrong answers: the
+      checking an FDE builds when a wrong answer is expensive. Then check what happens when those checks can't run.</li>
+    <li>Expected sources, and a record of every stage, turn “it failed” into “it failed because…”.</li>
+    <li>Most of 2A's risk sits in questions nobody asked: permissions, changing documents, data residency,
+      fail-open checks.</li>
+    <li>Test design choices with small experiments: one offline script showed the namespaces add no recall for the
+      facts it checked, at this size; precision is the next thing to measure.</li>
+  </ol>
+</section>

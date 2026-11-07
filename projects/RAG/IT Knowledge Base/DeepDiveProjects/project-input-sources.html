@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Input Sources</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1f2328; --muted: #5d6470; --border: #e3e0d8;
+    --accent: #2f5fb3; --accent-soft: #e9f0fb; --good: #1d7a46; --good-soft: #e6f4ec;
+    --warn: #9a5b00; --warn-soft: #fbf1e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16181c; --surface: #1d2026; --text: #e7e9ee; --muted: #a2a9b5; --border: #2e333c;
+      --accent: #8fb2f0; --accent-soft: #1f2a3d; --good: #6fcf97; --good-soft: #1b2e24;
+      --warn: #f0b860; --warn-soft: #33291a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16181c; --surface: #1d2026; --text: #e7e9ee; --muted: #a2a9b5; --border: #2e333c;
+    --accent: #8fb2f0; --accent-soft: #1f2a3d; --good: #6fcf97; --good-soft: #1b2e24;
+    --warn: #f0b860; --warn-soft: #33291a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15.5px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 32px 16px 56px; }
+  .eyebrow { margin: 0 0 6px; font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.2; }
+  h2 { margin: 36px 0 8px; font-size: 21px; }
+  p { margin: 0 0 12px; max-width: 78ch; }
+  .lede { font-size: 16.5px; }
+  code { font: 13px/1.4 Consolas, Menlo, monospace; background: var(--accent-soft); padding: 1px 5px;
+    border-radius: 4px; overflow-wrap: break-word; }
+  .nw { white-space: nowrap; }
+  a { color: var(--accent); }
+  .callout { border: 1px solid var(--border); border-left: 4px solid var(--good); background: var(--surface);
+    border-radius: 8px; padding: 14px 16px; margin: 18px 0 8px; max-width: 900px; }
+  .callout p { margin: 0 0 6px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+    margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.2px; }
+  th, td { text-align: left; vertical-align: top; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+  thead th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    background: var(--bg); position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td:first-child { min-width: 150px; }
+  td:first-child b { display: block; font-size: 15px; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px;
+    margin-top: 4px; white-space: nowrap; }
+  .real { background: var(--good-soft); color: var(--good); }
+  .made { background: var(--warn-soft); color: var(--warn); }
+  ul.in { margin: 0; padding-left: 18px; }
+  ul.in li { margin: 0 0 3px; }
+  footer { margin-top: 36px; font-size: 13.5px; color: var(--muted); }
+  @media (max-width: 760px) {
+    h1 { font-size: 25px; }
+    .tw { overflow: visible; border: 0; background: none; }
+    table, thead, tbody, tr, td { display: block; width: 100%; }
+    thead { display: none; }
+    tbody tr { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 14px; padding: 4px 0; }
+    td { border-bottom: 1px solid var(--border); padding: 9px 14px; }
+    td:last-child { border-bottom: 0; }
+    td[data-h]::before { content: attr(data-h); display: block; font-size: 11.5px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+    td:first-child::before { display: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">The Gen Academy · Week 2 · deep-dive projects 2A–2D</p>
+  <h1>Where each project's input comes from</h1>
+  <p class="lede">For each of the four projects: the data the system answers from, how that data gets in, and where the
+    questions and test sets come from. Every figure comes from each project's code or saved run output at the commits
+    listed in section 3, or was recounted from them for these analyses; the 2B composition figures come from the 2B
+    analysis's own check of the same two filings.</p>
+
+  <div class="callout">
+    <p><b>The short answer.</b> None of the four connects to a customer's live system. Three answer from small files committed to
+      their repositories, written for the course about made-up organizations (2A, 2C, 2D). One (2B) downloads
+      real public filings when its notebook runs, but it takes each filing's whole submission, so most of what it
+      indexes is not the annual report's text.</p>
+  </div>
+
+  <h2>1 · The data each system answers from</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Project</th><th>Input data</th><th>Real or made up</th><th>Format and size</th>
+      <th>How it is loaded</th><th>Where it is held for answering</th></tr></thead>
+    <tbody>
+    <tr>
+      <td data-h="Project"><b>2A</b>Enterprise Policy Q&amp;A Bot</td>
+      <td data-h="Input data">Three documents of “ACME Corporation”:
+        <ul class="in"><li>HR policy manual, <code>docs/<wbr>hr/<wbr>hr_policy.txt</code></li>
+          <li>technical documentation of the ACME platform, <code>docs/<wbr>technical/<wbr>tech_docs.txt</code></li>
+          <li>compliance and security manual, <code>docs/<wbr>compliance/<wbr>compliance_manual.txt</code></li></ul></td>
+      <td data-h="Real or made up"><span class="tag made">Made up</span><br>a fictional company, written for the
+        course</td>
+      <td data-h="Format and size">3 plain-text files, about 20 KB in all (5,906 + 6,641 + 7,716 bytes); split into
+        55 chunks of up to 512 characters with a 64-character overlap</td>
+      <td data-h="How it is loaded"><code>src/<wbr>ingestion.py</code>, run by hand: split, embed on the local machine
+        with all-MiniLM-L6-v2 (384 dimensions), and upload</td>
+      <td data-h="Where it is held for answering">Pinecone serverless index <code class="nw">enterprise-rag</code> (AWS
+        us-east-1), one namespace per document family: <code>hr</code>, <code>technical</code>,
+        <code>compliance</code></td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2B</b>Financial Document Intelligence Pipeline</td>
+      <td data-h="Input data">Apple's two latest annual reports (Form 10-K) on the SEC's EDGAR system at the time the
+        notebook runs. The saved run fetched fiscal years 2024 and 2025 (accession numbers
+        <span class="nw">0000320193-24-000123</span> and <span class="nw">0000320193-25-000079</span>); a re-run
+        after Apple's next 10-K gets a different pair</td>
+      <td data-h="Real or made up"><span class="tag real">Real</span><br>public filings, downloaded from SEC
+        EDGAR</td>
+      <td data-h="Format and size">One <code>full-submission.txt</code> per filing: the whole EDGAR submission, so
+        the 10-K text plus exhibits, XBRL files, JSON and encoded binary attachments. Only about 9% of the fixed-size
+        chunks come from the 10-K text itself; about 38% are XBRL files (mostly viewer pages), 35% JSON and 9% encoded
+        binaries (estimate from the 2B analysis). After filtering: 12,142 fixed-size chunks (512 characters with a 64-character overlap)
+        and 2,529 semantic chunks (the longest re-split)</td>
+      <td data-h="How it is loaded">In the Colab notebook, <code class="nw">sec-edgar-downloader</code> fetches the two latest
+        10-Ks when it runs (<code>dl.get("10-K", "AAPL", limit=2)</code>, no API key); the text is cleaned, chunked
+        both ways, embedded with BAAI/bge-base-en-v1.5 (768 dimensions) and uploaded in batches of 100</td>
+      <td data-h="Where it is held for answering">Pinecone serverless index <code class="nw">financial-rag</code> (AWS
+        us-east-1), namespaces <code>fixed</code> and <code>semantic</code></td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2C</b>GraphRAG for Organizational Knowledge</td>
+      <td data-h="Input data">A mock organization in <code>data/<wbr>mock_data.py</code>: 7 people, 4 projects, 6
+        skills, 6 tools, 5 documents and 4 decisions (32 nodes), joined by 48 relationships such as “worked on” and
+        “approved”</td>
+      <td data-h="Real or made up"><span class="tag made">Made up</span><br>typed by hand in the Python file</td>
+      <td data-h="Format and size">Python lists of records; 3,919 characters as node text, about 7,100 with every
+        relationship and all document text written out</td>
+      <td data-h="How it is loaded">At each start-up: <code>build_graph()</code> builds a NetworkX graph, and
+        <code>vector_rag.py</code> turns each node into one text chunk and embeds the 32 chunks with OpenAI
+        text-embedding-3-small (1,536 dimensions)</td>
+      <td data-h="Where it is held for answering">Memory only: the NetworkX graph, and a FAISS index of the node text
+        that holds none of the 48 relationship records (only some document and decision text mentions
+        related tools or projects); both rebuilt at every start</td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2D</b>Customer Support Knowledge Base with Hybrid Search</td>
+      <td data-h="Input data">25 knowledge-base entries for “CloudSync Pro”, a file-sync product:
+        <ul class="in"><li>10 FAQs, <code>data/<wbr>faqs.json</code></li>
+          <li>10 resolved support tickets, <code>data/<wbr>tickets.json</code></li>
+          <li>5 manual sections, <code>data/<wbr>manuals.json</code></li></ul></td>
+      <td data-h="Real or made up"><span class="tag made">Made up</span><br>a fictional product, written for the
+        course</td>
+      <td data-h="Format and size">3 JSON files, about 12 KB in all (4,182 + 5,062 + 3,027 bytes); each entry has an
+        id, source, title and content, and becomes one document (title plus content)</td>
+      <td data-h="How it is loaded">At each start-up: <code>knowledge_base.py</code> loads the entries and
+        <code>retriever.py</code> builds a BM25 keyword index and a FAISS index embedded locally with
+        all-MiniLM-L6-v2 (384 dimensions)</td>
+      <td data-h="Where it is held for answering">Memory only: the BM25 and FAISS indexes, rebuilt at every
+        start</td>
+    </tr>
+    </tbody>
+  </table></div>
+
+  <h2>2 · Where the questions and the test sets come from</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Project</th><th>Who asks, and through what</th><th>Test questions</th></tr></thead>
+    <tbody>
+    <tr>
+      <td data-h="Project"><b>2A</b>Enterprise Policy Q&amp;A Bot</td>
+      <td data-h="Who asks, and through what">Employees, typing into a Streamlit chat (<code>app.py</code>, with 12
+        example questions)</td>
+      <td data-h="Test questions">15 questions in <code>evaluate.py</code>: HR 4, technical 3, compliance 3 and 5 edge
+        cases. Routing is checked on the 11 with one expected family; refusal is checked on the 2 the bot cannot
+        answer, and any answer passes the rest</td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2B</b>Financial Document Intelligence Pipeline</td>
+      <td data-h="Who asks, and through what">The person running the notebook, in code cells
+        (<code>rag_answer(question)</code>); there is no user interface</td>
+      <td data-h="Test questions">10 questions with reference answers checked by hand against the 10-Ks
+        (<code>eval_dataset</code>), scored with RAGAS for three set-ups: fixed-size chunks, semantic chunks, and
+        semantic chunks with re-ranking. 4 of the same questions (one slightly reworded) are also run once through
+        the full pipeline as a quick check</td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2C</b>GraphRAG for Organizational Knowledge</td>
+      <td data-h="Who asks, and through what">The person running the demo, through a Streamlit page
+        (<code>ui.py</code>) that offers the 6 benchmark questions or a custom one; <code>compare.py</code> runs the
+        benchmark from the command line</td>
+      <td data-h="Test questions">6 questions in <code>questions.py</code>, each with a gold set of strings a correct
+        answer should contain; scored by substring recall</td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2D</b>Customer Support Knowledge Base with Hybrid Search</td>
+      <td data-h="Who asks, and through what">Customers or testers, typing into a Streamlit chat
+        (<code>app.py</code>, with 4 sample questions); <code>eval.py</code> runs the benchmark</td>
+      <td data-h="Test questions">20 questions in <code>eval_set.py</code>: 18 the bot should answer, each with the
+        expected entry (17 also with an expected phrase), and 2 it should escalate</td>
+    </tr>
+    </tbody>
+  </table></div>
+
+  <h2>3 · Where these facts come from</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Project</th><th>Repository and commit</th><th>Solution kit</th></tr></thead>
+    <tbody>
+    <tr>
+      <td data-h="Project"><b>2A</b>Enterprise Policy Q&amp;A Bot</td>
+      <td data-h="Repository and commit"><a href="https://github.com/The-Gen-Academy/2A-Enterprise-QandA-Bot/tree/4b2103dcc2ed2c8b09544d84ab396f1ce5e239b0">2A-Enterprise-QandA-Bot</a>
+        at 4b2103d</td>
+      <td data-h="Solution kit"><a href="https://docs.google.com/document/d/1YnkVkiR9BX8ZBrYo5wG8LWptxbJ44A2-/edit">Enterprise
+        Policy Q&amp;A Bot</a></td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2B</b>Financial Document Intelligence Pipeline</td>
+      <td data-h="Repository and commit"><a href="https://github.com/The-Gen-Academy/2B-Financial-Document-Intelligence-Pipeline/tree/39d2249c8135d24af99e99d2a6c33488ad2f6dc0">2B-Financial-Document-Intelligence-Pipeline</a>
+        at 39d2249</td>
+      <td data-h="Solution kit"><a href="https://docs.google.com/document/d/1QyqbNCXxlwfuvqAkR74GSfs7rPfF4NaG/edit">Financial
+        Document Intelligence Pipeline Solution Kit</a></td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2C</b>GraphRAG for Organizational Knowledge</td>
+      <td data-h="Repository and commit"><a href="https://github.com/The-Gen-Academy/2C-Graph-RAG-for-Organizational-Knowledge/tree/b9bae00">2C-Graph-RAG-for-Organizational-Knowledge</a>
+        at b9bae00</td>
+      <td data-h="Solution kit"><a href="https://docs.google.com/document/d/16uvBJFgv2KpE8IsIEwYD_xAbFMgSxZqA/edit">GraphRAG
+        for Organizational Knowledge Solution Kit</a></td>
+    </tr>
+    <tr>
+      <td data-h="Project"><b>2D</b>Customer Support Knowledge Base with Hybrid Search</td>
+      <td data-h="Repository and commit"><a href="https://github.com/The-Gen-Academy/2D-Customer-Support-KB-with-Hybrid-Search/tree/6a40fa1">2D-Customer-Support-KB-with-Hybrid-Search</a>
+        at 6a40fa1</td>
+      <td data-h="Solution kit"><a href="https://docs.google.com/document/d/1cGdfIbUoVpoHjrbxjcuMV8Ga59NJuvNA/edit">Customer
+        Support Knowledge Base Agent Solution Kit</a></td>
+    </tr>
+    </tbody>
+  </table></div>
+
+  <footer>Each project's full analysis, with its architecture diagrams, is in the folder beside this page:
+    <code>01-enterprise-policy-qa-bot</code>, <code>02-financial-document-intelligence-pipeline</code>,
+    <code>03-graphrag-organizational-knowledge</code> and <code>04-customer-support-kb-hybrid-search</code>.</footer>
+</main>
+</body>
+</html>
