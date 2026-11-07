@@ -168,7 +168,20 @@ async def briefing_context(
                 deadline=deadline,
             )
             ctx["conditions"] = conditions
-            structlog.get_logger().info("travel.briefing", tool="park_trip_briefing", status=conditions.decision)
+            sections = (conditions.weather, conditions.guidance, conditions.alerts, conditions.warnings)
+            missing = (
+                not conditions.weather.data or conditions.weather.data.partial,
+                not conditions.guidance.data,
+                not conditions.alerts.data or not conditions.alerts.data.complete,
+                not conditions.warnings.data or not conditions.warnings.data.complete,
+            )
+            structlog.get_logger().info(
+                "travel.briefing",
+                tool="park_trip_briefing",
+                status=conditions.decision,
+                failedSections=sum(section.failed for section in sections),
+                missingSections=sum(missing),
+            )
     except HTTPException as error:
         if error.status_code != 429:
             raise

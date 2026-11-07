@@ -126,7 +126,7 @@ body {
   font-weight: 600;
 }
 
-/* The heading over the TypeScript app's pages, kept as *_deprecated. */
+/* Shared navigation headings. */
 .side-menu-group {
   margin: 16px 12px 0;
   font-size: 0.75rem;
@@ -488,8 +488,7 @@ body {
   color: var(--muted);
 }
 
-/* The documentation: on the card colour, so muted text keeps its contrast. A word too long for the line, such as a
- * path in code or "Documentation_deprecated", breaks rather than pushing the page sideways on a phone. */
+/* Documentation keeps muted text legible and wraps long paths on narrow screens. */
 .doc {
   max-width: 820px;
   margin: 24px auto;
@@ -591,15 +590,6 @@ body {
   height: auto;
 }
 
-/* The note on each of the TypeScript app's pages. */
-.doc-deprecated {
-  margin: 0 0 20px;
-  padding: 10px 14px;
-  border-left: 4px solid var(--warn);
-  border-radius: 8px;
-  background: var(--code-bg);
-}
-
 .doc-list li {
   margin-bottom: 16px;
 }
@@ -664,19 +654,6 @@ body {
   display: block;
   color: var(--warn);
   font-size: 0.8rem;
-}
-
-/* The menu's groups (step 14): a heading over each, and the TypeScript app's pages folded, a click to open. */
-.side-menu-fold {
-  margin: 0;
-}
-
-.side-menu-fold > summary {
-  cursor: pointer;
-}
-
-.side-menu-fold > .side-menu-items {
-  margin-top: 4px;
 }
 
 /* The Observability pages (step 14): wider than a chapter, a row of numbers, cards of breakdowns, each line a
@@ -987,10 +964,6 @@ body {
 }
 
 @media (max-width: 720px) {
-  .side-menu-fold {
-    flex-basis: 100%;
-  }
-
   .obs-line {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
@@ -1137,22 +1110,6 @@ body {
   transform: translateY(-50%) rotate(45deg);
 }
 
-.side-menu-fold {
-  padding: 0 8px;
-  color: #586b63;
-}
-
-.side-menu-fold > summary {
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
-  line-height: 1.8;
-}
-
-.side-menu-fold > .side-menu-items {
-  margin-top: 8px;
-  margin-left: 11px;
-}
-
 .side-menu-build {
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -1168,7 +1125,6 @@ body {
   }
 
   .side-menu-brand,
-  .side-menu-fold,
   .side-menu-build {
     grid-column: 1 / -1;
   }

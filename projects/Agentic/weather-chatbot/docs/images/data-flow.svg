@@ -1,92 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1060" width="1160" height="1060" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
-  <title id="t">A question, end to end</title>
-  <desc id="d">Eleven steps. The browser posts the form; Vercel's edge gives the request its id; the middleware binds it to every line; the form is checked; the turn starts, logging only the question's length, and makes its first event before the response; the agent calls Gemini at most five times; each tool call is checked and runs on the question's lane, the cache first; the events go back as they happen; the browser puts each in its place and keeps the conversation for the next question; the lines say how it went; and once it has answered, the lines go to Axiom and any error to Sentry, while LangSmith gets the run with its words hidden.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="536" height="250" viewBox="0 0 536 250" role="img" aria-labelledby="title desc"
+     font-family="system-ui, sans-serif" fill="#183d35">
+  <title id="title">One weather question through the agent path</title>
+  <desc id="desc">The browser posts the question. FastAPI validates and routes it to the agent. The graph dispatches weather tools and returns their results to the model. Server-sent events update the browser. The request also produces a separate operational timeline.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L8 4L0 8Z" fill="#487469"/>
     </marker>
   </defs>
-  <rect x="0" y="0" width="1160" height="1060" fill="#ffffff"/>
-  <text x="24" y="42" font-size="22" font-weight="700" fill="#053b30">A question, end to end</text>
-  <text x="24" y="68" font-size="14" fill="#4b5563">"Will it rain in Paris tomorrow?", from the form to the answer and its lines</text>
-
-  <rect x="24" y="90" width="1112" height="66" rx="10" fill="#fcfffe" stroke="#0f766e"/>
-  <circle cx="54" cy="123" r="15" fill="#0f766e"/>
-  <text x="54" y="128" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
-  <text x="84" y="116" font-size="15" font-weight="700" fill="#053b30">The browser posts the form</text>
-  <text x="84" y="138" font-size="13" fill="#1f2937">htmx sends the question, the conversation so far, the browser's language and time zone, and the lane</text>
-  <line x1="54" y1="156" x2="54" y2="170" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="172" width="1112" height="66" rx="10" fill="#fff7ed" stroke="#b45309"/>
-  <circle cx="54" cy="205" r="15" fill="#b45309"/>
-  <text x="54" y="210" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
-  <text x="84" y="198" font-size="15" font-weight="700" fill="#7c2d12">Vercel's edge</text>
-  <text x="84" y="220" font-size="13" fill="#1f2937">HTTPS; the request's id, its own; the firewall's rules, once set; then the function, in Washington, D.C.</text>
-  <line x1="54" y1="238" x2="54" y2="252" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="254" width="1112" height="66" rx="10" fill="#fcfffe" stroke="#0f766e"/>
-  <circle cx="54" cy="287" r="15" fill="#0f766e"/>
-  <text x="54" y="292" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
-  <text x="84" y="280" font-size="15" font-weight="700" fill="#053b30">The middleware</text>
-  <text x="84" y="302" font-size="13" fill="#1f2937">binds the id to every line the request logs, puts it on the response (x-request-id), and adds the security headers</text>
-  <line x1="54" y1="320" x2="54" y2="334" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="336" width="1112" height="66" rx="10" fill="#fcfffe" stroke="#0f766e"/>
-  <circle cx="54" cy="369" r="15" fill="#0f766e"/>
-  <text x="54" y="374" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
-  <text x="84" y="362" font-size="15" font-weight="700" fill="#053b30">The form, checked</text>
-  <text x="84" y="384" font-size="13" fill="#1f2937">256 KiB, 10 fields, each once; the question 1 to 2,000 characters; the conversation 10 messages at most; a broken rule gets our sentence</text>
-  <line x1="54" y1="402" x2="54" y2="416" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="418" width="1112" height="66" rx="10" fill="#fcfffe" stroke="#0f766e"/>
-  <circle cx="54" cy="451" r="15" fill="#0f766e"/>
-  <text x="54" y="456" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
-  <text x="84" y="444" font-size="15" font-weight="700" fill="#053b30">The turn starts</text>
-  <text x="84" y="466" font-size="13" fill="#1f2937">chat.request logs the question's length, never its words; the system prompt, the conversation, the question; a deadline; the first event, made first</text>
-  <line x1="54" y1="484" x2="54" y2="498" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="500" width="1112" height="66" rx="10" fill="#f1faf7" stroke="#45c5a1" stroke-width="2"/>
-  <circle cx="54" cy="533" r="15" fill="#0f766e"/>
-  <text x="54" y="538" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">6</text>
-  <text x="84" y="526" font-size="15" font-weight="700" fill="#053b30">The agent, and Gemini</text>
-  <text x="84" y="548" font-size="13" fill="#1f2937">at most 5 calls, 20 s each, the first words within 10 s; Gemini asks for tools, the graph runs them; the last call has no tools, so it ends in words</text>
-  <line x1="54" y1="566" x2="54" y2="580" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="582" width="1112" height="66" rx="10" fill="#fff7ed" stroke="#b45309"/>
-  <circle cx="54" cy="615" r="15" fill="#b45309"/>
-  <text x="54" y="620" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">7</text>
-  <text x="84" y="608" font-size="15" font-weight="700" fill="#7c2d12">A tool call, on the question's lane</text>
-  <text x="84" y="630" font-size="13" fill="#1f2937">its input checked, 8 s; the cache, then Open-Meteo; or our own MCP server; or Apify's Actor, falling back to its twin if it fails</text>
-  <line x1="54" y1="648" x2="54" y2="662" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="664" width="1112" height="66" rx="10" fill="#fcfffe" stroke="#0f766e"/>
-  <circle cx="54" cy="697" r="15" fill="#0f766e"/>
-  <text x="54" y="702" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">8</text>
-  <text x="84" y="690" font-size="15" font-weight="700" fill="#053b30">The events go back as they happen</text>
-  <text x="84" y="712" font-size="13" fill="#1f2937">each chip as its call starts and ends; each piece of the words; then the finished answer, its Markdown made HTML that can only be text and links</text>
-  <line x1="54" y1="730" x2="54" y2="744" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="746" width="1112" height="66" rx="10" fill="#fcfffe" stroke="#0f766e"/>
-  <circle cx="54" cy="779" r="15" fill="#0f766e"/>
-  <text x="54" y="784" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">9</text>
-  <text x="84" y="772" font-size="15" font-weight="700" fill="#053b30">The browser</text>
-  <text x="84" y="794" font-size="13" fill="#1f2937">htmx puts each event in its place; the conversation, this answer with it, waits in the form for the next question</text>
-  <line x1="54" y1="812" x2="54" y2="826" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="828" width="1112" height="66" rx="10" fill="#fcfffe" stroke="#0f766e"/>
-  <circle cx="54" cy="861" r="15" fill="#0f766e"/>
-  <text x="54" y="866" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">10</text>
-  <text x="84" y="854" font-size="15" font-weight="700" fill="#053b30">The lines</text>
-  <text x="84" y="876" font-size="13" fill="#1f2937">each tool call; each request out, or cache hit; how the answer ended, with its tokens and time; the request, its status; never the question</text>
-  <line x1="54" y1="894" x2="54" y2="908" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="910" width="1112" height="66" rx="10" fill="#fff7ed" stroke="#b45309"/>
-  <circle cx="54" cy="943" r="15" fill="#b45309"/>
-  <text x="54" y="948" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">11</text>
-  <text x="84" y="936" font-size="15" font-weight="700" fill="#7c2d12">Once it has answered</text>
-  <text x="84" y="958" font-size="13" fill="#1f2937">Vercel keeps the function alive (wait_until): the lines to Axiom, any error to Sentry, within 2 s; LangSmith has the run, its words hidden</text>
-
-  <rect x="24" y="992" width="1112" height="54" rx="12" fill="#053b30"/>
-  <text x="44" y="1015" font-size="14" font-weight="700" fill="#ffffff">The question is never logged, traced or kept on our side: Gemini gets it; every other service gets less.</text>
-  <text x="44" y="1035" font-size="13" fill="#defcf6">Open-Meteo: a place's name, a point rounded to about 1 km · Apify: the rounded point · the logs: a length, ids, times, classes</text>
+  <rect x="3" y="3" width="530" height="244" rx="10" fill="#f5faf7" stroke="#afd0c3"/>
+  <g stroke="#487469" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M25 41v31"/><path d="M25 100v31"/><path d="M25 159v31"/>
+  </g>
+  <g fill="#194f42">
+    <circle cx="25" cy="29" r="8"/><circle cx="25" cy="88" r="8"/>
+    <circle cx="25" cy="147" r="8"/><circle cx="25" cy="206" r="8"/>
+  </g>
+  <g font-size="17" font-weight="650">
+    <text x="48" y="32">Browser → FastAPI</text>
+    <text x="48" y="91">Agent → weather tools</text>
+    <text x="48" y="150">Weather tools → agent</text>
+    <text x="48" y="209">SSE → browser</text>
+  </g>
+  <g font-size="15">
+    <text x="48" y="53">Validate the POST, locale and conversation history.</text>
+    <text x="48" y="112">Resolve the place, then request its dated forecast.</text>
+    <text x="48" y="171">Return structured evidence for the next model call.</text>
+    <text x="48" y="230">Display tool chips and text. Log the request timing.</text>
+  </g>
 </svg>

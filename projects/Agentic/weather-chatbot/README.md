@@ -160,13 +160,12 @@ The app explains itself: open **Documentation** in its menu, or read the same pa
 step ([step 1](docs/step-1.md) to [step 19](docs/step-19.md)), **Architecture and design**
 ([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
-([`docs/technical-details.md`](docs/technical-details.md)), one question through the code, **Issues and fixes**
-([`docs/issues.md`](docs/issues.md)), the **Interview guide** ([`docs/interview.md`](docs/interview.md)), **To do**
+([`docs/technical-details.md`](docs/technical-details.md)), weather and trip requests through the code, **Issues and fixes**
+([`docs/issues.md`](docs/issues.md)), **To do**
 ([`docs/todo.md`](docs/todo.md)), and **Waiting on you** ([`docs/waiting-on-you.md`](docs/waiting-on-you.md)), every
-setting only you can change. The menu groups them (step 14), beside the Observability pages: Activity,
-Performance, Evaluations and Health. The TypeScript version's pages are kept under **Deprecated**: its steps, System
-design, Technical details, Issues and fixes, Interview guide and To do, each named `*_deprecated`
-([README_deprecated.md](README_deprecated.md) links them all).
+setting only you can change. Observability includes Activity, Performance, Evaluations and Health. Under **Project**,
+**Health check (JSON)** opens the monitor endpoint. **Weather MCP server** shows the connection address and tools.
+The earlier TypeScript documentation is archived in the repository.
 
 ## Next
 

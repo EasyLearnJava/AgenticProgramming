@@ -1,7 +1,5 @@
 {#
-  templates/health.html: Health (step 14): the current weather and index checks, as /api/health finds them, and each lane; how many
-  health runs passed each day, from Axiom, each day a link to its runs on Activity (step 15); and our MCP server: its
-  address and its tools. A dot never says it alone.
+  Service readiness, optional travel tool discovery, recent core health and the weather MCP endpoint.
 #}
 {% extends "base.html" %}
 {% from "observability_parts.html" import notice, breakdown %}
@@ -9,19 +7,21 @@
 {% block content %}
 <main class="doc obs">
   <h1>{{ title }}</h1>
-  <p class="obs-lead">Whether each way out works now, how often it did, and how to reach our MCP server. As JSON, for a
-    monitor: <a href="/api/health">/api/health</a>.</p>
+  <p class="obs-lead">Check the services behind Nimbus or read the <a href="/api/health">health report as JSON</a>.</p>
 
   <section class="obs-card" aria-labelledby="now">
-    <h2 id="now">Now: {{ status_words[report.status] }}</h2>
+    <h2 id="now">Core health · {{ status_words[report.status] }}</h2>
+    <p class="obs-about">Core health covers the enabled weather services and park guidance index.
+      Kiwi and trivago report separately. Their checks list search tools. Nimbus fetches forecasts, park alerts
+      and travel quotes when visitors request them. See <a href="/evaluations">Evaluations</a> for chat test results.</p>
     <p class="obs-about">Checked at
-      <time datetime="{{ report.checked_at.isoformat() }}">{{ report.checked_at.strftime("%H:%M:%S UTC") }}</time>;
-      a run answers for a minute.</p>
+      <time datetime="{{ report.checked_at.isoformat() }}">{{ report.checked_at.strftime("%H:%M:%S UTC") }}</time>.
+      Nimbus reuses a report for one minute.</p>
     <table class="obs-table">
       <caption class="visually-hidden">Each check, its status and its time</caption>
       <thead><tr><th scope="col">Check</th><th scope="col">Status</th><th scope="col">Time</th></tr></thead>
       <tbody>
-        {% for name, result in report.checks.items() %}
+        {% for name, result in checks.items() %}
         <tr>
           <td>{{ check_labels.get(name, name) }}</td>
           <td><span class="obs-status" data-tone="{{ result.status }}"><span class="obs-dot" aria-hidden="true"></span>
@@ -33,8 +33,8 @@
       </tbody>
     </table>
     <table class="obs-table">
-      <caption class="visually-hidden">Each lane and its status</caption>
-      <thead><tr><th scope="col">Lane</th><th scope="col">Status</th></tr></thead>
+      <caption class="visually-hidden">Weather lanes and their status</caption>
+      <thead><tr><th scope="col">Weather lane</th><th scope="col">Status</th></tr></thead>
       <tbody>
         {% for lane, status in report.lanes.items() %}
         <tr>
@@ -50,20 +50,22 @@
   {% if answers.notice %}
   {{ notice(answers) }}
   {% else %}
-  {{ breakdown("history", "The last " ~ history_days ~ " days", "Health runs that found every lane working, each day.",
+  {{ breakdown("history", "The last " ~ history_days ~ " days", "Health runs that passed all enabled core checks.",
     days, "No health runs in the last " ~ history_days ~ " days.") }}
   {% endif %}
 
   <section class="obs-card" aria-labelledby="mcp-server">
-    <h2 id="mcp-server">Our MCP server</h2>
-    <p class="obs-about">The agent's four weather tools, for any MCP client: streamable HTTP, stateless, JSON answers,
-      no key. The MCP lanes use it too (steps 8 and 9).</p>
+    <h2 id="mcp-server">Weather MCP server</h2>
+    <p class="obs-about">Connect an MCP client to this address using Streamable HTTP to use the four Nimbus
+      weather tools. The server returns JSON and requires no Nimbus API key.</p>
     <p><code class="obs-address">{{ mcp_url }}</code></p>
     <ul class="obs-tools">
       {% for tool in mcp_tools %}
       <li><code>{{ tool.name }}</code>: {{ tool.description }}</li>
       {% endfor %}
     </ul>
+    <p class="obs-about">In Nimbus chat and the trip planner, flight searches use Kiwi’s MCP server
+      and hotel searches use trivago’s MCP server when enabled. Booking takes place with the travel provider.</p>
   </section>
 </main>
 {% endblock %}

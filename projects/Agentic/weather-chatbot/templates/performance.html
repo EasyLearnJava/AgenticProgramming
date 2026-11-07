@@ -9,21 +9,33 @@
 {% block content %}
 <main class="doc obs">
   <h1>{{ title }}</h1>
-  <p class="obs-lead">How long answers and their tools took, over the last {{ days }} days, from the app's lines in
-    Axiom. An answer's time runs from its question to its last word.</p>
+  <p class="obs-lead">Recorded responses and service calls over the last {{ days }} days in the configured Axiom
+    dataset. This includes every environment that writes to that dataset. Results can take a minute to refresh.</p>
   {% if answers.notice %}
   {{ notice(answers) }}
   {% else %}
-  {{ show_tiles(tiles) }}
-  {{ breakdown("tools", "Each tool", "Its average time, its slowest, and how many calls failed.", tools,
-    "No tool calls in the last " ~ days ~ " days.") }}
-  {{ breakdown("lanes", "Each lane's tool calls",
-    "The same, by the lane that answered: a forecast that fell back counts on its twin.",
+  <section class="obs-card" aria-labelledby="model-answers">
+    <h2 id="model-answers">Model answers</h2>
+    <p class="obs-about">Completed agent turns, measured from the question to the final response.
+      Clarifications and park conditions briefings appear separately below. Token averages use recorded usage.</p>
+    {% if model_answers %}{{ show_tiles(tiles) }}
+    {% else %}<p class="obs-empty">No completed model answers in this period.</p>{% endif %}
+  </section>
+  {{ breakdown("responses", "Completed responses", "Counts and latency by the path that answered.", responses,
+    "No completed responses in this period.") }}
+  {{ breakdown("tools", "Weather tools", "Average time, slowest call and recorded failures.", tools,
+    "No weather tool calls in the last " ~ days ~ " days.") }}
+  {{ breakdown("services", "Service checks and travel searches",
+    "Recorded outcomes include partial responses, empty results and disabled services. Calls also include standalone pages.",
+    services, "No service checks or travel searches in this period.") }}
+  {{ breakdown("lanes", "Weather lanes",
+    "Weather tool calls by the lane that answered. A forecast that fell back counts on its twin.",
     lanes, "No tool calls in the last " ~ days ~ " days.") }}
-  {{ breakdown("questions", "Questions on each lane", "The lane each question was asked on.", questions,
+  {{ breakdown("questions", "Requested weather lanes", "The selected lane, including questions answered before weather lookup.",
+    questions,
     "No questions in the last " ~ days ~ " days.") }}
-  {{ breakdown("weather", "Open-Meteo's answers",
-    "From our cache, or asked of Open-Meteo, as each tool needed them; never the health check's own.",
+  {{ breakdown("weather", "Open-Meteo requests",
+    "Cache hits and fetch attempts, including failed fetches. Health probes are excluded.",
     weather, "No weather asked for in the last " ~ days ~ " days.") }}
   {% endif %}
 </main>

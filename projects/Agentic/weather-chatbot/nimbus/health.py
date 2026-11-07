@@ -1,8 +1,9 @@
 """
-nimbus/health.py: GET/HEAD /api/health checks weather lanes and optional park-index readiness. Weather checks run
-concurrently within eight seconds: Open-Meteo geocodes Paris without cache, MCP connects and lists tools, and the
-Apify checks validate configured REST/MCP access without running an Actor. Index readiness makes no network call
-and loads no ML model. Overall health is 503 when an enabled check fails; each weather lane retains its own status.
+nimbus/health.py: GET/HEAD /api/health checks weather lanes, the enabled park index and travel providers. Checks run
+concurrently within eight seconds. Open-Meteo geocodes Paris, the Nimbus MCP server lists weather tools, and the
+Apify checks validate configured access. Index readiness makes no network call and loads no ML model. Optional
+flight and hotel providers list search tools and report their status separately. A failed weather or index check
+returns HTTP 503. Each weather lane retains its own status.
 Reports are shared for one minute per address on this app instance, with a successful response cached at the CDN.
 """
 
@@ -40,6 +41,7 @@ router = APIRouter()
 log = structlog.get_logger()
 
 type CheckName = Literal["open-meteo", "our-mcp", "apify-rest", "apify-mcp", "park-index", "kiwi-mcp", "trivago-mcp"]
+TRAVEL_CHECKS: Final[tuple[CheckName, ...]] = ("kiwi-mcp", "trivago-mcp")
 type Status = Literal["ok", "down", "off"]
 # A check passes when it returns, within its time; None is a check that's off (no token).
 type Check = Callable[[], Awaitable[None]] | None
@@ -143,14 +145,14 @@ async def check_lanes(checks: Mapping[CheckName, Check], failing: dict[CheckName
     results = dict(zip(names, await asyncio.gather(*runs), strict=True))
     lanes = {lane: to_lane_status(lane, results) for lane in CHECKS_BY_LANE}
     # Optional search providers have individual readiness results. Weather uptime tracks core dependencies.
-    core = (result for name, result in results.items() if name not in {"kiwi-mcp", "trivago-mcp"})
+    core = (result for name, result in results.items() if name not in TRAVEL_CHECKS)
     status: Literal["ok", "down"] = "down" if any(result.status == "down" for result in core) else "ok"
     log.info("health.done", status=status, ms=to_ms(time.perf_counter() - started), lanes=lanes)
     return HealthReport(status, results, lanes)
 
 
 def make_checks(request: Request, mcp_url: str | None) -> dict[CheckName, Check]:
-    """Weather checks plus optional index readiness; Apify checks run only with its token."""
+    """Probe the weather services, enabled park index and enabled travel providers' tool catalogs."""
     state = request.app.state
     settings: Settings = state.settings
     token = settings.apify_token
@@ -241,7 +243,7 @@ async def build_identity(request: Request) -> JSONResponse:
 
 @router.api_route("/api/health", methods=["GET", "HEAD"])
 async def health(request: Request) -> JSONResponse:
-    """Which lanes work, and which build answers: 200 when every enabled check works, kept a minute by Vercel's CDN."""
+    """Report core health, optional provider checks, weather lanes and the current build to uptime monitors."""
     settings: Settings = request.app.state.settings
     report = await to_report(request)
     body = {

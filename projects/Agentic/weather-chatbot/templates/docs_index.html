@@ -1,16 +1,37 @@
-{#
-  templates/docs_index.html: a list of pages, each with a line about it: the chapters, or the TypeScript app's steps.
-#}
+{# Current workflows first, followed by the chronological build chapters. #}
 {% extends "base.html" %}
 {% block title %}{{ title }} · Nimbus{% endblock %}
 {% block content %}
 <main class="doc">
   <h1>{{ title }}</h1>
-  <p>{{ intro }}</p>
+  <p>Nimbus can answer a weather question, help prepare for a national park visit, or ask for the details
+    it needs to search a trip. These guides explain how to tell which path an answer took.</p>
+
+  <h2>Follow a question through Nimbus</h2>
+  <ul class="doc-list">
+    <li><a href="/architecture">Compare a city trip, a park trip and a weather question</a>
+      <p>See why “Plan a trip to Dallas” asks for dates, while a weekend in Zion can start with conditions.</p></li>
+    <li><a href="/system-design">See which sources a park briefing trusts</a>
+      <p>Follow a forecast, park notice, weather warning and saved guidance from their sources to the trip decision.</p></li>
+    <li><a href="/technical-details">Trace a request through the code</a>
+      <p>Find the chat router, the agent loop, the passage ranking formula and the checks on travel offers.</p></li>
+  </ul>
+
+  <h2>Inspect the evidence</h2>
+  <ul>
+    <li>Choose a park and a question in the <a href="/knowledge/retrieval">Retrieval Playground</a>
+      to see the passages considered and how they ranked.</li>
+    <li>Open <a href="/activity">Activity</a> to inspect a recorded request or
+      <a href="/evaluations">Evaluations</a> to compare repeatable test cases with recorded live trials.</li>
+  </ul>
+
+  <h2>Build chapters</h2>
+  <p>Read these in order to rebuild Nimbus. Each chapter describes the implementation and evidence for its step.
+    The guides above describe how the pieces work together today.</p>
   <ol class="doc-list">
-    {% for entry in entries %}
+    {% for entry in chapters %}
     <li>
-      <a href="{{ entry.href }}">{{ entry.label }}</a>
+      <a href="{{ entry.path }}">{{ entry.label }}</a>
       {% if entry.summary %}<p>{{ entry.summary }}</p>{% endif %}
     </li>
     {% endfor %}

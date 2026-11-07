@@ -77,6 +77,8 @@ class AnswerStats:
 
     tokens_in: int = 0
     tokens_out: int = 0
+    usage_recorded: bool = False
+    agent_started: bool = False
     lane_error: NimbusError | None = None
     trace_id: UUID | None = None
 
@@ -126,6 +128,7 @@ def _from_message(payload: tuple[Any, Any], stats: AnswerStats) -> Iterator[str]
     if not isinstance(chunk, AIMessageChunk):
         return
     if chunk.usage_metadata is not None:
+        stats.usage_recorded = True
         stats.tokens_in += chunk.usage_metadata["input_tokens"]
         stats.tokens_out += chunk.usage_metadata["output_tokens"]
     if chunk.text:
@@ -180,6 +183,7 @@ async def stream_answer(
             if tracer is not None:
                 stats.trace_id = uuid4()
                 config["run_id"] = stats.trace_id
+            stats.agent_started = True
             run = agent.astream({"messages": list(messages)}, config, stream_mode=["messages", "updates"])
             stream = cast("AsyncGenerator[tuple[str, Any]]", run)
             async with aclosing(stream) as items:

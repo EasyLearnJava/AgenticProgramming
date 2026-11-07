@@ -2,6 +2,7 @@
 
 import asyncio
 import re
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -16,6 +17,7 @@ from nimbus.nws_alerts import NwsAlertsService, NwsReport
 from nimbus.park_tools import KnowledgeService
 from nimbus.parks import Destination, ParkChunk
 from nimbus.tools import Day, ForecastOutput
+from nimbus.utils import to_ms
 from nimbus.weather import UNKNOWN_CONDITIONS
 
 type Forecast = Callable[[Destination, int], Awaitable[ForecastOutput]]
@@ -57,9 +59,12 @@ async def checked[T](call: Awaitable[Section[T]], deadline: float, name: str) ->
         async with asyncio.timeout_at(deadline):
             return await call
     except TimeoutError:
+        structlog.get_logger().warning("travel.section_error", section=name, status="failed", errorClass="TimeoutError")
         return Section(message=f"The {name} check timed out.", failed=True)
     except Exception as error:
-        structlog.get_logger().warning("travel.section_error", section=name, errorClass=type(error).__name__)
+        structlog.get_logger().warning(
+            "travel.section_error", section=name, status="failed", errorClass=type(error).__name__
+        )
         return Section(message=f"The {name} check is unavailable.", failed=True)
 
 
@@ -109,22 +114,41 @@ async def preparation(
     knowledge: KnowledgeService | None, park: ParkId, destination_id: str, activity: str, arrival: date
 ) -> Section[tuple[ParkChunk, ...]]:
     """Keep dated preparation references scoped to the confirmed park or trail."""
-    if knowledge is None:
-        return Section(message="The park guidance index is unavailable.", failed=True)
     queries = dict.fromkeys([activity or GENERAL_GUIDANCE, GENERAL_GUIDANCE])
     for query in queries:
-        response = await knowledge.search(destination_id, query, arrival)
-        if response.get("status") in {"unsupported", "unavailable"}:
-            return Section(message="The park guidance index is unavailable.", failed=True)
-        passages = (ParkChunk.model_validate(raw) for raw in response.get("passages", [])[:3])
-        scoped = tuple(p for p in passages if p.park_id == park and destination_id in p.destination_ids)
-        if scoped:
-            label = (
-                "No passages matched your topic. Showing general park preparation."
-                if query != (activity or GENERAL_GUIDANCE)
-                else ""
+        started = time.perf_counter()
+        status, count = "failed", 0
+        try:
+            response = (
+                await knowledge.search(destination_id, query, arrival)
+                if knowledge is not None
+                else {"status": "unavailable"}
             )
-            return Section(scoped, message=label)
+            if response.get("status") in {"unsupported", "unavailable"}:
+                status = "unavailable"
+                return Section(message="The park guidance index is unavailable.", failed=True)
+            passages = (ParkChunk.model_validate(raw) for raw in response.get("passages", [])[:3])
+            scoped = tuple(p for p in passages if p.park_id == park and destination_id in p.destination_ids)
+            count = len(scoped)
+            status = "found" if scoped else "not_found"
+            if scoped:
+                label = (
+                    "No passages matched your topic. Showing general park preparation."
+                    if query != (activity or GENERAL_GUIDANCE)
+                    else ""
+                )
+                return Section(scoped, message=label)
+        except asyncio.CancelledError:
+            status = "cancelled"
+            raise
+        finally:
+            structlog.get_logger().info(
+                "knowledge.call",
+                tool="search_park_guidance",
+                status=status,
+                count=count,
+                ms=to_ms(time.perf_counter() - started),
+            )
     return Section(message="No preparation passages matched the visit.")
 
 

@@ -117,7 +117,12 @@ MUTATIONS: tuple[Mutation, ...] = (
     Mutation("nimbus/docs.py", 'return f"/docs/{src}" if', "return src if", "a picture's address is the app's"),
     Mutation("nimbus/docs.py", 'del tokens[idx].attrs["style"]', "pass", "an aligned column has no inline style"),
     Mutation("nimbus/pages.py", 'if href != "/" and path.startswith', "if path.startswith", "Chat isn't a section"),
-    Mutation("nimbus/pages.py", 'Markup("<wbr>_deprecated")', '"_deprecated"', "a label may break before _deprecated"),
+    Mutation(
+        "nimbus/pages.py",
+        'MenuItem("/api/health", "Health check (JSON)")',
+        'MenuItem("/health", "Health check (JSON)")',
+        "the project health link opens the JSON monitor",
+    ),
     Mutation(
         "nimbus/middleware.py",
         'else scope["path"],',
@@ -1205,10 +1210,22 @@ MUTATIONS: tuple[Mutation, ...] = (
         "a table whose columns don't match its fields can't be read",
     ),
     Mutation(
-        "templates/base.html",
-        "{% if holds_page(group, nav_path) %} open{% endif %}",
-        " open",
-        "the deprecated group is folded unless it holds the page",
+        "nimbus/pages.py",
+        'MenuItem("/health#mcp-server", "Weather MCP server")',
+        'MenuItem("/api/mcp", "Weather MCP server")',
+        "the project MCP link opens the browser-readable weather tool catalog",
+    ),
+    Mutation(
+        "nimbus/pages.py",
+        '("architecture", "system-design", "technical-details")',
+        '("architecture", "system-design", "technical-details", "interview")',
+        "the Learn menu hides the bookmarked interview guide",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "host = settings.vercel_url or settings.vercel_branch_url",
+        "host = settings.vercel_project_production_url",
+        "the project MCP instructions point preview clients to the preview",
     ),
     Mutation(
         "templates/base.html",
@@ -2285,6 +2302,42 @@ HARNESS_MUTATIONS = (
     ),
 )
 MUTATIONS += HARNESS_MUTATIONS
+
+# Workflow evidence must distinguish measured model use, clarifications and incomplete source checks.
+for _observed_module in (
+    "nimbus/answer.py",
+    "nimbus/chat.py",
+    "nimbus/observability.py",
+    "nimbus/travel/conditions.py",
+):
+    TESTS_FOR[_observed_module] += ("test_activity_workflows.py", "test_performance_workflows.py")
+
+MUTATIONS += (
+    Mutation(
+        "nimbus/answer.py",
+        "stats.usage_recorded = True",
+        "stats.usage_recorded = False",
+        "observability preserves explicitly recorded zero token usage",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        '"workflow": "agent" if stats.agent_started else "intake"',
+        '"workflow": "agent"',
+        "observability distinguishes a clarification from model execution",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '"warn" if failed or missing else "ok"',
+        '"warn" if failed else "ok"',
+        "observability warns about incomplete plan sections",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        '"ok" if status == "proceed" else "idle"',
+        '"ok" if status == "proceed" else "warn"',
+        "observability treats an intentional safety pause as a decision",
+    ),
+)
 TESTS_FOR["nimbus/feedback.py"] = TESTS_FOR["tools/harness_review.py"] = ("test_harness_feedback.py",)
 TESTS_FOR["nimbus/harness_scorecard.py"] = ("test_harness_scorecard.py",)
 

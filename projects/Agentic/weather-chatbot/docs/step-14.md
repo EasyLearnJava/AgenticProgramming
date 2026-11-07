@@ -7,6 +7,9 @@ now and how often they passed, with our MCP server's address. Each page asks Axi
 only query; each query names the fields it reads, so nothing private can reach a page, and the lines never held
 anything private anyway (step 11). The menu's links are grouped too, the TypeScript app's pages folded away.
 
+The menu shown in this chapter is the one shipped with step 14. In the current app, Project contains the health
+JSON and weather MCP links. The earlier TypeScript pages are archived in the repository.
+
 **In one line:** a token that can only query → each page's queries, once a minute on each copy → only the fields
 they name → words, numbers and meters → kept a minute by the CDN → the menu in groups.
 

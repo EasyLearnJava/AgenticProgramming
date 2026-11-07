@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from pydantic import SecretStr
 
 from nimbus.app import create_app
-from nimbus.axiom_query import AxiomQuery
+from nimbus.axiom_query import AxiomQuery, Row
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
 from nimbus.nps_alerts import NpsAlertsService
@@ -124,28 +124,38 @@ def chat_model() -> FakeModel:
 
 
 @pytest.fixture(scope="session")
+def workflow_events() -> list[Row]:
+    """Actual endpoint events recorded for the observability browser regressions."""
+    return []
+
+
+@pytest.fixture(scope="session")
 def base_url(
-    request: pytest.FixtureRequest, open_meteo: OpenMeteoRecordings, chat_model: FakeModel, cache_store: FakeCacheStore
+    request: pytest.FixtureRequest,
+    open_meteo: OpenMeteoRecordings,
+    chat_model: FakeModel,
+    cache_store: FakeCacheStore,
+    workflow_events: list[Row],
 ) -> Iterator[str]:
     """The app's address, once Uvicorn is serving it; Uvicorn stops when the session ends."""
     port = _free_port()
-    # Every setting given here, so the shell's environment can't change the app; it logs only warnings, so its line
-    # per request doesn't fill the test output.
+    # Every setting given here, so the shell's environment can't change the app. Only the source-to-display
+    # regressions enable info-level events; ordinary tests keep the output quiet.
     settings = Settings(
         _env_file=None,
         is_vercel=False,
         vercel_env=None,
         vercel_git_commit_sha=None,
         vercel_deployment_id=None,
-        log_level="warning",
+        log_level="info" if getattr(request, "param", None) == "observability" else "warning",
         apify_token=None,
         axiom_token=None,
         axiom_dataset="weather-chatbot",
         axiom_query_token=SecretStr("xaat-query-test") if getattr(request, "param", None) == "trace" else None,
         sentry_dsn=None,
         nps_api_key=None,
-        flights_enabled=getattr(request, "param", None) in {"travel", "flights-only"},
-        hotels_enabled=getattr(request, "param", None) == "travel",
+        flights_enabled=getattr(request, "param", None) in {"travel", "flights-only", "observability"},
+        hotels_enabled=getattr(request, "param", None) in {"travel", "observability"},
     )
     app = create_app(settings)
     app.state.nws_alerts = NwsAlertsService(
@@ -188,6 +198,10 @@ def base_url(
     )
     # And Axiom's query door, played back with its recorded rows, for the Observability pages (step 14).
     axiom = trace_recordings(app) if getattr(request, "param", None) == "trace" else AxiomRecordings()
+    if getattr(request, "param", None) == "observability":
+        from tests.e2e.test_observability_workflows import workflow_recordings
+
+        axiom = workflow_recordings(app, workflow_events)
     token = SecretStr("xaat-query-test")
     app.state.axiom_query = AxiomQuery(token, lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(axiom)))
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")

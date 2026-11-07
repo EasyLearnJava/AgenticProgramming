@@ -1,6 +1,6 @@
 {#
   templates/base.html: the shell every page shares: the menu on the left, its links in groups under their headings
-  (step 14), the TypeScript app's pages, kept as *_deprecated, folded unless one is open; and the page beside it. The
+  (step 14), and the page beside it. The
   current page's link is marked for screen readers too; a link that leaves the site says so.
 #}
 {% macro menu_link(item, path) -%}
@@ -9,7 +9,7 @@
     <a class="side-menu-link" href="{{ item.href }}"
       {%- if current %} aria-current="{{ current }}"{% endif %}
       {%- if item.is_external %} rel="external noopener"{% endif %}>
-      {{- item.label | menu_label -}}
+      {{- item.label -}}
       {%- if item.is_external %}<span class="visually-hidden"> (leaves this site)</span>{% endif -%}
     </a>
   </li>
@@ -26,7 +26,6 @@
   {% elif name == 'observability' %}<path d="M4 18h16M6 14v-3M12 14V5M18 14V8"/>
   {% elif name == 'learn' %}<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Zm0 0v14"/>
   {% elif name == 'project' %}<path d="M3 7h7l2 2h9v11H3V7Zm0 0V4h7l2 3h7v2"/>
-  {% else %}<path d="m10 13 4-4M8 15l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/>
   {% endif %}
 </svg>
 {%- endmacro %}
@@ -48,12 +47,6 @@
       <nav class="side-menu" aria-label="Main">
         <p class="side-menu-brand">Nimbus</p>
         {% for group in menu_groups %}
-        {% if group.is_folded %}
-        <details class="side-menu-fold"{% if holds_page(group, nav_path) %} open{% endif %}>
-          <summary class="side-menu-group" id="menu-{{ group.slug }}">{{ group.title }}</summary>
-          {{ menu_items(group, nav_path) }}
-        </details>
-        {% else %}
         <div class="side-menu-section"{% if holds_page(group, nav_path) %} data-active="true"{% endif %}>
           <div class="side-menu-section-heading">
             {{ menu_icon(group.slug) }}
@@ -61,7 +54,6 @@
           </div>
           {{ menu_items(group, nav_path) }}
         </div>
-        {% endif %}
         {% endfor %}
         <p class="side-menu-build">{{ build_label }}</p>
       </nav>

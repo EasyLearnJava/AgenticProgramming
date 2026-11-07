@@ -1,6 +1,6 @@
 """
-nimbus/docs.py: the documentation: a chapter for each step, the issues log, the interview guide and the to-do list,
-and the TypeScript app's pages, kept as *_deprecated. Each page is a Markdown file in docs/, written to read the same
+nimbus/docs.py: the documentation: a chapter for each step, the issues log, the interview guide and the to-do list.
+Each published page is a Markdown file in docs/, written to read the same
 on GitHub; here it becomes HTML, with raw HTML never rendered, and with its GitHub-style links (step-2.md) and
 pictures (images/x.png) turned into the app's own addresses.
 """
@@ -20,7 +20,6 @@ from nimbus.constants import DOCS_DIR
 
 DOC_LINK = re.compile(r"(?P<slug>[\w-]+)\.md(?P<fragment>#[\w-]*)?", re.ASCII)
 IMAGES_PREFIX = "images/"
-DEPRECATED_STEP_COUNT = 9
 
 
 @dataclass(frozen=True)
@@ -31,7 +30,6 @@ class DocPage:
     path: str
     label: str
     summary: str = ""
-    is_deprecated: bool = False
 
 
 # ① The new app's pages: a chapter for each step, and the four pages every step adds to.
@@ -215,28 +213,7 @@ PAGES: tuple[DocPage, ...] = (
     DocPage(slug="waiting-on-you", path="/waiting-on-you", label="Waiting on you"),
 )
 
-# ② The TypeScript app's pages, kept until the user says otherwise, each renamed *_deprecated, at its old address with
-# the same suffix: /docs/step-3 is now /docs_deprecated/step-3_deprecated, /issues is /issues_deprecated.
-DEPRECATED_STEPS: tuple[DocPage, ...] = tuple(
-    DocPage(
-        slug=f"step-{n}_deprecated",
-        path=f"/docs_deprecated/step-{n}_deprecated",
-        label=f"Step {n}_deprecated",
-        is_deprecated=True,
-    )
-    for n in range(1, DEPRECATED_STEP_COUNT + 1)
-)
-DEPRECATED_PAGES: tuple[DocPage, ...] = tuple(
-    DocPage(slug=f"{name}_deprecated", path=f"/{name}_deprecated", label=f"{label}_deprecated", is_deprecated=True)
-    for name, label in (
-        ("system-design", "System design"),
-        ("technical-details", "Technical details"),
-        ("issues", "Issues and fixes"),
-        ("interview", "Interview guide"),
-        ("todo", "To do"),
-    )
-)
-ALL_DOCS: dict[str, DocPage] = {doc.slug: doc for doc in (*CHAPTERS, *PAGES, *DEPRECATED_STEPS, *DEPRECATED_PAGES)}
+ALL_DOCS: dict[str, DocPage] = {doc.slug: doc for doc in (*CHAPTERS, *PAGES)}
 DOC_BY_PATH: dict[str, DocPage] = {doc.path: doc for doc in ALL_DOCS.values()}
 
 

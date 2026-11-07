@@ -298,12 +298,12 @@ async def stream_turn(
     def ending() -> dict[str, object]:
         """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
         return {
+            "workflow": "agent" if stats.agent_started else "intake",
             "answerChars": len("".join(pieces)),
             "answerRef": answer_ref(turn_id),
             "ms": to_ms(time.perf_counter() - started),
             "toolCalls": len(chips),
-            "tokensIn": stats.tokens_in,
-            "tokensOut": stats.tokens_out,
+            **({"tokensIn": stats.tokens_in, "tokensOut": stats.tokens_out} if stats.usage_recorded else {}),
             "model": model_name,
             **({"traceId": str(stats.trace_id)} if stats.trace_id is not None else {}),
         }
@@ -477,12 +477,15 @@ async def chat(request: Request) -> Response:
                     context = await briefing.briefing_context(request, intent, prefs, open_lane_tools, now, turn_id)
                     yield to_sse_message(render_part("chat_trip.html", context))
                     intake_type = {"tripForm": "conditions" not in context}
+                    workflow = "briefing" if "conditions" in context else "intake"
                 else:
                     answer = render_answer(intake_reply or "", park_sources=())
                     yield to_sse_message(render_part("chat_end.html", {"turn_id": turn_id, "answer": answer}))
                     intake_type = {reply_kind: True}
+                    workflow = "intake"
                 log.info(
                     "chat.done",
+                    workflow=workflow,
                     answerRef=answer_ref(turn_id),
                     answerChars=len(intake_reply or ""),
                     toolCalls=0,

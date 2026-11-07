@@ -101,10 +101,9 @@ get its 429, counted as failures: the limit working.
 
 ### The Technical details page
 
-[Technical details](technical-details.md) follows "Will it rain in Paris tomorrow?", asked on the live site, through
-the code: the browser, Vercel's edge, the app's start, the middleware, the checks, the turn, the agent, what Gemini
-gets, a tool call and the cache, the events back on your screen, and the seven lines it left in Axiom; then the other
-lanes, how it's kept safe, and its monitoring.
+Step 13 traced "Will it rain in Paris tomorrow?" on the live site, from the browser to the agent and its Axiom events.
+[Technical details](technical-details.md) follows that weather question through today's code alongside trip routing,
+park retrieval and travel search.
 
 ### The backup tag
 
@@ -117,7 +116,7 @@ git tag -a weather-chatbot-typescript-backup c7165ac -m "Backup of the TypeScrip
 before the Python rewrite; delete once the rewrite is complete."
 ```
 
-The TypeScript version's pages stay, each `*_deprecated`, until you say otherwise.
+At this release the TypeScript pages were still available in the app. They now live in the repository archive.
 
 ## Run it
 

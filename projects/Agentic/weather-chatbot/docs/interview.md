@@ -1,8 +1,7 @@
 # Interview Guide
 
 What to tell an interviewer about Nimbus's rebuild in Python, step by step: each chapter's interview questions, with
-short answers, collected here as the steps are built. The TypeScript version's guide is kept as
-[Interview guide_deprecated](interview_deprecated.md).
+short answers, collected here as the steps are built.
 
 ## The pitch
 

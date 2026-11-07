@@ -44,6 +44,8 @@ from nimbus.observability import (
     to_share,
     to_window,
 )
+from nimbus.travel.mcp_client import TravelProviderError
+from nimbus.travel.models import Provider
 from tests.fakes import AXIOM_WORDS, AxiomRecordings, OpenMeteoRecordings
 
 PAGES = ["/activity", "/performance", "/evaluations", "/health"]
@@ -128,7 +130,7 @@ def test_activity_shows_each_request_as_a_row_that_opens_onto_its_timeline_by_da
         assert said in words
     assert words.index("Sunday 1 November 2026") < words.index("Saturday 31 October 2026")
     assert words.index("+250 ms Open-Meteo fetched in 400 ms") < words.index(
-        "+270 ms Open-Meteo check working in 420 ms"
+        "+270 ms Open-Meteo geocoding check working in 420 ms"
     )
     assert page.text.count('<details class="obs-details">') == 6
     assert page.text.count('<summary class="obs-line" data-tone="warn">') == 2
@@ -167,7 +169,12 @@ def test_the_views_are_these_where_clauses_and_health_runs_have_their_own() -> N
             f'event in ({events}) and (level == "error" or tostring(status) in ("failed", "down") '
             'or event == "lane.fallback" or (event in ("nps.alerts", "nws.alerts") and tostring(status) == "partial") '
             'or (event == "travel.call" and tostring(status) !in ("found", "no_results", "disabled")) '
-            "or (event == \"travel.plan\" and toint(column_ifexists('failedSections', 0)) > 0))"
+            'or (event == "knowledge.call" and tostring(status) == "unavailable") '
+            'or (event == "nps.alerts" and tostring(status) == "not_configured") '
+            'or event == "travel.section_error" '
+            'or (event in ("travel.plan", "travel.briefing") '
+            "and (toint(column_ifexists('failedSections', 0)) > 0 "
+            "or toint(column_ifexists('missingSections', 0)) > 0)))"
         ),
         "health": 'event == "health.done"',
         "feedback": 'event == "answer.feedback"',
@@ -334,7 +341,7 @@ def test_runs_past_their_minute_are_let_go_so_a_timelines_queries_dont_pile_up(
     for run in runs.values():
         run.started -= 61
     observed.get("/performance")
-    assert len(runs) == 4
+    assert len(runs) == 6
     assert not any("requestId in" in key for key in runs)
 
 
@@ -483,7 +490,7 @@ def test_the_refusal_codes_a_link_takes_are_the_ones_the_app_writes() -> None:
 
 def test_each_query_is_over_the_dataset_and_the_last_7_days(observed: TestClient, axiom: AxiomRecordings) -> None:
     observed.get("/performance")
-    assert len(axiom.requests) == 4
+    assert len(axiom.requests) == 6
     for request in axiom.requests:
         body = json.loads(request.content)
         assert body["apl"].startswith("['weather-chatbot'] | ")
@@ -495,12 +502,12 @@ def test_each_query_is_over_the_dataset_and_the_last_7_days(observed: TestClient
 def test_performance_adds_up_answers_tools_lanes_and_the_cache(observed: TestClient) -> None:
     words = text_of(observed.get("/performance").text)
     for said in (
-        "Answers 11 ended well",
+        "Model answers 11 completed agent turns",
         "P50 526 ms half took less",
         "P95 711 ms",
         "P99 719 ms",
-        "Tool calls 2.1 an answer",
-        "Tokens 5,150 in 96 out, an answer",
+        "Tool calls 2.1 per completed agent turn",
+        "Tokens 5,150 in 96 out, per recorded agent turn",
         # Each tool: the forecast's 12 calls took 5,220 ms; the place's 12, 2,400 ms; the slowest first.
         "get_forecast 435 ms average · slowest 900 ms 12 calls, 0 failed",
         "geocode_location 200 ms average · slowest 8.0 s 12 calls, 1 failed",
@@ -615,21 +622,49 @@ def test_health_shows_the_checks_now_each_day_and_our_mcp_server(observed: TestC
     page = observed.get("/health")
     words = text_of(page.text)
     for said in (
-        "Now: working",
-        "Open-Meteo working",
-        "Our MCP server working",
+        "Core health · working",
+        "Open-Meteo geocoding working",
+        "Nimbus weather MCP tools working",
+        "Park knowledge index working",
+        "Kiwi flight search tools off not run",
+        "trivago hotel search tools off not run",
         "Apify's REST API off not run",
         "REST · no auth working",
         "MCP · with auth off",
         "Sunday 1 November 39 of 40 passed",
         "Saturday 31 October 12 of 12 passed",
         LOCAL_MCP,
-        "geocode_location",
-        "get_air_quality",
     ):
         assert said in words
-    assert 'id="mcp-server"' in page.text
+    assert '<h2 id="mcp-server">Weather MCP server</h2>' in page.text
+    public_tools = page.text.split('<ul class="obs-tools">', 1)[1].split("</ul>", 1)[0]
+    assert set(re.findall(r"<li><code>(\w+)</code>", public_tools)) == {
+        "geocode_location",
+        "get_current_weather",
+        "get_forecast",
+        "get_air_quality",
+    }
     assert page.headers["cache-control"] == OBSERVABILITY_CACHE_CONTROL
+
+
+def test_travel_discovery_failure_is_visible_beside_working_core_health(
+    observed: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = state_of(observed)
+    state.settings = state.settings.model_copy(update={"flights_enabled": True, "hotels_enabled": True})
+    probes: list[Provider] = []
+
+    async def discover(provider: Provider) -> None:
+        probes.append(provider)
+        if provider == "kiwi":
+            raise TravelProviderError("rate_limited")
+
+    monkeypatch.setattr("nimbus.health.check_provider", discover)
+    page = text_of(observed.get("/health").text)
+    assert sorted(probes) == ["kiwi", "trivago"]
+    assert "Core health · working" in page
+    assert "Kiwi flight search tools not answering: UpstreamRateLimitedError" in page
+    assert "trivago hotel search tools working" in page
 
 
 def test_health_shows_7_days_at_most(observed: TestClient, axiom: AxiomRecordings) -> None:
@@ -640,14 +675,30 @@ def test_health_shows_7_days_at_most(observed: TestClient, axiom: AxiomRecording
     assert "Saturday 24 October" not in words
 
 
-def test_health_shows_our_mcp_server_at_the_production_address_when_there_is_one(
-    observed: TestClient, settings: Settings
+@pytest.mark.parametrize(
+    ("environment", "deployment", "branch", "address"),
+    [
+        ("production", "deploy.example", None, "https://nimbus.example/api/mcp"),
+        ("preview", "deploy.example", "branch.example", "https://deploy.example/api/mcp"),
+        ("preview", None, "branch.example", "https://branch.example/api/mcp"),
+        ("preview", None, None, "/api/mcp"),
+        ("development", None, None, LOCAL_MCP),
+    ],
+)
+def test_health_shows_the_weather_mcp_endpoint_for_this_environment(
+    observed: TestClient, environment: str, deployment: str | None, branch: str | None, address: str
 ) -> None:
-    production = settings.model_copy(
-        update={"vercel_project_production_url": "nimbus.example", "axiom_query_token": TOKEN, "axiom_dataset": "w"}
+    state = state_of(observed)
+    state.settings = state.settings.model_copy(
+        update={
+            "vercel_env": environment,
+            "vercel_project_production_url": "nimbus.example",
+            "vercel_url": deployment,
+            "vercel_branch_url": branch,
+        }
     )
-    state_of(observed).settings = production
-    assert "https://nimbus.example/api/mcp" in observed.get("/health").text
+    page = observed.get("/health", headers={"x-forwarded-host": "unexpected.example"})
+    assert f'<code class="obs-address">{address}</code>' in page.text
 
 
 def test_a_health_page_with_a_lane_down_is_never_kept_though_axiom_answered(
@@ -655,7 +706,7 @@ def test_a_health_page_with_a_lane_down_is_never_kept_though_axiom_answered(
 ) -> None:
     open_meteo.failing = frozenset({"/v1/search"})
     page = observed.get("/health")
-    assert "Now: not answering" in text_of(page.text)
+    assert "Core health · not answering" in text_of(page.text)
     assert "Sunday 1 November 39 of 40 passed" in text_of(page.text)
     assert page.headers["cache-control"] == NO_STORE
 
@@ -678,11 +729,11 @@ def test_a_page_that_answered_is_kept_a_minute_and_one_that_didnt_never(
 def test_each_query_runs_once_a_minute_on_each_copy(observed: TestClient, axiom: AxiomRecordings) -> None:
     observed.get("/performance")
     observed.get("/performance")
-    assert len(axiom.requests) == 4
+    assert len(axiom.requests) == 6
     for run in state_of(observed).observability_runs.values():
         run.started -= 61
     observed.get("/performance")
-    assert len(axiom.requests) == 8
+    assert len(axiom.requests) == 12
 
 
 def test_a_refused_token_is_an_error_once_on_each_copy_whichever_query_meets_it_then_a_warning(
@@ -705,6 +756,8 @@ def test_a_refused_token_is_an_error_once_on_each_copy_whichever_query_meets_it_
         "warning",
         "warning",
         "warning",
+        "warning",
+        "warning",
         "error",
     ]
     assert {line["code"] for line in queried if line["status"] == "failed"} == {"axiom_refused"}
@@ -714,7 +767,7 @@ def test_a_refused_token_is_an_error_once_on_each_copy_whichever_query_meets_it_
 def test_a_query_failing_beside_others_that_answer_is_an_error_once_then_again_after_it_answers(
     observed: TestClient, axiom: AxiomRecordings
 ) -> None:
-    axiom.failing = {"totalMs = sum(ms)": 400}
+    axiom.failing = {'where event == "tool.call"': 400}
 
     def visit() -> None:
         """Performance, a minute after the last visit, so each query runs again."""
@@ -727,7 +780,7 @@ def test_a_query_failing_beside_others_that_answer_is_an_error_once_then_again_a
         visit()
         axiom.failing = {}
         visit()
-        axiom.failing = {"totalMs = sum(ms)": 400}
+        axiom.failing = {'where event == "tool.call"': 400}
         visit()
     failed = [(line["log_level"], line["query"]) for line in lines if line.get("status") == "failed"]
     assert failed == [("error", "tool-calls"), ("warning", "tool-calls"), ("error", "tool-calls")]

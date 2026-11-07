@@ -1,7 +1,9 @@
 """
-tests/unit/test_docs.py: the documentation: every page has its file and every file its page, the Markdown renders as
+tests/unit/test_docs.py: the documentation: every published page has its file, the Markdown renders as
 text and links only, and GitHub-style links and pictures become the app's own addresses.
 """
+
+import re
 
 import pytest
 
@@ -9,8 +11,6 @@ from nimbus.constants import DOCS_DIR, DOCS_IMAGES_DIR
 from nimbus.docs import (
     ALL_DOCS,
     CHAPTERS,
-    DEPRECATED_PAGES,
-    DEPRECATED_STEPS,
     DocPage,
     find_doc,
     read_markdown,
@@ -21,8 +21,8 @@ from nimbus.docs import (
 )
 
 
-def test_every_page_has_its_file_and_every_file_its_page() -> None:
-    assert {path.stem for path in DOCS_DIR.glob("*.md")} == set(ALL_DOCS)
+def test_only_current_documentation_files_have_public_pages() -> None:
+    assert {path.stem for path in DOCS_DIR.glob("*.md") if not path.stem.endswith("_deprecated")} == set(ALL_DOCS)
 
 
 @pytest.mark.parametrize("slug", sorted(ALL_DOCS))
@@ -36,22 +36,18 @@ def test_no_page_holds_an_invisible_line_separator(slug: str) -> None:
     assert not {chr(0x2028), chr(0x2029)} & set(read_markdown(slug))
 
 
-def test_keeps_all_the_typescript_apps_pages_each_marked_deprecated() -> None:
-    deprecated = [*DEPRECATED_STEPS, *DEPRECATED_PAGES]
-    assert len(DEPRECATED_STEPS) == 9
-    assert len(DEPRECATED_PAGES) == 5
-    assert all(doc.is_deprecated and doc.label.endswith("_deprecated") for doc in deprecated)
-    assert not any(doc.is_deprecated for doc in CHAPTERS)
+@pytest.mark.parametrize("slug", sorted(ALL_DOCS))
+def test_no_document_links_to_a_retired_app_page(slug: str) -> None:
+    hrefs = re.findall(r'<a href="([^"]+)"', render_markdown(read_markdown(slug)))
+    assert not [href for href in hrefs if "_deprecated" in href and "://" not in href]
 
 
 @pytest.mark.parametrize(
     ("href", "expected"),
     [
         ("step-1.md", "/docs/step-1"),
-        ("step-3_deprecated.md", "/docs_deprecated/step-3_deprecated"),
         ("issues.md", "/issues"),
         ("issues.md#step-1", "/issues#step-1"),
-        ("technical-details_deprecated.md", "/technical-details_deprecated"),
         ("unknown.md", "unknown.md"),
         ("https://example.com/step-1.md", "https://example.com/step-1.md"),
         ("#top", "#top"),
@@ -90,24 +86,15 @@ def test_an_aligned_column_gets_a_class_never_an_inline_style_the_policy_refuses
     assert '<td class="align-right">3</td>' in html
 
 
-def test_a_deprecated_pages_links_and_diagram_point_at_the_app() -> None:
-    assert 'href="/docs_deprecated/step-3_deprecated"' in render_markdown(read_markdown("step-2_deprecated"))
-    assert 'src="/docs/images/system-design_deprecated.png"' in render_markdown(
-        read_markdown("system-design_deprecated")
-    )
-    assert (DOCS_IMAGES_DIR / "system-design_deprecated.png").is_file()
-
-
-def test_the_system_design_shows_its_own_diagram_and_links_to_the_old_one() -> None:
+def test_the_system_design_shows_its_own_diagram() -> None:
     html = render_markdown(read_markdown("system-design"))
     assert 'src="/docs/images/system-design.svg"' in html
-    assert 'href="/system-design_deprecated"' in html
     assert (DOCS_IMAGES_DIR / "system-design.svg").is_file()
 
 
 def test_finds_a_page_only_by_its_own_address() -> None:
     assert find_doc("/docs/step-1") == CHAPTERS[0]
-    assert find_doc("/issues_deprecated") == DEPRECATED_PAGES[2]
+    assert find_doc("/issues_deprecated") is None
     assert find_doc("/docs/issues") is None
     assert find_doc("/docs/../../etc/passwd") is None
 

@@ -10,7 +10,8 @@
 {% block content %}
 <main class="doc obs">
   <h1>{{ title }}</h1>
-  <p class="obs-lead">See how Nimbus handles recorded scenarios, how it answers live questions, and where checks fail.</p>
+  <p class="obs-lead">Saved scenario runs identify the builds they tested. Request outcomes below come from
+    the configured Axiom dataset over the last {{ days }} days.</p>
   {% include "harness_scorecard.html" %}
 
   <section class="obs-card" aria-labelledby="goldens">
@@ -41,7 +42,7 @@
             {% if golden.expect.tools %}call {{ golden.expect.tools | join(", then ") }}{% endif %}
             {%- if golden.expect.tools and golden.expect.no_tools %}; {% endif %}
             {%- if golden.expect.no_tools %}never call {{ golden.expect.no_tools | join(", ") }}{% endif %}
-            {%- if not golden.expect.tools and not golden.expect.no_tools %}answer without a tool{% endif %}
+            {%- if not golden.expect.tools and not golden.expect.no_tools %}no tool requirement{% endif %}
           </td>
           <td>
             {% if result is none %}not run

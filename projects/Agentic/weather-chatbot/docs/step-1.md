@@ -6,6 +6,8 @@ look, the documentation (these chapters, and the TypeScript version's pages, kep
 check. Every request the app answers gets an id and one JSON log line; every response gets the security headers, the
 CDN's files included. The chat itself doesn't answer yet: that's step 2.
 
+This chapter records the first deployment. The TypeScript pages described here now live in the repository archive.
+
 **In one line:** your browser → Vercel → the FastAPI app: the security headers, then the request's id, then the
 router → a page made from a Jinja2 template, or JSON → back to you, with one log line.
 

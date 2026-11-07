@@ -86,7 +86,7 @@ copies them; a test checks they match).
 |---|---|---|
 | Modules, functions, variables | snake_case | `read_markdown`, `request_id` |
 | A function that converts | `to_...` | `to_request_id`, `to_app_url` |
-| A boolean | `is_...` or `has_...` | `is_deprecated` |
+| A boolean | `is_...` or `has_...` | `is_external` |
 | Classes | PascalCase | `DocPage`, `RequestContextMiddleware` |
 | Error classes | `...Error` | `UpstreamTimeoutError` (from step 3) |
 | Constants | UPPER_SNAKE | `SECURITY_HEADERS` |
@@ -118,6 +118,5 @@ copies them; a test checks they match).
 
 ## 7. The TypeScript version
 
-Its pages are kept, each renamed `*_deprecated` and served at its old address with the suffix
-(`/docs_deprecated/step-3_deprecated`, `/issues_deprecated`), until you say to remove them. Its code is in the git tag
-`weather-chatbot-typescript-backup`, deleted once the rebuild is complete; the code stays in the repository's history.
+The TypeScript documentation is archived in the repository. The app serves the current Python documentation.
+The TypeScript code remains available in git history.

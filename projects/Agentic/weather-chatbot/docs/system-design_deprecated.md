@@ -6,7 +6,7 @@ the top to running it in production at the bottom. A number on a box is the refe
 for the guardrails, 04 for the orchestrator, and so on); **+** marks a part only Nimbus has. Below the diagram, each
 band is described, then each part of the reference is set against what Nimbus has, or why it doesn't.
 
-![How Nimbus is built today, steps 1 to 9](images/system-design_deprecated.png)
+![How Nimbus is built today, steps 1 to 9](system-design_deprecated.png)
 
 ## The four bands
 

@@ -6,11 +6,14 @@
       <span class="{{ 'obs-pass' if card.passed else 'obs-fail' }}">{{ 'Passed' if card.passed else 'Failed' }}</span>
     </h3>
     <p>Saved {{ card.finished_at.strftime('%d %b %Y, %H:%M %Z') }} · {{ card.profile }} run ·
-      {{ card.attempts | length }} attempts ·
+      {{ card.attempts | length }} attempts · {{ card.repeats }} {{ 'try' if card.repeats == 1 else 'tries' }} per case ·
       {% if card.source.commit %}source <code>{{ card.source.commit[:12] }}</code>{% else %}source revision unavailable{% endif %}
-      {% if card.source.dirty %} with local changes{% endif %}.
+      {% if card.source.dirty is sameas true %} with local changes{% elif card.source.dirty is sameas false %}
+      from a clean checkout{% else %} with checkout state unavailable{% endif %}.
       {% if card.target %}Target {{ card.target.environment }}
-      {% if card.target.deployment %}<code>{{ card.target.deployment }}</code>{% endif %}.{% endif %}</p>
+      {% if card.target.commit %}<code>{{ card.target.commit[:12] }}</code>{% else %}· revision unavailable{% endif %}
+      {% if card.target.deployment %}· <code>{{ card.target.deployment }}</code>{% endif %}.{% endif %}</p>
+    {% if card.profile == 'smoke' %}<p class="obs-about">This smoke run covers a selected subset of cases.</p>{% endif %}
     <div class="harness-table-wrap">
     <table class="obs-table">
       <caption class="visually-hidden">{{ card.mode | title }} results by suite</caption>

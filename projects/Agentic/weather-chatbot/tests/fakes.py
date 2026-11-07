@@ -610,7 +610,7 @@ AXIOM_ROWS: dict[str, list[dict[str, Any]]] = {
         {"event": "chat.failed", "lane": None, "lines": 1},
         {"event": "chat.rejected", "lane": None, "lines": 2},
     ],
-    "totalMs = sum(ms)": [
+    'where event == "tool.call"': [
         {"tool": "get_forecast", "lane": "rest-no-auth", "calls": 10, "failed": 0, "totalMs": 4120, "slowestMs": 900},
         {
             "tool": "geocode_location",

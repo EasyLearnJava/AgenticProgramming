@@ -4,8 +4,7 @@ Every technical problem met while rebuilding Nimbus in Python: what happened, ho
 check that now guards it, so it can't quietly come back. Most are small; the ones that were real bugs or holes will
 also be told as stories at the top. *Found by* says how each surfaced: **checking our work** (a test, the type
 checker, a mutation check, a screenshot), **the review** (the independent reviewer before each commit), **reading a
-package's code**, **deploying**, or **testing a real API**. The TypeScript version's log is kept as
-[Issues and fixes_deprecated](issues_deprecated.md).
+package's code**, **deploying**, or **testing a real API**.
 
 ## Step 1 Â· The Project, Its Pages and Its First Deploy
 

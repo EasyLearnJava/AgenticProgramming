@@ -1,233 +1,112 @@
 # Technical Details
 
-## LangSmith traces in Activity
+Start in `nimbus/chat.py` for an unexpected reply, `nimbus/parks.py` for an unexpected passage, and
+`nimbus/travel/` for trip dates or offers. Each path below names the functions that make the decision and
+a way to observe the result.
 
-Open **Observability → Activity**, expand a chat request and choose **View LangSmith trace**. Nimbus shows
-the agent, its model and tool calls, when each started, how long it took and which calls reported an error.
-The Axiom timeline on the request also shows fallbacks or upstream failures handled inside a completed call.
+## Follow a weather request
 
-Every newly traced graph starts with a random root UUID. Nimbus records it on the chat's ending event.
-A signed link ties that root and the short request ref to the Activity dataset and tracing project for seven days.
-Opening the link reads just that trace from LangSmith. The Activity list makes no LangSmith calls.
-Requests recorded before this link existed still have their Axiom timeline. Refresh the trace if its upload is pending.
+![The weather request from a browser POST to tool calls, an SSE answer and a recorded timeline](images/data-flow.svg)
 
-On Vercel, enable `LANGSMITH_TRACING=true`, `LANGSMITH_HIDE_INPUTS=true` and `LANGSMITH_HIDE_OUTPUTS=true`.
-The server uses the existing `LANGSMITH_API_KEY` for tracing and to read the configured `LANGSMITH_PROJECT`.
-Nimbus reads the project's workspace UUID from LangSmith and sends it with the key when fetching the trace.
-For a key with access to multiple workspaces, set `LANGSMITH_WORKSPACE_ID` to the workspace that owns the project.
-The same setting applies to both uploading and reading traces, in Vercel or in the local `.env.local`.
-If a lookup fails, the trace page shows a short reason written for any visitor, never a setting's name. In the server logs, `langsmith.read_failed` records
-the lookup stage (`project` or `runs`), a fixed reason, and the upstream HTTP status when available.
-The deployment also needs Activity's existing Axiom ingest token, query token and dataset. To check a deployment,
-ask a fresh weather question, open its Activity row and compare the tool names with those in the chat.
+1. **Receive the question.** For “Will it rain in Paris tomorrow?”, `templates/chat.html` posts to
+   `/api/chat`. The browser supplies locale, time zone and bounded history. `read_chat_request()` validates
+   them. A question can contain up to 2,000 characters. History is limited to ten alternating messages
+   and 16,000 characters in total. History is treated as untrusted text.
+2. **Choose the execution path.** `chat()` checks park planning intent, city trip intake, missing hotel dates
+   and requests beyond the forecast horizon before accessing Gemini. A city dates-only follow-up can reuse
+   the earlier destination. The Paris weather question falls through to the agent. The supported daily
+   forecast horizon is 16 days, and hourly output covers up to three days.
+3. **Run the graph.** `nimbus/agent.py: make_agent()` binds the tools for this turn. Gemini can request a
+   place lookup and then a forecast at the chosen coordinates. LangGraph's `Send` can dispatch independent
+   calls in parallel. At most six tool calls fit in a model round. The fifth model call has tools turned off.
+   The first model chunk has a ten-second deadline, within the turn's 30-second unauthenticated or 50-second
+   authenticated budget.
+4. **Return evidence and text.** `nimbus/answer.py` turns graph events into tool starts, tool outcomes and
+   text. The chat streams HTML using server-sent events (SSE). Expand a chip to see the tool, its timing
+   and outcome. The final Markdown renderer filters links against the permitted sources. If a weather lane
+   fails, the request outcome and Activity timeline can retain the failure even after partial output.
+   [Agent chapter](step-5.md) · [Streaming chapter](step-2.md).
 
-Trace reads have a five-second deadline and a 512 KiB response limit. Each app instance allows two simultaneous
-reads and twelve per caller per minute. The public view receives only known labels, timing, nesting and status.
-Questions, answers, arguments, tool results and raw error text stay out of the trace view.
+## Follow a trip through the same endpoint
 
-## Read-only travel searches, step 18
+| Starting point | Code to inspect | What to check |
+| --- | --- | --- |
+| Broad city request | `travel/city_intake.py`, `travel/hotel_intake.py`, `forecast_horizon.py` | “Plan a trip to Dallas” asks for dates. A weather-specific follow-up can take the ordinary weather path. |
+| Named park and weekend | `travel/planner_intake.py`, `weekend_dates.py`, `return_times.py` | The resolved destination, departure time zone and date range. An explicit deadline to arrive home takes precedence over an evening default. |
+| Dated park briefing in chat | `travel/briefing.py`, `briefing_page.py`, `conditions.py` | `check_conditions()` runs forecast, stored guidance, NPS notices and NWS point alerts concurrently. The decision uses location, scope, coverage and overlap. |
+| Confirmed park trip | `travel/planner_page.py`, `planner.py` | `make_plan()` collects flights, hotels, weather, preparation and NPS outcomes independently under a shared deadline. |
+| An individual flight or hotel search | `travel/tools.py`, `service.py`, `kiwi.py`, `trivago.py` | The validated query, provider outcome and offer cards. Chat and the planner reuse the same search service. |
 
-The app injects the enabled Kiwi and trivago callables into a `TravelService`. A `TravelTurn` validates the
-calendar date, owns two distinct searches per provider, and shares duplicate in-flight and completed results.
-The same process allows at most two concurrent lookups per provider. Lookup sessions are private to their
-request. The SDK negotiates the supported MCP protocol, lists allowed operations and calls the requested one.
-Each HTTP response is capped at one MiB. Calls have a 14-second budget including setup and use the earlier
-answer or planner deadline. Health uses discovery only and has a six-second provider deadline.
+`nimbus/travel/models.py` accepts hotel dates as either `check_in` / `check_out` or the
+`checkin_date` / `checkout_date` names a model may emit. The same date-order and stay-length validation
+applies to both. A `TravelTurn` shares identical lookups within a request and caps distinct searches at two
+per provider. The adapters return up to five validated offers. The browser gets eligible provider links,
+while Gemini receives bounded offer facts with those URLs removed. [Travel tool contracts](step-18.md).
 
-Each adapter validates structured content (or a single JSON text payload) into up to five offers. The hotel
-adapter distinguishes nightly prices from the total for the stay. The flight adapter checks each leg's date and
-labels the total for the party. Only eligible URLs from the provider may become offer links. Search parameters,
-opaque booking links and raw provider replies stay out of logs. The browser receives validated offer URLs directly.
-The model receives bounded offer facts with the booking URLs removed. Activity uses `travel.call` and `travel.plan`
-with status, counts and timing. See [Step 18](step-18.md) for live provider evidence and preview checks.
+## Reproduce a park retrieval
 
-## Official park notices, step 17
+In the [Retrieval Playground](/knowledge/retrieval), select **The Narrows** and ask **What should I know about
+flash floods?** Inspect the retrieved section and its source, then compare the highest-ranked candidate with
+another candidate. The mode shown on that run explains whether a semantic score contributed.
 
-GET `/parks/alerts` displays a selector without an NPS request. POST `/api/parks/alerts` accepts one known park,
-checks origin, bounds the body and reserves application capacity. `NpsAlertsService` authenticates with an
-`X-Api-Key` header to the fixed NPS alerts endpoint, with no question or credential in query parameters. Complete
-reports are cached for five minutes, other reports for one; expired data is never served on failed refresh.
-The same service backs `get_park_alerts` in chat, independent of weather transports. Its model context is bounded
-separately from full public cards. Exact exposed links enter the answer citation allowlist. `nps.alerts` logs only
-caller/status/count/timing metadata and fixed failure-reason codes. Activity shows cached versus live checks,
-sanitized reasons and partial results. Page checks use `park_alerts`, chat uses `get_park_alerts`, and plain GETs
-produce no notice-check event. Shared form and URL validation live in `forms.py` and `utils.py`; invalid individual
-records are omitted with an incomplete label. See [step 17](step-17.md).
+1. **Build the collection offline.** `nimbus/park_ingest.py` makes passages from reviewed NPS sections.
+   The manifest supplies destination and season scope. Each record includes a document ID, source URL,
+   section, fetch date and content hash. `write_index()` validates the records and atomically replaces
+   `data/parks/index.sqlite`. The request path opens that index read-only.
+2. **Limit the candidates.** `ParkKnowledge.resolve()` checks known names and aliases.
+   `ParkKnowledge.search()` filters by park, destination and, when supplied, visit season. A matching word
+   from another park cannot bring that passage back into the result.
+3. **Calculate the scores.** Keyword scoring expands selected terms, gives section headings extra weight and
+   accounts for term rarity and passage length. The keyword component is `keyword_score / (1 + keyword_score)`.
+   When the query and index use compatible embeddings, the ranker adds their cosine similarity. A passage
+   with no keyword hit needs a similarity of at least 0.65 to qualify. Equal totals break by passage ID.
+4. **Build the context.** Up to four passages fit within 10,000 characters of passage text. The Playground
+   exposes candidate scores, ranks, cutoffs and selection reasons from this same search. The chunks page
+   can plot stored vectors in two dimensions. That projection is for inspection. Ranking uses the original
+   vectors. [Browse chunks and vectors](/knowledge/chunks).
+5. **Check the mode.** In automatic mode Vercel uses keyword retrieval. A provisioned host can use the pinned
+   CPU `all-MiniLM-L6-v2` encoder with compatible 384-dimensional vectors. Missing weights, a busy worker
+   or a timeout leave keyword retrieval available. Builds and visitors do not need an embedding service key.
+   [Park retrieval chapter](step-16.md).
 
-## Park and trail questions, step 16
+## Trace a failure without reading a conversation
 
-The chat composes `resolve_destination` and `search_park_guidance` alongside the selected lane's four weather tools.
-The destination registry returns an explicit park or trail ID and a labeled forecast reference point. Retrieval
-filters source chunks by destination and visit season before keyword or compatible embedding ranking. The agent can
-fetch forecast data and retrieve preparation guidance concurrently after resolving the destination.
+Activity groups events by request so you can distinguish a missing tool from a slow tool or provider.
+Its summaries identify model answers, clarification replies and park briefings. A verified safety pause is
+shown as a planning decision. Failed or incomplete source checks appear in Errors, including partial NPS
+and NWS results and timed-out trip sections. Cached notices retain their cache label.
 
-Each returned passage carries its document ID, section, source URL and dates. Its artifact feeds a knowledge card,
-while the model sees the bounded passage content as untrusted data. The answer's links cite returned sources. A
-missing or failed retrieval leaves the weather answer useful and explicitly limits its preparation guidance.
-The index is public read-only reference data, built outside requests; it holds no visitor questions or chat history.
+Performance separates those response paths and calculates model latency and token averages from agent turns.
+When usage was never recorded, the page shows it as unavailable. Service timings include park retrieval,
+official alerts and travel searches across the configured Axiom dataset, even after a provider is disabled.
 
-The separate `tools.eval_parks` command measures labeled source retrieval without asking Gemini. Live answer goldens
-can additionally require `cites` URLs and restrict links with `only_cites`. See [step 16](step-16.md) for operation and
-failure behavior.
+For a traced agent request, open **View LangSmith trace** on its Activity row to see the model calls, tool
+calls, nesting, durations and sanitized errors. Nimbus requires tracing, a key and both input/output privacy
+settings. A signed link binds the trace to the project and Activity dataset. It expires within one hour
+and within the seven-day Activity window. Deterministic intake can finish without a graph trace.
+[Activity](/activity) · [Performance](/performance).
 
-One question, followed through the code: "Will it rain in Paris tomorrow?", asked on the live site on 31 October 2026,
-on REST · no auth, its request id `cle1::n4pbp-1793475397181-d8b19e1af797`. Each part names the file and the function
-that does the work; a circled number (①) is the code's own comment at that point. The TypeScript version's page is
-kept as [Technical details_deprecated](technical-details_deprecated.md).
+Health reports whether enabled weather dependencies and the park index are ready. Its optional Kiwi and
+trivago checks discover search tools. For a failed park check, use the source-specific status in Activity
+or the current notices page. A healthy tool catalog alone gives no evidence about today's notices, live
+inventory, or the quality of a Gemini answer. [Health](/health) · [Park alerts](/parks/alerts).
 
-## The path at a glance
+## Verify a change
 
-1. **Your browser** posts the question with htmx, and the browser's language, time zone and the conversation so far.
-2. **Vercel's edge** takes the HTTPS request, gives it an id, and sends it to the app's function.
-3. **The middleware** binds the id to every line the request logs, and puts it on the response.
-4. **`chat()`** checks the question, logs its length, and starts the answer.
-5. **The agent**, a LangGraph graph, calls Gemini, which asks for tools, which call Open-Meteo, through the cache.
-6. **The stream** sends each chip, each piece of the words and the finished answer, as server-sent events of HTML.
-7. **htmx** puts each event into the page; our script keeps the conversation for the next question.
-8. **Once it has answered,** the request's lines go to Axiom, and any error to Sentry.
+From the project directory, run the keyword retrieval cases and then the credential-free scenario replay.
 
-## 1. In the browser: `templates/chat.html`, `public/static/chat.js`
+```sh
+uv run python -m tools.eval_parks --lexical-only
+uv run python -m tools.harness run --mode replay
+```
 
-The form posts to `/api/chat` (`hx-post`), adds each event to the conversation (`hx-swap="beforeend"`), and drops a
-second question while an answer streams (`hx-sync="this:drop"`). Without JavaScript it still posts. `chat.js` fills
-the hidden fields: the browser's language and time zone (⑧), and the conversation so far, as JSON, cut to the last 10
-messages and 16,000 characters (`rememberConversation()`); it adds Stop and New chat, keeps the newest message in view,
-asks `/api/health` for each lane's dot (⑩), and shows our own sentence when no answer can come from us (⑥, ⑦). It puts
-only text into the page, never HTML. The Content Security Policy allows no inline script or style.
+The replay fixes the clock and uses synthetic or recorded inputs, including the Dallas clarification and a
+Zion conditions check. Live trials exercise a named target and record each attempt separately, including
+timeouts, missing tools, provider outcomes and latency. A smoke run can help diagnose a fault. For release
+review, the harness requires full passing replay and live suites, both run within the past 24 hours from a
+clean checkout at the specified commit, with at least three live attempts per case against the exact preview
+commit and deployment. A passing gate produces evidence for a human release decision.
 
-## 2. At Vercel's edge
-
-HTTPS ends here. The request gets its id, `x-vercel-id`; one a client sends is replaced. Vercel's CDN serves the
-stylesheet, htmx, its stream extension, `chat.js` and the icon from `public/`, with the security headers `vercel.json`
-gives them, without the app. Every other path reaches the function, `main.py`'s `app`, in `iad1` (Washington, D.C.);
-once you set them, the firewall's rules come first ([Waiting on you](waiting-on-you.md)).
-
-## 3. Each copy of the app, once: `nimbus/app.py`, `create_app()`
-
-Vercel starts as many copies of the function as the traffic needs; each builds the app once. `create_app()` reads the
-settings (`config.py`, the only module that reads settings from the environment), sets up the logging (`logger.py`),
-with Axiom's shipper and Sentry when they're set up, and makes, once: the model (`model.py`: Gemini 3.5 Flash-Lite,
-1,024 tokens, 20 s and two attempts a call), LangSmith's tracer, when tracing is allowed, the cache of Open-Meteo's
-answers (`cache.py`), and our MCP server (`mcp_server.py`). It logs `app.started`, mounts the routes, and wraps them in
-the two middleware. The vercel package's telemetry is off before any of this runs (`nimbus/__init__.py`).
-
-## 4. Every request: `nimbus/middleware.py`, `RequestContextMiddleware`
-
-① The request's id: Vercel's, when it looks like one, else a new one, kept in the request's state for the ref an
-error's sentence ends with. ② The id goes back on the response, `x-request-id`. ③ Every line the request logs carries
-it. ④ One `http.request` line when it ends: the method, the path without its query string, the status and the time.
-⑤ Then its lines go to Axiom, and any error to Sentry, while Vercel keeps the function alive (`wait_until`).
-`SecurityHeadersMiddleware`, outermost, puts the security headers on every response.
-
-## 5. The question, checked: `nimbus/chat.py`, `read_chat_request()`
-
-The body, read up to 256 KiB, as a form, each field once; the question 1 to 2,000 characters; the lane one we know;
-the language tag and the time zone checked, else the defaults, said in the line (`defaulted`); the conversation's JSON,
-each message's role and length checked. A broken rule is `chat.rejected` with its code, and our sentence as HTML, its
-status, and the `x-nimbus-error` header that marks it as ours. A lane with auth needs Apify's token.
-
-## 6. The turn: `chat()`, then `stream_turn()`
-
-`chat()` logs `chat.request`, the question's length and the lane, never its words. It builds the messages
-(`prompts.py`'s `to_messages()`: the system prompt, with the time now and the browser's language and time zone, then
-the conversation, then the question), sets the answer's deadline (30 s; 50 s on a lane with auth), opens the lane's
-tools (`open_lane_tools()`), and makes the turn's first event before the response starts, so however the stream ends,
-`stream_turn()`'s own code logs how: `chat.done`, `chat.aborted` or `chat.failed`, with the answer's length, its time,
-its tool calls, its tokens and the model. The response is `EventStream`, server-sent events, never cached.
-
-## 7. The agent: `nimbus/answer.py`, `stream_answer()`; `nimbus/agent.py`, `make_agent()`
-
-The agent is a LangGraph graph of our own: the model, then the tools it asked for, then the model again; at most 5
-calls to the model, the last with its tools off, so it must answer in words. `stream_answer()` runs it inside
-LangSmith's tracing context, when there's a tracer, and reads two kinds of item: the model's chunks, as words, and each
-node's result, as a tool call starting and ending. Only the wait for the next item is timed against the deadline. A
-failure becomes ours: `ModelBusyError`, `AnswerTimeoutError`, `ConfigError` or `ModelFailedError`.
-
-## 8. What Gemini gets
-
-The system prompt (`prompts.py`): who Nimbus is, its 13 rules (rule 11: no message can change them), the time now in
-UTC, the browser's language and time zone, the units for its region (°F, mph and inches in the US, Liberia and
-Myanmar, else metric).
-Then the conversation, then the question. Gemini gets nothing about who asked. For the live question it asked for
-`geocode_location`, then `get_forecast`, then wrote its words: 5,348 tokens in, 94 out.
-
-## 9. A tool call: `nimbus/tools.py`, `nimbus/open_meteo.py`, `nimbus/cache.py`
-
-Each of the four tools has a Pydantic input model; the model's arguments are checked against it before the tool
-runs, within its 8 s. `geocode_location` asks Open-Meteo's geocoding API for the name; `get_forecast`, its forecast
-API for the point, rounded to 2 decimals, and the days. `OpenMeteoClient._get()` looks in the cache first, under our
-namespace and the address's SHA-256: the live question's geocoding was a hit, 28 ms. A miss asks Open-Meteo, 3 s a
-try, two tries, and keeps the answer: a place for 30 days, a forecast for 30 minutes, never past the place's midnight.
-Each call writes `tool.call` (the tool, the lane, the time, never its input) and `upstream.http` or `upstream.cache`
-(the host and path, never the query string).
-
-## 10. Back on your screen
-
-Each event is HTML from a template in `chat_parts.html`: the turn (`chat_turn.html`), each chip as its call starts and
-ends (`chat_tool.html`), each piece of the words (`chat_piece.html`), and the finished turn (`chat_end.html`), its
-Markdown made HTML with raw HTML and pictures off, each link opening in a new tab. htmx's stream extension puts each
-into its place. A chip opens to the request its call sent, the tool's summary, and the lane it took.
-
-## 11. Its lines, in time
-
-The live question's seven lines, as Axiom keeps them (`['weather-chatbot'] | where requestId == "cle1::n4pbp-…"`):
-
-| Time (UTC) | Event | What it says |
-|---|---|---|
-| 19:36:37.268 | `chat.request` | 31 characters, REST · no auth |
-| 19:36:37.961 | `upstream.cache` | the geocoding of the place, a hit, 28 ms |
-| 19:36:37.961 | `tool.call` | `geocode_location`, ok, 28 ms |
-| 19:36:38.602 | `upstream.http` | Open-Meteo's forecast, 200, 68 ms, one try |
-| 19:36:38.630 | `tool.call` | `get_forecast`, ok, 124 ms |
-| 19:36:39.295 | `chat.done` | 132 characters, 2,025 ms, 2 tool calls, 5,348 tokens in, 94 out |
-| 19:36:39.296 | `http.request` | POST `/api/chat`, 200, 2,029 ms |
-
-## The other three lanes, in short
-
-- **MCP · no auth** (`mcp_lane.py`, `mcp_server.py`): the same four tools, called through our own MCP server at
-  `/api/mcp`, on the same deployment, one connection for the answer; the server runs each tool as REST · no auth does,
-  and answers with JSON. Each call writes `mcp.call` on the server's side.
-- **REST · with auth** and **MCP · with auth** (`auth_lanes.py`, `apify.py`, `actor.py`): `get_forecast` runs Apify's
-  Actor, over its REST API or its MCP server, with Apify's token, 18 s and $0.01 a run, at most 2 runs an answer and
-  25 a day; any failure falls back to the twin with no auth, the chip saying why. The other three tools are the twin's.
-
-## How it's kept safe
-
-- **In the browser:** the Content Security Policy, enforced; only text put into the page; an answer's Markdown without
-  raw HTML or pictures; nothing kept in the browser's storage.
-- **At Vercel's edge:** HTTPS; the request id Vercel's own; the security headers on every response; the firewall's
-  rules, once you set them.
-- **In the function:** each input checked at the edge; every call out with a time limit; the question never logged or
-  traced, only its length; the system prompt's rules against prompt injection; read-only tools.
-- **Toward Open-Meteo and Apify:** a point rounded to about 1 km; Apify's token only in a header, masked in each chip;
-  paid runs capped.
-- **In the logs and traces:** no query string, no question, no conversation, no place's name, no token; LangSmith gets
-  each run's names, times and lane, of a failed run only that it failed; Sentry gets an error's class and frames, never
-  its message. The privacy tests send words of their own through three lanes and look for them everywhere.
-
-## Monitoring
-
-Each line goes to Axiom, once its request has answered; each error to Sentry; `/api/health` checks each lane's way
-out, for an uptime monitor and the dots. [Step 12's chapter](step-12.md) has the dashboards and alerts, ready to set
-up.
-
-### Knowledge inspection pages
-
-`nimbus/knowledge.py` serves `/knowledge/sources`, `/knowledge/sources/{document_id}` and `/knowledge/chunks`.
-`ParkKnowledge.inspection()` supplies detached public records; it never opens a writable connection. Bounded filter
-models reject unknown fields and invalid selections. PCA operates on all stored vectors before filtering, using
-stable component signs and a bounded projection cache; filter changes preserve the map's coordinates. Escaped
-Jinja2 templates provide source links, indexed text and vector values, with keyboard-accessible SVG links and a table.
-
-`/knowledge/retrieval` accepts `RetrievalFilters` and calls `ParkKnowledge.search(..., explain=True)` on the same
-app-scoped service used by chat. Its optional diagnostics report raw keyword scores, compressed keyword contributions,
-cosine similarities, final scores, qualified ranks and selection/exclusion reasons. The page renders actual selected
-passages and source links, labels lexical fallback, and never calls Gemini or changes the published index. Explanation
-mode preserves the ordinary search response and ranking when disabled. Both the form and results work without scripts.
-
-The hosted profile is explicitly keyword-only by default and does not install the optional ML group. The local
-profile checks dependencies and pinned cached weights before attaching a single dedicated inference worker.
-Playground execution is `POST /api/knowledge/retrieval`, with bounded bodies, same-origin checks, expiring request
-limits and a concurrency cap. Questions never appear in generated retrieval URLs. Weather setup failures preserve
-the original error class through `chat.failed` while retaining guidance. Activity includes knowledge and setup events,
-and health checks the published index separately from weather-lane status. See step 16 for limits and release checks.
+A visitor can flag an answer by category. A reviewer can use that signal to write a synthetic regression
+with explicit expected behavior.
+[Evaluation harness and release commands](step-19.md) · [Recorded scorecards](/evaluations).

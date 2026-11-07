@@ -1,233 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1296" width="1160" height="1296" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
-  <title id="t">How Nimbus is built after step 18</title>
-  <desc id="d">Four bands. A, the online request path: you, in a browser, reach Vercel's edge, which gives the request its id and sends it to the FastAPI app, one Vercel Function, which sends back your page, or a question's answer as a stream of events; Vercel's CDN serves the stylesheet, the icon and the scripts without the app. B, controlled execution: every request goes through the security headers middleware, then the request context middleware, then FastAPI's router, to the chat, the pages (from step 14, the Observability pages too, read back from Axiom; from step 15, Activity by request), the docs and their pictures, the health check or our MCP server, which offers the same four weather tools to any MCP client, with no session; the chat checks the form, then streams the agent's answer: our own LangGraph graph calls Gemini, which asks for the four weather tools, on the lane the question took: on REST · no auth they call Open-Meteo with no key, on MCP · no auth our own MCP server, at an address of this deployment's own; on the lanes with auth, the forecast through Apify's Actor, behind its token, falling back to the twin; a chip shows each tool call, then the words come a piece at a time, capped, which Stop ends; LangSmith traces each run with its inputs and outputs hidden. C, state and data freshness: bundled park SQLite index, short public caches and sanitized log lines, settings read only by config.py, the docs as Markdown and the static files on the CDN, and Open-Meteo's answers in Vercel's Runtime Cache, each key our namespace and a SHA-256, each kind for its own time. D, production operations: JSON log lines in Vercel's logs and Axiom, read back on the Observability pages, the tests in CI and the mutation check before each commit, Vercel Functions scaling, and every push to main deploying side by side with CI. Park planning adds optional external flight and hotel MCP searches, park guidance and current NPS notices.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="536" height="305" viewBox="0 0 536 305" role="img" aria-labelledby="title desc"
+     font-family="system-ui, sans-serif" fill="#183d35">
+  <title id="title">How chat checks a park trip</title>
+  <desc id="desc">A dated park request starts four parallel checks: forecast, stored preparation guidance, NPS notices and NWS point alerts. The resulting briefing may pause travel, request review, suggest an adjustment or permit planning. Eligible visitors can confirm a read-only search.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M0 0L10 5L0 10z" fill="#0f766e"/>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L8 4L0 8Z" fill="#487469"/>
     </marker>
   </defs>
-  <rect width="1160" height="1296" fill="#ffffff"/>
-
-  <!-- A · The online request path -->
-  <rect x="8" y="8" width="1144" height="266" rx="16" fill="#fafafa" stroke="#d7e7e2"/>
-  <circle cx="36" cy="38" r="13" fill="#0f766e"/>
-  <text x="36" y="43" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">A</text>
-  <text x="58" y="44" font-size="17" font-weight="700" fill="#053b30" letter-spacing="0.5">ONLINE REQUEST PATH</text>
-
-  <rect x="24" y="62" width="220" height="122" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="40" y="88" font-size="15" font-weight="700" fill="#053b30">You</text>
-  <text x="40" y="112" font-size="13" fill="#374151">a browser, on a computer</text>
-  <text x="40" y="130" font-size="13" fill="#374151">or a phone · no sign-in</text>
-  <text x="40" y="148" font-size="13" fill="#374151">ask the chat: a chip a tool</text>
-  <text x="40" y="166" font-size="13" fill="#374151">call, then the words</text>
-
-  <rect x="274" y="62" width="250" height="122" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="290" y="88" font-size="15" font-weight="700" fill="#053b30">Vercel's edge</text>
-  <circle cx="500" cy="84" r="13" fill="#0f766e"/>
-  <text x="500" y="88" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">02</text>
-  <text x="290" y="112" font-size="13" fill="#374151">HTTPS · routing · firewall</text>
-  <text x="290" y="130" font-size="13" fill="#374151">x-vercel-id: the request id,</text>
-  <text x="290" y="148" font-size="13" fill="#374151">Vercel's own, never a client's</text>
-  <text x="290" y="166" font-size="13" fill="#374151">the function runs in iad1</text>
-
-  <rect x="554" y="62" width="300" height="122" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="570" y="88" font-size="15" font-weight="700" fill="#053b30">The FastAPI app</text>
-  <text x="570" y="112" font-size="13" fill="#374151">one Vercel Function: /fastapi</text>
-  <text x="570" y="130" font-size="13" fill="#374151">Python 3.13 · packages from uv.lock</text>
-  <text x="570" y="148" font-size="13" fill="#374151">main.py → create_app()</text>
-  <text x="570" y="166" font-size="13" fill="#374151">band B follows a request in it</text>
-
-  <rect x="884" y="62" width="252" height="122" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="900" y="88" font-size="15" font-weight="700" fill="#053b30">Your page</text>
-  <text x="900" y="112" font-size="13" fill="#374151">HTML from a Jinja2 template,</text>
-  <text x="900" y="130" font-size="13" fill="#374151">JSON, or an answer's events</text>
-  <text x="900" y="148" font-size="13" fill="#374151">the security headers</text>
-  <text x="900" y="166" font-size="13" fill="#374151">x-request-id: the request id</text>
-
-  <line x1="244" y1="123" x2="272" y2="123" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="524" y1="123" x2="552" y2="123" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="854" y1="123" x2="882" y2="123" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <line x1="399" y1="184" x2="399" y2="202" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="274" y="204" width="330" height="58" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="290" y="226" font-size="15" font-weight="700" fill="#053b30">Vercel's CDN, without the app</text>
-  <text x="290" y="248" font-size="13" fill="#374151">app.css · favicon.svg · htmx · hx-sse · chat.js</text>
-
-  <!-- B · Controlled execution -->
-  <rect x="8" y="288" width="1144" height="460" rx="16" fill="#fafafa" stroke="#d7e7e2"/>
-  <circle cx="36" cy="318" r="13" fill="#0f766e"/>
-  <text x="36" y="323" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">B</text>
-  <text x="58" y="324" font-size="17" font-weight="700" fill="#053b30" letter-spacing="0.5">CONTROLLED EXECUTION</text>
-
-  <line x1="704" y1="184" x2="704" y2="340" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="342" width="300" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="40" y="368" font-size="15" font-weight="700" fill="#053b30">The model</text>
-  <circle cx="300" cy="364" r="13" fill="#0f766e"/>
-  <text x="300" y="368" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">07</text>
-  <text x="40" y="392" font-size="13" fill="#374151">Gemini 3.5 Flash-Lite, via LangChain</text>
-  <text x="40" y="410" font-size="13" fill="#374151">a call: 1,024 tokens, 20 s, 2 tries</text>
-  <text x="40" y="428" font-size="13" fill="#374151">LangSmith: inputs, outputs hidden</text>
-
-  <rect x="554" y="342" width="300" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="570" y="368" font-size="15" font-weight="700" fill="#053b30">Security headers</text>
-  <text x="570" y="392" font-size="13" fill="#374151">SecurityHeadersMiddleware, outermost</text>
-  <text x="570" y="410" font-size="13" fill="#374151">CSP enforced: only our own files</text>
-  <text x="570" y="428" font-size="13" fill="#374151">nosniff · no framing · referrer</text>
-
-  <rect x="884" y="342" width="252" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="900" y="368" font-size="15" font-weight="700" fill="#053b30">Request context</text>
-  <text x="900" y="392" font-size="13" fill="#374151">the id on every log line,</text>
-  <text x="900" y="410" font-size="13" fill="#374151">the response and the state</text>
-  <text x="900" y="428" font-size="13" fill="#374151">a line per request · no query</text>
-
-  <line x1="854" y1="394" x2="882" y2="394" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <line x1="1010" y1="446" x2="1010" y2="474" stroke="#0f766e" stroke-width="2"/>
-  <line x1="128" y1="474" x2="1032" y2="474" stroke="#0f766e" stroke-width="2"/>
-  <text x="580" y="466" font-size="12" font-style="italic" fill="#4b5563" text-anchor="middle">FastAPI's router</text>
-  <line x1="128" y1="474" x2="128" y2="496" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="354" y1="474" x2="354" y2="496" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="580" y1="474" x2="580" y2="496" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="806" y1="474" x2="806" y2="496" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="1032" y1="474" x2="1032" y2="496" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <rect x="24" y="498" width="208" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="40" y="524" font-size="15" font-weight="700" fill="#053b30">The chat's turn</text>
-  <text x="40" y="548" font-size="13" fill="#374151">chat.py · POST /api/chat</text>
-  <text x="40" y="566" font-size="13" fill="#374151">checks, then the agent:</text>
-  <text x="40" y="584" font-size="13" fill="#374151">chips, words, as SSE · Stop</text>
-
-  <rect x="250" y="498" width="208" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="266" y="524" font-size="15" font-weight="700" fill="#053b30">Pages</text>
-  <text x="266" y="548" font-size="13" fill="#374151">pages.py · observability.py</text>
-  <text x="266" y="566" font-size="13" fill="#374151">the chat, the lists, the 404,</text>
-  <text x="266" y="584" font-size="13" fill="#374151">4 pages read from Axiom</text>
-
-  <rect x="476" y="498" width="208" height="104" rx="10" fill="#fcfcfc" stroke="#7c3aed" stroke-width="1.5"/>
-  <text x="492" y="524" font-size="15" font-weight="700" fill="#053b30">Docs</text>
-  <circle cx="660" cy="520" r="11" fill="#7c3aed"/>
-  <text x="660" y="525" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">+</text>
-  <text x="492" y="548" font-size="13" fill="#374151">docs.py · Markdown, raw</text>
-  <text x="492" y="566" font-size="13" fill="#374151">HTML off · by address</text>
-  <text x="492" y="584" font-size="13" fill="#374151">· docs/images/ beside</text>
-
-  <rect x="702" y="498" width="208" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="718" y="524" font-size="15" font-weight="700" fill="#053b30">Health check</text>
-  <text x="718" y="548" font-size="13" fill="#374151">health.py · GET and HEAD</text>
-  <text x="718" y="566" font-size="13" fill="#374151">/api/health: the build</text>
-  <text x="718" y="584" font-size="13" fill="#374151">never cached (no-store)</text>
-
-  <rect x="928" y="498" width="208" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="944" y="524" font-size="15" font-weight="700" fill="#053b30">Our MCP server</text>
-  <text x="944" y="548" font-size="13" fill="#374151">mcp_server.py · /api/mcp</text>
-  <text x="944" y="566" font-size="13" fill="#374151">the same four tools, no</text>
-  <text x="944" y="584" font-size="13" fill="#374151">session, JSON, 8 KiB</text>
-  <path d="M1032 602 V616 H700 V628" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <!-- The agent, the weather tools and Open-Meteo (step 4) -->
-  <line x1="128" y1="602" x2="128" y2="628" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="24" y="630" width="340" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="40" y="656" font-size="15" font-weight="700" fill="#053b30">The agent</text>
-  <circle cx="340" cy="652" r="13" fill="#0f766e"/>
-  <text x="340" y="656" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">04</text>
-  <text x="40" y="680" font-size="13" fill="#374151">agent.py · our own LangGraph graph</text>
-  <text x="40" y="698" font-size="13" fill="#374151">the model (07) ⇄ the tools · 5 calls, the</text>
-  <text x="40" y="716" font-size="13" fill="#374151">last with no tools · 10 s, 8 s a tool</text>
-  <line x1="364" y1="682" x2="392" y2="682" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="394" y="630" width="340" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="410" y="656" font-size="15" font-weight="700" fill="#053b30">The weather tools</text>
-  <circle cx="710" cy="652" r="13" fill="#0f766e"/>
-  <text x="710" y="656" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">06</text>
-  <text x="410" y="680" font-size="13" fill="#374151">tools.py · four, each input checked</text>
-  <text x="410" y="698" font-size="13" fill="#374151">four lanes: REST or MCP, no auth or</text>
-  <text x="410" y="716" font-size="13" fill="#374151">Apify's Actor, falling back to the twin</text>
-  <line x1="734" y1="682" x2="762" y2="682" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="764" y="630" width="372" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="780" y="656" font-size="15" font-weight="700" fill="#053b30">Open-Meteo, no key: REST · no auth</text>
-  <text x="780" y="680" font-size="13" fill="#374151">open_meteo.py · geocoding, forecast, air</text>
-  <text x="780" y="698" font-size="13" fill="#374151">a point rounded to about 1 km</text>
-  <text x="780" y="716" font-size="13" fill="#374151">3 s a try, one more · no query logged</text>
-
-  <!-- C · State and data freshness -->
-  <rect x="8" y="762" width="1144" height="168" rx="16" fill="#fafafa" stroke="#d7e7e2"/>
-  <circle cx="36" cy="792" r="13" fill="#0f766e"/>
-  <text x="36" y="797" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">C</text>
-  <text x="58" y="798" font-size="17" font-weight="700" fill="#053b30" letter-spacing="0.5">STATE AND DATA FRESHNESS</text>
-
-  <rect x="24" y="814" width="270" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="40" y="840" font-size="15" font-weight="700" fill="#053b30">Visitor and park data</text>
-  <text x="40" y="864" font-size="13" fill="#374151">park guidance in read-only SQLite</text>
-  <text x="40" y="882" font-size="13" fill="#374151">private travel turns; bounded offers</text>
-  <text x="40" y="900" font-size="13" fill="#374151">the chat in the browser, sent back</text>
-
-  <rect x="310" y="814" width="270" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="326" y="840" font-size="15" font-weight="700" fill="#053b30">Settings and secrets</text>
-  <text x="326" y="864" font-size="13" fill="#374151">Vercel's environment variables</text>
-  <text x="326" y="882" font-size="13" fill="#374151">read only by config.py, at start</text>
-  <text x="326" y="900" font-size="13" fill="#374151">the Gemini key a Sensitive one</text>
-
-  <rect x="596" y="814" width="270" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="612" y="840" font-size="15" font-weight="700" fill="#053b30">Docs and static files</text>
-  <text x="612" y="864" font-size="13" fill="#374151">docs/*.md, read once by each copy</text>
-  <text x="612" y="882" font-size="13" fill="#374151">public/static/ on Vercel's CDN,</text>
-  <text x="612" y="900" font-size="13" fill="#374151">never in the function</text>
-
-  <rect x="882" y="814" width="254" height="102" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="898" y="840" font-size="15" font-weight="700" fill="#053b30">The weather's cache</text>
-  <text x="898" y="864" font-size="13" fill="#374151">Vercel's Runtime Cache, our</text>
-  <text x="898" y="882" font-size="13" fill="#374151">namespace, keys a SHA-256</text>
-  <text x="898" y="900" font-size="13" fill="#374151">a place 30 days, weather 10-30 min</text>
-
-  <!-- D · 09 · Production operations -->
-  <rect x="8" y="944" width="1144" height="170" rx="16" fill="#fafafa" stroke="#d7e7e2"/>
-  <circle cx="36" cy="974" r="13" fill="#0f766e"/>
-  <text x="36" y="979" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">D</text>
-  <text x="58" y="980" font-size="17" font-weight="700" fill="#053b30" letter-spacing="0.5">09 · PRODUCTION OPERATIONS</text>
-
-  <rect x="24" y="996" width="270" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="40" y="1022" font-size="15" font-weight="700" fill="#053b30">Observability</text>
-  <text x="40" y="1046" font-size="13" fill="#374151">JSON lines → Vercel's logs, Axiom,</text>
-  <text x="40" y="1064" font-size="13" fill="#374151">read back on 4 pages · Sentry</text>
-  <text x="40" y="1082" font-size="13" fill="#374151">/api/health · LangSmith, hidden</text>
-
-  <rect x="310" y="996" width="270" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="326" y="1022" font-size="15" font-weight="700" fill="#053b30">Evaluation</text>
-  <text x="326" y="1046" font-size="13" fill="#374151">Ruff · mypy · unit, browser and</text>
-  <text x="326" y="1064" font-size="13" fill="#374151">a11y tests, in CI · a mutation</text>
-  <text x="326" y="1082" font-size="13" fill="#374151">check before each commit</text>
-
-  <rect x="596" y="996" width="270" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="612" y="1022" font-size="15" font-weight="700" fill="#053b30">Reliability and scale</text>
-  <text x="612" y="1046" font-size="13" fill="#374151">Vercel Functions scale on demand</text>
-  <text x="612" y="1064" font-size="13" fill="#374151">300 s a request, Vercel's default</text>
-  <text x="612" y="1082" font-size="13" fill="#374151">the chat's size limits</text>
-
-  <rect x="882" y="996" width="254" height="104" rx="10" fill="#fcfcfc" stroke="#0f766e"/>
-  <text x="898" y="1022" font-size="15" font-weight="700" fill="#053b30">Release and recovery</text>
-  <text x="898" y="1046" font-size="13" fill="#374151">every push to main deploys,</text>
-  <text x="898" y="1064" font-size="13" fill="#374151">beside CI · a tag a step</text>
-  <text x="898" y="1082" font-size="13" fill="#374151">roll back in Vercel</text>
-
-  <!-- Legend -->
-  <line x1="24" y1="1138" x2="70" y2="1138" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="82" y="1143" font-size="13" fill="#374151">Request and response</text>
-  <text x="1136" y="1143" font-size="13" fill="#374151" text-anchor="end">02, 04, 06, 07, 09: the reference's parts · +: only in Nimbus</text>
-  <rect x="8" y="1160" width="1144" height="124" rx="16" fill="#f1f7f4" stroke="#c8ded4"/>
-  <g fill="#053b30">
-    <text x="24" y="1190" font-size="18" font-weight="700">Park trips and external providers · Steps 16–18</text>
-    <text x="24" y="1220" font-size="15" font-weight="600">Confirmed trip form</text>
-    <text x="24" y="1243" font-size="13">From the menu or a park</text>
-    <text x="24" y="1261" font-size="13">planning question in chat</text>
-    <path d="M202 1237h43" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-    <text x="265" y="1220" font-size="15" font-weight="600">Five parallel checks</text>
-    <text x="265" y="1243" font-size="13">Kiwi flights, trivago hotels, weather,</text>
-    <text x="265" y="1261" font-size="13">retrieved guidance and NPS notices</text>
-    <path d="M496 1237h43" fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)"/>
-    <text x="559" y="1220" font-size="15" font-weight="600">Independent outcomes</text>
-    <text x="559" y="1243" font-size="13">Dated offers and official sources;</text>
-    <text x="559" y="1261" font-size="13">timeouts stay with their section</text>
-    <text x="845" y="1220" font-size="15" font-weight="600">Standalone chat searches</text>
-    <text x="845" y="1243" font-size="13">Use the same validated travel tools,</text>
-    <text x="845" y="1261" font-size="13">adapters, deadlines and budgets</text>
+  <text x="268" y="25" font-size="18" font-weight="650" text-anchor="middle">Visit dates and verified park reference point</text>
+  <g fill="#ebf6f1" stroke="#80ab9e">
+    <rect x="4" y="43" width="258" height="36" rx="7"/>
+    <rect x="274" y="43" width="258" height="36" rx="7"/>
+    <rect x="4" y="87" width="258" height="36" rx="7"/>
+    <rect x="274" y="87" width="258" height="36" rx="7"/>
+  </g>
+  <g text-anchor="middle" font-size="16">
+    <text x="133" y="67">Reference-point forecast</text>
+    <text x="403" y="67">Published NPS guidance</text>
+    <text x="133" y="111">Current park notices</text>
+    <text x="403" y="111">Active NWS point alerts</text>
+  </g>
+  <path d="M268 125v20" stroke="#487469" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="72" y="150" width="392" height="42" rx="8" fill="#194f42"/>
+  <text x="268" y="177" text-anchor="middle" font-size="17" font-weight="650" fill="#fff">Briefing · scope, date overlap and coverage</text>
+  <g fill="none" stroke="#487469" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M268 192v14H133v16"/>
+    <path d="M268 206h135v16"/>
+  </g>
+  <rect x="4" y="227" width="258" height="72" rx="8" fill="#fff3df" stroke="#ad8040"/>
+  <rect x="274" y="227" width="258" height="72" rx="8" fill="#ebf6f1" stroke="#80ab9e"/>
+  <g text-anchor="middle">
+    <text x="133" y="252" font-size="17" font-weight="650">Pause</text>
+    <text x="133" y="278" font-size="15">Review the alert or change dates</text>
+    <text x="403" y="252" font-size="17" font-weight="650">Review, adapt or proceed</text>
+    <text x="403" y="278" font-size="15">Confirm an eligible travel search</text>
   </g>
 </svg>

@@ -11,8 +11,9 @@
 {% block content %}
 <main class="doc obs">
   <h1>{{ title }}</h1>
-  <p class="obs-lead">Open a request to see its timeline. Traced chats also include a LangSmith view of model and
-    tool calls. Activity covers the last 7 days in Axiom. Times are in UTC.</p>
+  <p class="obs-lead">Open a request to see its timeline. Clarifications and park briefings show their own outcomes.
+    Traced agent runs also include a LangSmith view of model and tool calls.
+    Activity covers the last 7 days in Axiom. Times are in UTC.</p>
   {% if show == "questions" and not tracing_enabled %}
   <p class="obs-about">LangSmith tracing is off for new chats in this environment.</p>
   {% endif %}

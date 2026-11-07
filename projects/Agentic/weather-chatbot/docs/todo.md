@@ -1,7 +1,6 @@
 # To Do
 
-What's still open in the Python rebuild, and why. The TypeScript version's list is kept as
-[To do_deprecated](todo_deprecated.md).
+What's still open in the Python rebuild, and why.
 
 ## Waiting on you
 

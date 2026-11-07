@@ -43,7 +43,7 @@ from nimbus.errors import AXIOM_NOT_CONNECTED, NimbusError, ObservabilityError
 from nimbus.feedback import CATEGORIES, TURN_ID
 from nimbus.goldens import LastRun, read_goldens, read_last_run
 from nimbus.harness_scorecard import public_reports
-from nimbus.health import to_report
+from nimbus.health import TRAVEL_CHECKS, CheckResult, to_report
 from nimbus.lanes import LANES
 from nimbus.model import is_tracing_allowed
 from nimbus.pages import render_page
@@ -62,11 +62,11 @@ HTTP_SERVER_ERROR = 500
 LANE_LABELS: Final = {lane.id: lane.label for lane in LANES}
 TOOL_NAMES: Final = TRACE_TOOL_NAMES | {"retrieval_playground", "park_alerts", "park_trip_plan", "park_trip_briefing"}
 CHECK_LABELS: Final = {
-    "open-meteo": "Open-Meteo",
-    "our-mcp": "Our MCP server",
+    "open-meteo": "Open-Meteo geocoding",
+    "our-mcp": "Nimbus weather MCP tools",
     "park-index": "Park knowledge index",
-    "kiwi-mcp": "Kiwi flight search",
-    "trivago-mcp": "Trivago hotel search",
+    "kiwi-mcp": "Kiwi flight search tools",
+    "trivago-mcp": "trivago hotel search tools",
     "apify-rest": "Apify's REST API",
     "apify-mcp": "Apify's MCP server",
 }
@@ -100,6 +100,7 @@ TIMELINE_EVENTS: Final = (
     "travel.call",
     "travel.plan",
     "travel.briefing",
+    "travel.section_error",
     "answer.feedback",
     "lane.open.failed",
     "mcp.call",
@@ -148,6 +149,12 @@ TIMELINE_FIELDS: Final = (
     "traceId",
     "category",
     "answerRef",
+    "workflow",
+    "tripForm",
+    "cityTripIntake",
+    "hotelDateIntake",
+    "forecastHorizon",
+    "section",
 )
 
 
@@ -178,7 +185,11 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
         f'{to_in("event", TIMELINE_EVENTS)} and (level == "error" or {STATUS} in ("failed", "down") '
         f'or event == "lane.fallback" or (event in ("nps.alerts", "nws.alerts") and {STATUS} == "partial") '
         f'or (event == "travel.call" and {STATUS} !in ("found", "no_results", "disabled")) '
-        f'or (event == "travel.plan" and toint({to_field("failedSections", "0")}) > 0))'
+        f'or (event == "knowledge.call" and {STATUS} == "unavailable") '
+        f'or (event == "nps.alerts" and {STATUS} == "not_configured") '
+        f'or event == "travel.section_error" '
+        f'or (event in ("travel.plan", "travel.briefing") '
+        f"and (toint({to_field('failedSections', '0')}) > 0 or toint({to_field('missingSections', '0')}) > 0)))"
     ),
     "health": 'event == "health.done"',
     "feedback": 'event == "answer.feedback"',
@@ -263,12 +274,33 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
 }
 # Evaluations' reasons, each event's by the narrowing that finds its questions.
 REASON_LINKS: Final = {"chat.rejected": "refused", "chat.failed": "failed", "lane.fallback": "fellback"}
+RESPONSE_WORKFLOW: Final = (
+    f'case(tostring({to_field("workflow")}) in ("agent", "intake", "briefing"), '
+    f'tostring({to_field("workflow")}), tostring({to_field("tripForm")}) == "false", "briefing", '
+    f'tostring({to_field("tripForm")}) == "true" '
+    f'or tostring({to_field("cityTripIntake")}) == "true" '
+    f'or tostring({to_field("hotelDateIntake")}) == "true" '
+    f'or tostring({to_field("forecastHorizon")}) == "true", "intake", '
+    f"isnotempty(tostring({to_field('tokensIn')})) or isnotempty(tostring({to_field('tokensOut')})), "
+    '"agent", "unknown")'
+)
 ANSWERS: Final = (
-    # Exclude quick intake forms; dated briefings perform upstream checks and contribute to answer latency.
-    f'where event == "chat.done" and tostring({to_field("tripForm")}) != "true"',
+    'where event == "chat.done"',
+    f"extend responseWorkflow = {RESPONSE_WORKFLOW}",
+    'where responseWorkflow == "agent"',
     "summarize answers = count(), p50 = percentile(ms, 50), p95 = percentile(ms, 95), p99 = percentile(ms, 99), "
-    f"avgToolCalls = avg({to_field('toolCalls', '0')}), avgTokensIn = avg({to_field('tokensIn', '0')}), "
-    f"avgTokensOut = avg({to_field('tokensOut', '0')})",
+    f"avgToolCalls = avg(toint({to_field('toolCalls')})), avgTokensIn = avg(toint({to_field('tokensIn')})), "
+    f"avgTokensOut = avg(toint({to_field('tokensOut')}))",
+)
+WORKFLOWS: Final = (
+    'where event == "chat.done"',
+    f"extend responseWorkflow = {RESPONSE_WORKFLOW}",
+    "summarize responses = count(), p50 = percentile(ms, 50), p95 = percentile(ms, 95) by responseWorkflow",
+)
+SERVICE_CALLS: Final = (
+    'where event in ("knowledge.call", "nps.alerts", "nws.alerts", "travel.call")',
+    f"summarize calls = count(), totalMs = sum(ms), slowestMs = max(ms) by event, {to_named('tool')}, "
+    f"status = {STATUS}",
 )
 ENDINGS: Final = (f"where {to_in('event', QUESTION_EVENTS)}", f"summarize lines = count() by event, {to_named('lane')}")
 TOOL_CALLS: Final = (
@@ -359,6 +391,8 @@ def to_narrowing(links: Mapping[str, str | None]) -> Narrowing | None:
         return Narrowing(kind, f"Travel searches using {value}", where.format(value=value))
     if kind == "tool" and value == "park_alerts":
         return Narrowing(kind, "Park alert checks", where.format(value=value))
+    if kind == "tool" and value == "retrieval_playground":
+        return Narrowing(kind, "Retrieval Playground runs", where.format(value=value))
     return Narrowing(kind, words.format(label=label), where.format(value=value))
 
 
@@ -578,9 +612,32 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
         label = CATEGORIES.get(to_words(row, "category"), "Unrecognized category")
         return ActivityLine(at, "Visitor feedback", label, "idle")
     if event == "chat.done":
-        tokens_in, tokens_out = (round(to_number(row, name)) for name in ("tokensIn", "tokensOut"))
-        calls = to_count(to_number(row, "toolCalls"), "tool call")
-        detail = f"in {took} · {calls} · {tokens_in:,} tokens in, {tokens_out:,} out"
+        for flag, label in (
+            ("cityTripIntake", "City trip clarification"),
+            ("hotelDateIntake", "Hotel date clarification"),
+            ("forecastHorizon", "Forecast limit explained"),
+            ("tripForm", "Trip details requested"),
+        ):
+            if to_words(row, flag).lower() == "true":
+                return ActivityLine(at, label, f"in {took}", "ok")
+        workflow = to_words(row, "workflow")
+        if workflow == "briefing" or to_words(row, "tripForm").lower() == "false":
+            return ActivityLine(at, "Park trip briefing", f"in {took}", "ok")
+        if workflow == "intake":
+            return ActivityLine(at, "Clarification", f"in {took}", "ok")
+        calls = (
+            to_count(to_number(row, "toolCalls"), "tool call")
+            if isinstance(row.get("toolCalls"), int | float)
+            else "tool count unavailable"
+        )
+        tokens = "token usage unavailable"
+        if all(
+            isinstance(row.get(name), int | float) and not isinstance(row[name], bool)
+            for name in ("tokensIn", "tokensOut")
+        ):
+            tokens_in, tokens_out = (round(to_number(row, name)) for name in ("tokensIn", "tokensOut"))
+            tokens = f"{tokens_in:,} tokens in, {tokens_out:,} out"
+        detail = f"in {took} · {calls} · {tokens}"
         return ActivityLine(at, "Answered", detail, "ok")
     if event == "chat.aborted":
         return ActivityLine(at, "Stopped", f"after {took}", "idle")
@@ -596,22 +653,47 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
         return ActivityLine(at, tool, f"on {lane} in {took}", "ok")
     if event == "travel.briefing":
         status = to_words(row, "status")
-        return ActivityLine(at, "Park trip conditions", status, "ok" if status == "proceed" else "warn")
+        label = {
+            "pause": "Pause travel",
+            "review": "Review conditions",
+            "adapt": "Adjust plans",
+            "proceed": "Continue planning",
+        }.get(status, "Outcome unavailable")
+        missing = to_number(row, "missingSections")
+        failed = to_number(row, "failedSections")
+        detail = label + (f" · {to_count(missing, 'check')} incomplete" if missing else "")
+        tone = "warn" if missing or failed else "ok" if status == "proceed" else "idle"
+        return ActivityLine(at, "Park trip conditions", detail, tone)
+    if event == "travel.section_error":
+        section = to_words(row, "section")
+        known = {"weather", "park guidance", "NPS notices", "NWS alerts", "flight", "hotel"}
+        label = f"{section} check" if section in known else "Trip check"
+        detail = "timed out" if to_words(row, "errorClass") == "TimeoutError" else "unavailable"
+        return ActivityLine(at, label, detail, "bad")
     if event == "travel.plan":
         failed = to_number(row, "failedSections")
         missing = to_number(row, "missingSections")
         detail = f"{to_count(missing, 'section')} unavailable, {failed:g} failed"
-        return ActivityLine(at, "Park trip plan", detail, "warn" if failed else "ok")
+        return ActivityLine(at, "Park trip plan", detail, "warn" if failed or missing else "ok")
     if event == "travel.call":
         status = to_words(row, "status")
-        tone = "ok" if status in {"found", "no_results", "ok"} else "warn" if status == "partial" else "bad"
+        tone = (
+            "ok"
+            if status in {"found", "no_results", "ok"}
+            else "idle"
+            if status == "disabled"
+            else "warn"
+            if status == "partial"
+            else "bad"
+        )
         provider = to_words(row, "provider")
         count = to_count(to_number(row, "count"), "offer")
         return ActivityLine(at, to_words(row, "tool"), f"{provider} {status}: {count} in {took}".strip(), tone)
     if event == "knowledge.call":
         status = to_words(row, "status")
         detail = f"{status.replace('_', ' ')} in {took}"
-        return ActivityLine(at, to_words(row, "tool"), detail, "bad" if status in {"failed", "unavailable"} else "ok")
+        tone = "bad" if status in {"failed", "unavailable"} else "idle" if status == "cancelled" else "ok"
+        return ActivityLine(at, to_words(row, "tool"), detail, tone)
     if event in {"nps.alerts", "nws.alerts"}:
         status = to_words(row, "status")
         source = "cached result" if to_words(row, "cached").lower() == "true" else "live fetch"
@@ -733,13 +815,18 @@ def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLi
             if to_words(row, "event") == "health.check" and to_words(row, "status") == "down"
         ]
         detail = f"{done.detail}: {', '.join(down)}" if down else done.detail
-        return ActivityLine(first.at, "Health check", detail, done.tone)
+        return ActivityLine(first.at, "Health check", detail, "warn" if down and done.tone == "ok" else done.tone)
     if "answer.feedback" in by_event:
         return by_event["answer.feedback"][1]
     question = by_event.get("chat.request")
     on = f" · {question[1].detail}" if question else ""
     ending = next((by_event[event][1] for event in ENDING_EVENTS if event in by_event), None)
     if ending is not None:
+        if ending.what == "Park trip briefing" and "travel.briefing" in by_event:
+            outcome = by_event["travel.briefing"][1]
+            return with_problems(
+                ActivityLine(first.at, ending.what, f"{outcome.detail} · {ending.detail}{on}", outcome.tone), lines
+            )
         return with_problems(ActivityLine(first.at, ending.what, f"{ending.detail}{on}", ending.tone), lines)
     if question is not None:
         return ActivityLine(first.at, "Question", f"{question[1].detail}, with no ending in its lines", "idle")
@@ -748,6 +835,13 @@ def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLi
         return with_problems(ActivityLine(first.at, call.what, call.detail, call.tone), lines)
     if "http.request" in by_event:
         end = by_event["http.request"][1]
+        if end.tone == "ok":
+            for event in ("travel.plan", "travel.briefing", "knowledge.call", "nps.alerts", "nws.alerts"):
+                if event in by_event:
+                    operation = by_event[event][1]
+                    return with_problems(
+                        ActivityLine(first.at, operation.what, operation.detail, operation.tone), lines
+                    )
         return with_problems(ActivityLine(first.at, "Request", end.detail, end.tone), lines)
     return ActivityLine(first.at, "Request", "with no end in its lines", "idle")
 
@@ -1028,32 +1122,98 @@ def to_day_words(day: date) -> str:
     return f"On {day:%A} {day.day} {day:%B %Y}"
 
 
+def measured_duration(row: Row, field: str) -> str:
+    """Use an explicit missing value when Axiom has no duration sample."""
+    return to_duration(to_number(row, field)) if row.get(field) is not None else "Unavailable"
+
+
+def response_bars(rows: Sequence[Row]) -> list[Bar]:
+    """Separate completed agent answers, conditions briefings, clarification replies and older unknown events."""
+    labels = {
+        "agent": "Agent answers",
+        "briefing": "Park conditions briefings",
+        "intake": "Clarifications and guidance",
+        "unknown": "Unclassified older responses",
+    }
+    whole = sum(to_number(row, "responses") for row in rows)
+    return [
+        Bar(
+            labels.get(to_words(row, "responseWorkflow"), "Unclassified older responses"),
+            to_count(to_number(row, "responses"), "response"),
+            to_share(to_number(row, "responses"), whole),
+            f"P50 {measured_duration(row, 'p50')} · P95 {measured_duration(row, 'p95')}",
+        )
+        for row in rows
+    ]
+
+
+def service_bars(rows: Sequence[Row]) -> list[Bar]:
+    """Keep each service's full outcome vocabulary, including empty, partial, disabled and failed results."""
+    groups: dict[tuple[str, str], list[Row]] = {}
+    for row in rows:
+        groups.setdefault((to_words(row, "event"), to_words(row, "tool")), []).append(row)
+    averages = {
+        key: to_share(sum(to_number(row, "totalMs") for row in calls), sum(to_number(row, "calls") for row in calls))
+        for key, calls in groups.items()
+    }
+    longest = max(averages.values(), default=0)
+    bars = []
+    for (event, tool), calls in sorted(groups.items()):
+        count = sum(to_number(row, "calls") for row in calls)
+        total_ms = sum(to_number(row, "totalMs") for row in calls)
+        slowest = max((to_number(row, "slowestMs") for row in calls), default=0)
+        outcomes = " · ".join(
+            f"{round(to_number(row, 'calls')):,} {to_words(row, 'status').replace('_', ' ') or 'unknown'}"
+            for row in sorted(calls, key=lambda row: to_words(row, "status"))
+        )
+        prefix = {"nps.alerts": "NPS notices", "nws.alerts": "NWS weather alerts"}.get(event)
+        label = f"{prefix} · {tool}" if prefix else tool
+        bars.append(
+            Bar(
+                label,
+                f"{to_duration(to_share(total_ms, count))} average · slowest {to_duration(slowest)}",
+                to_share(averages[event, tool], longest),
+                f"{to_count(count, 'call')} · {outcomes}",
+                to_narrowed_href("tool", tool),
+            )
+        )
+    return bars
+
+
 @router.get("/performance", response_class=HTMLResponse)
 async def performance_page(request: Request) -> HTMLResponse:
-    """How long answers take, each tool and each lane, and Open-Meteo's answers from the cache, over 7 days."""
-    queries = {"answers": ANSWERS, "endings": ENDINGS, "tool-calls": TOOL_CALLS, "weather-answers": WEATHER_ANSWERS}
-    settings: Settings = request.app.state.settings
-    if settings.flights_enabled or settings.hotels_enabled:
-        queries["travel-calls"] = (
-            'where event == "travel.call"',
-            f'summarize calls=count(), failed=countif({STATUS} !in ("found", "no_results", "partial")), '
-            f"totalMs=sum(ms), slowestMs=max(ms) by {to_named('tool')}",
-        )
+    """Show model latency separately from deterministic replies and each service's recorded outcomes."""
+    queries = {
+        "answers": ANSWERS,
+        "workflows": WORKFLOWS,
+        "endings": ENDINGS,
+        "tool-calls": TOOL_CALLS,
+        "service-calls": SERVICE_CALLS,
+        "weather-answers": WEATHER_ANSWERS,
+    }
     answers = await ask_axiom(request, queries)
     [summary] = answers.rows.get("answers") or [{}]
     questions = to_counts(
         [row for row in answers.rows.get("endings", []) if to_words(row, "event") == "chat.request"], "lane"
     )
     tiles = [
-        Tile("Answers", f"{round(to_number(summary, 'answers')):,}", "ended well"),
-        Tile("P50", to_duration(to_number(summary, "p50")), "half took less"),
-        Tile("P95", to_duration(to_number(summary, "p95"))),
-        Tile("P99", to_duration(to_number(summary, "p99"))),
-        Tile("Tool calls", f"{to_number(summary, 'avgToolCalls'):.1f}", "an answer"),
+        Tile("Model answers", f"{round(to_number(summary, 'answers')):,}", "completed agent turns"),
+        Tile("P50", measured_duration(summary, "p50"), "half took less"),
+        Tile("P95", measured_duration(summary, "p95")),
+        Tile("P99", measured_duration(summary, "p99")),
+        Tile(
+            "Tool calls",
+            f"{to_number(summary, 'avgToolCalls'):.1f}" if summary.get("avgToolCalls") is not None else "Unavailable",
+            "per completed agent turn",
+        ),
         Tile(
             "Tokens",
-            f"{round(to_number(summary, 'avgTokensIn')):,} in",
-            f"{round(to_number(summary, 'avgTokensOut')):,} out, an answer",
+            f"{round(to_number(summary, 'avgTokensIn')):,} in"
+            if summary.get("avgTokensIn") is not None
+            else "Unavailable",
+            f"{round(to_number(summary, 'avgTokensOut')):,} out, per recorded agent turn"
+            if summary.get("avgTokensOut") is not None
+            else "usage was not recorded",
         ),
     ]
     tool_calls = answers.rows.get("tool-calls", [])
@@ -1062,7 +1222,10 @@ async def performance_page(request: Request) -> HTMLResponse:
         "title": "Performance",
         "answers": answers,
         "tiles": tiles,
-        "tools": to_tool_bars([*tool_calls, *answers.rows.get("travel-calls", [])], "tool"),
+        "model_answers": to_number(summary, "answers"),
+        "responses": response_bars(answers.rows.get("workflows", [])),
+        "services": service_bars(answers.rows.get("service-calls", [])),
+        "tools": to_tool_bars(tool_calls, "tool"),
         "lanes": to_tool_bars(tool_calls, "lane"),
         "questions": [
             Bar(to_lane_label(lane), f"{round(count):,}", to_share(count, whole), href=to_narrowed_href("asked", lane))
@@ -1102,8 +1265,7 @@ async def evaluations_page(request: Request) -> HTMLResponse:
 async def health_page(request: Request) -> HTMLResponse:
     """
     The checks now, as /api/health finds them; how often they passed each day, the last 7 (the 7 days before now
-    reach into an eighth, a part of it); and our MCP server, at the production address, which names no deployment,
-    else where the MCP lanes find it.
+    reach into an eighth, a part of it); and the weather MCP endpoint for the current environment.
     """
     state = request.app.state
     settings: Settings = state.settings
@@ -1121,17 +1283,28 @@ async def health_page(request: Request) -> HTMLResponse:
         )
         for row in answers.rows.get("health-days", [])[:OBSERVABILITY_DAYS]
     ]
-    production = settings.vercel_project_production_url
+    if settings.environment == "preview":
+        host = settings.vercel_url or settings.vercel_branch_url
+        mcp_url = f"https://{host}{MCP_PATH}" if host else MCP_PATH
+    elif settings.environment == "production" and settings.vercel_project_production_url:
+        mcp_url = f"https://{settings.vercel_project_production_url}{MCP_PATH}"
+    else:
+        mcp_url = state.to_mcp_url(request, settings) or MCP_PATH
+    # The JSON monitor omits disabled travel providers. Show them as off to visitors without probing them.
+    checks = dict(report.checks)
+    for name in TRAVEL_CHECKS:
+        checks.setdefault(name, CheckResult("off"))
     context = {
         "title": "Health",
         "answers": answers,
         "report": report,
+        "checks": checks,
         "check_labels": CHECK_LABELS,
         "lane_labels": LANE_LABELS,
         "status_words": STATUS_WORDS,
         "days": days,
         "history_days": OBSERVABILITY_DAYS,
-        "mcp_url": f"https://{production}{MCP_PATH}" if production else state.to_mcp_url(request, settings) or MCP_PATH,
+        "mcp_url": mcp_url,
         "mcp_tools": WEATHER_TOOLS,
     }
     return respond(request, "health.html", context, answers.notice is None and report.status == "ok")
