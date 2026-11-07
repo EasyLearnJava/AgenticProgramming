@@ -2134,6 +2134,18 @@ TRACE_MUTATIONS = (
     Mutation("nimbus/trace_view.py", "or span.project_id != project_id", "", "trace reads reject another project"),
     Mutation(
         "nimbus/trace_view.py",
+        "return value.upper() if value is not None else None",
+        "return value",
+        "trace reads accept both wire enum casings",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        'if root.name != AGENT_NAME or root.run_type != "CHAIN":',
+        "if False:",
+        "trace reads still reject a different root identity",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
         'headers["X-Tenant-Id"] = str(tenant)',
         "pass",
         "trace reads carry the workspace returned by project discovery",

@@ -148,6 +148,29 @@ def test_key_only_project_lookup_supplies_workspace_for_v2(traced: Settings, mon
     assert seen == ["/api/v1/sessions", f"/api/v2/traces/{TRACE}/runs"]
 
 
+@pytest.mark.parametrize("lowercase", [False, True])
+def test_wire_enum_casing_preserves_model_tool_and_error_rows(traced: Settings, lowercase: bool) -> None:
+    """Run types and statuses are enums; their casing must not reject a valid, scoped Nimbus trace."""
+    runs = [
+        span(),
+        span(OTHER, run_type="LLM", name="ChatGoogleGenerativeAI", status="PENDING", end_time=None),
+        span(UUID(int=200), run_type="TOOL", name="get_forecast", status="ERROR"),
+        span(UUID(int=201), run_type="CHAIN", name="model", status="ERROR"),
+    ]
+    if lowercase:
+        for run in runs:
+            for field in ("run_type", "status"):
+                run[field] = str(run[field]).lower()
+    view = with_runs(traced, *runs)
+    assert view.status == "ready"
+    assert [(row.kind, row.label, row.status, row.error) for row in view.rows] == [
+        ("Agent", "Nimbus agent", "Completed", None),
+        ("Model", "Gemini", "Running", None),
+        ("Tool", "get_forecast", "Failed", "Tool reported an error."),
+        ("Step", "Model step", "Failed", "Step reported an error."),
+    ]
+
+
 def test_project_cannot_switch_configured_workspace(traced: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(smith, "get_workspace_id", lambda _: None)
     traced = traced.model_copy(update={"langsmith_workspace_id": OTHER})
@@ -223,6 +246,9 @@ def test_no_verified_project_stops_before_the_trace_query(
         ({"trace_id": str(OTHER)}, TraceIssue.WRONG_SCOPE),
         ({"project_id": str(OTHER)}, TraceIssue.WRONG_SCOPE),
         ({"name": "different root"}, TraceIssue.WRONG_ROOT),
+        ({"name": "Nimbus", "run_type": "chain"}, TraceIssue.WRONG_ROOT),
+        ({"run_type": "tool"}, TraceIssue.WRONG_ROOT),
+        ({"run_type": "llm"}, TraceIssue.WRONG_ROOT),
         ({"start_time": "bad"}, TraceIssue.INVALID_RESPONSE),
     ],
 )

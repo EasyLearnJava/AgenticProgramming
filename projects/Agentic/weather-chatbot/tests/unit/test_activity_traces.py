@@ -71,6 +71,79 @@ def test_link_ages_out_with_chat_start_even_if_ending_is_still_visible(connected
     assert activity.trace_url is None
 
 
+@pytest.mark.parametrize(
+    ("workflow", "has_trace", "expected"),
+    [
+        ("briefing", False, "Nimbus built this park briefing directly without a model call."),
+        ("intake", False, "Nimbus handled this clarification directly without a model call."),
+        ("agent", False, "No linked LangSmith trace for this request."),
+        ("", False, "No linked LangSmith trace for this request."),
+        ("briefing", True, "View LangSmith trace"),
+        ("intake", True, "View LangSmith trace"),
+    ],
+)
+def test_missing_trace_explanation_requires_explicit_direct_workflow(
+    client: TestClient, connected: Settings, workflow: str, has_trace: bool, expected: str
+) -> None:
+    app = cast(FastAPI, client.app)
+    app.state.settings = connected
+    ending: Row = {
+        "requestId": "test-direct",
+        "_time": datetime.now(UTC).isoformat(),
+        "event": "chat.done",
+        "workflow": workflow,
+        # Legacy flags alone must not assert that a model trace was never created.
+        "tripForm": False,
+        "traceId": str(uuid4()) if has_trace else "",
+    }
+    recording = AxiomRecordings(
+        {
+            "summarize started": [ending],
+            "where requestId in": [dict(ending, event="chat.request", traceId=""), ending],
+        }
+    )
+    app.state.axiom_query = AxiomQuery(
+        SecretStr("test-read"), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(recording))
+    )
+    response = client.get("/activity")
+    assert response.status_code == 200
+    assert expected in response.text
+    if has_trace:
+        assert 'href="/activity/trace/' in response.text
+        assert "no LangSmith model trace was created" not in response.text
+        assert "No LangSmith model trace was created" not in response.text
+    elif workflow in {"briefing", "intake"}:
+        assert "No linked LangSmith trace for this request." not in response.text
+    else:
+        assert "without a model call" not in response.text
+
+
+def test_ambiguous_workflows_do_not_explain_trace_absence(connected: Settings) -> None:
+    ending: Row = {
+        "requestId": "test",
+        "_time": datetime.now(UTC).isoformat(),
+        "event": "chat.done",
+        "workflow": "intake",
+    }
+    [activity] = to_activity_requests(
+        ["test"], [dict(ending, event="chat.request"), ending, dict(ending, workflow="agent")], connected
+    )
+    assert activity.trace_note == ""
+
+
+def test_unlinkable_recorded_trace_does_not_claim_it_was_never_created(connected: Settings) -> None:
+    ending: Row = {
+        "requestId": "test",
+        "_time": (datetime.now(UTC) - timedelta(days=7)).isoformat(),
+        "event": "chat.done",
+        "workflow": "intake",
+        "traceId": str(uuid4()),
+    }
+    [activity] = to_activity_requests(["test"], [dict(ending, event="chat.request"), ending], connected)
+    assert activity.trace_url is None
+    assert activity.trace_note == ""
+
+
 def test_activity_reads_one_trace_only_after_click_and_limits_refreshes(
     client: TestClient, connected: Settings
 ) -> None:

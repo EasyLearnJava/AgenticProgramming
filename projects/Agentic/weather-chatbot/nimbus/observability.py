@@ -797,6 +797,7 @@ class ActivityRequest:
     is_chat: bool
     trace_url: str | None
     answer_ref: str
+    trace_note: str = ""
 
 
 def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLine:
@@ -891,10 +892,24 @@ def to_activity_requests(
             ending, _ = endings[0]
             if ending.get("event") in ("chat.done", "chat.failed", "chat.aborted"):
                 href = trace_url(settings, to_words(ending, "traceId"), beginnings[0], ref, now)
+        trace_note = ""
+        if len(endings) == 1 and endings[0][0].get("event") == "chat.done" and not to_words(endings[0][0], "traceId"):
+            trace_note = {
+                "briefing": (
+                    "Nimbus built this park briefing directly without a model call. "
+                    "Its source checks appear in this timeline; no LangSmith model trace was created."
+                ),
+                "intake": (
+                    "Nimbus handled this clarification directly without a model call. "
+                    "No LangSmith model trace was created."
+                ),
+            }.get(to_words(endings[0][0], "workflow"), "")
         answer_ref = next(
             (to_words(row, "answerRef") for row in rows_of if TURN_ID.fullmatch(to_words(row, "answerRef"))), ""
         )
-        requests.append(ActivityRequest(start, to_summary(rows_of, lines_of), ref, steps, is_chat, href, answer_ref))
+        requests.append(
+            ActivityRequest(start, to_summary(rows_of, lines_of), ref, steps, is_chat, href, answer_ref, trace_note)
+        )
     # By when each began: the first query found each by the line that picked it, which may come later.
     return sorted(requests, key=lambda request: request.at, reverse=True)
 

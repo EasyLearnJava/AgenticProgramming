@@ -13,7 +13,7 @@ from uuid import UUID
 import httpx2
 import structlog
 from langsmith import utils as smith
-from pydantic import AwareDatetime, BaseModel, TypeAdapter
+from pydantic import AwareDatetime, BaseModel, TypeAdapter, field_validator
 
 from nimbus.config import Settings
 from nimbus.constants import AGENT_NAME, OBSERVABILITY_DAYS
@@ -112,6 +112,12 @@ class _Span(BaseModel):
     start_time: AwareDatetime
     end_time: AwareDatetime | None = None
     status: str | None = None
+
+    @field_validator("run_type", "status")
+    @classmethod
+    def normalize_enum(cls, value: str | None) -> str | None:
+        """Accept wire enum casing without relaxing root identity or exposing unknown provider values."""
+        return value.upper() if value is not None else None
 
 
 class _Runs(BaseModel):

@@ -69,7 +69,7 @@
           <p class="obs-trace-link"><a href="{{ item.trace_url }}">View LangSmith trace<span class="visually-hidden">
             for request {{ item.ref }}</span></a></p>
           {% elif item.is_chat %}
-          <p class="obs-ref">No linked LangSmith trace for this request.</p>
+          <p class="obs-ref">{{ item.trace_note or "No linked LangSmith trace for this request." }}</p>
           {% endif %}
         </details>
       </li>
