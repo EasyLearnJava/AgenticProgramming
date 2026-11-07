@@ -1,0 +1,632 @@
+<section class="prose part" id="requirement">
+  <p class="partno">Part 1</p>
+  <h2 class="parth">The requirement, as given</h2>
+  <p class="lede">This is the brief exactly as the FDE receives it (it is “Project 3” in the brief; The Gen Academy's
+    repository calls it 2C). Everything after it works backwards from these words to the system that was built
+    (repository <code>2C-Graph-RAG-for-Organizational-Knowledge</code>, commit b9bae00).</p>
+  <blockquote class="req">
+    <p class="reqt">Project 3: GraphRAG for Organizational Knowledge</p>
+    <p class="reqh">Description</p>
+    <p>Model your team’s or organization’s knowledge as a graph — people, projects, skills, documents, and decisions —
+      and use GraphRAG to enable queries that traditional vector search can’t handle well. Think: “Who worked on the
+      last compliance audit and what tools did they use?” or “What decisions were made about our pricing model and who
+      approved them?” Build the graph with 20+ nodes, run queries against it, and compare GraphRAG results with
+      traditional vector-based RAG on the same questions. This project highlights when structured relationships
+      matter more than semantic similarity.</p>
+    <p class="reqh">Best For</p>
+    <p>Program/Project Managers (organizational knowledge), Executives (decision tracking), Consultants (client
+      engagement knowledge), Tech Leads (technical decision logs), Strategy roles.</p>
+  </blockquote>
+</section>
+
+<section class="prose part" id="fde">
+  <p class="partno">Part 2</p>
+  <h2 class="parth">FDE analysis: from the brief to the design</h2>
+  <p class="lede">Imagine a company's operations leadership hands you this brief on day one. You are the forward
+    deployed engineer: you find out what people actually need to ask, where the answers live today, and ship
+    something that works on their data. This part walks the route from the brief to 2C's design, and checks 2C's
+    comparison the way an FDE would before presenting it.</p>
+  <div class="callout">
+    <p><b>How to read this part.</b> The code, the README and the solution kit show what was built and some of why.
+      No interviews were recorded, so the people, questions and answers below are a reconstruction. We also ran
+      checks offline, with no API key: 2C's own graph code on its own data, its vector chunks rebuilt exactly, and a
+      retrieval test with a local embedding model standing in for OpenAI's (marked as a proxy). No answers were
+      generated, so every check is about what each side can retrieve, not what it would say. Statements about 2C
+      carry a tag:</p>
+    <p class="legend"><span class="li"><span class="tg doc">Documented</span> stated in the solution kit or
+      README</span> <span class="li"><span class="tg code">In code</span> visible in the code or its comments</span>
+      <span class="li"><span class="tg asm">Inferred</span> our reading; no source says it directly</span> <span
+      class="li"><span class="tg chk">Checked</span> measured by our offline run</span> <span class="li"><span
+      class="first">★</span> ask in your first meeting with that team</span></p>
+  </div>
+  <div class="callout goodc">
+    <p><b>2C in one paragraph.</b> A hand-written mock organization (<code>data/mock_data.py</code>) holds 32
+      <i>nodes</i> (7 people, 4 projects, 6 skills, 6 tools, 5 documents, 4 decisions) and 48 <i>edges</i> of 7
+      relation types, such as WORKED_ON, USED_TOOL, APPROVED and DECISION_FOR. The same data feeds two pipelines.
+      <b>Vector RAG</b> turns each node into one short text <i>chunk</i> (its own attributes only), embeds the 32
+      chunks with OpenAI's text-embedding-3-small into a FAISS index, and gives gpt-4o-mini the <i>top 8</i> for each
+      question. <b>GraphRAG</b> is a LangGraph workflow over a NetworkX graph: an LLM call extracts entity names and
+      relation types from the question (<i>entity linking</i>); the names are fuzzy-matched to node IDs (<i>seeds</i>);
+      if none match, a regex and topic-keyword <i>fallback</i> tries instead; the graph is expanded two <i>hops</i>
+      from the seeds in both directions, optionally keeping only the asked-about relation types; document text is
+      attached; and gpt-4o-mini answers from the resulting facts. Six benchmark questions, Q1 to Q6 as in 2C's code
+      (unrelated to the “Q3 2025” in a project's name), each have a <i>gold set</i> of strings a correct answer should
+      contain; <i>recall</i> is the share of those strings found in the answer. Here “GraphRAG” means retrieval by
+      graph traversal, close to the “local search” of Microsoft's GraphRAG. Microsoft's version also builds the graph
+      from documents with an LLM and, for broad “global” questions, uses <i>community summaries</i> (LLM-written
+      summaries of clusters of closely linked nodes); 2C does neither.</p>
+  </div>
+</section>
+
+<section class="prose" id="fde-mindset">
+  <h3><span class="sn">2.1</span>How an FDE reads this brief</h3>
+  <ol class="habits">
+    <li><b>Find the real deliverable.</b> “compare GraphRAG results with traditional vector-based RAG on the same
+      questions” and “when structured relationships matter more than semantic similarity” make the output a
+      comparison and a rule of thumb. The comparison is only worth something if both sides get the same facts.</li>
+    <li><b>Ask where the graph comes from before how to query it.</b> In a real organization, people live in the HR
+      system, project work in a ticketing tool, documents in a wiki, decisions in meeting notes and approval
+      workflows. Building and maintaining the edges is most of the work, including <i>entity resolution</i> (at build
+      time: matching “B. Martinez” in one system to “Bob Martinez” in another), which is different from entity linking
+      (at question time: words in the question to nodes). 2C writes its graph by hand, which is fine for learning if
+      everyone knows the hard part was skipped.</li>
+    <li><b>Look at what each side can see.</b> Before comparing answers, list the facts each pipeline's context can
+      contain. In 2C none of the 48 edges reaches the vector index; only some document and decision text mentions
+      related projects or tools (2.7).</li>
+    <li><b>Test at the size the customer has.</b> Retrieval has to choose only when the data does not fit in a
+      prompt; below that, it matters for cost, citations and permissions, not for whether the facts can be reached.
+      2C's whole graph, with every edge and all document text, is about 7,100 characters; at that size the first
+      control is to give the model everything.</li>
+    <li><b>Org knowledge is people data.</b> Who worked with whom, who has which skill and who approved what are
+      personnel and possibly confidential records. Permissions, privacy and the line between knowledge sharing and
+      employee monitoring come before the first demo.</li>
+    <li><b>Score the claim, not the vocabulary.</b> A name in an answer is not proof the system knew the
+      relationship. Scoring must check that each named entity is correct and supported by the retrieved facts.</li>
+  </ol>
+</section>
+
+<section class="prose" id="fde-brief">
+  <h3><span class="sn">2.2</span>Reading the brief phrase by phrase</h3>
+  <p>Each phrase asks for something, and each one hides a question the brief does not answer. The last column is the
+    answer 2C's build gives.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Phrase in the brief</th><th>What it asks for</th><th>The question it hides</th>
+      <th>What 2C did</th></tr></thead>
+    <tbody>
+    <tr><td>“Model your team’s or organization’s knowledge as a graph”</td><td>A graph built from real knowledge</td>
+      <td>From which systems, by whom, and how is it kept current?</td>
+      <td>A hand-written Python file of mock data; no ingestion from any system. <span class="tg code">In code</span></td>
+      </tr>
+    <tr><td>“people, projects, skills, documents, and decisions”</td><td>A schema</td>
+      <td>Which relationships matter, with what attributes, and does time belong on them?</td>
+      <td>Six node types (tools added) and seven relation types; edges carry a role or skill level, but no dates.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“use GraphRAG”</td><td>Graph-based retrieval</td>
+      <td>Local multi-hop lookups, or Microsoft-style GraphRAG with an LLM-built graph and community summaries for
+        broad questions?</td>
+      <td>Local lookup: entity linking, then a 2-hop expansion. Community summaries appear only as future work.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td>“queries that traditional vector search can’t handle well”</td><td>A hypothesis to test</td>
+      <td>Can't, or can't when the relationships are missing from its index?</td>
+      <td>The vector index holds node attributes only; none of the 48 edges is indexed.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“Who worked on the last compliance audit and what tools did they use?”</td>
+      <td>Multi-hop questions</td>
+      <td>What does “last” mean (by date?), and did the people use the tools, or did the project?</td>
+      <td>One audit, so “last” is trivial; tools hang off the project, not the people. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td>“Build the graph with 20+ nodes”</td><td>A minimum size</td>
+      <td>Big enough that retrieval has to choose? At 20 nodes everything fits in one prompt.</td>
+      <td>32 nodes and 48 edges: about 7,100 characters with every edge and document written out.
+        <span class="tg chk">Checked</span></td></tr>
+    <tr><td>“compare GraphRAG results with traditional vector-based RAG on the same questions”</td>
+      <td>A fair head-to-head</td>
+      <td>Same facts on both sides? What is the metric, and how many questions?</td>
+      <td>Six questions, substring recall against gold sets; the two sides see different facts.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td>“when structured relationships matter more than semantic similarity”</td><td>A rule of thumb</td>
+      <td>Measured on what kinds of question, at what scale?</td>
+      <td>One prose question (Q6) as a deliberate counter-example <span class="tg doc">Documented</span>; the other five
+        are relational <span class="tg code">In code</span></td></tr>
+    <tr><td>“Best For: … Executives (decision tracking), … Tech Leads (technical decision logs)”</td>
+      <td>Decision records</td>
+      <td>Where are decisions recorded today, with what approval trail, and who may see them?</td>
+      <td>Four decisions with title, date and rationale; approvers as edges; no access control.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-people">
+  <h3><span class="sn">2.3</span>Who the FDE talks to</h3>
+  <p>Meet the sponsor and the people who ask these questions today first, because they define the benchmark; meet the
+    system owners early, because the graph is built from their data. Bring HR, Legal and Privacy in during week one:
+    a graph of who did what is personnel data. 2C records no such meetings.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Who</th><th>Why them</th><th>What you leave the meeting with</th>
+      <th>What it settles in the design</th></tr></thead>
+    <tbody>
+    <tr><td><b>Business sponsor</b> (e.g. COO, head of PMO or strategy)</td><td>Owns the problem and the budget</td>
+      <td>The decisions this should speed up, the success metric, scope</td>
+      <td>Which questions matter; prototype or production</td></tr>
+    <tr><td><b>The people who ask</b> (PMs, executives, consultants, tech leads)</td><td>They know the real
+      questions</td><td>30–50 real questions, how they answer them today and how long it takes</td>
+      <td>The benchmark; whether questions are lookups, lists or summaries</td></tr>
+    <tr><td><b>HR and the HRIS owner</b> (the HR information system, e.g. Workday)</td><td>People, roles, teams,
+      skills</td><td>Which fields may be used, how skills are recorded, how leavers are handled</td>
+      <td>Person and skill nodes; what must never be exposed</td></tr>
+    <tr><td><b>Project and ticketing system owners</b> (e.g. Jira, Asana)</td><td>Who worked on what</td>
+      <td>Export access, how membership and roles are recorded, history</td>
+      <td>WORKED_ON and USED_TOOL edges, with dates</td></tr>
+    <tr><td><b>Knowledge and document platform owners</b> (e.g. Confluence, SharePoint)</td>
+      <td>Documents, authors, links</td><td>Connector access, permission model, change feeds</td>
+      <td>Document nodes, AUTHORED and ABOUT edges; permissions to copy</td></tr>
+    <tr><td><b>Owners of decision records</b> (PMO, architecture board, finance)</td><td>Where decisions and approvals
+      live</td><td>The formats (minutes, decision records, approval workflows) and which are authoritative</td>
+      <td>Decision nodes, APPROVED and DECISION_FOR edges</td></tr>
+    <tr><td><b>Data and integration engineers</b></td><td>Matching entities across systems</td>
+      <td>Shared IDs (employee ID, project key) or how to match names</td>
+      <td>Entity resolution; how the graph is rebuilt and kept current</td></tr>
+    <tr><td><b>Legal, Privacy and the works council</b> (an elected employee body that, in Germany and some other EU
+      countries, must agree to systems that can monitor staff)</td><td>Personnel data and monitoring rules</td>
+      <td>Purposes allowed, retention, a data-protection impact assessment (DPIA), whether “who worked with whom” may be
+        queried</td>
+      <td>What goes in the graph; who may ask what</td></tr>
+    <tr><td><b>Information Security and the identity team</b></td><td>Approve vendors and data flows; own the groups
+      (e.g. in Entra ID or Okta) that permissions are mirrored from</td>
+      <td>Data classification of decisions and documents; approved LLM vendors; group sources</td>
+      <td>Permission-aware traversal; the threat model (figure 9)</td></tr>
+    <tr><td><b>Platform team</b></td><td>Where it runs</td><td>Approved graph and vector databases, LLM gateway,
+      hosting</td><td>NetworkX in memory or a graph database; deployment</td></tr>
+    <tr><td><b>The future owner</b></td><td>Someone must keep the graph true</td>
+      <td>Who fixes wrong edges, how often sources sync</td><td>Sync jobs, provenance (which system and record each
+      fact came from) on every edge, a runbook</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-questions">
+  <h3><span class="sn">2.4</span>The questions to ask</h3>
+  <p>Grouped by theme, with who to ask. The <span class="first">★</span> questions change the architecture, so ask
+    them in your first meeting with that team; the rest change details. Follow every answer with “show me an
+    example”.</p>
+
+  <h4>A · Outcome and success <span class="who">ask the sponsor and the people who ask</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Which questions do people ask today, and how do they get answers now?</td>
+      <td>If the answer is “ask Alice on chat”, the bar is speed and coverage, not accuracy alone.</td>
+      <td>Six questions written by the builders alongside the data. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> What would a wrong answer cost (a missed approver, a wrong owner)?</td>
+      <td>Sets how strict the <i>grounding</i> (every claim traceable to the retrieved facts) and citations must
+        be.</td>
+      <td>Not stated; a learning project. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td>Which result of the comparison would change what we build?</td>
+      <td>An experiment needs a decision attached.</td>
+      <td>No result is published; <code>compare.py</code> prints a table that is not saved.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>B · Questions and users <span class="who">ask the people who ask</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Can you give me 30 real questions, with the answer you'd accept?</td>
+      <td>Real questions decide the schema and the hop count.</td>
+      <td>Six questions; five relational <span class="tg code">In code</span>, one prose
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td><span class="first">★</span> How many hops do real questions need?</td>
+      <td>“Skills of Bob's teammates” is three hops; a fixed 2-hop expansion reaches only the skills Bob shares with them.</td>
+      <td>Two hops for every question; Q3 needs three. <span class="tg chk">Checked</span></td></tr>
+    <tr><td>Do questions depend on time (“last audit”, “current owner”)?</td>
+      <td>Needs dates on edges and a rule for “last”.</td>
+      <td>Projects have dates; edges do not; one audit, so “last” never gets tested. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td>Do people ask broad questions (“what are our main risks?”) as well as lookups?</td>
+      <td>Broad questions need summaries (Microsoft-style GraphRAG), not a local expansion.</td>
+      <td>Lookups only, plus one document summary. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>C · The sources and the graph <span class="who">ask system owners and data engineers</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Which systems hold people, projects, documents and decisions, and can we
+      read them?</td><td>The graph is only as good as its sources and connectors.</td>
+      <td>None: a hand-written file. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> What counts as “worked on”, “approved” or “expert in”, and which record
+      proves it?</td><td>Ticket assignee or charter member? An approval workflow or a name in the minutes? Edge
+      definitions decide what every answer means.</td>
+      <td>Defined by whoever typed the file. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> Are edges recorded somewhere, or must they be extracted from text?</td>
+      <td>Recorded edges (project membership) are cheap and reliable; extracted ones (who approved, in meeting notes)
+        need an LLM and a review step.</td>
+      <td>Every edge typed in by hand. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> How do we match the same person or project across systems?</td>
+      <td>Without shared IDs, entity resolution errors become wrong answers.</td>
+      <td>Not needed: one source, unique IDs. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> How fresh must the graph be after leavers, moves and reorgs?</td>
+      <td>Decides between a nightly rebuild and change feeds; stale membership gives confident wrong answers.</td>
+      <td>Rebuilt from the file at each start-up; no sync. <span class="tg code">In code</span></td></tr>
+    <tr><td>Which source wins when two disagree?</td><td>Conflicting records need a rule and a trail.</td>
+      <td>No provenance or timestamps on edges. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>D · How answers should behave <span class="who">ask the people who ask and Legal</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> Must each claim show where it came from (which system, which record)?</td>
+      <td>People trust an approver named with a link to the approval.</td>
+      <td>No source system or link in answers; source citations are listed as future work.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td>What should it say when the graph has no answer?</td><td>Guessing names is worse than “unknown”.</td>
+      <td>Both prompts say “If the context is insufficient, say so explicitly rather than guessing”.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>E · Permissions and privacy <span class="who">ask Legal, Privacy, HR and Information Security</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> May everyone see every person, skill, decision and document?</td>
+      <td>A 2-hop expansion pulls in whatever is connected, including restricted nodes.</td>
+      <td>No access control; expansion ignores permissions. <span class="tg code">In code</span></td></tr>
+    <tr><td><span class="first">★</span> Is querying “who worked with whom” allowed, and for what purposes?</td>
+      <td>Personnel data rules and, in some countries, works-council agreements limit it.</td>
+      <td>Not addressed (mock data). <span class="tg asm">Inferred</span></td></tr>
+    <tr><td><span class="first">★</span> May node text and questions go to OpenAI?</td><td>Names, roles and decisions
+      leave the company; the answer decides between a hosted API, an in-region endpoint or a self-hosted model.</td>
+      <td>Yes: chunks and questions are embedded by OpenAI; graph facts and documents go into prompts.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>F · Platform, scale and cost <span class="who">ask the platform team and the sponsor</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> How many nodes and edges will the real graph have?</td>
+      <td>Retrieval only has to choose when the data doesn't fit in a prompt; expansion size grows with hubs.</td>
+      <td>32 nodes; an unfiltered 2-hop expansion returns 44–66% of them. <span class="tg chk">Checked</span></td></tr>
+    <tr><td>Is there an approved graph database?</td><td>NetworkX in memory doesn't survive restarts or share.</td>
+      <td>NetworkX in memory; Neo4j listed as future work. <span class="tg doc">Documented</span></td></tr>
+    <tr><td>What may a question cost and how fast must it be?</td><td>GraphRAG adds an LLM call to link entities.</td>
+      <td>GraphRAG makes 2 LLM calls a question, vector RAG 1, plus a query embedding.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>G · Evaluation <span class="who">agree the target with the sponsor; the FDE designs the checks</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td><span class="first">★</span> What result would convince you, and what counts as a correct answer: all
+      approvers, approvers with a link to the approval, or “unknown” when there is no record?</td>
+      <td>Sets the gold sets and the metric before anything is built.</td>
+      <td>Gold sets written by the builders; substring recall. <span class="tg code">In code</span></td></tr>
+    <tr><td>FDE check: does each side get the same facts?</td>
+      <td>Otherwise the comparison measures the index, not the retrieval method.</td>
+      <td>No: none of the 48 edges reaches the vector side. <span class="tg code">In code</span></td></tr>
+    <tr><td>FDE check: is an answer scored on the right entities, or on words appearing?</td>
+      <td>Substring recall rewards a guessed name and misses a paraphrase.</td>
+      <td>Case-insensitive substring recall; no <i>precision</i> (share of named entities that are correct) and no
+        grounding check. <span class="tg code">In code</span></td></tr>
+    <tr><td>Who writes and checks the gold sets?</td><td>A wrong gold set scores the wrong thing.</td>
+      <td>Gold sets written by the builders; Q3's asks for three skills 2 hops can't reach and omits the two it can.
+        <span class="tg chk">Checked</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-decisions">
+  <h3><span class="sn">2.5</span>From answers to design: the decision trace</h3>
+  <p>Each decision in 2C, the answer that drives it (reconstructed), the options an FDE weighs, and 2C's choice
+    (tagged). The last column names the answer or evidence that would flip the choice, then the new choice.</p>
+  <div class="tw"><table class="qt dt5">
+    <thead><tr><th>Decision</th><th>Driving answer</th><th>Options weighed</th><th>2C's choice</th>
+      <th>What would change it</th></tr></thead>
+    <tbody>
+    <tr><td><b>1 · Graph source</b></td><td>A demo needs controllable data (inferred)</td>
+      <td>Hand-written mock · sync from HR, ticketing and wiki systems · LLM extraction from documents</td>
+      <td>Hand-written mock data, 32 nodes, 48 edges <span class="tg doc">Documented</span></td>
+      <td>A real customer → connectors for recorded edges, LLM extraction with human review for edges that live in
+        text (it costs per document and re-runs when documents change: estimate it first), provenance on every edge.
+        If no decision register exists, recommend a light one (decision records with approver and date): no retrieval
+        method recovers an approval nobody wrote down.</td></tr>
+    <tr><td><b>2 · Schema</b></td><td>The brief's five entity types, plus tools</td>
+      <td>Fixed types and relations · open-ended extracted types</td>
+      <td>6 node types, 7 relation types; edge attributes for role and skill level; no dates on edges
+        <span class="tg code">In code</span></td>
+      <td>Time-dependent questions (“last”, “current”) → valid-from and valid-to on edges.</td></tr>
+    <tr><td><b>3 · Graph store</b></td><td>Small and in memory</td>
+      <td>NetworkX · Neo4j or another graph database · a relational table of edges</td>
+      <td>NetworkX MultiDiGraph <span class="tg doc">Documented</span>, rebuilt at start-up
+        <span class="tg code">In code</span></td>
+      <td>Shared, persistent, permissioned data → a graph database with query-time access control.</td></tr>
+    <tr><td><b>4 · Entity linking</b></td><td>Questions name entities loosely</td>
+      <td>LLM extraction + fuzzy match · embedding match against node names · exact IDs only</td>
+      <td>LLM structured output, then fuzzy matching <span class="tg doc">Documented</span>: the first node, in node
+        order, whose name contains or is inside the extracted name, then difflib with cutoff 0.6
+        <span class="tg code">In code</span></td>
+      <td>Our check: matching each node's own name sends 5 of 32 to the wrong node, e.g. “AWS Audit Manager” → the AWS
+        skill <span class="tg chk">Checked</span>; a latent bug the six questions probably never trigger <span class="tg asm">Inferred</span> → match the
+        longest name first, or by embedding with a threshold, and test the linker on its own.</td></tr>
+    <tr><td><b>5 · Fallback linker</b></td><td>The LLM linker sometimes returns nothing</td>
+      <td>No fallback · regex on names plus a topic map</td>
+      <td>Regex on node names plus a topic map <span class="tg doc">Documented</span> of 10 keys (“audit”, “pricing”,
+        “mfa” …) <span class="tg code">In code</span></td>
+      <td>Our check: the fallback alone links every question to the right project or person
+        <span class="tg chk">Checked</span>. Its keys alias the four project names; 7 of the 10 occur word for word in the questions, and Q1, Q2 and Q6 are linked only through them <span class="tg chk">Checked</span>. The data file says it was
+        designed so the brief's example questions need traversal <span class="tg code">In code</span>; map and
+        benchmark were likely tuned together <span class="tg asm">Inferred</span> → test linking on user-written
+        questions the map has never seen.</td></tr>
+    <tr><td><b>6 · Expansion</b></td><td>Multi-hop questions</td>
+      <td>Fixed k-hop expansion (breadth-first) · query templates per question type · LLM-generated graph queries
+        (text-to-Cypher) with the schema, validation and a read-only role · adaptive hops</td>
+      <td>2 hops, both directions, optional relation filter, retried without it if empty <span class="tg doc">
+        Documented</span></td>
+      <td>Our check: unfiltered, 2 hops return 44–66% of the nodes, and Q3 needs 3 <span class="tg chk">Checked</span>
+        → known question shapes: templates; open questions: text-to-Cypher, with the query shown as provenance and its
+        accuracy measured; expansion as a fallback.</td></tr>
+    <tr><td><b>7 · Context</b></td><td>The LLM needs facts and prose</td>
+      <td>Fact list · fact list plus document text · community summaries</td>
+      <td>Entities and relationships as lines, plus full text of attached documents <span class="tg doc">
+        Documented</span></td>
+      <td>Large graphs → rank and trim facts before the prompt; broad questions → community summaries.</td></tr>
+    <tr><td><b>8 · Vector baseline</b></td><td>“Same data” for a fair test</td>
+      <td>Node attributes only · node text plus edge sentences · per-node chunks listing neighbours</td>
+      <td>One chunk per node, attributes only; none of the 48 edges <span class="tg code">In code</span></td>
+      <td>A fair test → add the edges as text. Our proxy check (retrieval only): with 48 edge sentences added, top 16
+        retrieves every needed edge for Q1, Q2, Q4 and Q5 <span class="tg chk">Checked</span>.</td></tr>
+    <tr><td><b>9 · Retrieval depth</b></td><td>Short chunks need more of them</td>
+      <td>k = 5 · k = 8 · everything</td>
+      <td>k = 8 of 32 chunks: a quarter of the corpus <span class="tg doc">Documented</span></td>
+      <td>At about 7,100 characters for the whole graph → also run a full-context control.</td></tr>
+    <tr><td><b>10 · Models</b></td><td>One provider for both sides</td>
+      <td>gpt-4o-mini and text-embedding-3-small · others</td>
+      <td>OpenAI only; no offline fallback <span class="tg doc">Documented</span></td>
+      <td>An approved provider or gateway → swap in <code>llm.py</code> and re-run.</td></tr>
+    <tr><td><b>11 · Metric</b></td><td>Measured, “not just answer vibes”</td>
+      <td>Substring recall · entity-ID precision and recall · grounded-claim checks · human review</td>
+      <td>Recall against gold entity sets <span class="tg doc">Documented</span>, as a case-insensitive substring match
+        <span class="tg code">In code</span></td>
+      <td>Our check found collisions and gaps <span class="tg chk">Checked</span> → have both pipelines cite a node or
+        edge ID for each claim and score the IDs, precision as well as recall; judge paraphrases by hand or with a
+        judge model checked against human labels.</td></tr>
+    <tr><td><b>12 · Benchmark</b></td><td>Show where each side wins</td>
+      <td>Six builder-written questions · user-written questions with negatives, time and permissions</td>
+      <td>Five relational questions <span class="tg code">In code</span> and one prose question
+        <span class="tg doc">Documented</span></td>
+      <td>A real decision → 30–50 user questions, a third held out from tuning the topic map and prompts.</td></tr>
+    <tr><td><b>13 · Interface</b></td><td>Show the difference visually</td>
+      <td>CLI · Streamlit with an interactive graph · inside existing tools</td>
+      <td>CLI table and a Streamlit page with a pyvis graph; no login <span class="tg code">In code</span></td>
+      <td>Real users → their chat or wiki tool, behind single sign-on, showing only permitted nodes.</td></tr>
+    <tr><td><b>14 · Permissions</b></td><td>Not discussed</td>
+      <td>None · filter nodes and edges by the asker's rights during expansion</td>
+      <td>None <span class="tg code">In code</span></td>
+      <td>Any real data → copy permissions from the source systems and enforce them in the traversal, not after it.
+        An edge built from two sources takes the stricter permission; hide that restricted nodes exist, not just their
+        text; watch aggregation (“who worked with whom” across projects can reveal reorgs or performance
+        issues).</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-assumptions">
+  <h3><span class="sn">2.6</span>Assumptions 2C made without testing them</h3>
+  <p>Each one shows in the code or README. Several appear in 2C's own future-work lists, but none is tested or reflected in the
+    comparison's claims.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Assumption</th><th>Where it shows</th><th>What breaks if it's wrong</th>
+      <th>Does 2C mention it?</th><th>Who confirms</th></tr></thead>
+    <tbody>
+    <tr><td>The graph already exists and is correct.</td><td><code>data/mock_data.py</code></td>
+      <td>Missing or stale edges give confident wrong answers</td>
+      <td>Future work: noisy data <span class="tg doc">Documented</span></td>
+      <td>System owners, data engineers</td></tr>
+    <tr><td>Both pipelines see the same data.</td><td>README: “Same data — both index every entity in the
+      graph”</td><td>No edge reaches the vector side, so the comparison measures the index</td>
+      <td>Claims it holds <span class="tg doc">Documented</span></td><td>FDE; agreed with the sponsor</td></tr>
+    <tr><td>Two hops are enough.</td><td><code>GraphRAG(hops=2)</code></td>
+      <td>Three-hop questions (teammates' skills) can't be answered in full</td><td>No</td><td>The people who ask</td></tr>
+    <tr><td>Fuzzy matching resolves names correctly.</td><td><code>_fuzzy_match</code>, first match in node order</td>
+      <td>Short names capture longer ones (AWS for AWS Audit Manager)</td>
+      <td>Future work: linking evaluation <span class="tg doc">Documented</span></td><td>Data engineers</td></tr>
+    <tr><td>Everyone may see everything.</td><td>No access checks in <code>expand_subgraph</code></td>
+      <td>Restricted decisions or HR data reach anyone who asks</td><td>No</td>
+      <td>Legal, Privacy, Information Security</td></tr>
+    <tr><td>Time doesn't matter.</td><td>No dates on edges</td>
+      <td>“Last”, “current” and “who was on it then” can't be answered</td><td>No</td><td>The people who ask</td></tr>
+    <tr><td>Naming an entity means knowing it.</td><td><code>score_recall</code></td>
+      <td>Guessed names score as hits</td><td>No</td><td>FDE; agreed with the sponsor</td></tr>
+    <tr><td>Small-scale results carry to real scale.</td><td>32 nodes, k = 8</td>
+      <td>Expansion size, linking errors and cost change with size</td>
+      <td>Future work: larger graphs <span class="tg doc">Documented</span></td><td>Platform team, sponsor</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-stress">
+  <h3><span class="sn">2.7</span>Checking the comparison, as an FDE would</h3>
+  <p>The brief's core is “compare GraphRAG results with traditional vector-based RAG on the same questions”. Before
+    quoting a winner, check what each side could possibly see. In the engagement this design comes before any build
+    (step 4 in 2.8); it sits here because it refers to the parts chosen in 2.5. All checks below are retrieval only:
+    no answers were generated.</p>
+  <div class="callout warnc">
+    <p><b>What the comparison cannot show</b></p>
+    <ul>
+      <li><b>There is no published result.</b> <code>compare.py</code> prints a recall table but saves nothing; the
+        README and the solution kit report no numbers. <span class="tg code">In code</span></li>
+      <li><b>No graph edge reaches the vector side.</b> Its 32 chunks hold each node's own attributes; none of the 48
+        edges is written anywhere, and each person's name appears only in that person's own chunk, so the 31 edges
+        that involve a person are invisible to it. Some document and decision text does mention related projects or
+        tools. For Q1, our proxy top 8 holds 5 of the 6 gold names; Drata and AWS Audit Manager are tied to the audit
+        only by the audit report's prose (and, for AWS Audit Manager, a decision's rationale). An answer naming Alice
+        and Frank as the audit team would be a guess from job titles, Okta would be unsupported, and substring recall
+        would score all three as hits. <span class="tg chk">Checked</span></li>
+      <li><b>A fairer index retrieves most of the missing facts.</b> Adding the 48 edges as sentences (“Alice Chen
+        worked on Q3 2025 SOC2 Compliance Audit (role: Lead)”) and retrieving the top 16, twice 2C's k, brings back
+        every needed edge for Q1, Q2, Q4 and Q5, and all of Q2's and Q5's even at top 8. Q3, which needs 14 edges,
+        stays hard (3 of 14). This uses a local stand-in for OpenAI's embedding model, and no answers were generated, so whether answers would close the gap is untested. <span class="tg chk">Checked</span></li>
+      <li><b>Q3 is mostly out of GraphRAG's reach too.</b> From Bob, project → teammate → skill is three hops. Two hops
+        do reach Alice's AWS and David's Python, because Bob has those skills too, but not Machine Learning,
+        Penetration Testing or SOC2 Compliance as a skill. The gold set asks for those three and omits the two that
+        are in reach (perhaps reading “bring” as “add to Bob's”; the question should say so), and its “SOC2 Compliance”
+        is a substring of the project name “Q3 2025 SOC2 Compliance Audit”, so naming the project scores the skill.
+        <span class="tg chk">Checked</span></li>
+      <li><b>At this size, full context is the control.</b> The whole graph in GraphRAG's own format, with every edge
+        and all document text, is 7,093 characters; the 32 node chunks alone are 3,919. From the fallback's seeds, an
+        unfiltered 2-hop expansion returns 44–66% of the nodes and 2,768–4,312 characters, 39–61% of the whole; for
+        Q1–Q5, the relation types an LLM would most likely pick (our assumption) cut that to 575–1,759. The solution
+        kit rejects “LLM over the full dataset” because it does not scale, hides which facts were selected and skips
+        testing retrieval. All true in production, but at 32 nodes full context is the ceiling every retrieval method
+        should be measured against. <span class="tg chk">Checked</span></li>
+      <li><b>The benchmark can't tell whether the LLM linker helps.</b> The hand-written fallback alone links every
+        question to the right project or person. Separately, the fuzzy matcher sends 5 of the 32 node names to the wrong node <span class="tg chk">Checked</span>: a latent bug the six questions probably never trigger, and one more reason to test linking on its own. <span class="tg asm">Inferred</span></li>
+      <li><b>Substring recall is lenient and brittle at once.</b> It counts a name whether or not the claim is right,
+        ignores extra wrong names (no precision), and misses paraphrases (“no critical findings” fails “zero critical
+        findings”; “three-tier” fails “3-tier”). Q5's gold is just “Snowflake”: naming it scores 100% however the
+        answer was reached. Six questions, one run, no spread. <span class="tg code">In code</span></li>
+    </ul>
+  </div>
+  <p>An FDE's version keeps the idea and changes the design (figure 11 draws the result):</p>
+  <ol class="steps">
+    <li><b>Build the graph from real sources</b>, even a small slice, with provenance and dates on every edge, so the
+      hard part is in the test.</li>
+    <li><b>Give both sides the same facts.</b> Run five set-ups on the same questions: vector over node text, vector
+      over node text plus edge sentences, GraphRAG, graph queries (templates or text-to-Cypher), and the whole graph
+      in the prompt as a control while it fits.</li>
+    <li><b>Grow the data from a real export</b> (one department's org chart, projects and wiki) until the full graph
+      no longer fits or accuracy drops as the context grows; at 2C's density that is roughly 2,000 nodes for gpt-4o-mini's 128k-token window, fewer with real-length documents.
+      Add ablations: GraphRAG with gold seeds (isolates linking), hops 1, 2 and 3, the filter on and off.</li>
+    <li><b>Write 30–50 questions with users</b>: lookups, lists, three-hop paths, time-dependent ones, questions with no
+      answer, and questions the asker may not be allowed to see answered. Keep a third back from tuning the linker,
+      the topic map and the prompts.</li>
+    <li><b>Score entities, not words.</b> Have each pipeline cite a node or edge ID for each claim and score the IDs,
+      precision and recall; judge paraphrases by hand or with a judge model checked against human labels; measure
+      linking accuracy on its own. With 10–17 held-out questions, report per-question wins and losses, not averages.
+      Repeat runs and store every result.</li>
+    <li><b>Give every failure one cause</b>, the earliest stage that went wrong. 2C's kit proposes tracking which
+      linking stage lost the context; this extends that to every stage:</li>
+  </ol>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Cause</th><th>What it looks like</th><th>Where the fix goes</th></tr></thead>
+    <tbody>
+    <tr><td>Missing or stale edge</td><td>The graph doesn't hold the fact, or holds an old one</td>
+      <td>Sources, sync and provenance (decision 1)</td></tr>
+    <tr><td>Wrong seed</td><td>The question linked to the wrong node, or none</td>
+      <td>Entity linking and the fallback (decisions 4, 5)</td></tr>
+    <tr><td>Too few hops</td><td>The answer is further away than the expansion goes</td>
+      <td>Query templates, text-to-Cypher, hop limits (decision 6)</td></tr>
+    <tr><td>Wrong query</td><td>The chosen or generated query asks the wrong pattern (direction, relation, a missing
+      hop)</td><td>Templates, query validation, the schema in the prompt (decision 6)</td></tr>
+    <tr><td>Wrong filter</td><td>The relation filter dropped a needed edge, or kept everything</td>
+      <td>Filter choice and the retry rule (decision 6)</td></tr>
+    <tr><td>Context overload</td><td>The right fact is buried in a large expansion</td>
+      <td>Rank and trim facts (decision 7)</td></tr>
+    <tr><td>Missing in the index</td><td>The vector side never stored the edge</td>
+      <td>Edge sentences or neighbour lists (decision 8)</td></tr>
+    <tr><td>Not retrieved</td><td>The fact is indexed but ranked below the cut-off (in our proxy with edge sentences, Frank's and Alice's Q1 audit sentences rank 9th and 10th, below k = 8)</td>
+      <td>k, re-ranking, hybrid retrieval, query rewriting (decisions 8, 9)</td></tr>
+    <tr><td>Permission leak</td><td>The answer uses a node the asker may not see</td>
+      <td>Permission-aware traversal (decision 14)</td></tr>
+    <tr><td>Generation error</td><td>The facts were there; the answer is wrong or incomplete</td>
+      <td>Prompt, model (decision 10)</td></tr>
+    <tr><td>Scoring error</td><td>A guessed name counted, or a correct paraphrase didn't</td>
+      <td>Entity-level scoring (decision 11)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-plan">
+  <h3><span class="sn">2.8</span>The engagement, step by step</h3>
+  <p>Steps 2–5 overlap. On day one, request system access and open the privacy review: purposes, a DPIA, and
+    works-council consultation where one exists. Build the first thin slice on the least sensitive real source
+    (project and document metadata, people as pseudonymous IDs), and add HR fields only once the review approves
+    them.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Step</th><th>What you produce</th><th>In 2C</th></tr></thead>
+    <tbody>
+    <tr><td>1 · Kickoff with the sponsor</td><td>The questions that matter, the success metric, scope</td>
+      <td>The brief</td></tr>
+    <tr><td>2 · Discovery interviews (2.3)</td><td>Answers to 2.4; a source map; access and privacy-review
+      requests</td><td>Not recorded</td></tr>
+    <tr><td>3 · Source audit and schema</td><td>Which system holds which node and edge, edge definitions, shared IDs,
+      permissions</td><td>A hand-written schema and mock data</td></tr>
+    <tr><td>4 · Benchmark and experiment design</td><td>User questions with gold entity IDs; the set-ups to
+      compare; the decision rule</td><td>Six questions with gold strings; two set-ups</td></tr>
+    <tr><td>5 · Thin slice</td><td>The least sensitive real source loaded, one question type answered end to end</td>
+      <td>The whole pipeline on mock data</td></tr>
+    <tr><td>6 · Controlled comparison</td><td>Same facts on both sides, repeated runs, per-question results</td>
+      <td>A recall table printed, not saved</td></tr>
+    <tr><td>7 · Findings readout</td><td>When relationships beat similarity, at what size, and why</td>
+      <td>The README's claims, without numbers</td></tr>
+    <tr><td>8 · Privacy and security sign-off (opened in step 2)</td><td>Approved purposes, DPIA, permission
+      enforcement tested, vendor approval</td><td>None; figure 9 below is a first draft</td></tr>
+    <tr><td>9 · Pilot</td><td>Real users, feedback, unanswered questions</td><td>None</td></tr>
+    <tr><td>10 · Handoff</td><td>Sync jobs, a runbook, a named owner for graph quality</td>
+      <td>README set-up steps</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-diagrams">
+  <h3><span class="sn">2.9</span>Which diagram answers which question</h3>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Diagram</th><th>The question it answers</th><th>Who reads it</th></tr></thead>
+    <tbody>
+    <tr><td><a href="#context">1 · System context</a></td><td>What is in scope and which outside services it uses</td>
+      <td>Sponsor, Information Security</td></tr>
+    <tr><td><a href="#architecture">2 · High-level architecture</a></td><td>What runs where; the two pipelines</td>
+      <td>Platform team</td></tr>
+    <tr><td><a href="#schema">3 · Graph schema and the vector chunks</a></td><td>What the graph holds, and what the
+      vector side holds of it</td><td>System owners, data engineers</td></tr>
+    <tr><td><a href="#dataflow">4 · Data flow</a></td><td>Where people data and questions go</td>
+      <td>Privacy, Information Security</td></tr>
+    <tr><td><a href="#design">5 · Detailed design</a></td><td>Which file and setting implements each step, and what
+      is broken</td><td>Engineers, the future owner</td></tr>
+    <tr><td><a href="#sequence">6 · Sequence</a></td><td>One question through GraphRAG, call by call</td>
+      <td>Engineers, sponsor (cost)</td></tr>
+    <tr><td><a href="#contexts">7 · The two contexts for Q1</a></td><td>What each side actually hands the model</td>
+      <td>Everyone</td></tr>
+    <tr><td><a href="#hops">8 · Why Q3 needs three hops</a></td><td>What a 2-hop expansion can and cannot reach</td>
+      <td>Engineers, the people who ask</td></tr>
+    <tr><td><a href="#threats">9 · Threat model</a></td><td>What can go wrong with people data, and what protects it
+      today</td><td>Information Security, Privacy</td></tr>
+    <tr><td><a href="#evaluation">10 · The comparison</a></td><td>What the benchmark measures, and what our checks
+      found</td><td>Sponsor, everyone</td></tr>
+    <tr><td><a href="#recommended">11 · The recommended architecture</a></td><td>What an FDE would build instead, and the 2.5 decision each numbered part answers</td>
+      <td>Everyone; the sponsor and the platform team first</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-takeaways">
+  <h3><span class="sn">2.10</span>What to take away</h3>
+  <ol class="habits">
+    <li>A head-to-head is only fair if both sides see the same facts. No graph edge reached 2C's vector index, so
+      “vector search can't” is untested; in our retrieval-only proxy, edge sentences surfaced every needed edge for four
+      of the five relational questions.</li>
+    <li>The hard part of organizational GraphRAG is building and maintaining the graph: sources, edge definitions,
+      entity resolution, provenance, time and permissions. Query-side cleverness can't fix a missing edge.</li>
+    <li>Test at the size you'll run at. At 32 nodes the whole graph fits in a prompt with room to spare, and an
+      unfiltered 2-hop expansion is already about half of it.</li>
+    <li>Graph traversal earns its place on path questions, but only with enough hops: Q3 needed three, and neither
+      side's context linked Bob's teammates to the skills its gold set asks for. We ran no LLM, and a model could
+      still name them from job titles, which substring recall would count.</li>
+    <li>Score entities and claims, not words: substring recall rewards guessed names and misses paraphrases.</li>
+    <li>The rule of thumb to test: relationships beat similarity when the answer is a list, path, intersection or
+      count over records (who worked on, who approved, tools two projects share), when the relationship lives in a
+      system of record rather than in prose, and when each fact needs a source and a permission check. Similarity
+      wins when the answer is in prose (Q6) or the question names things loosely. Real questions mix both, so
+      production is usually hybrid: route by question type, or combine graph facts with retrieved passages (2C lists
+      this as future work).</li>
+  </ol>
+</section>

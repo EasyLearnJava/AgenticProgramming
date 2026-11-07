@@ -1,0 +1,1898 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2C: Brief to Architecture</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1f2328; --muted: #5d6470; --border: #e3e0d8;
+    --accent: #2f5fb3; --accent-soft: #e9f0fb; --good: #1d7a46; --good-soft: #e6f4ec;
+    --warn: #9a5b00; --warn-soft: #fbf1e0; --bad: #b3261e; --bad-soft: #fbe9e7; --violet: #6a4bb3; --violet-soft: #f0ebfa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16181c; --surface: #1d2026; --text: #e7e9ee; --muted: #a2a9b5; --border: #2e333c;
+      --accent: #8fb2f0; --accent-soft: #1f2a3d; --good: #6fcf97; --good-soft: #1b2e24;
+      --warn: #f0b860; --warn-soft: #33291a; --bad: #f28b82; --bad-soft: #3a2220; --violet: #b9a3f0; --violet-soft: #272236;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16181c; --surface: #1d2026; --text: #e7e9ee; --muted: #a2a9b5; --border: #2e333c;
+    --accent: #8fb2f0; --accent-soft: #1f2a3d; --good: #6fcf97; --good-soft: #1b2e24;
+    --warn: #f0b860; --warn-soft: #33291a; --bad: #f28b82; --bad-soft: #3a2220; --violet: #b9a3f0; --violet-soft: #272236;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  header { max-width: 1560px; margin: 0 auto; padding: 28px 16px 8px; }
+  .eyebrow { color: var(--muted); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 6px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  .src { color: var(--muted); font-size: 14.5px; margin: 0; }
+  .src a { color: var(--accent); }
+  figure { max-width: 1560px; margin: 12px auto 32px; padding: 0 16px; }
+  .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 10px; }
+  svg { display: block; width: 100%; min-width: 1100px; height: auto; color: var(--text); }
+  svg text { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .t { font-size: 14.5px; font-weight: 650; fill: currentColor; }
+  .s { font-size: 12.5px; fill: var(--muted); }
+  .m { font-size: 12px; fill: var(--muted); }
+  .mf { font-size: 12px; font-weight: 650; fill: currentColor; font-family: Consolas, Menlo, monospace; }
+  .tag { font-size: 11px; fill: var(--muted); font-family: Consolas, Menlo, monospace; }
+  .h { font-size: 13.5px; font-weight: 750; letter-spacing: .07em; fill: currentColor; }
+  .hs { font-size: 12.5px; fill: var(--muted); }
+  .lbl { font-size: 12px; font-style: italic; fill: var(--muted); }
+  .lblc { font-size: 12px; font-style: italic; fill: var(--violet); }
+  .pt { font-size: 12.5px; font-weight: 600; fill: currentColor; }
+  .bx { fill: var(--bg); stroke: currentColor; stroke-opacity: .45; stroke-width: 1.2; }
+  .dt { fill: var(--warn-soft); stroke: var(--warn); stroke-opacity: .6; stroke-width: 1.2; }
+  .nd { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; }
+  .lp { fill: var(--violet-soft); stroke: var(--violet); stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .pc { fill: var(--good-soft); stroke: var(--good); stroke-width: 1.4; }
+  .cy { fill: var(--surface); stroke: var(--good); stroke-width: 1.3; }
+  .cyt { fill: var(--good-soft); stroke: var(--good); stroke-width: 1.3; }
+  .cf { fill: var(--bg); stroke: currentColor; stroke-opacity: .3; stroke-width: 1.1; stroke-dasharray: 3 3; }
+  .ep { fill: var(--bg); stroke: currentColor; stroke-opacity: .55; stroke-width: 1.3; }
+  .st { fill: var(--bg); stroke: var(--accent); stroke-opacity: .7; stroke-width: 1.2; }
+  .ex { fill: var(--bg); stroke: currentColor; stroke-opacity: .35; stroke-width: 1.1; }
+  .nt { fill: var(--warn-soft); stroke: var(--warn); stroke-opacity: .5; stroke-width: 1.1; }
+  .ct { fill: var(--bg); stroke: currentColor; stroke-opacity: .35; stroke-width: 1.1; }
+  .lg { fill: none; stroke: currentColor; stroke-opacity: .25; stroke-width: 1; }
+  .pl { fill: var(--surface); stroke: currentColor; stroke-opacity: .6; stroke-width: 1.3; }
+  .dm { fill: var(--violet-soft); stroke: var(--violet); stroke-width: 1.3; }
+  .dmt { font-size: 12px; font-weight: 650; fill: var(--violet); font-family: Consolas, Menlo, monospace; }
+  .llm { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1; }
+  .llmt { font-size: 11px; font-weight: 700; fill: var(--warn); }
+  .wb { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 1.1; }
+  .wbt { font-size: 11px; font-weight: 700; fill: var(--bad); }
+  .dot { fill: var(--accent); }
+  .ln { fill: none; stroke: currentColor; stroke-opacity: .6; stroke-width: 1.5; }
+  .lnc { fill: none; stroke: var(--violet); stroke-width: 1.5; stroke-dasharray: 6 4; }
+  .ah { fill: currentColor; fill-opacity: .7; }
+  .ahc { fill: var(--violet); }
+  .bnd { fill: none; stroke: currentColor; stroke-opacity: .4; stroke-width: 1.3; stroke-dasharray: 8 5; }
+  .bndc { fill: var(--accent-soft); fill-opacity: .35; stroke: var(--accent); stroke-opacity: .6; stroke-width: 1.3;
+    stroke-dasharray: 8 5; }
+  .pa { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.3; }
+  .chip { fill: var(--surface); stroke: var(--accent); stroke-width: 1.2; }
+  .cht { font-size: 12.5px; font-weight: 650; fill: currentColor; }
+  .lnd { fill: none; stroke: currentColor; stroke-opacity: .5; stroke-width: 1.3; stroke-dasharray: 4 4; }
+  section { max-width: 1560px; margin: 0 auto; padding: 0 16px; }
+  h2 { font-size: 20px; margin: 22px 0 2px; }
+  h2 .num { color: var(--accent); margin-right: 6px; }
+  .cap { color: var(--muted); font-size: 14.5px; margin: 0; }
+  .t2 { font-size: 13.5px; font-weight: 650; fill: currentColor; }
+  .t3 { font-size: 12.5px; font-weight: 650; fill: currentColor; }
+  .mi { font-size: 11.5px; font-style: italic; fill: var(--good); }
+  .lbs { font-size: 11.5px; font-style: italic; fill: var(--muted); }
+  .msg { font-size: 12.5px; fill: currentColor; }
+  .pm { font-size: 12px; fill: currentColor; font-family: Consolas, Menlo, monospace; }
+  .rl { font-size: 11px; font-weight: 750; letter-spacing: .06em; fill: var(--muted); }
+  .pr { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; }
+  .prl { stroke: var(--accent); stroke-opacity: .6; stroke-width: 1; fill: none; }
+  .pid { font-size: 11.5px; font-weight: 750; fill: var(--accent); }
+  .ee { fill: var(--surface); stroke: currentColor; stroke-opacity: .75; stroke-width: 1.8; }
+  .dupl { stroke: currentColor; stroke-opacity: .75; stroke-width: 1.5; }
+  .dsf { fill: var(--good-soft); }
+  .dsl { fill: none; stroke: var(--good); stroke-width: 1.5; }
+  .dsid { font-size: 12.5px; font-weight: 750; fill: var(--good); }
+  .cn { fill: var(--surface); stroke: var(--violet); stroke-width: 1.5; }
+  .cnt { font-size: 12px; font-weight: 750; fill: var(--violet); }
+  .life { fill: none; stroke: currentColor; stroke-opacity: .35; stroke-width: 1.2; stroke-dasharray: 5 5; }
+  .act { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+  .frame { fill: none; stroke: currentColor; stroke-opacity: .4; stroke-width: 1.1; }
+  .frtab { fill: var(--bg); stroke: currentColor; stroke-opacity: .4; stroke-width: 1.1; }
+  .frt { font-size: 11.5px; font-weight: 700; fill: currentColor; }
+  .ret { fill: none; stroke: currentColor; stroke-opacity: .55; stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .lnr { fill: none; stroke: var(--bad); stroke-width: 1.6; }
+  .ahr { fill: var(--bad); }
+  .tb { fill: none; stroke: var(--bad); stroke-opacity: .7; stroke-width: 1.6; stroke-dasharray: 9 5; }
+  .tbl { fill: none; stroke: var(--bad); stroke-opacity: .7; stroke-width: 1.6; stroke-dasharray: 9 5; }
+  .tbt { font-size: 12.5px; font-weight: 750; fill: var(--bad); }
+  .sysb { fill: var(--violet-soft); stroke: var(--violet); stroke-width: 1.1; }
+  .humb { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.1; }
+  .repb { fill: var(--good-soft); stroke: var(--good); stroke-width: 1.1; }
+  nav { max-width: 1560px; margin: 14px auto 0; padding: 0 16px; }
+  nav .grp { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0 0 10px; }
+  nav .gl { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    width: 200px; }
+  nav .pills { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 360px; }
+  .callout, blockquote.req { max-width: 1000px; }
+  .prose p, .prose li { max-width: 96ch; }
+  .prose p { margin: 8px 0; }
+  .prose a { color: var(--accent); }
+  .part { margin-top: 36px; }
+  .partno { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    margin: 0 !important; }
+  h2.parth { font-size: 25px; margin: 2px 0 6px; }
+  .lede { font-size: 16.5px; }
+  h3 { font-size: 19.5px; margin: 34px 0 6px; }
+  h3 .sn { color: var(--accent); margin-right: 8px; }
+  h4 { font-size: 15.5px; margin: 22px 0 4px; }
+  h4 .who { font-weight: 400; color: var(--muted); font-size: 13.5px; margin-left: 8px; }
+  blockquote.req { margin: 12px 0 8px; padding: 12px 20px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent); border-radius: 10px; }
+  .reqt { font-size: 17px; font-weight: 700; margin: 4px 0 6px !important; }
+  .reqh { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    margin: 12px 0 0 !important; }
+  .callout { margin: 14px 0; padding: 8px 16px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 4px solid var(--violet); border-radius: 10px; }
+  .callout.warnc { border-left-color: var(--warn); }
+  .callout.goodc { border-left-color: var(--good); }
+  .callout ul, .callout ol { margin: 4px 0 8px; padding-left: 22px; }
+  .legend { font-size: 14px; color: var(--muted); line-height: 1.9; }
+  .habits li, .steps li { margin: 7px 0; }
+  .tw { overflow-x: auto; margin: 10px 0 16px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); }
+  table.qt { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 14.5px; line-height: 1.45; }
+  table.qt th { text-align: left; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); background: var(--bg); padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  table.qt td { vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  table.qt tr:last-child td { border-bottom: 0; }
+  table.q3 th:nth-child(1) { width: 38%; }
+  table.q3 th:nth-child(2) { width: 26%; }
+  table.dt5 { min-width: 1120px; }
+  table.dt5 th:nth-child(1) { width: 12%; }
+  table.dt5 th:nth-child(5) { width: 31%; }
+  .tg { display: inline-block; font-size: 11.5px; font-weight: 650; line-height: 1.6; padding: 0 7px; border-radius: 999px;
+    white-space: nowrap; vertical-align: 1px; }
+  .tg.doc { color: var(--good); background: var(--good-soft); }
+  .tg.code { color: var(--accent); background: var(--accent-soft); }
+  .tg.asm { color: var(--warn); background: var(--warn-soft); }
+  .first { color: var(--warn); font-weight: 700; }
+  code { font-family: Consolas, Menlo, monospace; font-size: .9em; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0 4px; }
+  nav a { padding: 6px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+    color: var(--text); text-decoration: none; font-size: 13.5px; }
+  nav a:hover { border-color: var(--accent); }
+  nav a b { color: var(--accent); margin-right: 5px; }
+  .why { color: var(--accent); font-weight: 600; }
+  .notebg { fill: var(--surface); fill-opacity: .9; }
+  .aho { fill: none; stroke: currentColor; stroke-opacity: .75; stroke-width: 1.3; }
+  .altsep { fill: none; stroke: currentColor; stroke-opacity: .45; stroke-width: 1.1; stroke-dasharray: 6 4; }
+  @media (max-width: 560px) { h1 { font-size: 23px; } }
+  .legend .li { display: inline-block; margin-right: 14px; }
+  .nw { white-space: nowrap; }
+  @media (max-width: 560px) {
+    nav .gl { width: auto; }
+    .prose table.qt thead { display: none; }
+    .prose table.qt, .prose table.qt tbody, .prose table.qt tr, .prose table.qt td { display: block; min-width: 0;
+      width: auto; }
+    .prose table.qt tr { border-bottom: 1px solid var(--border); padding: 6px 0; }
+    .prose table.qt tr:last-child { border-bottom: 0; }
+    .prose table.qt td { border: 0; padding: 3px 12px; }
+    .prose table.qt td::before { content: attr(data-h); display: block; font-size: 11px; font-weight: 700;
+      letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  }
+  .tg.chk { color: var(--violet); background: var(--violet-soft); }
+  .prose p.note { font-size: 14px; color: var(--muted); margin-top: -6px; }
+
+</style>
+</head>
+<body>
+<header>
+  <p class="eyebrow">Requirement → FDE analysis → architecture · The Gen Academy · Week 2, project 2C</p>
+  <h1>GraphRAG for Organizational Knowledge</h1>
+  <p class="src">Drawn from the code at commit <a href="https://github.com/The-Gen-Academy/2C-Graph-RAG-for-Organizational-Knowledge/tree/b9bae00">b9bae00</a> and the <a href="https://docs.google.com/document/d/16uvBJFgv2KpE8IsIEwYD_xAbFMgSxZqA/edit">solution kit</a>.</p>
+</header>
+<nav aria-label="Contents"><div class="grp"><span class="gl">Part 1</span><span class="pills"><a href="#requirement">The requirement</a></span></div><div class="grp"><span class="gl">Part 2 · FDE analysis</span><span class="pills"><a href="#fde-mindset"><b>2.1</b>How an FDE reads this brief</a><a href="#fde-brief"><b>2.2</b>The brief, phrase by phrase</a><a href="#fde-people"><b>2.3</b>Who to talk to</a><a href="#fde-questions"><b>2.4</b>Questions to ask</a><a href="#fde-decisions"><b>2.5</b>Decision trace</a><a href="#fde-assumptions"><b>2.6</b>Hidden assumptions</a><a href="#fde-stress"><b>2.7</b>Checking the comparison</a><a href="#fde-plan"><b>2.8</b>Engagement steps</a><a href="#fde-diagrams"><b>2.9</b>Diagrams and questions</a><a href="#fde-takeaways"><b>2.10</b>What to take away</a></span></div><div class="grp"><span class="gl">Part 3 · Architecture</span><span class="pills"><a href="#context"><b>1</b>System context</a><a href="#architecture"><b>2</b>High-level architecture</a><a href="#schema"><b>3</b>Graph schema and the vector chunks</a><a href="#dataflow"><b>4</b>Data flow (level 1)</a><a href="#design"><b>5</b>Detailed design</a><a href="#sequence"><b>6</b>Sequence: one question</a><a href="#contexts"><b>7</b>The two contexts for Q1</a><a href="#hops"><b>8</b>Why Q3 needs three hops</a><a href="#threats"><b>9</b>Threat model</a><a href="#evaluation"><b>10</b>The comparison</a><a href="#recommended"><b>11</b>The recommended architecture</a></span></div></nav>
+<section class="prose part" id="requirement">
+  <p class="partno">Part 1</p>
+  <h2 class="parth">The requirement, as given</h2>
+  <p class="lede">This is the brief exactly as the FDE receives it (it is “Project 3” in the brief; The Gen Academy's
+    repository calls it 2C). Everything after it works backwards from these words to the system that was built
+    (repository <code>2C-Graph-RAG-for-Organizational-Knowledge</code>, commit b9bae00).</p>
+  <blockquote class="req">
+    <p class="reqt">Project 3: GraphRAG for Organizational Knowledge</p>
+    <p class="reqh">Description</p>
+    <p>Model your team’s or organization’s knowledge as a graph — people, projects, skills, documents, and decisions —
+      and use GraphRAG to enable queries that traditional vector search can’t handle well. Think: “Who worked on the
+      last compliance audit and what tools did they use?” or “What decisions were made about our pricing model and who
+      approved them?” Build the graph with 20+ nodes, run queries against it, and compare GraphRAG results with
+      traditional vector-based RAG on the same questions. This project highlights when structured relationships
+      matter more than semantic similarity.</p>
+    <p class="reqh">Best For</p>
+    <p>Program/Project Managers (organizational knowledge), Executives (decision tracking), Consultants (client
+      engagement knowledge), Tech Leads (technical decision logs), Strategy roles.</p>
+  </blockquote>
+</section>
+
+<section class="prose part" id="fde">
+  <p class="partno">Part 2</p>
+  <h2 class="parth">FDE analysis: from the brief to the design</h2>
+  <p class="lede">Imagine a company's operations leadership hands you this brief on day one. You are the forward
+    deployed engineer: you find out what people actually need to ask, where the answers live today, and ship
+    something that works on their data. This part walks the route from the brief to 2C's design, and checks 2C's
+    comparison the way an FDE would before presenting it.</p>
+  <div class="callout">
+    <p><b>How to read this part.</b> The code, the README and the solution kit show what was built and some of why.
+      No interviews were recorded, so the people, questions and answers below are a reconstruction. We also ran
+      checks offline, with no API key: 2C's own graph code on its own data, its vector chunks rebuilt exactly, and a
+      retrieval test with a local embedding model standing in for OpenAI's (marked as a proxy). No answers were
+      generated, so every check is about what each side can retrieve, not what it would say. Statements about 2C
+      carry a tag:</p>
+    <p class="legend"><span class="li"><span class="tg doc">Documented</span> stated in the solution kit or
+      README</span> <span class="li"><span class="tg code">In code</span> visible in the code or its comments</span>
+      <span class="li"><span class="tg asm">Inferred</span> our reading; no source says it directly</span> <span
+      class="li"><span class="tg chk">Checked</span> measured by our offline run</span> <span class="li"><span
+      class="first">★</span> ask in your first meeting with that team</span></p>
+  </div>
+  <div class="callout goodc">
+    <p><b>2C in one paragraph.</b> A hand-written mock organization (<code>data/mock_data.py</code>) holds 32
+      <i>nodes</i> (7 people, 4 projects, 6 skills, 6 tools, 5 documents, 4 decisions) and 48 <i>edges</i> of 7
+      relation types, such as <span class="nw">WORKED_ON</span>, <span class="nw">USED_TOOL</span>, APPROVED and <span class="nw">DECISION_FOR</span>. The same data feeds two pipelines.
+      <b>Vector RAG</b> turns each node into one short text <i>chunk</i> (its own attributes only), embeds the 32
+      chunks with OpenAI's <span class="nw">text-embedding-3-small</span> into a FAISS index, and gives <span class="nw">gpt-4o-mini</span> the <i>top 8</i> for each
+      question. <b>GraphRAG</b> is a LangGraph workflow over a NetworkX graph: an LLM call extracts entity names and
+      relation types from the question (<i>entity linking</i>); the names are fuzzy-matched to node IDs (<i>seeds</i>);
+      if none match, a regex and topic-keyword <i>fallback</i> tries instead; the graph is expanded two <i>hops</i>
+      from the seeds in both directions, optionally keeping only the asked-about relation types; document text is
+      attached; and <span class="nw">gpt-4o-mini</span> answers from the resulting facts. Six benchmark questions, Q1 to Q6 as in 2C's code
+      (unrelated to the “Q3 2025” in a project's name), each have a <i>gold set</i> of strings a correct answer should
+      contain; <i>recall</i> is the share of those strings found in the answer. Here “GraphRAG” means retrieval by
+      graph traversal, close to the “local search” of Microsoft's GraphRAG. Microsoft's version also builds the graph
+      from documents with an LLM and, for broad “global” questions, uses <i>community summaries</i> (LLM-written
+      summaries of clusters of closely linked nodes); 2C does neither.</p>
+  </div>
+</section>
+
+<section class="prose" id="fde-mindset">
+  <h3><span class="sn">2.1</span>How an FDE reads this brief</h3>
+  <ol class="habits">
+    <li><b>Find the real deliverable.</b> “compare GraphRAG results with traditional vector-based RAG on the same
+      questions” and “when structured relationships matter more than semantic similarity” make the output a
+      comparison and a rule of thumb. The comparison is only worth something if both sides get the same facts.</li>
+    <li><b>Ask where the graph comes from before how to query it.</b> In a real organization, people live in the HR
+      system, project work in a ticketing tool, documents in a wiki, decisions in meeting notes and approval
+      workflows. Building and maintaining the edges is most of the work, including <i>entity resolution</i> (at build
+      time: matching “B. Martinez” in one system to “Bob Martinez” in another), which is different from entity linking
+      (at question time: words in the question to nodes). 2C writes its graph by hand, which is fine for learning if
+      everyone knows the hard part was skipped.</li>
+    <li><b>Look at what each side can see.</b> Before comparing answers, list the facts each pipeline's context can
+      contain. In 2C none of the 48 edges reaches the vector index; only some document and decision text mentions
+      related projects or tools (2.7).</li>
+    <li><b>Test at the size the customer has.</b> Retrieval has to choose only when the data does not fit in a
+      prompt; below that, it matters for cost, citations and permissions, not for whether the facts can be reached.
+      2C's whole graph, with every edge and all document text, is about 7,100 characters; at that size the first
+      control is to give the model everything.</li>
+    <li><b>Org knowledge is people data.</b> Who worked with whom, who has which skill and who approved what are
+      personnel and possibly confidential records. Permissions, privacy and the line between knowledge sharing and
+      employee monitoring come before the first demo.</li>
+    <li><b>Score the claim, not the vocabulary.</b> A name in an answer is not proof the system knew the
+      relationship. Scoring must check that each named entity is correct and supported by the retrieved facts.</li>
+  </ol>
+</section>
+
+<section class="prose" id="fde-brief">
+  <h3><span class="sn">2.2</span>Reading the brief phrase by phrase</h3>
+  <p>Each phrase asks for something, and each one hides a question the brief does not answer. The last column is the
+    answer 2C's build gives.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Phrase in the brief</th><th>What it asks for</th><th>The question it hides</th>
+      <th>What 2C did</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Phrase in the brief">“Model your team’s or organization’s knowledge as a graph”</td><td data-h="What it asks for">A graph built from real knowledge</td>
+      <td data-h="The question it hides">From which systems, by whom, and how is it kept current?</td>
+      <td data-h="What 2C did">A hand-written Python file of mock data; no ingestion from any system. <span class="tg code">In code</span></td>
+      </tr>
+    <tr><td data-h="Phrase in the brief">“people, projects, skills, documents, and decisions”</td><td data-h="What it asks for">A schema</td>
+      <td data-h="The question it hides">Which relationships matter, with what attributes, and does time belong on them?</td>
+      <td data-h="What 2C did">Six node types (tools added) and seven relation types; edges carry a role or skill level, but no dates.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“use GraphRAG”</td><td data-h="What it asks for">Graph-based retrieval</td>
+      <td data-h="The question it hides">Local <span class="nw">multi-hop</span> lookups, or Microsoft-style GraphRAG with an LLM-built graph and community summaries for
+        broad questions?</td>
+      <td data-h="What 2C did">Local lookup: entity linking, then a <span class="nw">2-hop</span> expansion. Community summaries appear only as future work.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“queries that traditional vector search can’t handle well”</td><td data-h="What it asks for">A hypothesis to test</td>
+      <td data-h="The question it hides">Can't, or can't when the relationships are missing from its index?</td>
+      <td data-h="What 2C did">The vector index holds node attributes only; none of the 48 edges is indexed.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“Who worked on the last compliance audit and what tools did they use?”</td>
+      <td data-h="What it asks for">Multi-hop questions</td>
+      <td data-h="The question it hides">What does “last” mean (by date?), and did the people use the tools, or did the project?</td>
+      <td data-h="What 2C did">One audit, so “last” is trivial; tools hang off the project, not the people. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td data-h="Phrase in the brief">“Build the graph with 20+ nodes”</td><td data-h="What it asks for">A minimum size</td>
+      <td data-h="The question it hides">Big enough that retrieval has to choose? At 20 nodes everything fits in one prompt.</td>
+      <td data-h="What 2C did">32 nodes and 48 edges: about 7,100 characters with every edge and document written out.
+        <span class="tg chk">Checked</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“compare GraphRAG results with traditional vector-based RAG on the same questions”</td>
+      <td data-h="What it asks for">A fair head-to-head</td>
+      <td data-h="The question it hides">Same facts on both sides? What is the metric, and how many questions?</td>
+      <td data-h="What 2C did">Six questions, substring recall against gold sets; the two sides see different facts.
+        <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“when structured relationships matter more than semantic similarity”</td><td data-h="What it asks for">A rule of thumb</td>
+      <td data-h="The question it hides">Measured on what kinds of question, at what scale?</td>
+      <td data-h="What 2C did">One prose question (Q6) as a deliberate counter-example <span class="tg doc">Documented</span>; the other five
+        are relational <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Phrase in the brief">“Best For: … Executives (decision tracking), … Tech Leads (technical decision logs)”</td>
+      <td data-h="What it asks for">Decision records</td>
+      <td data-h="The question it hides">Where are decisions recorded today, with what approval trail, and who may see them?</td>
+      <td data-h="What 2C did">Four decisions with title, date and rationale; approvers as edges; no access control.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-people">
+  <h3><span class="sn">2.3</span>Who the FDE talks to</h3>
+  <p>Meet the sponsor and the people who ask these questions today first, because they define the benchmark; meet the
+    system owners early, because the graph is built from their data. Bring HR, Legal and Privacy in during week one:
+    a graph of who did what is personnel data. 2C records no such meetings.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Who</th><th>Why them</th><th>What you leave the meeting with</th>
+      <th>What it settles in the design</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Who"><b>Business sponsor</b> (e.g. COO, head of PMO or strategy)</td><td data-h="Why them">Owns the problem and the budget</td>
+      <td data-h="What you leave the meeting with">The decisions this should speed up, the success metric, scope</td>
+      <td data-h="What it settles in the design">Which questions matter; prototype or production</td></tr>
+    <tr><td data-h="Who"><b>The people who ask</b> (PMs, executives, consultants, tech leads)</td><td data-h="Why them">They know the real
+      questions</td><td data-h="What you leave the meeting with">30–50 real questions, how they answer them today and how long it takes</td>
+      <td data-h="What it settles in the design">The benchmark; whether questions are lookups, lists or summaries</td></tr>
+    <tr><td data-h="Who"><b>HR and the HRIS owner</b> (the HR information system, e.g. Workday)</td><td data-h="Why them">People, roles, teams,
+      skills</td><td data-h="What you leave the meeting with">Which fields may be used, how skills are recorded, how leavers are handled</td>
+      <td data-h="What it settles in the design">Person and skill nodes; what must never be exposed</td></tr>
+    <tr><td data-h="Who"><b>Project and ticketing system owners</b> (e.g. Jira, Asana)</td><td data-h="Why them">Who worked on what</td>
+      <td data-h="What you leave the meeting with">Export access, how membership and roles are recorded, history</td>
+      <td data-h="What it settles in the design"><span class="nw">WORKED_ON</span> and <span class="nw">USED_TOOL</span> edges, with dates</td></tr>
+    <tr><td data-h="Who"><b>Knowledge and document platform owners</b> (e.g. Confluence, SharePoint)</td>
+      <td data-h="Why them">Documents, authors, links</td><td data-h="What you leave the meeting with">Connector access, permission model, change feeds</td>
+      <td data-h="What it settles in the design">Document nodes, AUTHORED and ABOUT edges; permissions to copy</td></tr>
+    <tr><td data-h="Who"><b>Owners of decision records</b> (PMO, architecture board, finance)</td><td data-h="Why them">Where decisions and approvals
+      live</td><td data-h="What you leave the meeting with">The formats (minutes, decision records, approval workflows) and which are authoritative</td>
+      <td data-h="What it settles in the design">Decision nodes, APPROVED and <span class="nw">DECISION_FOR</span> edges</td></tr>
+    <tr><td data-h="Who"><b>Data and integration engineers</b></td><td data-h="Why them">Matching entities across systems</td>
+      <td data-h="What you leave the meeting with">Shared IDs (employee ID, project key) or how to match names</td>
+      <td data-h="What it settles in the design">Entity resolution; how the graph is rebuilt and kept current</td></tr>
+    <tr><td data-h="Who"><b>Legal, Privacy and the works council</b> (an elected employee body that, in Germany and some other EU
+      countries, must agree to systems that can monitor staff)</td><td data-h="Why them">Personnel data and monitoring rules</td>
+      <td data-h="What you leave the meeting with">Purposes allowed, retention, a data-protection impact assessment (DPIA), whether “who worked with whom” may be
+        queried</td>
+      <td data-h="What it settles in the design">What goes in the graph; who may ask what</td></tr>
+    <tr><td data-h="Who"><b>Information Security and the identity team</b></td><td data-h="Why them">Approve vendors and data flows; own the groups
+      (e.g. in Entra ID or Okta) that permissions are mirrored from</td>
+      <td data-h="What you leave the meeting with">Data classification of decisions and documents; approved LLM vendors; group sources</td>
+      <td data-h="What it settles in the design">Permission-aware traversal; the threat model (figure 9)</td></tr>
+    <tr><td data-h="Who"><b>Platform team</b></td><td data-h="Why them">Where it runs</td><td data-h="What you leave the meeting with">Approved graph and vector databases, LLM gateway,
+      hosting</td><td data-h="What it settles in the design">NetworkX in memory or a graph database; deployment</td></tr>
+    <tr><td data-h="Who"><b>The future owner</b></td><td data-h="Why them">Someone must keep the graph true</td>
+      <td data-h="What you leave the meeting with">Who fixes wrong edges, how often sources sync</td><td data-h="What it settles in the design">Sync jobs, provenance (which system and record each
+      fact came from) on every edge, a runbook</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-questions">
+  <h3><span class="sn">2.4</span>The questions to ask</h3>
+  <p>Grouped by theme, with who to ask. The <span class="first">★</span> questions change the architecture, so ask
+    them in your first meeting with that team; the rest change details. Follow every answer with “show me an
+    example”.</p>
+
+  <h4>A · Outcome and success <span class="who">ask the sponsor and the people who ask</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Which questions do people ask today, and how do they get answers now?</td>
+      <td data-h="Why it matters">If the answer is “ask Alice on chat”, the bar is speed and coverage, not accuracy alone.</td>
+      <td data-h="What 2C&#x27;s build implies">Six questions written by the builders alongside the data. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> What would a wrong answer cost (a missed approver, a wrong owner)?</td>
+      <td data-h="Why it matters">Sets how strict the <i>grounding</i> (every claim traceable to the retrieved facts) and citations must
+        be.</td>
+      <td data-h="What 2C&#x27;s build implies">Not stated; a learning project. <span class="tg asm">Inferred</span></td></tr>
+    <tr><td data-h="Question">Which result of the comparison would change what we build?</td>
+      <td data-h="Why it matters">An experiment needs a decision attached.</td>
+      <td data-h="What 2C&#x27;s build implies">No result is published; <code>compare.py</code> prints a table that is not saved.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>B · Questions and users <span class="who">ask the people who ask</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Can you give me 30 real questions, with the answer you'd accept?</td>
+      <td data-h="Why it matters">Real questions decide the schema and the hop count.</td>
+      <td data-h="What 2C&#x27;s build implies">Six questions; five relational <span class="tg code">In code</span>, one prose
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> How many hops do real questions need?</td>
+      <td data-h="Why it matters">“Skills of Bob's teammates” is three hops; a fixed <span class="nw">2-hop</span> expansion reaches only the skills Bob shares with them.</td>
+      <td data-h="What 2C&#x27;s build implies">Two hops for every question; Q3 needs three. <span class="tg chk">Checked</span></td></tr>
+    <tr><td data-h="Question">Do questions depend on time (“last audit”, “current owner”)?</td>
+      <td data-h="Why it matters">Needs dates on edges and a rule for “last”.</td>
+      <td data-h="What 2C&#x27;s build implies">Projects have dates; edges do not; one audit, so “last” never gets tested. <span class="tg code">In code</span>
+      </td></tr>
+    <tr><td data-h="Question">Do people ask broad questions (“what are our main risks?”) as well as lookups?</td>
+      <td data-h="Why it matters">Broad questions need summaries (Microsoft-style GraphRAG), not a local expansion.</td>
+      <td data-h="What 2C&#x27;s build implies">Lookups only, plus one document summary. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>C · The sources and the graph <span class="who">ask system owners and data engineers</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Which systems hold people, projects, documents and decisions, and can we
+      read them?</td><td data-h="Why it matters">The graph is only as good as its sources and connectors.</td>
+      <td data-h="What 2C&#x27;s build implies">None: a hand-written file. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> What counts as “worked on”, “approved” or “expert in”, and which record
+      proves it?</td><td data-h="Why it matters">Ticket assignee or charter member? An approval workflow or a name in the minutes? Edge
+      definitions decide what every answer means.</td>
+      <td data-h="What 2C&#x27;s build implies">Defined by whoever typed the file. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> Are edges recorded somewhere, or must they be extracted from text?</td>
+      <td data-h="Why it matters">Recorded edges (project membership) are cheap and reliable; extracted ones (who approved, in meeting notes)
+        need an LLM and a review step.</td>
+      <td data-h="What 2C&#x27;s build implies">Every edge typed in by hand. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> How do we match the same person or project across systems?</td>
+      <td data-h="Why it matters">Without shared IDs, entity resolution errors become wrong answers.</td>
+      <td data-h="What 2C&#x27;s build implies">Not needed: one source, unique IDs. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> How fresh must the graph be after leavers, moves and reorgs?</td>
+      <td data-h="Why it matters">Decides between a nightly rebuild and change feeds; stale membership gives confident wrong answers.</td>
+      <td data-h="What 2C&#x27;s build implies">Rebuilt from the file at each start-up; no sync. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Which source wins when two disagree?</td><td data-h="Why it matters">Conflicting records need a rule and a trail.</td>
+      <td data-h="What 2C&#x27;s build implies">No provenance or timestamps on edges. <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>D · How answers should behave <span class="who">ask the people who ask and Legal</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> Must each claim show where it came from (which system, which record)?</td>
+      <td data-h="Why it matters">People trust an approver named with a link to the approval.</td>
+      <td data-h="What 2C&#x27;s build implies">No source system or link in answers; source citations are listed as future work.
+        <span class="tg doc">Documented</span></td></tr>
+    <tr><td data-h="Question">What should it say when the graph has no answer?</td><td data-h="Why it matters">Guessing names is worse than “unknown”.</td>
+      <td data-h="What 2C&#x27;s build implies">Both prompts say “If the context is insufficient, say so explicitly rather than guessing”.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>E · Permissions and privacy <span class="who">ask Legal, Privacy, HR and Information Security</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> May everyone see every person, skill, decision and document?</td>
+      <td data-h="Why it matters">A <span class="nw">2-hop</span> expansion pulls in whatever is connected, including restricted nodes.</td>
+      <td data-h="What 2C&#x27;s build implies">No access control; expansion ignores permissions. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> Is querying “who worked with whom” allowed, and for what purposes?</td>
+      <td data-h="Why it matters">Personnel data rules and, in some countries, works-council agreements limit it.</td>
+      <td data-h="What 2C&#x27;s build implies">Not addressed (mock data). <span class="tg asm">Inferred</span></td></tr>
+    <tr><td data-h="Question"><span class="first">★</span> May node text and questions go to OpenAI?</td><td data-h="Why it matters">Names, roles and decisions
+      leave the company; the answer decides between a hosted API, an in-region endpoint or a self-hosted model.</td>
+      <td data-h="What 2C&#x27;s build implies">Yes: chunks and questions are embedded by OpenAI; graph facts and documents go into prompts.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>F · Platform, scale and cost <span class="who">ask the platform team and the sponsor</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> How many nodes and edges will the real graph have?</td>
+      <td data-h="Why it matters">Retrieval only has to choose when the data doesn't fit in a prompt; expansion size grows with hubs.</td>
+      <td data-h="What 2C&#x27;s build implies">32 nodes; an unfiltered <span class="nw">2-hop</span> expansion returns 44–66% of them. <span class="tg chk">Checked</span></td></tr>
+    <tr><td data-h="Question">Is there an approved graph database?</td><td data-h="Why it matters">NetworkX in memory doesn't survive restarts or share.</td>
+      <td data-h="What 2C&#x27;s build implies">NetworkX in memory; Neo4j listed as future work. <span class="tg doc">Documented</span></td></tr>
+    <tr><td data-h="Question">What may a question cost and how fast must it be?</td><td data-h="Why it matters">GraphRAG adds an LLM call to link entities.</td>
+      <td data-h="What 2C&#x27;s build implies">GraphRAG makes 2 LLM calls a question, vector RAG 1, plus a query embedding.
+        <span class="tg code">In code</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>G · Evaluation <span class="who">agree the target with the sponsor; the FDE designs the checks</span></h4>
+  <div class="tw"><table class="qt q3">
+    <thead><tr><th>Question</th><th>Why it matters</th><th>What 2C's build implies</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Question"><span class="first">★</span> What result would convince you, and what counts as a correct answer: all
+      approvers, approvers with a link to the approval, or “unknown” when there is no record?</td>
+      <td data-h="Why it matters">Sets the gold sets and the metric before anything is built.</td>
+      <td data-h="What 2C&#x27;s build implies">Gold sets written by the builders; substring recall. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">FDE check: does each side get the same facts?</td>
+      <td data-h="Why it matters">Otherwise the comparison measures the index, not the retrieval method.</td>
+      <td data-h="What 2C&#x27;s build implies">No: none of the 48 edges reaches the vector side. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">FDE check: is an answer scored on the right entities, or on words appearing?</td>
+      <td data-h="Why it matters">Substring recall rewards a guessed name and misses a paraphrase.</td>
+      <td data-h="What 2C&#x27;s build implies">Case-insensitive substring recall; no <i>precision</i> (share of named entities that are correct) and no
+        grounding check. <span class="tg code">In code</span></td></tr>
+    <tr><td data-h="Question">Who writes and checks the gold sets?</td><td data-h="Why it matters">A wrong gold set scores the wrong thing.</td>
+      <td data-h="What 2C&#x27;s build implies">Gold sets written by the builders; Q3's asks for three skills 2 hops can't reach and omits the two it can.
+        <span class="tg chk">Checked</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-decisions">
+  <h3><span class="sn">2.5</span>From answers to design: the decision trace</h3>
+  <p>Each decision in 2C, the answer that drives it (reconstructed), the options an FDE weighs, and 2C's choice
+    (tagged). The last column names the answer or evidence that would flip the choice, then the new choice.</p>
+  <div class="tw"><table class="qt dt5">
+    <thead><tr><th>Decision</th><th>Driving answer</th><th>Options weighed</th><th>2C's choice</th>
+      <th>What would change it</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Decision"><b>1 · Graph source</b></td><td data-h="Driving answer">A demo needs controllable data (inferred)</td>
+      <td data-h="Options weighed">Hand-written mock · sync from HR, ticketing and wiki systems · LLM extraction from documents</td>
+      <td data-h="2C&#x27;s choice">Hand-written mock data, 32 nodes, 48 edges <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">A real customer → connectors for recorded edges, LLM extraction with human review for edges that live in
+        text (it costs per document and <span class="nw">re-run</span>s when documents change: estimate it first), provenance on every edge.
+        If no decision register exists, recommend a light one (decision records with approver and date): no retrieval
+        method recovers an approval nobody wrote down.</td></tr>
+    <tr><td data-h="Decision"><b>2 · Schema</b></td><td data-h="Driving answer">The brief's five entity types, plus tools</td>
+      <td data-h="Options weighed">Fixed types and relations · open-ended extracted types</td>
+      <td data-h="2C&#x27;s choice">6 node types, 7 relation types; edge attributes for role and skill level; no dates on edges
+        <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Time-dependent questions (“last”, “current”) → valid-from and valid-to on edges.</td></tr>
+    <tr><td data-h="Decision"><b>3 · Graph store</b></td><td data-h="Driving answer">Small and in memory</td>
+      <td data-h="Options weighed">NetworkX · Neo4j or another graph database · a relational table of edges</td>
+      <td data-h="2C&#x27;s choice">NetworkX MultiDiGraph <span class="tg doc">Documented</span>, rebuilt at start-up
+        <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Shared, persistent, permissioned data → a graph database with query-time access control.</td></tr>
+    <tr><td data-h="Decision"><b>4 · Entity linking</b></td><td data-h="Driving answer">Questions name entities loosely</td>
+      <td data-h="Options weighed">LLM extraction + fuzzy match · embedding match against node names · exact IDs only</td>
+      <td data-h="2C&#x27;s choice">LLM structured output, then fuzzy matching <span class="tg doc">Documented</span>: the first node, in node
+        order, whose name contains or is inside the extracted name, then difflib with cutoff 0.6
+        <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Our check: matching each node's own name sends 5 of 32 to the wrong node, e.g. “AWS Audit Manager” → the AWS
+        skill <span class="tg chk">Checked</span>; a latent bug the six questions probably never trigger <span class="tg asm">Inferred</span> → match the
+        longest name first, or by embedding with a threshold, and test the linker on its own.</td></tr>
+    <tr><td data-h="Decision"><b>5 · Fallback linker</b></td><td data-h="Driving answer">The LLM linker sometimes returns nothing</td>
+      <td data-h="Options weighed">No fallback · regex on names plus a topic map</td>
+      <td data-h="2C&#x27;s choice">Regex on node names plus a topic map <span class="tg doc">Documented</span> of 10 keys (“audit”, “pricing”,
+        “mfa” …) <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Our check: the fallback alone links every question to the right project or person
+        <span class="tg chk">Checked</span>. Its keys alias the four project names; 7 of the 10 occur word for word in the questions, and Q1, Q2 and Q6 are linked only through them <span class="tg chk">Checked</span>. The data file says it was
+        designed so the brief's example questions need traversal <span class="tg code">In code</span>; map and
+        benchmark were likely tuned together <span class="tg asm">Inferred</span> → test linking on user-written
+        questions the map has never seen.</td></tr>
+    <tr><td data-h="Decision"><b>6 · Expansion</b></td><td data-h="Driving answer">Multi-hop questions</td>
+      <td data-h="Options weighed">Fixed k-hop expansion (breadth-first) · query templates per question type · LLM-generated graph queries
+        (text-to-Cypher) with the schema, validation and a read-only role · adaptive hops</td>
+      <td data-h="2C&#x27;s choice">2 hops, both directions, optional relation filter, retried without it if empty <span class="tg doc">
+        Documented</span></td>
+      <td data-h="What would change it">Our check: unfiltered, 2 hops return 44–66% of the nodes, and Q3 needs 3 <span class="tg chk">Checked</span>
+        → known question shapes: templates; open questions: text-to-Cypher, with the query shown as provenance and its
+        accuracy measured; expansion as a fallback.</td></tr>
+    <tr><td data-h="Decision"><b>7 · Context</b></td><td data-h="Driving answer">The LLM needs facts and prose</td>
+      <td data-h="Options weighed">Fact list · fact list plus document text · community summaries</td>
+      <td data-h="2C&#x27;s choice">Entities and relationships as lines, plus full text of attached documents <span class="tg doc">
+        Documented</span></td>
+      <td data-h="What would change it">Large graphs → rank and trim facts before the prompt; broad questions → community summaries.</td></tr>
+    <tr><td data-h="Decision"><b>8 · Vector baseline</b></td><td data-h="Driving answer">“Same data” for a fair test</td>
+      <td data-h="Options weighed">Node attributes only · node text plus edge sentences · per-node chunks listing neighbours</td>
+      <td data-h="2C&#x27;s choice">One chunk per node, attributes only; none of the 48 edges <span class="tg code">In code</span></td>
+      <td data-h="What would change it">A fair test → add the edges as text. Our proxy check (retrieval only): with 48 edge sentences added, top 16
+        retrieves every needed edge for Q1, Q2, Q4 and Q5 <span class="tg chk">Checked</span>.</td></tr>
+    <tr><td data-h="Decision"><b>9 · Retrieval depth</b></td><td data-h="Driving answer">Short chunks need more of them</td>
+      <td data-h="Options weighed">k = 5 · k = 8 · everything</td>
+      <td data-h="2C&#x27;s choice">k = 8 of 32 chunks: a quarter of the corpus <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">At about 7,100 characters for the whole graph → also run a <span class="nw">full-context</span> control.</td></tr>
+    <tr><td data-h="Decision"><b>10 · Models</b></td><td data-h="Driving answer">One provider for both sides</td>
+      <td data-h="Options weighed"><span class="nw">gpt-4o-mini</span> and <span class="nw">text-embedding-3-small</span> · others</td>
+      <td data-h="2C&#x27;s choice">OpenAI only; no offline fallback <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">An approved provider or gateway → swap in <code>llm.py</code> and <span class="nw">re-run</span>.</td></tr>
+    <tr><td data-h="Decision"><b>11 · Metric</b></td><td data-h="Driving answer">Measured, “not just answer vibes”</td>
+      <td data-h="Options weighed">Substring recall · entity-ID precision and recall · grounded-claim checks · human review</td>
+      <td data-h="2C&#x27;s choice">Recall against gold entity sets <span class="tg doc">Documented</span>, as a case-insensitive substring match
+        <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Our check found collisions and gaps <span class="tg chk">Checked</span> → have both pipelines cite a node or
+        edge ID for each claim and score the IDs, precision as well as recall; judge paraphrases by hand or with a
+        judge model checked against human labels.</td></tr>
+    <tr><td data-h="Decision"><b>12 · Benchmark</b></td><td data-h="Driving answer">Show where each side wins</td>
+      <td data-h="Options weighed">Six builder-written questions · user-written questions with negatives, time and permissions</td>
+      <td data-h="2C&#x27;s choice">Five relational questions <span class="tg code">In code</span> and one prose question
+        <span class="tg doc">Documented</span></td>
+      <td data-h="What would change it">A real decision → 30–50 user questions, a third held out from tuning the topic map and prompts.</td></tr>
+    <tr><td data-h="Decision"><b>13 · Interface</b></td><td data-h="Driving answer">Show the difference visually</td>
+      <td data-h="Options weighed">CLI · Streamlit with an interactive graph · inside existing tools</td>
+      <td data-h="2C&#x27;s choice">CLI table and a Streamlit page with a pyvis graph; no login <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Real users → their chat or wiki tool, behind single sign-on, showing only permitted nodes.</td></tr>
+    <tr><td data-h="Decision"><b>14 · Permissions</b></td><td data-h="Driving answer">Not discussed</td>
+      <td data-h="Options weighed">None · filter nodes and edges by the asker's rights during expansion</td>
+      <td data-h="2C&#x27;s choice">None <span class="tg code">In code</span></td>
+      <td data-h="What would change it">Any real data → copy permissions from the source systems and enforce them in the traversal, not after it.
+        An edge built from two sources takes the stricter permission; hide that restricted nodes exist, not just their
+        text; watch aggregation (“who worked with whom” across projects can reveal reorgs or performance
+        issues).</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-assumptions">
+  <h3><span class="sn">2.6</span>Assumptions 2C made without testing them</h3>
+  <p>Each one shows in the code or README. Several appear in 2C's own future-work lists, but none is tested or reflected in the
+    comparison's claims.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Assumption</th><th>Where it shows</th><th>What breaks if it's wrong</th>
+      <th>Does 2C mention it?</th><th>Who confirms</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Assumption">The graph already exists and is correct.</td><td data-h="Where it shows"><code>data/mock_data.py</code></td>
+      <td data-h="What breaks if it&#x27;s wrong">Missing or stale edges give confident wrong answers</td>
+      <td data-h="Does 2C mention it?">Future work: noisy data <span class="tg doc">Documented</span></td>
+      <td data-h="Who confirms">System owners, data engineers</td></tr>
+    <tr><td data-h="Assumption">Both pipelines see the same data.</td><td data-h="Where it shows">README: “Same data — both index every entity in the
+      graph”</td><td data-h="What breaks if it&#x27;s wrong">No edge reaches the vector side, so the comparison measures the index</td>
+      <td data-h="Does 2C mention it?">Claims it holds <span class="tg doc">Documented</span></td><td data-h="Who confirms">FDE; agreed with the sponsor</td></tr>
+    <tr><td data-h="Assumption">Two hops are enough.</td><td data-h="Where it shows"><code>GraphRAG(hops=2)</code></td>
+      <td data-h="What breaks if it&#x27;s wrong">Three-hop questions (teammates' skills) can't be answered in full</td><td data-h="Does 2C mention it?">No</td><td data-h="Who confirms">The people who ask</td></tr>
+    <tr><td data-h="Assumption">Fuzzy matching resolves names correctly.</td><td data-h="Where it shows"><code>_fuzzy_match</code>, first match in node order</td>
+      <td data-h="What breaks if it&#x27;s wrong">Short names capture longer ones (AWS for AWS Audit Manager)</td>
+      <td data-h="Does 2C mention it?">Future work: linking evaluation <span class="tg doc">Documented</span></td><td data-h="Who confirms">Data engineers</td></tr>
+    <tr><td data-h="Assumption">Everyone may see everything.</td><td data-h="Where it shows">No access checks in <code>expand_subgraph</code></td>
+      <td data-h="What breaks if it&#x27;s wrong">Restricted decisions or HR data reach anyone who asks</td><td data-h="Does 2C mention it?">No</td>
+      <td data-h="Who confirms">Legal, Privacy, Information Security</td></tr>
+    <tr><td data-h="Assumption">Time doesn't matter.</td><td data-h="Where it shows">No dates on edges</td>
+      <td data-h="What breaks if it&#x27;s wrong">“Last”, “current” and “who was on it then” can't be answered</td><td data-h="Does 2C mention it?">No</td><td data-h="Who confirms">The people who ask</td></tr>
+    <tr><td data-h="Assumption">Naming an entity means knowing it.</td><td data-h="Where it shows"><code>score_recall</code></td>
+      <td data-h="What breaks if it&#x27;s wrong">Guessed names score as hits</td><td data-h="Does 2C mention it?">No</td><td data-h="Who confirms">FDE; agreed with the sponsor</td></tr>
+    <tr><td data-h="Assumption">Small-scale results carry to real scale.</td><td data-h="Where it shows">32 nodes, k = 8</td>
+      <td data-h="What breaks if it&#x27;s wrong">Expansion size, linking errors and cost change with size</td>
+      <td data-h="Does 2C mention it?">Future work: larger graphs <span class="tg doc">Documented</span></td><td data-h="Who confirms">Platform team, sponsor</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-stress">
+  <h3><span class="sn">2.7</span>Checking the comparison, as an FDE would</h3>
+  <p>The brief's core is “compare GraphRAG results with traditional vector-based RAG on the same questions”. Before
+    quoting a winner, check what each side could possibly see. In the engagement this design comes before any build
+    (step 4 in 2.8); it sits here because it refers to the parts chosen in 2.5. All checks below are retrieval only:
+    no answers were generated.</p>
+  <div class="callout warnc">
+    <p><b>What the comparison cannot show</b></p>
+    <ul>
+      <li><b>There is no published result.</b> <code>compare.py</code> prints a recall table but saves nothing; the
+        README and the solution kit report no numbers. <span class="tg code">In code</span></li>
+      <li><b>No graph edge reaches the vector side.</b> Its 32 chunks hold each node's own attributes; none of the 48
+        edges is written anywhere, and each person's name appears only in that person's own chunk, so the 31 edges
+        that involve a person are invisible to it. Some document and decision text does mention related projects or
+        tools. For Q1, our proxy top 8 holds 5 of the 6 gold names; Drata and AWS Audit Manager are tied to the audit
+        only by the audit report's prose (and, for AWS Audit Manager, a decision's rationale). An answer naming Alice
+        and Frank as the audit team would be a guess from job titles, Okta would be unsupported, and substring recall
+        would score all three as hits. <span class="tg chk">Checked</span></li>
+      <li><b>A fairer index retrieves most of the missing facts.</b> Adding the 48 edges as sentences (“Alice Chen
+        worked on Q3 2025 SOC2 Compliance Audit (role: Lead)”) and retrieving the top 16, twice 2C's k, brings back
+        every needed edge for Q1, Q2, Q4 and Q5, and all of Q2's and Q5's even at top 8. Q3, which needs 14 edges,
+        stays hard (3 of 14). This uses a local stand-in for OpenAI's embedding model, and no answers were generated, so whether answers would close the gap is untested. <span class="tg chk">Checked</span></li>
+      <li><b>Q3 is mostly out of GraphRAG's reach too.</b> From Bob, project → teammate → skill is three hops. Two hops
+        do reach Alice's AWS and David's Python, because Bob has those skills too, but not Machine Learning,
+        Penetration Testing or SOC2 Compliance as a skill. The gold set asks for those three and omits the two that
+        are in reach (perhaps reading “bring” as “add to Bob's”; the question should say so), and its “SOC2 Compliance”
+        is a substring of the project name “Q3 2025 SOC2 Compliance Audit”, so naming the project scores the skill.
+        <span class="tg chk">Checked</span></li>
+      <li><b>At this size, full context is the control.</b> The whole graph in GraphRAG's own format, with every edge
+        and all document text, is 7,093 characters; the 32 node chunks alone are 3,919. From the fallback's seeds, an
+        unfiltered <span class="nw">2-hop</span> expansion returns 44–66% of the nodes and 2,768–4,312 characters, 39–61% of the whole; for
+        Q1–Q5, the relation types an LLM would most likely pick (our assumption) cut that to 575–1,759. The solution
+        kit rejects “LLM over the full dataset” because it does not scale, hides which facts were selected and skips
+        testing retrieval. All true in production, but at 32 nodes full context is the ceiling every retrieval method
+        should be measured against. <span class="tg chk">Checked</span></li>
+      <li><b>The benchmark can't tell whether the LLM linker helps.</b> The hand-written fallback alone links every
+        question to the right project or person. Separately, the fuzzy matcher sends 5 of the 32 node names to the wrong node <span class="tg chk">Checked</span>: a latent bug the six questions probably never trigger, and one more reason to test linking on its own. <span class="tg asm">Inferred</span></li>
+      <li><b>Substring recall is lenient and brittle at once.</b> It counts a name whether or not the claim is right,
+        ignores extra wrong names (no precision), and misses paraphrases (“no critical findings” fails “zero critical
+        findings”; “three-tier” fails “3-tier”). Q5's gold is just “Snowflake”: naming it scores 100% however the
+        answer was reached. Six questions, one run, no spread. <span class="tg code">In code</span></li>
+    </ul>
+  </div>
+  <p>An FDE's version keeps the idea and changes the design (figure 11 draws the result):</p>
+  <ol class="steps">
+    <li><b>Build the graph from real sources</b>, even a small slice, with provenance and dates on every edge, so the
+      hard part is in the test.</li>
+    <li><b>Give both sides the same facts.</b> Run five set-ups on the same questions: vector over node text, vector
+      over node text plus edge sentences, GraphRAG, graph queries (templates or text-to-Cypher), and the whole graph
+      in the prompt as a control while it fits.</li>
+    <li><b>Grow the data from a real export</b> (one department's org chart, projects and wiki) until the full graph
+      no longer fits or accuracy drops as the context grows; at 2C's density that is roughly 2,000 nodes for <span class="nw">gpt-4o-mini</span>'s 128k-token window, fewer with real-length documents.
+      Add ablations: GraphRAG with gold seeds (isolates linking), hops 1, 2 and 3, the filter on and off.</li>
+    <li><b>Write 30–50 questions with users</b>: lookups, lists, three-hop paths, time-dependent ones, questions with no
+      answer, and questions the asker may not be allowed to see answered. Keep a third back from tuning the linker,
+      the topic map and the prompts.</li>
+    <li><b>Score entities, not words.</b> Have each pipeline cite a node or edge ID for each claim and score the IDs,
+      precision and recall; judge paraphrases by hand or with a judge model checked against human labels; measure
+      linking accuracy on its own. With 10–17 held-out questions, report per-question wins and losses, not averages.
+      Repeat runs and store every result.</li>
+    <li><b>Give every failure one cause</b>, the earliest stage that went wrong. 2C's kit proposes tracking which
+      linking stage lost the context; this extends that to every stage:</li>
+  </ol>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Cause</th><th>What it looks like</th><th>Where the fix goes</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Cause">Missing or stale edge</td><td data-h="What it looks like">The graph doesn't hold the fact, or holds an old one</td>
+      <td data-h="Where the fix goes">Sources, sync and provenance (decision 1)</td></tr>
+    <tr><td data-h="Cause">Wrong seed</td><td data-h="What it looks like">The question linked to the wrong node, or none</td>
+      <td data-h="Where the fix goes">Entity linking and the fallback (decisions 4, 5)</td></tr>
+    <tr><td data-h="Cause">Too few hops</td><td data-h="What it looks like">The answer is further away than the expansion goes</td>
+      <td data-h="Where the fix goes">Query templates, text-to-Cypher, hop limits (decision 6)</td></tr>
+    <tr><td data-h="Cause">Wrong query</td><td data-h="What it looks like">The chosen or generated query asks the wrong pattern (direction, relation, a missing
+      hop)</td><td data-h="Where the fix goes">Templates, query validation, the schema in the prompt (decision 6)</td></tr>
+    <tr><td data-h="Cause">Wrong filter</td><td data-h="What it looks like">The relation filter dropped a needed edge, or kept everything</td>
+      <td data-h="Where the fix goes">Filter choice and the retry rule (decision 6)</td></tr>
+    <tr><td data-h="Cause">Context overload</td><td data-h="What it looks like">The right fact is buried in a large expansion</td>
+      <td data-h="Where the fix goes">Rank and trim facts (decision 7)</td></tr>
+    <tr><td data-h="Cause">Missing in the index</td><td data-h="What it looks like">The vector side never stored the edge</td>
+      <td data-h="Where the fix goes">Edge sentences or neighbour lists (decision 8)</td></tr>
+    <tr><td data-h="Cause">Not retrieved</td><td data-h="What it looks like">The fact is indexed but ranked below the cut-off (in our proxy with edge sentences, Frank's and Alice's Q1 audit sentences rank 9th and 10th, below k = 8)</td>
+      <td data-h="Where the fix goes">k, re-ranking, hybrid retrieval, query rewriting (decisions 8, 9)</td></tr>
+    <tr><td data-h="Cause">Permission leak</td><td data-h="What it looks like">The answer uses a node the asker may not see</td>
+      <td data-h="Where the fix goes">Permission-aware traversal (decision 14)</td></tr>
+    <tr><td data-h="Cause">Generation error</td><td data-h="What it looks like">The facts were there; the answer is wrong or incomplete</td>
+      <td data-h="Where the fix goes">Prompt, model (decision 10)</td></tr>
+    <tr><td data-h="Cause">Scoring error</td><td data-h="What it looks like">A guessed name counted, or a correct paraphrase didn't</td>
+      <td data-h="Where the fix goes">Entity-level scoring (decision 11)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-plan">
+  <h3><span class="sn">2.8</span>The engagement, step by step</h3>
+  <p>Steps 2–5 overlap. On day one, request system access and open the privacy review: purposes, a DPIA, and
+    works-council consultation where one exists. Build the first thin slice on the least sensitive real source
+    (project and document metadata, people as pseudonymous IDs), and add HR fields only once the review approves
+    them.</p>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Step</th><th>What you produce</th><th>In 2C</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Step">1 · Kickoff with the sponsor</td><td data-h="What you produce">The questions that matter, the success metric, scope</td>
+      <td data-h="In 2C">The brief</td></tr>
+    <tr><td data-h="Step">2 · Discovery interviews (2.3)</td><td data-h="What you produce">Answers to 2.4; a source map; access and privacy-review
+      requests</td><td data-h="In 2C">Not recorded</td></tr>
+    <tr><td data-h="Step">3 · Source audit and schema</td><td data-h="What you produce">Which system holds which node and edge, edge definitions, shared IDs,
+      permissions</td><td data-h="In 2C">A hand-written schema and mock data</td></tr>
+    <tr><td data-h="Step">4 · Benchmark and experiment design</td><td data-h="What you produce">User questions with gold entity IDs; the set-ups to
+      compare; the decision rule</td><td data-h="In 2C">Six questions with gold strings; two set-ups</td></tr>
+    <tr><td data-h="Step">5 · Thin slice</td><td data-h="What you produce">The least sensitive real source loaded, one question type answered end to end</td>
+      <td data-h="In 2C">The whole pipeline on mock data</td></tr>
+    <tr><td data-h="Step">6 · Controlled comparison</td><td data-h="What you produce">Same facts on both sides, repeated runs, per-question results</td>
+      <td data-h="In 2C">A recall table printed, not saved</td></tr>
+    <tr><td data-h="Step">7 · Findings readout</td><td data-h="What you produce">When relationships beat similarity, at what size, and why</td>
+      <td data-h="In 2C">The README's claims, without numbers</td></tr>
+    <tr><td data-h="Step">8 · Privacy and security sign-off (opened in step 2)</td><td data-h="What you produce">Approved purposes, DPIA, permission
+      enforcement tested, vendor approval</td><td data-h="In 2C">None; figure 9 below is a first draft</td></tr>
+    <tr><td data-h="Step">9 · Pilot</td><td data-h="What you produce">Real users, feedback, unanswered questions</td><td data-h="In 2C">None</td></tr>
+    <tr><td data-h="Step">10 · Handoff</td><td data-h="What you produce">Sync jobs, a runbook, a named owner for graph quality</td>
+      <td data-h="In 2C">README set-up steps</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-diagrams">
+  <h3><span class="sn">2.9</span>Which diagram answers which question</h3>
+  <div class="tw"><table class="qt">
+    <thead><tr><th>Diagram</th><th>The question it answers</th><th>Who reads it</th></tr></thead>
+    <tbody>
+    <tr><td data-h="Diagram"><a href="#context">1 · System context</a></td><td data-h="The question it answers">What is in scope and which outside services it uses</td>
+      <td data-h="Who reads it">Sponsor, Information Security</td></tr>
+    <tr><td data-h="Diagram"><a href="#architecture">2 · High-level architecture</a></td><td data-h="The question it answers">What runs where; the two pipelines</td>
+      <td data-h="Who reads it">Platform team</td></tr>
+    <tr><td data-h="Diagram"><a href="#schema">3 · Graph schema and the vector chunks</a></td><td data-h="The question it answers">What the graph holds, and what the
+      vector side holds of it</td><td data-h="Who reads it">System owners, data engineers</td></tr>
+    <tr><td data-h="Diagram"><a href="#dataflow">4 · Data flow</a></td><td data-h="The question it answers">Where people data and questions go</td>
+      <td data-h="Who reads it">Privacy, Information Security</td></tr>
+    <tr><td data-h="Diagram"><a href="#design">5 · Detailed design</a></td><td data-h="The question it answers">Which file and setting implements each step, and what
+      is broken</td><td data-h="Who reads it">Engineers, the future owner</td></tr>
+    <tr><td data-h="Diagram"><a href="#sequence">6 · Sequence</a></td><td data-h="The question it answers">One question through GraphRAG, call by call</td>
+      <td data-h="Who reads it">Engineers, sponsor (cost)</td></tr>
+    <tr><td data-h="Diagram"><a href="#contexts">7 · The two contexts for Q1</a></td><td data-h="The question it answers">What each side actually hands the model</td>
+      <td data-h="Who reads it">Everyone</td></tr>
+    <tr><td data-h="Diagram"><a href="#hops">8 · Why Q3 needs three hops</a></td><td data-h="The question it answers">What a <span class="nw">2-hop</span> expansion can and cannot reach</td>
+      <td data-h="Who reads it">Engineers, the people who ask</td></tr>
+    <tr><td data-h="Diagram"><a href="#threats">9 · Threat model</a></td><td data-h="The question it answers">What can go wrong with people data, and what protects it
+      today</td><td data-h="Who reads it">Information Security, Privacy</td></tr>
+    <tr><td data-h="Diagram"><a href="#evaluation">10 · The comparison</a></td><td data-h="The question it answers">What the benchmark measures, and what our checks
+      found</td><td data-h="Who reads it">Sponsor, everyone</td></tr>
+    <tr><td data-h="Diagram"><a href="#recommended">11 · The recommended architecture</a></td><td data-h="The question it answers">What an FDE would build instead, and the 2.5 decision each numbered part answers</td>
+      <td data-h="Who reads it">Everyone; the sponsor and the platform team first</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="prose" id="fde-takeaways">
+  <h3><span class="sn">2.10</span>What to take away</h3>
+  <ol class="habits">
+    <li>A head-to-head is only fair if both sides see the same facts. No graph edge reached 2C's vector index, so
+      “vector search can't” is untested; in our retrieval-only proxy, edge sentences surfaced every needed edge for four
+      of the five relational questions.</li>
+    <li>The hard part of organizational GraphRAG is building and maintaining the graph: sources, edge definitions,
+      entity resolution, provenance, time and permissions. Query-side cleverness can't fix a missing edge.</li>
+    <li>Test at the size you'll run at. At 32 nodes the whole graph fits in a prompt with room to spare, and an
+      unfiltered <span class="nw">2-hop</span> expansion is already about half of it.</li>
+    <li>Graph traversal earns its place on path questions, but only with enough hops: Q3 needed three, and neither
+      side's context linked Bob's teammates to the skills its gold set asks for. We ran no LLM, and a model could
+      still name them from job titles, which substring recall would count.</li>
+    <li>Score entities and claims, not words: substring recall rewards guessed names and misses paraphrases.</li>
+    <li>The rule of thumb to test: relationships beat similarity when the answer is a list, path, intersection or
+      count over records (who worked on, who approved, tools two projects share), when the relationship lives in a
+      system of record rather than in prose, and when each fact needs a source and a permission check. Similarity
+      wins when the answer is in prose (Q6) or the question names things loosely. Real questions mix both, so
+      production is usually hybrid: route by question type, or combine graph facts with retrieved passages (2C lists
+      this as future work).</li>
+  </ol>
+</section>
+
+<section class="prose part" id="part3">
+  <p class="partno">Part 3</p>
+  <h2 class="parth">The architecture it led to</h2>
+  <p class="lede">Eleven diagrams in the order a design is reasoned out: scope, parts, the data, its flow, the code
+    itself, behaviour, what each side sees, the limits of the expansion, risk and the evidence, then the design an FDE would build instead. Each answers a group
+    of the questions above (see 2.9).</p>
+</section>
+<section id="context">
+  <h2><span class="num">1</span>System context</h2>
+  <p class="cap"><span class="why">Why here:</span> Before anything else: what the system is, who uses it, and what it depends on.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 480" role="img" aria-label="System context: a user asks questions of one Python app that builds a graph and a vector index from a hand-written mock organization, calls the OpenAI API for linking, embeddings and answers, and installs packages from PyPI.">
+<defs><marker id="cxar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="cxarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="cxarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="cxarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="cxarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="cxaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="470" y="28" width="700" height="430" rx="14" class="bnd"/>
+<text x="1158" y="48" class="lbs" text-anchor="end">system boundary: the app and the data it builds in memory</text>
+<rect x="605" y="60" width="210" height="96" rx="9" class="dt"/>
+<text x="617" y="82" class="t" text-anchor="start">data/mock_data.py</text>
+<text x="617" y="102" class="s" text-anchor="start">a made-up organization</text>
+<text x="617" y="118" class="s" text-anchor="start">32 nodes, 48 edges</text>
+<text x="617" y="134" class="s" text-anchor="start">typed by hand</text>
+<rect x="510" y="200" width="400" height="170" rx="9" class="nd"/>
+<text x="522" y="222" class="t" text-anchor="start">GraphRAG vs vector RAG</text>
+<text x="522" y="242" class="s" text-anchor="start">one Python process: compare.py (CLI) or ui.py</text>
+<text x="522" y="258" class="s" text-anchor="start">builds a NetworkX graph and a FAISS index</text>
+<text x="522" y="274" class="s" text-anchor="start">answers each question both ways</text>
+<text x="522" y="290" class="s" text-anchor="start">scores recall against 6 gold sets</text>
+<text x="522" y="306" class="s" text-anchor="start">LangGraph · LangChain · Streamlit · pyvis</text>
+<path d="M710 156 V198" class="ln" marker-end="url(#cxar)"/>
+<text x="718" y="182" class="lbl" text-anchor="start">nodes, edges, document text</text>
+<circle cx="160" cy="214" r="13" class="pa"/>
+<path d="M136 262 Q136 232 160 232 Q184 232 184 262 Z" class="pa"/>
+<text x="160" y="282" class="t" text-anchor="middle">User</text>
+<text x="160" y="299" class="s" text-anchor="middle">PM, lead or developer</text>
+<path d="M196 226 H508" class="ln" marker-end="url(#cxar)"/>
+<text x="352" y="218" class="lbl" text-anchor="middle">a question, or all six</text>
+<path d="M508 254 H196" class="ln" marker-end="url(#cxar)"/>
+<text x="352" y="270" class="lbl" text-anchor="middle">both answers, recall, graph view</text>
+<rect x="1240" y="180" width="300" height="100" rx="9" class="ex"/>
+<text x="1252" y="202" class="t" text-anchor="start">OpenAI API</text>
+<text x="1252" y="222" class="s" text-anchor="start">gpt-4o-mini: linking and answers</text>
+<text x="1252" y="238" class="s" text-anchor="start">text-embedding-3-small: 32 chunks,</text>
+<text x="1252" y="254" class="s" text-anchor="start">then each question</text>
+<rect x="1240" y="330" width="300" height="80" rx="9" class="ex"/>
+<text x="1252" y="352" class="t" text-anchor="start">PyPI</text>
+<text x="1252" y="372" class="s" text-anchor="start">11 packages, “&gt;=” versions only</text>
+<path d="M912 220 H1238" class="ln" marker-end="url(#cxar)"/>
+<text x="1062" y="213" class="lbl" text-anchor="middle">node text, documents, questions, facts</text>
+<path d="M1238 250 H912" class="ln" marker-end="url(#cxar)"/>
+<text x="1075" y="243" class="lbl" text-anchor="middle">entities, answers, vectors</text>
+<path d="M1238 350 H912" class="ln" marker-end="url(#cxar)"/>
+<text x="1075" y="343" class="lbl" text-anchor="middle">packages, at install</text>
+  </svg>
+  </div>
+</figure>
+<section id="architecture">
+  <h2><span class="num">2</span>High-level architecture</h2>
+  <p class="cap"><span class="why">Why here:</span> Then the parts and where they run: one process, two pipelines.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 580" role="img" aria-label="High-level architecture: inside one Python process, the mock data feeds a NetworkX graph used by a LangGraph GraphRAG workflow and node chunks used by a FAISS vector pipeline; compare.py and ui.py run both and score recall; OpenAI provides chat and embeddings.">
+<defs><marker id="arar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="ararc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="ararr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="ararb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="ararrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="araro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="220" y="24" width="980" height="536" rx="14" class="bndc"/>
+<text x="240" y="48" class="h" text-anchor="start">ONE PYTHON PROCESS · compare.py (CLI) or ui.py (Streamlit) · everything in memory</text>
+<rect x="500" y="66" width="680" height="190" rx="10" class="cf"/>
+<text x="516" y="88" class="t2" text-anchor="start">GraphRAG · a LangGraph workflow (graph_rag.py)</text>
+<rect x="516" y="102" width="96" height="24" rx="12" class="pl"/>
+<text x="564" y="118" class="pt" text-anchor="middle">link</text>
+<text x="624" y="118" class="m" text-anchor="start">LLM extracts entity names + relation types; fuzzy-match to node IDs</text>
+<rect x="516" y="132" width="96" height="24" rx="12" class="pl"/>
+<text x="564" y="148" class="pt" text-anchor="middle">fallback</text>
+<text x="624" y="148" class="m" text-anchor="start">if no seeds: regex on node names + topic map</text>
+<rect x="516" y="162" width="96" height="24" rx="12" class="pl"/>
+<text x="564" y="178" class="pt" text-anchor="middle">expand</text>
+<text x="624" y="178" class="m" text-anchor="start">2 hops over in and out edges; relation filter, retried without if empty</text>
+<rect x="516" y="192" width="96" height="24" rx="12" class="pl"/>
+<text x="564" y="208" class="pt" text-anchor="middle">docs</text>
+<text x="624" y="208" class="m" text-anchor="start">attach the text of Document nodes in the subgraph</text>
+<rect x="516" y="222" width="96" height="24" rx="12" class="pl"/>
+<text x="564" y="238" class="pt" text-anchor="middle">generate</text>
+<text x="624" y="238" class="m" text-anchor="start">LLM answers from the facts (answer prompt)</text>
+<rect x="240" y="290" width="220" height="106" rx="9" class="nd"/>
+<text x="252" y="312" class="t" text-anchor="start">compare.py · ui.py</text>
+<text x="252" y="332" class="s" text-anchor="start">+ questions.py: 6 questions,</text>
+<text x="252" y="348" class="s" text-anchor="start">gold strings, score_recall;</text>
+<text x="252" y="364" class="s" text-anchor="start">run both pipelines</text>
+<rect x="500" y="290" width="200" height="106" rx="9" class="ep"/>
+<text x="512" y="312" class="t" text-anchor="start">build_graph()</text>
+<text x="512" y="332" class="s" text-anchor="start">NetworkX MultiDiGraph</text>
+<text x="512" y="348" class="s" text-anchor="start">32 nodes, 48 edges</text>
+<text x="688" y="386" class="tag" text-anchor="end">graph_builder.py</text>
+<rect x="740" y="290" width="200" height="106" rx="9" class="dt"/>
+<text x="752" y="312" class="t" text-anchor="start">data/mock_data.py</text>
+<text x="752" y="332" class="s" text-anchor="start">7 people · 4 projects</text>
+<text x="752" y="348" class="s" text-anchor="start">6 skills · 6 tools · 5 docs</text>
+<text x="752" y="364" class="s" text-anchor="start">4 decisions · 48 edges</text>
+<rect x="980" y="290" width="200" height="106" rx="9" class="ep"/>
+<text x="992" y="312" class="t" text-anchor="start">_node_chunks()</text>
+<text x="992" y="332" class="s" text-anchor="start">one chunk per node</text>
+<text x="992" y="348" class="s" text-anchor="start">own attributes only</text>
+<text x="992" y="364" class="s" text-anchor="start">no edges</text>
+<text x="1168" y="386" class="tag" text-anchor="end">vector_rag.py</text>
+<rect x="500" y="436" width="680" height="96" rx="10" class="cf"/>
+<text x="516" y="458" class="t2" text-anchor="start">VectorRAG · FAISS in memory (vector_rag.py)</text>
+<text x="516" y="482" class="m" text-anchor="start">embed the 32 chunks once (text-embedding-3-small)</text>
+<text x="516" y="500" class="m" text-anchor="start">per question: embed it, take the top 8 chunks, one LLM call (answer prompt)</text>
+<path d="M738 343 H702" class="ln" marker-end="url(#arar)"/>
+<path d="M600 288 V258" class="ln" marker-end="url(#arar)"/>
+<text x="608" y="278" class="lbl" text-anchor="start">graph</text>
+<path d="M942 343 H978" class="ln" marker-end="url(#arar)"/>
+<path d="M1080 396 V434" class="ln" marker-end="url(#arar)"/>
+<text x="1088" y="420" class="lbl" text-anchor="start">32 chunks</text>
+<path d="M350 288 V160 H498" class="ln" marker-start="url(#ararb)" marker-end="url(#ararb)"/>
+<text x="358" y="210" class="lbl" text-anchor="start">question,</text>
+<text x="358" y="224" class="lbl" text-anchor="start">answer</text>
+<path d="M350 398 V484 H498" class="ln" marker-start="url(#ararb)" marker-end="url(#ararb)"/>
+<text x="358" y="440" class="lbl" text-anchor="start">question,</text>
+<text x="358" y="454" class="lbl" text-anchor="start">answer</text>
+<circle cx="110" cy="314" r="13" class="pa"/>
+<path d="M86 362 Q86 332 110 332 Q134 332 134 362 Z" class="pa"/>
+<text x="110" y="382" class="t" text-anchor="middle">User</text>
+<text x="110" y="399" class="s" text-anchor="middle">browser or terminal</text>
+<path d="M146 328 H238" class="ln" marker-end="url(#arar)"/>
+<text x="182" y="320" class="lbl" text-anchor="middle">question</text>
+<path d="M238 352 H146" class="ln" marker-end="url(#arar)"/>
+<text x="182" y="368" class="lbl" text-anchor="middle">answers</text>
+<rect x="1290" y="66" width="250" height="466" rx="9" class="ex"/>
+<text x="1302" y="88" class="t" text-anchor="start">OpenAI API</text>
+<text x="1302" y="108" class="s" text-anchor="start">chat: gpt-4o-mini</text>
+<text x="1302" y="124" class="s" text-anchor="start">embeddings:</text>
+<text x="1302" y="140" class="s" text-anchor="start">text-embedding-3-small</text>
+<text x="1302" y="156" class="s" text-anchor="start"></text>
+<text x="1302" y="172" class="s" text-anchor="start">the only provider;</text>
+<text x="1302" y="188" class="s" text-anchor="start">no offline mode</text>
+<path d="M1180 160 H1288" class="ln" marker-start="url(#ararb)" marker-end="url(#ararb)"/>
+<text x="1245" y="152" class="lbl" text-anchor="middle">2 calls</text>
+<path d="M1180 484 H1288" class="ln" marker-start="url(#ararb)" marker-end="url(#ararb)"/>
+<text x="1245" y="476" class="lbl" text-anchor="middle">embed, call</text>
+  </svg>
+  </div>
+</figure>
+<section id="schema">
+  <h2><span class="num">3</span>Graph schema and the vector chunks</h2>
+  <p class="cap"><span class="why">Why here:</span> Then what the data is, and what each side can see of it.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 540" role="img" aria-label="Graph schema: six node types and seven relation types with counts; the vector chunks hold node attributes only, while GraphRAG serializes edges as fact lines.">
+<defs><marker id="scar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="scarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="scarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="scarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="scarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="scaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<text x="20" y="28" class="h" text-anchor="start">THE GRAPH · node types (count) and relation types (count)</text>
+<rect x="40" y="200" width="220" height="64" rx="9" class="nd"/>
+<text x="52" y="224" class="t" text-anchor="start">Person</text>
+<text x="52" y="244" class="m" text-anchor="start">7 · name, role, team</text>
+<rect x="550" y="200" width="220" height="64" rx="9" class="nd"/>
+<text x="562" y="224" class="t" text-anchor="start">Project</text>
+<text x="562" y="244" class="m" text-anchor="start">4 · name, status, dates, summary</text>
+<rect x="40" y="420" width="220" height="64" rx="9" class="nd"/>
+<text x="52" y="444" class="t" text-anchor="start">Skill</text>
+<text x="52" y="464" class="m" text-anchor="start">6 · name, category</text>
+<rect x="550" y="420" width="220" height="64" rx="9" class="nd"/>
+<text x="562" y="444" class="t" text-anchor="start">Tool</text>
+<text x="562" y="464" class="m" text-anchor="start">6 · name, vendor</text>
+<rect x="300" y="60" width="220" height="64" rx="9" class="nd"/>
+<text x="312" y="84" class="t" text-anchor="start">Document</text>
+<text x="312" y="104" class="m" text-anchor="start">5 · title, type, content</text>
+<rect x="300" y="330" width="220" height="64" rx="9" class="nd"/>
+<text x="312" y="354" class="t" text-anchor="start">Decision</text>
+<text x="312" y="374" class="m" text-anchor="start">4 · title, date, rationale</text>
+<path d="M260 222 H548" class="ln" marker-end="url(#scar)"/>
+<text x="404" y="214" class="lbl" text-anchor="middle">WORKED_ON (11) · role</text>
+<path d="M150 200 V92 H298" class="ln" marker-end="url(#scar)"/>
+<text x="158" y="140" class="lbl" text-anchor="start">AUTHORED (5)</text>
+<path d="M520 92 H660 V198" class="ln" marker-end="url(#scar)"/>
+<text x="590" y="84" class="lbl" text-anchor="middle">ABOUT (5)</text>
+<path d="M150 264 V418" class="ln" marker-end="url(#scar)"/>
+<text x="158" y="350" class="lbl" text-anchor="start">HAS_SKILL (9) · level</text>
+<path d="M660 264 V418" class="ln" marker-end="url(#scar)"/>
+<text x="668" y="350" class="lbl" text-anchor="start">USED_TOOL (8)</text>
+<path d="M260 252 H280 V362 H298" class="ln" marker-end="url(#scar)"/>
+<text x="286" y="304" class="lbl" text-anchor="start">APPROVED (6)</text>
+<path d="M520 362 H610 V266" class="ln" marker-end="url(#scar)"/>
+<text x="602" y="312" class="lbl" text-anchor="end">DECISION_FOR (4)</text>
+<text x="20" y="520" class="lbs" text-anchor="start">No dates on edges; one audit, so “last” is never tested.</text>
+<text x="800" y="28" class="h" text-anchor="start">WHAT EACH PIPELINE CAN SEE</text>
+<rect x="800" y="44" width="740" height="214" rx="9" class="nt"/>
+<text x="816" y="66" class="t3" text-anchor="start">Vector RAG: one chunk per node, attributes only (vector_rag.py)</text>
+<text x="816" y="92" class="pm" text-anchor="start">Person: Alice Chen. Role: Compliance Lead. Team: Risk &amp; Compliance.</text>
+<text x="816" y="110" class="pm" text-anchor="start">Project: Q3 2025 SOC2 Compliance Audit. Status: Completed. ...</text>
+<text x="816" y="128" class="pm" text-anchor="start">Decision: Adopt 3-tier usage-based pricing model (date: 2025-05-20).</text>
+<text x="816" y="146" class="pm" text-anchor="start">  Rationale: Reduce SMB churn and increase NRR ...</text>
+<text x="816" y="176" class="s" text-anchor="start">32 chunks, 3,919 characters in all. None of the 48 edges is written in any chunk:</text>
+<text x="816" y="194" class="s" text-anchor="start">nothing says Alice worked on the audit or Eve approved the pricing decision.</text>
+<text x="816" y="222" class="s" text-anchor="start">Only some document and decision text links things, e.g. the audit report names Drata</text>
+<text x="816" y="240" class="s" text-anchor="start">and AWS Audit Manager.</text>
+<rect x="800" y="276" width="740" height="214" rx="9" class="repb"/>
+<text x="816" y="298" class="t3" text-anchor="start">GraphRAG: the subgraph as fact lines (serialize_subgraph), plus document text</text>
+<text x="816" y="324" class="pm" text-anchor="start">- [Person] Alice Chen — role=Compliance Lead; team=Risk &amp; Compliance</text>
+<text x="816" y="342" class="pm" text-anchor="start">- Alice Chen —WORKED_ON→ Q3 2025 SOC2 Compliance Audit {&#x27;role&#x27;: &#x27;Lead&#x27;}</text>
+<text x="816" y="360" class="pm" text-anchor="start">- Eve Johnson —APPROVED→ Adopt 3-tier usage-based pricing model</text>
+<text x="816" y="378" class="pm" text-anchor="start">- Q3 2025 SOC2 Compliance Audit —USED_TOOL→ Okta</text>
+<text x="816" y="412" class="s" text-anchor="start">Every edge in the expanded subgraph becomes a line the model can quote.</text>
+<text x="816" y="430" class="s" text-anchor="start">The comparison is therefore between an index with the edges and one without.</text>
+<text x="816" y="456" class="s" text-anchor="start">Our proxy check: added as 48 sentences, most edges become retrievable; at top 16,</text>
+<text x="816" y="474" class="s" text-anchor="start">every needed one for Q1, Q2, Q4 and Q5 (figure 10).</text>
+  </svg>
+  </div>
+</figure>
+<section id="dataflow">
+  <h2><span class="num">4</span>Data flow (level 1)</h2>
+  <p class="cap"><span class="why">Why here:</span> Then what data moves between the parts, and where it is stored.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 716" role="img" aria-label="Level-1 data flow: the mock data builds the graph and the vector index; the run-and-score process sends each question to graph retrieval and to vector retrieval, collects both answers, and scores them against the gold strings, and shows the graph view from the stored graph; OpenAI is called for linking, embeddings and answers.">
+<defs><marker id="dfar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dfarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="dfarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dfarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dfarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dfaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="520" y="30" width="380" height="50" class="dsf"/>
+<path d="M900 30 H520 V80 H900 M564 30 V80" class="dsl"/>
+<text x="542" y="60.0" class="dsid" text-anchor="middle">D1</text>
+<text x="574" y="49" class="t2" text-anchor="start">data/mock_data.py</text>
+<text x="574" y="65" class="m" text-anchor="start">nodes, edges, document text</text>
+<rect x="200" y="120" width="180" height="92" rx="12" class="pr"/>
+<path d="M200 144 H380" class="prl"/>
+<text x="290.0" y="137" class="pid" text-anchor="middle">P1</text>
+<text x="290.0" y="163" class="t2" text-anchor="middle">Build graph</text>
+<text x="290.0" y="180" class="m" text-anchor="middle">build_graph()</text>
+<text x="290.0" y="194" class="m" text-anchor="middle">NetworkX, in memory</text>
+<rect x="1000" y="120" width="180" height="92" rx="12" class="pr"/>
+<path d="M1000 144 H1180" class="prl"/>
+<text x="1090.0" y="137" class="pid" text-anchor="middle">P2</text>
+<text x="1090.0" y="163" class="t2" text-anchor="middle">Build vector index</text>
+<text x="1090.0" y="180" class="m" text-anchor="middle">32 node chunks</text>
+<text x="1090.0" y="194" class="m" text-anchor="middle">embed into FAISS</text>
+<rect x="160" y="250" width="280" height="50" class="dsf"/>
+<path d="M440 250 H160 V300 H440 M204 250 V300" class="dsl"/>
+<text x="182" y="280.0" class="dsid" text-anchor="middle">D2</text>
+<text x="214" y="269" class="t2" text-anchor="start">graph (memory)</text>
+<text x="214" y="285" class="m" text-anchor="start">32 nodes, 48 edges</text>
+<rect x="960" y="250" width="280" height="50" class="dsf"/>
+<path d="M1240 250 H960 V300 H1240 M1004 250 V300" class="dsl"/>
+<text x="982" y="280.0" class="dsid" text-anchor="middle">D3</text>
+<text x="1014" y="269" class="t2" text-anchor="start">FAISS index (memory)</text>
+<text x="1014" y="285" class="m" text-anchor="start">32 vectors + chunk text</text>
+<path d="M520 65 H290 V118" class="ln" marker-end="url(#dfar)"/>
+<text x="298" y="100" class="lbs" text-anchor="start">nodes, edges</text>
+<path d="M900 55 H1090 V118" class="ln" marker-end="url(#dfar)"/>
+<text x="1000" y="47" class="lbs" text-anchor="middle">node attributes</text>
+<path d="M290 212 V248" class="ln" marker-end="url(#dfar)"/>
+<text x="298" y="236" class="lbs" text-anchor="start">graph</text>
+<path d="M1090 212 V248" class="ln" marker-end="url(#dfar)"/>
+<text x="1098" y="236" class="lbs" text-anchor="start">vectors + text</text>
+<rect x="1300" y="120" width="220" height="290" class="ee"/>
+<text x="1410.0" y="262.0" class="t2" text-anchor="middle">E2 · OpenAI API</text>
+<text x="1410.0" y="279.0" class="m" text-anchor="middle">chat + embeddings</text>
+<path d="M1300 134 L1314 120" class="dupl"/>
+<path d="M1180 166 H1298" class="ln" marker-start="url(#dfarb)" marker-end="url(#dfarb)"/>
+<text x="1239" y="158" class="lbs" text-anchor="middle">chunks ↔ vectors</text>
+<rect x="600" y="150" width="180" height="60" class="ee"/>
+<text x="690.0" y="177.0" class="t2" text-anchor="middle">E1 · User</text>
+<text x="690.0" y="194.0" class="m" text-anchor="middle">browser or terminal</text>
+<rect x="590" y="340" width="200" height="92" rx="12" class="pr"/>
+<path d="M590 364 H790" class="prl"/>
+<text x="690.0" y="357" class="pid" text-anchor="middle">P5</text>
+<text x="690.0" y="383" class="t2" text-anchor="middle">Run and score</text>
+<text x="690.0" y="400" class="m" text-anchor="middle">compare.py or ui.py</text>
+<text x="690.0" y="414" class="m" text-anchor="middle">score_recall per answer</text>
+<path d="M650 210 V338" class="ln" marker-end="url(#dfar)"/>
+<text x="642" y="290" class="lbs" text-anchor="end">question</text>
+<path d="M730 338 V212" class="ln" marker-end="url(#dfar)"/>
+<text x="738" y="290" class="lbs" text-anchor="start">answers, recall, graph view</text>
+<path d="M440 275 H560 V356 H588" class="ln" marker-end="url(#dfar)"/>
+<text x="500" y="267" class="lbs" text-anchor="middle">all nodes + attributes</text>
+<rect x="200" y="340" width="190" height="92" rx="12" class="pr"/>
+<path d="M200 364 H390" class="prl"/>
+<text x="295.0" y="357" class="pid" text-anchor="middle">P3</text>
+<text x="295.0" y="383" class="t2" text-anchor="middle">Retrieve from graph</text>
+<text x="295.0" y="400" class="m" text-anchor="middle">link, fallback, expand,</text>
+<text x="295.0" y="414" class="m" text-anchor="middle">attach documents</text>
+<rect x="200" y="480" width="190" height="92" rx="12" class="pr"/>
+<path d="M200 504 H390" class="prl"/>
+<text x="295.0" y="497" class="pid" text-anchor="middle">P4</text>
+<text x="295.0" y="523" class="t2" text-anchor="middle">Answer from facts</text>
+<text x="295.0" y="540" class="m" text-anchor="middle">answer prompt</text>
+<text x="295.0" y="554" class="m" text-anchor="middle">gpt-4o-mini</text>
+<rect x="1000" y="340" width="190" height="92" rx="12" class="pr"/>
+<path d="M1000 364 H1190" class="prl"/>
+<text x="1095.0" y="357" class="pid" text-anchor="middle">P6</text>
+<text x="1095.0" y="383" class="t2" text-anchor="middle">Retrieve and answer</text>
+<text x="1095.0" y="400" class="m" text-anchor="middle">embed question, top 8,</text>
+<text x="1095.0" y="414" class="m" text-anchor="middle">answer prompt</text>
+<path d="M290 300 V338" class="ln" marker-end="url(#dfar)"/>
+<text x="298" y="326" class="lbs" text-anchor="start">nodes, edges</text>
+<path d="M520 45 H120 V370 H198" class="ln" marker-end="url(#dfar)"/>
+<text x="112" y="210" class="lbs" text-anchor="end">document text</text>
+<path d="M588 384 H392" class="ln" marker-end="url(#dfar)"/>
+<text x="490" y="400" class="lbs" text-anchor="middle">question</text>
+<path d="M290 432 V478" class="ln" marker-end="url(#dfar)"/>
+<text x="298" y="462" class="lbs" text-anchor="start">question, facts + document text</text>
+<path d="M392 526 H640 V434" class="ln" marker-end="url(#dfar)"/>
+<text x="520" y="518" class="lbs" text-anchor="middle">graph answer + subgraph</text>
+<path d="M1090 300 V338" class="ln" marker-end="url(#dfar)"/>
+<text x="1098" y="326" class="lbs" text-anchor="start">top 8 chunks</text>
+<path d="M792 370 H998" class="ln" marker-end="url(#dfar)"/>
+<text x="895" y="362" class="lbs" text-anchor="middle">question</text>
+<path d="M998 400 H792" class="ln" marker-end="url(#dfar)"/>
+<text x="895" y="416" class="lbs" text-anchor="middle">vector answer + chunks</text>
+<path d="M1190 386 H1298" class="ln" marker-start="url(#dfarb)" marker-end="url(#dfarb)"/>
+<text x="1244" y="378" class="lbs" text-anchor="middle">question, prompt</text>
+<text x="1244" y="404" class="lbs" text-anchor="middle">vector, answer</text>
+<rect x="700" y="480" width="280" height="50" class="dsf"/>
+<path d="M980 480 H700 V530 H980 M744 480 V530" class="dsl"/>
+<text x="722" y="510.0" class="dsid" text-anchor="middle">D4</text>
+<text x="754" y="499" class="t2" text-anchor="start">questions.py</text>
+<text x="754" y="515" class="m" text-anchor="start">6 questions + gold strings</text>
+<path d="M760 478 V434" class="ln" marker-end="url(#dfar)"/>
+<text x="768" y="462" class="lbs" text-anchor="start">questions + gold</text>
+<rect x="160" y="640" width="280" height="56" class="ee"/>
+<text x="300.0" y="665.0" class="t2" text-anchor="middle">E2 · OpenAI API</text>
+<text x="300.0" y="682.0" class="m" text-anchor="middle">chat</text>
+<path d="M160 654 L174 640" class="dupl"/>
+<path d="M200 386 H140 V668 H158" class="ln" marker-start="url(#dfarb)" marker-end="url(#dfarb)"/>
+<text x="132" y="540" class="lbs" text-anchor="end">question ↔ entities,</text>
+<text x="132" y="554" class="lbs" text-anchor="end">relations</text>
+<path d="M300 572 V638" class="ln" marker-start="url(#dfarb)" marker-end="url(#dfarb)"/>
+<text x="308" y="610" class="lbs" text-anchor="start">prompt ↔ answer</text>
+  </svg>
+  </div>
+</figure>
+<section id="design">
+  <h2><span class="num">5</span>Detailed design</h2>
+  <p class="cap"><span class="why">Why here:</span> Then each file&#x27;s key functions and settings, with what is broken.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 758" role="img" aria-label="Detailed design: the repository&#x27;s files with their key functions and settings, and eleven numbered review notes, from the vector chunks without edges to the UI&#x27;s .env check.">
+<defs><marker id="dsar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dsarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="dsarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dsarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="dsarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="dsaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="20" y="20" width="760" height="74" rx="9" class="ep"/>
+<text x="32" y="42" class="t" text-anchor="start">data/mock_data.py</text>
+<text x="32" y="62" class="s" text-anchor="start">PEOPLE 7 · PROJECTS 4 · SKILLS 6 · TOOLS 6 · DOCUMENTS 5 · DECISIONS 4</text>
+<text x="32" y="78" class="s" text-anchor="start">RELATIONSHIPS: 48 (src, dst, type, attrs); all_nodes() adds &#x27;kind&#x27;</text>
+<rect x="20" y="106" width="760" height="138" rx="9" class="nd"/>
+<text x="32" y="128" class="t" text-anchor="start">graph_builder.py</text>
+<text x="32" y="148" class="s" text-anchor="start">build_graph(): MultiDiGraph, edge key = relation type</text>
+<text x="32" y="164" class="s" text-anchor="start">_fuzzy_match(name, cutoff 0.6): first substring match, then difflib</text>
+<text x="32" y="180" class="s" text-anchor="start">llm_link_entities: structured output {entities, relations}</text>
+<text x="32" y="196" class="s" text-anchor="start">heuristic_link_entities: whole-name regex + _TOPIC_MAP (10 keys)</text>
+<text x="32" y="212" class="s" text-anchor="start">expand_subgraph(seeds, hops, relation_filter): BFS out and in edges</text>
+<text x="32" y="228" class="s" text-anchor="start">serialize_subgraph: &#x27;### Entities&#x27; and &#x27;### Relationships&#x27; lines</text>
+<circle cx="764" cy="122" r="9.5" class="wb"/>
+<text x="764" y="126" class="wbt" text-anchor="middle">6</text>
+<circle cx="740" cy="122" r="9.5" class="wb"/>
+<text x="740" y="126" class="wbt" text-anchor="middle">4</text>
+<circle cx="716" cy="122" r="9.5" class="wb"/>
+<text x="716" y="126" class="wbt" text-anchor="middle">3</text>
+<rect x="20" y="256" width="760" height="106" rx="9" class="nd"/>
+<text x="32" y="278" class="t" text-anchor="start">graph_rag.py</text>
+<text x="32" y="298" class="s" text-anchor="start">LangGraph: link → (no seeds) fallback → expand → docs → generate</text>
+<text x="32" y="314" class="s" text-anchor="start">expand: retry with no filter if the filtered subgraph has 0 edges</text>
+<text x="32" y="330" class="s" text-anchor="start">_PROMPT: graph facts first, documents for detail; say so if insufficient</text>
+<text x="32" y="346" class="s" text-anchor="start">GraphRAG(hops=2).answer(): answer, seed_ids, linker_used, subgraph, graph_facts …</text>
+<circle cx="764" cy="272" r="9.5" class="wb"/>
+<text x="764" y="276" class="wbt" text-anchor="middle">5</text>
+<rect x="20" y="374" width="760" height="90" rx="9" class="nd"/>
+<text x="32" y="396" class="t" text-anchor="start">vector_rag.py</text>
+<text x="32" y="416" class="s" text-anchor="start">_node_chunks(): one &#x27;Person: … Role: … Team: …&#x27; chunk per node</text>
+<text x="32" y="432" class="s" text-anchor="start">FAISS.from_documents(32 chunks, text-embedding-3-small); k = 8</text>
+<text x="32" y="448" class="s" text-anchor="start">_PROMPT: answer only from the retrieved chunks; say so if insufficient</text>
+<circle cx="764" cy="390" r="9.5" class="wb"/>
+<text x="764" y="394" class="wbt" text-anchor="middle">2</text>
+<circle cx="740" cy="390" r="9.5" class="wb"/>
+<text x="740" y="394" class="wbt" text-anchor="middle">1</text>
+<rect x="20" y="476" width="760" height="58" rx="9" class="nd"/>
+<text x="32" y="498" class="t" text-anchor="start">questions.py</text>
+<text x="32" y="518" class="s" text-anchor="start">6 questions; must_include strings; score_recall: substring, case-insensitive</text>
+<circle cx="764" cy="492" r="9.5" class="wb"/>
+<text x="764" y="496" class="wbt" text-anchor="middle">7</text>
+<rect x="20" y="546" width="760" height="90" rx="9" class="nd"/>
+<text x="32" y="568" class="t" text-anchor="start">compare.py · ui.py</text>
+<text x="32" y="588" class="s" text-anchor="start">compare: VectorRAG(k=8), GraphRAG(hops=2), print a tabulate table</text>
+<text x="32" y="604" class="s" text-anchor="start">ui: Streamlit, pyvis graph with highlights, recall per answer, no login</text>
+<text x="32" y="620" class="s" text-anchor="start">ui: checks OPENAI_API_KEY before anything loads .env</text>
+<circle cx="764" cy="562" r="9.5" class="wb"/>
+<text x="764" y="566" class="wbt" text-anchor="middle">11</text>
+<circle cx="740" cy="562" r="9.5" class="wb"/>
+<text x="740" y="566" class="wbt" text-anchor="middle">8</text>
+<rect x="20" y="648" width="760" height="90" rx="9" class="ep"/>
+<text x="32" y="670" class="t" text-anchor="start">llm.py · requirements.txt · lib/</text>
+<text x="32" y="690" class="s" text-anchor="start">get_llm: gpt-4o-mini (default; OPENAI_MODEL), temperature 0</text>
+<text x="32" y="706" class="s" text-anchor="start">get_embeddings: text-embedding-3-small (default; OPENAI_EMBED_MODEL)</text>
+<text x="32" y="722" class="s" text-anchor="start">requirements: &#x27;&gt;=&#x27; only; lib/: vis-network 9.1.2, tom-select</text>
+<circle cx="764" cy="664" r="9.5" class="wb"/>
+<text x="764" y="668" class="wbt" text-anchor="middle">10</text>
+<circle cx="740" cy="664" r="9.5" class="wb"/>
+<text x="740" y="668" class="wbt" text-anchor="middle">9</text>
+<rect x="810" y="20" width="730" height="718" rx="9" class="nt"/>
+<text x="826" y="44" class="t2" text-anchor="start">Review notes · numbered on the files they affect</text>
+<circle cx="838" cy="72.0" r="9.5" class="wb"/>
+<text x="838" y="76.0" class="wbt" text-anchor="middle">1</text>
+<text x="858" y="76.0" class="m" text-anchor="start">Vector chunks hold each node&#x27;s own attributes; none of the 48 edges is indexed, so the vector</text>
+<text x="858" y="92.0" class="m" text-anchor="start">side cannot see who worked on, approved or authored anything.</text>
+<circle cx="838" cy="132.0" r="9.5" class="wb"/>
+<text x="838" y="136.0" class="wbt" text-anchor="middle">2</text>
+<text x="858" y="136.0" class="m" text-anchor="start">README: “Same data — both index every entity in the graph.” Entities yes; edges no.</text>
+<circle cx="838" cy="192.0" r="9.5" class="wb"/>
+<text x="838" y="196.0" class="wbt" text-anchor="middle">3</text>
+<text x="858" y="196.0" class="m" text-anchor="start">_fuzzy_match returns the first node, in node order, whose name contains or is inside the name:</text>
+<text x="858" y="212.0" class="m" text-anchor="start">5 of the 32 node names resolve to the wrong node (our check), e.g. “AWS Audit Manager” → “AWS”.</text>
+<circle cx="838" cy="252.0" r="9.5" class="wb"/>
+<text x="838" y="256.0" class="wbt" text-anchor="middle">4</text>
+<text x="858" y="256.0" class="m" text-anchor="start">The topic map&#x27;s 10 keys alias the four projects; alone the fallback links every question to the</text>
+<text x="858" y="272.0" class="m" text-anchor="start">right project or person (our check), so the benchmark can&#x27;t show what the LLM linker adds.</text>
+<circle cx="838" cy="312.0" r="9.5" class="wb"/>
+<text x="838" y="316.0" class="wbt" text-anchor="middle">5</text>
+<text x="858" y="316.0" class="m" text-anchor="start">hops=2 everywhere. The three skills in Q3&#x27;s gold are 3 hops from Bob; unfiltered, 2 hops</text>
+<text x="858" y="332.0" class="m" text-anchor="start">already return 44–66% of the nodes (our check).</text>
+<circle cx="838" cy="372.0" r="9.5" class="wb"/>
+<text x="838" y="376.0" class="wbt" text-anchor="middle">6</text>
+<text x="858" y="376.0" class="m" text-anchor="start">Expansion walks every connected node; nothing checks what the asker may see.</text>
+<circle cx="838" cy="432.0" r="9.5" class="wb"/>
+<text x="838" y="436.0" class="wbt" text-anchor="middle">7</text>
+<text x="858" y="436.0" class="m" text-anchor="start">Substring recall: no precision, no grounding. Q3&#x27;s gold asks for three skills 2 hops can&#x27;t reach,</text>
+<text x="858" y="452.0" class="m" text-anchor="start">omits AWS and Python, which they can, and its “SOC2 Compliance” is inside a project name.</text>
+<circle cx="838" cy="492.0" r="9.5" class="wb"/>
+<text x="838" y="496.0" class="wbt" text-anchor="middle">8</text>
+<text x="858" y="496.0" class="m" text-anchor="start">compare.py prints the recall table and saves nothing; no results are published.</text>
+<circle cx="838" cy="552.0" r="9.5" class="wb"/>
+<text x="838" y="556.0" class="wbt" text-anchor="middle">9</text>
+<text x="858" y="556.0" class="m" text-anchor="start">requirements.txt pins nothing (“&gt;=” only); OpenAI is the only provider, with no offline mode.</text>
+<circle cx="838" cy="612.0" r="9.5" class="wb"/>
+<text x="838" y="616.0" class="wbt" text-anchor="middle">10</text>
+<text x="858" y="616.0" class="m" text-anchor="start">lib/ holds generated pyvis assets (vis-network 9.1.2, tom-select) committed to the repo.</text>
+<circle cx="838" cy="672.0" r="9.5" class="wb"/>
+<text x="838" y="676.0" class="wbt" text-anchor="middle">11</text>
+<text x="858" y="676.0" class="m" text-anchor="start">ui.py checks OPENAI_API_KEY before anything loads .env, so with the key only in .env the UI stops;</text>
+<text x="858" y="692.0" class="m" text-anchor="start">compare.py loads .env through llm.py and runs.</text>
+  </svg>
+  </div>
+</figure>
+<section id="sequence">
+  <h2><span class="num">6</span>Sequence: one question</h2>
+  <p class="cap"><span class="why">Why here:</span> Then one question through GraphRAG, call by call, in time order.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 754" role="img" aria-label="Sequence of one question through GraphRAG: an OpenAI call extracts entities and relations, names are fuzzy-matched to seeds with a fallback if none match, the graph is expanded two hops, retried without the filter if empty, facts and documents go to a second OpenAI call, and the answer is scored.">
+<defs><marker id="sqar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="sqarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="sqarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="sqarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="sqarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="sqaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="20" y="24" width="180" height="50" rx="8" class="ep"/>
+<text x="110" y="46" class="t2" text-anchor="middle">compare.py</text>
+<text x="110" y="63" class="m" text-anchor="middle">or ui.py</text>
+<path d="M110 74 V700" class="life"/>
+<rect x="310" y="24" width="180" height="50" rx="8" class="ep"/>
+<text x="400" y="46" class="t2" text-anchor="middle">GraphRAG app</text>
+<text x="400" y="63" class="m" text-anchor="middle">LangGraph</text>
+<path d="M400 74 V700" class="life"/>
+<rect x="670" y="24" width="180" height="50" rx="8" class="ep"/>
+<text x="760" y="46" class="t2" text-anchor="middle">OpenAI</text>
+<text x="760" y="63" class="m" text-anchor="middle">gpt-4o-mini</text>
+<path d="M760 74 V700" class="life"/>
+<rect x="1010" y="24" width="180" height="50" rx="8" class="ep"/>
+<text x="1100" y="46" class="t2" text-anchor="middle">graph_builder</text>
+<text x="1100" y="63" class="m" text-anchor="middle">NetworkX, in memory</text>
+<path d="M1100 74 V700" class="life"/>
+<rect x="1310" y="24" width="180" height="50" rx="8" class="ep"/>
+<text x="1400" y="46" class="t2" text-anchor="middle">score_recall</text>
+<text x="1400" y="63" class="m" text-anchor="middle">questions.py</text>
+<path d="M1400 74 V700" class="life"/>
+<rect x="104" y="106" width="12" height="566" class="act"/>
+<rect x="394" y="116" width="12" height="480" class="act"/>
+<rect x="754" y="150" width="12" height="42" class="act"/>
+<rect x="754" y="514" width="12" height="42" class="act"/>
+<rect x="1094" y="324" width="12" height="42" class="act"/>
+<rect x="1094" y="404" width="12" height="38" class="act"/>
+<rect x="1394" y="624" width="12" height="44" class="act"/>
+<path d="M116 116 H394" class="ln" marker-end="url(#sqar)"/>
+<text x="255.0" y="109" class="msg" text-anchor="middle">answer(question)</text>
+<path d="M406 156 H754" class="ln" marker-end="url(#sqar)"/>
+<text x="580.0" y="149" class="msg" text-anchor="middle">link: extract entities + relation types (structured)</text>
+<rect x="780" y="143" width="20.6" height="19" rx="9.5" class="llm"/>
+<text x="790.3" y="157" class="llmt" text-anchor="middle">1</text>
+<path d="M754 184 H406" class="ret" marker-end="url(#sqaro)"/>
+<text x="580.0" y="177" class="lbl" text-anchor="middle">{entities: [...], relations: [...]}</text>
+<path d="M406 200 H446 V216 H408" class="ln" marker-end="url(#sqar)"/>
+<text x="454" y="212" class="msg" text-anchor="start">fuzzy-match names → seed node IDs</text>
+<rect x="360" y="236" width="820" height="64" rx="6" class="frame"/>
+<path d="M360 236 H404 V250 L394 258 H360 Z" class="frtab"/>
+<text x="368" y="251" class="frt" text-anchor="start">opt</text>
+<text x="414" y="251" class="frt" text-anchor="start">[no seeds, or the LLM call failed]</text>
+<path d="M406 266 H446 V282 H408" class="ln" marker-end="url(#sqar)"/>
+<text x="454" y="278" class="msg" text-anchor="start">regex on node names + topic map → seeds</text>
+<path d="M406 330 H1094" class="ln" marker-end="url(#sqar)"/>
+<text x="750.0" y="323" class="msg" text-anchor="middle">expand_subgraph(seeds, hops=2, relation filter)</text>
+<path d="M1094 358 H406" class="ret" marker-end="url(#sqaro)"/>
+<text x="750.0" y="351" class="lbl" text-anchor="middle">subgraph</text>
+<rect x="360" y="376" width="820" height="76" rx="6" class="frame"/>
+<path d="M360 376 H404 V390 L394 398 H360 Z" class="frtab"/>
+<text x="368" y="391" class="frt" text-anchor="start">opt</text>
+<text x="414" y="391" class="frt" text-anchor="start">[0 edges and a filter was set]</text>
+<path d="M406 410 H1094" class="ln" marker-end="url(#sqar)"/>
+<text x="750.0" y="403" class="msg" text-anchor="middle">expand again with no filter</text>
+<path d="M1094 436 H406" class="ret" marker-end="url(#sqaro)"/>
+<text x="750.0" y="429" class="lbl" text-anchor="middle">subgraph</text>
+<path d="M406 466 H446 V482 H408" class="ln" marker-end="url(#sqar)"/>
+<text x="454" y="478" class="msg" text-anchor="start">serialize facts; attach text of Document nodes</text>
+<path d="M406 520 H754" class="ln" marker-end="url(#sqar)"/>
+<text x="580.0" y="513" class="msg" text-anchor="middle">answer prompt: facts + document text + question</text>
+<rect x="780" y="507" width="20.6" height="19" rx="9.5" class="llm"/>
+<text x="790.3" y="521" class="llmt" text-anchor="middle">2</text>
+<path d="M754 548 H406" class="ret" marker-end="url(#sqaro)"/>
+<text x="580.0" y="541" class="lbl" text-anchor="middle">the answer</text>
+<path d="M394 590 H116" class="ret" marker-end="url(#sqaro)"/>
+<text x="255.0" y="583" class="lbl" text-anchor="middle">{answer, seed_ids, subgraph, graph_facts, …}</text>
+<path d="M116 630 H1394" class="ln" marker-end="url(#sqar)"/>
+<text x="755.0" y="623" class="msg" text-anchor="middle">score_recall(answer, gold strings)</text>
+<path d="M1394 660 H116" class="ret" marker-end="url(#sqaro)"/>
+<text x="755.0" y="653" class="lbl" text-anchor="middle">recall, hits, misses</text>
+<text x="1500" y="722" class="lbs" text-anchor="end">Vector RAG for the same question: embed it, FAISS top 8, one answer call.</text>
+<text x="1500" y="740" class="m" text-anchor="end">solid arrow: a call · dashed, open arrow: its reply · bars: active · numbers: LLM calls</text>
+  </svg>
+  </div>
+</figure>
+<section id="contexts">
+  <h2><span class="num">7</span>The two contexts for Q1</h2>
+  <p class="cap"><span class="why">Why here:</span> Then what each side actually hands the model for the same question.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 436" role="img" aria-label="The two contexts for Q1: the vector side&#x27;s top 8 chunks hold five of six gold names but none of the edges; the GraphRAG subgraph holds every gold item with the edge that makes it an answer.">
+<defs><marker id="cqar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="cqarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="cqarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="cqarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="cqarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="cqaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<text x="20" y="28" class="h" text-anchor="start">Q1 · “Who worked on the last compliance audit and what tools did they use?”</text>
+<text x="20" y="50" class="s" text-anchor="start">Gold: Alice Chen, Bob Martinez, Frank Lee, AWS Audit Manager, Drata, Okta</text>
+<rect x="20" y="66" width="740" height="330" rx="9" class="nt"/>
+<text x="36" y="88" class="t3" text-anchor="start">VECTOR RAG · top 8 chunks (our proxy ranking with a local model)</text>
+<text x="36" y="114" class="pm" text-anchor="start">1. Tool: AWS Audit Manager (vendor: AWS).</text>
+<text x="36" y="134" class="pm" text-anchor="start">2. Person: Alice Chen. Role: Compliance Lead. Team: Risk &amp; ...</text>
+<text x="36" y="154" class="pm" text-anchor="start">3. Project: Q3 2025 SOC2 Compliance Audit. Status: Completed. ...</text>
+<text x="36" y="174" class="pm" text-anchor="start">4. Skill: SOC2 Compliance (category: ...</text>
+<text x="36" y="194" class="pm" text-anchor="start">5. Document: Q3 2025 SOC2 Audit Final Report ... Drata ... AWS Audit ...</text>
+<text x="36" y="214" class="pm" text-anchor="start">6. Decision: Use AWS Audit Manager as primary cloud control ...</text>
+<text x="36" y="234" class="pm" text-anchor="start">7. Tool: Okta (vendor: Okta).</text>
+<text x="36" y="254" class="pm" text-anchor="start">8. Person: Frank Lee. Role: Security Engineer. Team: Security.</text>
+<text x="36" y="290" class="s" text-anchor="start">5 of the 6 gold names are here; Bob Martinez is not.</text>
+<text x="36" y="310" class="s" text-anchor="start">No chunk says who worked on the audit. Only the report&#x27;s text (and,</text>
+<text x="36" y="328" class="s" text-anchor="start">for AWS Audit Manager, a decision&#x27;s rationale) ties tools to it.</text>
+<text x="36" y="354" class="s" text-anchor="start">An answer naming Alice and Frank would be a guess from job titles,</text>
+<text x="36" y="372" class="s" text-anchor="start">and substring recall would count it.</text>
+<rect x="800" y="66" width="740" height="330" rx="9" class="repb"/>
+<text x="816" y="88" class="t3" text-anchor="start">GRAPHRAG · 2-hop subgraph, WORKED_ON and USED_TOOL only (assumed filter)</text>
+<text x="816" y="114" class="pm" text-anchor="start">Alice Chen —WORKED_ON→ Q3 2025 SOC2 Compliance Audit {role: Lead}</text>
+<text x="816" y="134" class="pm" text-anchor="start">Frank Lee —WORKED_ON→ Q3 2025 SOC2 ... {role: Security Reviewer}</text>
+<text x="816" y="154" class="pm" text-anchor="start">Bob Martinez —WORKED_ON→ Q3 2025 SOC2 ... {role: Evidence Engineer}</text>
+<text x="816" y="174" class="pm" text-anchor="start">Q3 2025 SOC2 Compliance Audit —USED_TOOL→ AWS Audit Manager</text>
+<text x="816" y="194" class="pm" text-anchor="start">Q3 2025 SOC2 Compliance Audit —USED_TOOL→ Drata</text>
+<text x="816" y="214" class="pm" text-anchor="start">Q3 2025 SOC2 Compliance Audit —USED_TOOL→ Okta</text>
+<text x="816" y="234" class="pm" text-anchor="start">Frank Lee, Bob Martinez —WORKED_ON→ Zero-Trust Security Rollout</text>
+<text x="816" y="254" class="pm" text-anchor="start">Bob Martinez —WORKED_ON→ ML Recommendation Engine</text>
+<text x="816" y="290" class="s" text-anchor="start">Every gold item, each with the edge that makes it an answer.</text>
+<text x="816" y="310" class="s" text-anchor="start">9 nodes, 10 edges, 1,451 characters with this filter;</text>
+<text x="816" y="328" class="s" text-anchor="start">with no filter, 17 nodes and 3,535 characters (our check).</text>
+<text x="816" y="354" class="s" text-anchor="start">Both prompts ask the model to name every person and tool,</text>
+<text x="816" y="372" class="s" text-anchor="start">and to say so when the context is insufficient.</text>
+<text x="20" y="418" class="lbs" text-anchor="start">Abridged: entity lines omitted, long names shortened; on the GraphRAG side two WORKED_ON lines are merged and “Zero-Trust —USED_TOOL→ Okta” is left out. The vector side is our proxy ranking, not 2C&#x27;s run.</text>
+  </svg>
+  </div>
+</figure>
+<section id="hops">
+  <h2><span class="num">8</span>Why Q3 needs three hops</h2>
+  <p class="cap"><span class="why">Why here:</span> Then the limit of a fixed two-hop expansion.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 610" role="img" aria-label="Why Q3 needs three hops: from Bob to his projects, to his teammates, to their skills; a two-hop expansion reaches the teammates and the AWS and Python skills Bob shares with them, but not the three skills the gold set asks for.">
+<defs><marker id="hpar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="hparc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="hparr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="hparb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="hparrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="hparo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<text x="20" y="28" class="h" text-anchor="start">Q3 (benchmark question 3) · “Which projects is Bob Martinez involved in, and what skills do his teammates bring?”</text>
+<text x="145" y="70" class="rl" text-anchor="middle">start</text>
+<text x="455" y="70" class="rl" text-anchor="middle">hop 1</text>
+<text x="820" y="70" class="rl" text-anchor="middle">hop 2</text>
+<text x="1240" y="70" class="rl" text-anchor="middle">hop 3</text>
+<rect x="24" y="82" width="946" height="480" rx="14" class="bndc"/>
+<text x="958" y="104" class="lbs" text-anchor="end">within 2 hops of Bob: what GraphRAG(hops=2) can reach</text>
+<rect x="40" y="280" width="210" height="46" rx="8" class="nd"/>
+<text x="50" y="299" class="t3" text-anchor="start">Bob Martinez</text>
+<text x="50" y="316" class="m" text-anchor="start">Person · the seed</text>
+<rect x="330" y="140" width="250" height="46" rx="8" class="nd"/>
+<text x="340" y="159" class="t3" text-anchor="start">Q3 2025 SOC2 Compliance Audit</text>
+<text x="340" y="176" class="m" text-anchor="start">Project · WORKED_ON</text>
+<path d="M250 303 H290 V163 H328" class="ln" marker-end="url(#hpar)"/>
+<rect x="330" y="220" width="250" height="46" rx="8" class="nd"/>
+<text x="340" y="239" class="t3" text-anchor="start">Zero-Trust Security Rollout</text>
+<text x="340" y="256" class="m" text-anchor="start">Project · WORKED_ON</text>
+<path d="M250 303 H290 V243 H328" class="ln" marker-end="url(#hpar)"/>
+<rect x="330" y="300" width="250" height="46" rx="8" class="nd"/>
+<text x="340" y="319" class="t3" text-anchor="start">ML Recommendation Engine</text>
+<text x="340" y="336" class="m" text-anchor="start">Project · WORKED_ON</text>
+<path d="M250 303 H290 V323 H328" class="ln" marker-end="url(#hpar)"/>
+<rect x="330" y="400" width="250" height="46" rx="8" class="ep"/>
+<text x="340" y="419" class="t3" text-anchor="start">Python, AWS</text>
+<text x="340" y="436" class="m" text-anchor="start">Bob&#x27;s own skills · HAS_SKILL</text>
+<path d="M250 303 H290 V423 H328" class="ln" marker-end="url(#hpar)"/>
+<text x="330" y="476" class="s" text-anchor="start">Alice&#x27;s AWS and David&#x27;s Python are in reach:</text>
+<text x="330" y="494" class="s" text-anchor="start">they are the same skill nodes Bob has</text>
+<text x="330" y="512" class="s" text-anchor="start">(Bob → AWS ← Alice), two hops out.</text>
+<rect x="700" y="140" width="240" height="46" rx="8" class="nd"/>
+<text x="710" y="159" class="t3" text-anchor="start">Alice Chen</text>
+<text x="710" y="176" class="m" text-anchor="start">teammate · has AWS, like Bob</text>
+<rect x="700" y="210" width="240" height="46" rx="8" class="nd"/>
+<text x="710" y="229" class="t3" text-anchor="start">Frank Lee</text>
+<text x="710" y="246" class="m" text-anchor="start">teammate</text>
+<rect x="700" y="280" width="240" height="46" rx="8" class="nd"/>
+<text x="710" y="299" class="t3" text-anchor="start">Grace Patel</text>
+<text x="710" y="316" class="m" text-anchor="start">teammate</text>
+<rect x="700" y="350" width="240" height="46" rx="8" class="nd"/>
+<text x="710" y="369" class="t3" text-anchor="start">David Kim</text>
+<text x="710" y="386" class="m" text-anchor="start">teammate · has Python, like Bob</text>
+<path d="M580 163 H698" class="ln" marker-end="url(#hpar)"/>
+<path d="M580 163 H620 V226 H698" class="ln" marker-end="url(#hpar)"/>
+<path d="M580 243 H698" class="ln" marker-end="url(#hpar)"/>
+<path d="M580 243 H650 V303 H698" class="ln" marker-end="url(#hpar)"/>
+<path d="M580 323 H620 V373 H698" class="ln" marker-end="url(#hpar)"/>
+<rect x="700" y="440" width="240" height="46" rx="8" class="ep"/>
+<text x="710" y="459" class="t3" text-anchor="start">tools, documents, decisions</text>
+<text x="710" y="476" class="m" text-anchor="start">also within 2 hops</text>
+<rect x="1090" y="140" width="300" height="46" rx="8" class="ex"/>
+<text x="1100" y="159" class="t3" text-anchor="start">SOC2 Compliance</text>
+<text x="1100" y="176" class="m" text-anchor="start">Alice&#x27;s other skill · HAS_SKILL</text>
+<path d="M940 163 H1088" class="lnd" marker-end="url(#hpar)"/>
+<rect x="1090" y="210" width="300" height="46" rx="8" class="ex"/>
+<text x="1100" y="229" class="t3" text-anchor="start">Penetration Testing, SOC2 Compliance</text>
+<text x="1100" y="246" class="m" text-anchor="start">Frank&#x27;s skills · HAS_SKILL</text>
+<path d="M940 233 H1088" class="lnd" marker-end="url(#hpar)"/>
+<rect x="1090" y="350" width="300" height="46" rx="8" class="ex"/>
+<text x="1100" y="369" class="t3" text-anchor="start">Machine Learning</text>
+<text x="1100" y="386" class="m" text-anchor="start">David&#x27;s other skill · HAS_SKILL</text>
+<path d="M940 373 H1088" class="lnd" marker-end="url(#hpar)"/>
+<text x="1090" y="307" class="s" text-anchor="start">Grace has no skills recorded.</text>
+<text x="1090" y="420" class="s" text-anchor="start">Gold names three skills, all here, three hops</text>
+<text x="1090" y="438" class="s" text-anchor="start">out: SOC2 Compliance, Machine Learning and</text>
+<text x="1090" y="456" class="s" text-anchor="start">Penetration Testing. It omits AWS and Python,</text>
+<text x="1090" y="474" class="s" text-anchor="start">the two that are in reach.</text>
+<text x="1090" y="500" class="s" text-anchor="start">“SOC2 Compliance” also matches the project</text>
+<text x="1090" y="518" class="s" text-anchor="start">name, so naming the project scores the skill.</text>
+<text x="1090" y="548" class="m" text-anchor="start">Arrows show the walk from Bob; expansion follows</text>
+<text x="1090" y="566" class="m" text-anchor="start">edges both ways (WORKED_ON points from person</text>
+<text x="1090" y="584" class="m" text-anchor="start">to project). Dashed: the third hop.</text>
+  </svg>
+  </div>
+</figure>
+<section id="threats">
+  <h2><span class="num">9</span>Threat model</h2>
+  <p class="cap"><span class="why">Why here:</span> With all of that drawn: where it could be attacked, and what protects it today.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 824" role="img" aria-label="Threat model: trust boundaries between the browser, the app&#x27;s machine and third-party services; eleven STRIDE threats, from the missing access control to OpenAI calls with no budget or rate limit, each marked on the part it affects.">
+<defs><marker id="tmar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="tmarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="tmarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="tmarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="tmarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="tmaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="226" y="40" width="486" height="740" rx="12" class="tb"/>
+<text x="242" y="62" class="tbt" text-anchor="start">TB2 · the machine running the app</text>
+<rect x="790" y="40" width="224" height="740" rx="12" class="tb"/>
+<text x="806" y="62" class="tbt" text-anchor="start">TB3 · third-party services</text>
+<path d="M206 40 V810" class="tbl"/>
+<text x="200" y="56" class="tbt" text-anchor="end">TB1</text>
+<text x="200" y="72" class="lbs" text-anchor="end">browser</text>
+<circle cx="70" cy="124" r="13" class="pa"/>
+<path d="M46 172 Q46 142 70 142 Q94 142 94 172 Z" class="pa"/>
+<text x="70" y="192" class="t" text-anchor="middle">User</text>
+<text x="70" y="209" class="s" text-anchor="middle">browser or terminal</text>
+<rect x="246" y="90" width="446" height="110" rx="9" class="ep"/>
+<text x="258" y="112" class="t" text-anchor="start">Streamlit app (ui.py)</text>
+<text x="258" y="132" class="s" text-anchor="start">no login; shows every node, most attributes</text>
+<text x="258" y="148" class="s" text-anchor="start">as tooltips; both answers</text>
+<rect x="656" y="177" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="190" class="wbt" text-anchor="middle">T11</text>
+<rect x="622" y="177" width="32" height="18" rx="9" class="wb"/>
+<text x="638" y="190" class="wbt" text-anchor="middle">T10</text>
+<rect x="588" y="177" width="32" height="18" rx="9" class="wb"/>
+<text x="604" y="190" class="wbt" text-anchor="middle">T7</text>
+<rect x="554" y="177" width="32" height="18" rx="9" class="wb"/>
+<text x="570" y="190" class="wbt" text-anchor="middle">T6</text>
+<rect x="520" y="177" width="32" height="18" rx="9" class="wb"/>
+<text x="536" y="190" class="wbt" text-anchor="middle">T1</text>
+<rect x="246" y="220" width="446" height="130" rx="9" class="nd"/>
+<text x="258" y="242" class="t" text-anchor="start">graph_builder and both pipelines</text>
+<text x="258" y="262" class="s" text-anchor="start">expansion walks any connected node;</text>
+<text x="258" y="278" class="s" text-anchor="start">node text, facts and documents go into prompts</text>
+<rect x="656" y="327" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="340" class="wbt" text-anchor="middle">T4</text>
+<rect x="622" y="327" width="32" height="18" rx="9" class="wb"/>
+<text x="638" y="340" class="wbt" text-anchor="middle">T2</text>
+<rect x="588" y="327" width="32" height="18" rx="9" class="wb"/>
+<text x="604" y="340" class="wbt" text-anchor="middle">T1</text>
+<rect x="246" y="370" width="200" height="96" class="dsf"/>
+<path d="M446 370 H246 V466 H446 M290 370 V466" class="dsl"/>
+<text x="268" y="423.0" class="dsid" text-anchor="middle">D1</text>
+<text x="300" y="389" class="t2" text-anchor="start">mock_data.py</text>
+<text x="300" y="405" class="m" text-anchor="start">people, roles, skills,</text>
+<text x="300" y="419" class="m" text-anchor="start">decisions; edges by hand</text>
+<rect x="410" y="443" width="32" height="18" rx="9" class="wb"/>
+<text x="426" y="456" class="wbt" text-anchor="middle">T5</text>
+<rect x="376" y="443" width="32" height="18" rx="9" class="wb"/>
+<text x="392" y="456" class="wbt" text-anchor="middle">T3</text>
+<rect x="486" y="370" width="206" height="96" class="dsf"/>
+<path d="M692 370 H486 V466 H692 M530 370 V466" class="dsl"/>
+<text x="508" y="423.0" class="dsid" text-anchor="middle">D5</text>
+<text x="540" y="389" class="t2" text-anchor="start">.env / environment</text>
+<text x="540" y="405" class="m" text-anchor="start">OPENAI_API_KEY</text>
+<rect x="656" y="443" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="456" class="wbt" text-anchor="middle">T9</text>
+<rect x="246" y="486" width="446" height="80" rx="9" class="bx"/>
+<text x="258" y="508" class="t" text-anchor="start">Installed packages and lib/</text>
+<text x="258" y="528" class="s" text-anchor="start">“&gt;=” versions; vendored vis-network 9.1.2</text>
+<rect x="656" y="543" width="32" height="18" rx="9" class="wb"/>
+<text x="672" y="556" class="wbt" text-anchor="middle">T8</text>
+<path d="M469 218 V202" class="ln" marker-start="url(#tmarb)" marker-end="url(#tmarb)"/>
+<text x="477" y="214" class="lbs" text-anchor="start">questions, answers, whole graph</text>
+<path d="M346 368 V352" class="ln" marker-end="url(#tmar)"/>
+<text x="354" y="364" class="lbs" text-anchor="start">graph data</text>
+<path d="M589 368 V352" class="ln" marker-end="url(#tmar)"/>
+<text x="597" y="364" class="lbs" text-anchor="start">API key</text>
+<rect x="806" y="90" width="192" height="260" rx="9" class="ex"/>
+<text x="818" y="112" class="t" text-anchor="start">OpenAI API</text>
+<text x="818" y="132" class="s" text-anchor="start">node text, documents,</text>
+<text x="818" y="148" class="s" text-anchor="start">questions, graph facts;</text>
+<text x="818" y="164" class="s" text-anchor="start">GraphRAG: 2 chat calls;</text>
+<text x="818" y="180" class="s" text-anchor="start">vector: 1 embed + 1 chat;</text>
+<text x="818" y="196" class="s" text-anchor="start">32 chunk embeds at start</text>
+<rect x="962" y="327" width="32" height="18" rx="9" class="wb"/>
+<text x="978" y="340" class="wbt" text-anchor="middle">T10</text>
+<rect x="928" y="327" width="32" height="18" rx="9" class="wb"/>
+<text x="944" y="340" class="wbt" text-anchor="middle">T2</text>
+<rect x="806" y="486" width="192" height="80" rx="9" class="ex"/>
+<text x="818" y="508" class="t" text-anchor="start">PyPI</text>
+<text x="818" y="528" class="s" text-anchor="start">packages at install</text>
+<rect x="962" y="543" width="32" height="18" rx="9" class="wb"/>
+<text x="978" y="556" class="wbt" text-anchor="middle">T8</text>
+<path d="M110 130 H244" class="ln" marker-end="url(#tmar)"/>
+<text x="200" y="122" class="lbs" text-anchor="end">questions</text>
+<path d="M244 170 H110" class="ln" marker-end="url(#tmar)"/>
+<text x="200" y="186" class="lbs" text-anchor="end">answers, graph</text>
+<path d="M694 260 H804" class="lnr" marker-end="url(#tmarr)"/>
+<text x="751" y="253" class="lbs" text-anchor="middle">prompts</text>
+<path d="M804 310 H694" class="lnr" marker-end="url(#tmarr)"/>
+<text x="751" y="303" class="lbs" text-anchor="middle">answers</text>
+<path d="M804 526 H694" class="lnr" marker-end="url(#tmarr)"/>
+<text x="751" y="519" class="lbs" text-anchor="middle">packages</text>
+<rect x="260" y="590" width="420" height="34" rx="8" class="nt"/>
+<text x="272" y="606" class="m" text-anchor="start">Red arrows: data crossing TB3, to or from a third party</text>
+<text x="272" y="619" class="m" text-anchor="start">TB1 browser → app · TB2 the app&#x27;s machine · TB3 outside services</text>
+<rect x="1040" y="40" width="500" height="740" rx="12" class="nt"/>
+<text x="1056" y="64" class="t2" text-anchor="start">Threats (STRIDE) and what the code does today</text>
+<rect x="1054" y="79" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="92" class="wbt" text-anchor="middle">T1</text>
+<text x="1096" y="92" class="t3" text-anchor="start">Information disclosure · no access control</text>
+<text x="1096" y="107" class="m" text-anchor="start">Expansion pulls in any connected node, and the UI shows</text>
+<text x="1096" y="121" class="m" text-anchor="start">every node: restricted decisions or HR data reach anyone.</text>
+<text x="1096" y="135" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="141" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="154" class="wbt" text-anchor="middle">T2</text>
+<text x="1096" y="154" class="t3" text-anchor="start">Information disclosure · third party</text>
+<text x="1096" y="169" class="m" text-anchor="start">Names, roles, decisions, document text and questions go to</text>
+<text x="1096" y="183" class="m" text-anchor="start">OpenAI for embeddings and answers.</text>
+<text x="1096" y="197" class="mi" text-anchor="start">today: mock data only</text>
+<rect x="1054" y="203" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="216" class="wbt" text-anchor="middle">T3</text>
+<text x="1096" y="216" class="t3" text-anchor="start">Information disclosure · personnel data</text>
+<text x="1096" y="231" class="m" text-anchor="start">Who worked with whom, and who has which skill, is</text>
+<text x="1096" y="245" class="m" text-anchor="start">employee data; queries can profile people.</text>
+<text x="1096" y="259" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="265" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="278" class="wbt" text-anchor="middle">T4</text>
+<text x="1096" y="278" class="t3" text-anchor="start">Tampering · prompt injection</text>
+<text x="1096" y="293" class="m" text-anchor="start">Document and node text go into prompts; a planted document</text>
+<text x="1096" y="307" class="m" text-anchor="start">could steer the answer or invent an approval.</text>
+<text x="1096" y="321" class="mi" text-anchor="start">today: two prompt rules only</text>
+<rect x="1054" y="327" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="340" class="wbt" text-anchor="middle">T5</text>
+<text x="1096" y="340" class="t3" text-anchor="start">Tampering · graph integrity</text>
+<text x="1096" y="355" class="m" text-anchor="start">Edges carry no source or date; a wrong or edited edge (who</text>
+<text x="1096" y="369" class="m" text-anchor="start">approved) is presented as fact.</text>
+<text x="1096" y="383" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="389" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="402" class="wbt" text-anchor="middle">T6</text>
+<text x="1096" y="402" class="t3" text-anchor="start">Spoofing · no login</text>
+<text x="1096" y="417" class="m" text-anchor="start">Anyone who can reach the Streamlit port can ask anything.</text>
+<text x="1096" y="431" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="451" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="464" class="wbt" text-anchor="middle">T7</text>
+<text x="1096" y="464" class="t3" text-anchor="start">Repudiation · no audit trail</text>
+<text x="1096" y="479" class="m" text-anchor="start">Nothing records who asked what, or which nodes an answer</text>
+<text x="1096" y="493" class="m" text-anchor="start">exposed.</text>
+<text x="1096" y="507" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="513" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="526" class="wbt" text-anchor="middle">T8</text>
+<text x="1096" y="526" class="t3" text-anchor="start">Tampering · supply chain</text>
+<text x="1096" y="541" class="m" text-anchor="start">requirements.txt pins nothing (“&gt;=” only); lib/ holds committed</text>
+<text x="1096" y="555" class="m" text-anchor="start">copies of front-end libraries.</text>
+<text x="1096" y="569" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="575" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="588" class="wbt" text-anchor="middle">T9</text>
+<text x="1096" y="588" class="t3" text-anchor="start">Information disclosure · secrets</text>
+<text x="1096" y="603" class="m" text-anchor="start">OPENAI_API_KEY from the shell or .env (ui.py checks it before</text>
+<text x="1096" y="617" class="m" text-anchor="start">loading .env); any installed package can read it.</text>
+<text x="1096" y="631" class="mi" text-anchor="start">today: kept out of the code</text>
+<rect x="1054" y="637" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="650" class="wbt" text-anchor="middle">T10</text>
+<text x="1096" y="650" class="t3" text-anchor="start">Denial of service · cost</text>
+<text x="1096" y="665" class="m" text-anchor="start">No budget or rate limit; each GraphRAG question makes two</text>
+<text x="1096" y="679" class="m" text-anchor="start">chat calls, each vector question one, plus embeddings.</text>
+<text x="1096" y="693" class="mi" text-anchor="start">today: none</text>
+<rect x="1054" y="699" width="34" height="18" rx="9" class="wb"/>
+<text x="1071" y="712" class="wbt" text-anchor="middle">T11</text>
+<text x="1096" y="712" class="t3" text-anchor="start">Elevation of privilege · no roles</text>
+<text x="1096" y="727" class="m" text-anchor="start">There are no roles to escalate: every user already has</text>
+<text x="1096" y="741" class="m" text-anchor="start">full access to every node (see T1, T6).</text>
+<text x="1096" y="755" class="mi" text-anchor="start">today: none</text>
+  </svg>
+  </div>
+</figure>
+<section id="evaluation">
+  <h2><span class="num">10</span>The comparison</h2>
+  <p class="cap"><span class="why">Why here:</span> Then what the benchmark measures, and what our checks found.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 492" role="img" aria-label="The comparison: six questions run through both pipelines and scored by substring recall; what the benchmark cannot show, what a fair version adds, and our offline checks with a table of edge facts each set-up retrieves.">
+<defs><marker id="evar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="evarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="evarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="evarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="evarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="evaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<rect x="14" y="40" width="300" height="150" rx="9" class="dt"/>
+<text x="26" y="62" class="t" text-anchor="start">questions.py · 6 questions</text>
+<text x="26" y="82" class="s" text-anchor="start">Q1–Q5: relational, multi-hop</text>
+<text x="26" y="98" class="s" text-anchor="start">Q6: summarize a document</text>
+<text x="26" y="114" class="s" text-anchor="start">gold: strings the answer</text>
+<text x="26" y="130" class="s" text-anchor="start">should contain</text>
+<rect x="360" y="40" width="300" height="66" rx="9" class="ep"/>
+<text x="372" y="62" class="t" text-anchor="start">Vector RAG</text>
+<text x="372" y="82" class="s" text-anchor="start">node chunks, top 8, one LLM call</text>
+<rect x="360" y="124" width="300" height="66" rx="9" class="ep"/>
+<text x="372" y="146" class="t" text-anchor="start">GraphRAG</text>
+<text x="372" y="166" class="s" text-anchor="start">link, 2 hops, facts + docs, two LLM calls</text>
+<path d="M314 115 H337 V73 H358" class="ln" marker-end="url(#evar)"/>
+<path d="M314 115 H337 V157 H358" class="ln" marker-end="url(#evar)"/>
+<rect x="706" y="60" width="250" height="110" rx="9" class="nd"/>
+<text x="718" y="82" class="t" text-anchor="start">score_recall</text>
+<text x="718" y="102" class="s" text-anchor="start">substring, case-insensitive</text>
+<text x="718" y="118" class="s" text-anchor="start">hits ÷ gold strings</text>
+<text x="718" y="134" class="s" text-anchor="start">no precision, no grounding</text>
+<path d="M660 73 H683 V115 H704" class="ln" marker-end="url(#evar)"/>
+<path d="M660 157 H683 V115 H704" class="ln" marker-end="url(#evar)"/>
+<path d="M164 190 V222 H831 V172" class="ln" marker-end="url(#evar)"/>
+<text x="500" y="216" class="lbl" text-anchor="middle">gold strings</text>
+<rect x="1000" y="60" width="230" height="110" rx="9" class="nd"/>
+<text x="1012" y="82" class="t" text-anchor="start">compare.py</text>
+<text x="1012" y="102" class="s" text-anchor="start">prints a recall table</text>
+<text x="1012" y="118" class="s" text-anchor="start">per question</text>
+<text x="1012" y="134" class="s" text-anchor="start">saves nothing</text>
+<text x="1218" y="160" class="tag" text-anchor="end">no results published</text>
+<path d="M956 115 H998" class="ln" marker-end="url(#evar)"/>
+<rect x="1250" y="30" width="290" height="258" rx="9" class="repb"/>
+<text x="1262" y="52" class="t3" text-anchor="start">Edge facts retrieved (our checks)</text>
+<text x="1262" y="78" class="t3" text-anchor="start"></text>
+<text x="1336" y="78" class="t3" text-anchor="middle">needed</text>
+<text x="1388" y="78" class="t3" text-anchor="middle">A</text>
+<text x="1430" y="78" class="t3" text-anchor="middle">B</text>
+<text x="1472" y="78" class="t3" text-anchor="middle">C</text>
+<text x="1514" y="78" class="t3" text-anchor="middle">G</text>
+<text x="1262" y="102" class="t3" text-anchor="start">Q1</text>
+<text x="1336" y="102" class="s" text-anchor="middle">6</text>
+<text x="1388" y="102" class="s" text-anchor="middle">–</text>
+<text x="1430" y="102" class="s" text-anchor="middle">4</text>
+<text x="1472" y="102" class="s" text-anchor="middle">6</text>
+<text x="1514" y="102" class="s" text-anchor="middle">6</text>
+<text x="1262" y="126" class="t3" text-anchor="start">Q2</text>
+<text x="1336" y="126" class="s" text-anchor="middle">3</text>
+<text x="1388" y="126" class="s" text-anchor="middle">–</text>
+<text x="1430" y="126" class="s" text-anchor="middle">3</text>
+<text x="1472" y="126" class="s" text-anchor="middle">3</text>
+<text x="1514" y="126" class="s" text-anchor="middle">3</text>
+<text x="1262" y="150" class="t3" text-anchor="start">Q3</text>
+<text x="1336" y="150" class="s" text-anchor="middle">14</text>
+<text x="1388" y="150" class="s" text-anchor="middle">–</text>
+<text x="1430" y="150" class="s" text-anchor="middle">3</text>
+<text x="1472" y="150" class="s" text-anchor="middle">3</text>
+<text x="1514" y="150" class="s" text-anchor="middle">10</text>
+<text x="1262" y="174" class="t3" text-anchor="start">Q4</text>
+<text x="1336" y="174" class="s" text-anchor="middle">2</text>
+<text x="1388" y="174" class="s" text-anchor="middle">–</text>
+<text x="1430" y="174" class="s" text-anchor="middle">1</text>
+<text x="1472" y="174" class="s" text-anchor="middle">2</text>
+<text x="1514" y="174" class="s" text-anchor="middle">2</text>
+<text x="1262" y="198" class="t3" text-anchor="start">Q5</text>
+<text x="1336" y="198" class="s" text-anchor="middle">4</text>
+<text x="1388" y="198" class="s" text-anchor="middle">–</text>
+<text x="1430" y="198" class="s" text-anchor="middle">4</text>
+<text x="1472" y="198" class="s" text-anchor="middle">4</text>
+<text x="1514" y="198" class="s" text-anchor="middle">4</text>
+<text x="1262" y="222" class="m" text-anchor="start">A: 2C&#x27;s chunks, top 8 (no edges: –)</text>
+<text x="1262" y="238" class="m" text-anchor="start">B: + edge sentences, top 8 · C: top 16</text>
+<text x="1262" y="254" class="m" text-anchor="start">B, C: proxy embedding model</text>
+<text x="1262" y="270" class="m" text-anchor="start">G: 2-hop GraphRAG, fallback seeds, no filter</text>
+<rect x="14" y="306" width="500" height="166" rx="9" class="nt"/>
+<text x="26" y="328" class="t" text-anchor="start">What the benchmark cannot show</text>
+<text x="26" y="348" class="s" text-anchor="start">whether vector search fails, or only lacks the edges</text>
+<text x="26" y="364" class="s" text-anchor="start">whether the LLM linker helps (the fallback alone links all 6)</text>
+<text x="26" y="380" class="s" text-anchor="start">behaviour at a size where retrieval has to choose</text>
+<text x="26" y="396" class="s" text-anchor="start">precision, grounding, paraphrases, spread over runs</text>
+<text x="26" y="412" class="s" text-anchor="start">time, permissions, unanswerable questions</text>
+<rect x="534" y="306" width="500" height="166" rx="9" class="nt"/>
+<text x="546" y="328" class="t" text-anchor="start">What a fair version adds</text>
+<text x="546" y="348" class="s" text-anchor="start">the same facts on both sides: edges as sentences or</text>
+<text x="546" y="364" class="s" text-anchor="start">neighbour lists, and a full-context control while it fits</text>
+<text x="546" y="380" class="s" text-anchor="start">user-written questions, held out from the topic map</text>
+<text x="546" y="396" class="s" text-anchor="start">answers that cite node IDs; precision and recall;</text>
+<text x="546" y="412" class="s" text-anchor="start">every named entity checked against the facts</text>
+<rect x="1054" y="306" width="486" height="166" rx="9" class="repb"/>
+<text x="1066" y="328" class="t" text-anchor="start">Our offline checks (retrieval only)</text>
+<text x="1066" y="348" class="s" text-anchor="start">none of the 48 edges is in the vector chunks;</text>
+<text x="1066" y="364" class="s" text-anchor="start">with edge sentences, top 16 finds every needed edge</text>
+<text x="1066" y="380" class="s" text-anchor="start">for Q1, Q2, Q4 and Q5, but 3 of 14 for Q3; GraphRAG&#x27;s</text>
+<text x="1066" y="396" class="s" text-anchor="start">2 hops hold 10 of Q3&#x27;s 14, not the 3 gold skills;</text>
+<text x="1066" y="412" class="s" text-anchor="start">5 of 32 names mis-linked; no answers generated</text>
+  </svg>
+  </div>
+</figure>
+<section id="recommended">
+  <h2><span class="num">11</span>The recommended architecture</h2>
+  <p class="cap"><span class="why">Why here:</span> Finally: the design an FDE would build, with the 2.5 decision each numbered part answers.</p>
+</section>
+<figure>
+  <div class="scroll">
+  <svg viewBox="0 0 1560 790" role="img" aria-label="The recommended architecture: the graph built from HR, project, decision and document systems through connectors, reviewed LLM extraction and entity resolution into a graph database with provenance, dates and permissions; questions routed by type and linked to node IDs, answered through templates, text-to-Cypher or hybrid retrieval, traversed with the asker&#x27;s permissions, and answered by an approved model with cited node and edge IDs; governance and evaluation alongside.">
+<defs><marker id="rcar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="rcarc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahc"/></marker><marker id="rcarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="rcarb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="rcarrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker><marker id="rcaro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10" class="aho"/></marker></defs>
+<text x="20" y="28" class="h" text-anchor="start">WHAT AN FDE WOULD BUILD · the number in a corner is the 2.5 decision that part answers</text>
+<text x="20" y="58" class="rl" text-anchor="start">BUILD AND MAINTAIN THE GRAPH</text>
+<rect x="20" y="70" width="200" height="58" rx="9" class="ex"/>
+<text x="32" y="92" class="t" text-anchor="start">HR system (HRIS)</text>
+<text x="32" y="112" class="s" text-anchor="start">people, roles, skills</text>
+<rect x="20" y="136" width="200" height="58" rx="9" class="ex"/>
+<text x="32" y="158" class="t" text-anchor="start">Project tools</text>
+<text x="32" y="178" class="s" text-anchor="start">who worked on what, when</text>
+<rect x="20" y="202" width="200" height="58" rx="9" class="ex"/>
+<text x="32" y="224" class="t" text-anchor="start">Decision register</text>
+<text x="32" y="244" class="s" text-anchor="start">decisions, approvers</text>
+<rect x="20" y="268" width="200" height="58" rx="9" class="ex"/>
+<text x="32" y="290" class="t" text-anchor="start">Wiki and documents</text>
+<text x="32" y="310" class="s" text-anchor="start">documents, authors, notes</text>
+<rect x="270" y="70" width="220" height="190" rx="9" class="nd"/>
+<text x="282" y="92" class="t" text-anchor="start">Connectors</text>
+<text x="282" y="112" class="s" text-anchor="start">recorded edges, synced on a</text>
+<text x="282" y="128" class="s" text-anchor="start">schedule or change feed;</text>
+<text x="282" y="144" class="s" text-anchor="start">source and date kept;</text>
+<text x="282" y="160" class="s" text-anchor="start">document metadata and</text>
+<text x="282" y="176" class="s" text-anchor="start">permissions too</text>
+<text x="478" y="250" class="tag" text-anchor="end">1</text>
+<path d="M222 99 H268" class="ln" marker-end="url(#rcar)"/>
+<path d="M222 165 H268" class="ln" marker-end="url(#rcar)"/>
+<path d="M222 231 H268" class="ln" marker-end="url(#rcar)"/>
+<path d="M222 282 H245 V250 H268" class="ln" marker-end="url(#rcar)"/>
+<rect x="270" y="280" width="220" height="90" rx="9" class="nd"/>
+<text x="282" y="302" class="t" text-anchor="start">LLM extraction</text>
+<text x="282" y="322" class="s" text-anchor="start">edges stated in text,</text>
+<text x="282" y="338" class="s" text-anchor="start">checked by a person</text>
+<text x="478" y="360" class="tag" text-anchor="end">1</text>
+<path d="M222 312 H268" class="ln" marker-end="url(#rcar)"/>
+<rect x="540" y="140" width="200" height="120" rx="9" class="nd"/>
+<text x="552" y="162" class="t" text-anchor="start">Entity resolution</text>
+<text x="552" y="182" class="s" text-anchor="start">one node per person or</text>
+<text x="552" y="198" class="s" text-anchor="start">project across systems,</text>
+<text x="552" y="214" class="s" text-anchor="start">via shared IDs</text>
+<text x="728" y="250" class="tag" text-anchor="end">1</text>
+<path d="M492 165 H538" class="ln" marker-end="url(#rcar)"/>
+<path d="M492 325 H515 V235 H538" class="ln" marker-end="url(#rcar)"/>
+<rect x="790" y="120" width="280" height="160" rx="9" class="dt"/>
+<text x="802" y="142" class="t" text-anchor="start">Graph database</text>
+<text x="802" y="162" class="s" text-anchor="start">every edge with its source,</text>
+<text x="802" y="178" class="s" text-anchor="start">dates (valid from / to)</text>
+<text x="802" y="194" class="s" text-anchor="start">and permissions; query-time</text>
+<text x="802" y="210" class="s" text-anchor="start">access control; document</text>
+<text x="802" y="226" class="s" text-anchor="start">text kept on document nodes</text>
+<text x="1058" y="270" class="tag" text-anchor="end">2, 3</text>
+<path d="M742 200 H788" class="ln" marker-end="url(#rcar)"/>
+<rect x="790" y="40" width="280" height="58" rx="9" class="ex"/>
+<text x="802" y="62" class="t" text-anchor="start">Identity groups</text>
+<text x="802" y="82" class="s" text-anchor="start">Entra ID or Okta groups</text>
+<path d="M930 98 V118" class="ln" marker-end="url(#rcar)"/>
+<text x="938" y="112" class="lbl" text-anchor="start">who may see what</text>
+<rect x="1120" y="40" width="420" height="240" rx="9" class="nt"/>
+<text x="1132" y="62" class="t" text-anchor="start">Governance</text>
+<text x="1132" y="82" class="s" text-anchor="start">purposes agreed with Legal and Privacy (DPIA),</text>
+<text x="1132" y="98" class="s" text-anchor="start">and the works council where one exists</text>
+<text x="1132" y="114" class="s" text-anchor="start">edge definitions: what “worked on”, “approved”</text>
+<text x="1132" y="130" class="s" text-anchor="start">and “expert in” mean, and which record proves it</text>
+<text x="1132" y="146" class="s" text-anchor="start">a named owner for graph quality</text>
+<text x="1132" y="162" class="s" text-anchor="start">leavers, moves and reorgs synced</text>
+<text x="1528" y="270" class="tag" text-anchor="end">1, 2</text>
+<text x="20" y="420" class="rl" text-anchor="start">ANSWER A QUESTION</text>
+<circle cx="60" cy="464" r="13" class="pa"/>
+<path d="M36 512 Q36 482 60 482 Q84 482 84 512 Z" class="pa"/>
+<text x="60" y="532" class="t" text-anchor="middle">Asker</text>
+<text x="60" y="549" class="s" text-anchor="middle">signed in (SSO)</text>
+<rect x="120" y="440" width="180" height="110" rx="9" class="nd"/>
+<text x="132" y="462" class="t" text-anchor="start">Question router</text>
+<text x="132" y="482" class="s" text-anchor="start">by question type:</text>
+<text x="132" y="498" class="s" text-anchor="start">lookup, path, list,</text>
+<text x="132" y="514" class="s" text-anchor="start">or prose</text>
+<text x="288" y="540" class="tag" text-anchor="end">6</text>
+<path d="M86 495 H118" class="ln" marker-end="url(#rcar)"/>
+<rect x="330" y="440" width="200" height="110" rx="9" class="nd"/>
+<text x="342" y="462" class="t" text-anchor="start">Entity linking</text>
+<text x="342" y="482" class="s" text-anchor="start">names → node IDs;</text>
+<text x="342" y="498" class="s" text-anchor="start">longest name first, or</text>
+<text x="342" y="514" class="s" text-anchor="start">embeddings + threshold;</text>
+<text x="342" y="530" class="s" text-anchor="start">tested on its own</text>
+<text x="518" y="540" class="tag" text-anchor="end">4, 5</text>
+<path d="M302 495 H328" class="ln" marker-end="url(#rcar)"/>
+<rect x="560" y="430" width="240" height="58" rx="9" class="nd"/>
+<text x="572" y="452" class="t" text-anchor="start">Query templates</text>
+<text x="572" y="472" class="s" text-anchor="start">known question shapes</text>
+<text x="788" y="478" class="tag" text-anchor="end">6</text>
+<rect x="560" y="498" width="240" height="74" rx="9" class="nd"/>
+<text x="572" y="520" class="t" text-anchor="start">Text-to-Cypher</text>
+<text x="572" y="540" class="s" text-anchor="start">schema in the prompt,</text>
+<text x="572" y="556" class="s" text-anchor="start">validated, read-only role</text>
+<text x="788" y="562" class="tag" text-anchor="end">6</text>
+<rect x="560" y="582" width="240" height="74" rx="9" class="nd"/>
+<text x="572" y="604" class="t" text-anchor="start">Hybrid</text>
+<text x="572" y="624" class="s" text-anchor="start">graph facts + passages</text>
+<text x="572" y="640" class="s" text-anchor="start">for prose questions</text>
+<text x="788" y="646" class="tag" text-anchor="end">6, 7</text>
+<path d="M532 495 H545 V459 H558" class="ln" marker-end="url(#rcar)"/>
+<path d="M532 495 H545 V535 H558" class="ln" marker-end="url(#rcar)"/>
+<path d="M532 495 H545 V619 H558" class="ln" marker-end="url(#rcar)"/>
+<rect x="850" y="470" width="230" height="130" rx="9" class="nd"/>
+<text x="862" y="492" class="t" text-anchor="start">Permission-aware traversal</text>
+<text x="862" y="512" class="s" text-anchor="start">the asker&#x27;s rights only;</text>
+<text x="862" y="528" class="s" text-anchor="start">derived edges: the stricter</text>
+<text x="862" y="544" class="s" text-anchor="start">permission; restricted</text>
+<text x="862" y="560" class="s" text-anchor="start">nodes hidden; k-hop</text>
+<text x="862" y="576" class="s" text-anchor="start">expansion as fallback</text>
+<text x="1068" y="590" class="tag" text-anchor="end">6, 14</text>
+<path d="M802 459 H825 V505 H848" class="ln" marker-end="url(#rcar)"/>
+<path d="M802 535 H848" class="ln" marker-end="url(#rcar)"/>
+<path d="M802 619 H825 V565 H848" class="ln" marker-end="url(#rcar)"/>
+<path d="M960 282 V468" class="ln" marker-end="url(#rcar)"/>
+<text x="968" y="380" class="lbl" text-anchor="start">facts, with permissions</text>
+<rect x="1120" y="470" width="180" height="130" rx="9" class="nd"/>
+<text x="1132" y="492" class="t" text-anchor="start">Rank and trim</text>
+<text x="1132" y="512" class="s" text-anchor="start">keep the facts</text>
+<text x="1132" y="528" class="s" text-anchor="start">the question needs</text>
+<text x="1288" y="590" class="tag" text-anchor="end">7</text>
+<rect x="1340" y="470" width="200" height="130" rx="9" class="nd"/>
+<text x="1352" y="492" class="t" text-anchor="start">Answer (LLM)</text>
+<text x="1352" y="512" class="s" text-anchor="start">cites node and edge IDs;</text>
+<text x="1352" y="528" class="s" text-anchor="start">approved provider</text>
+<text x="1352" y="544" class="s" text-anchor="start">or gateway</text>
+<text x="1528" y="590" class="tag" text-anchor="end">10, 11</text>
+<path d="M1082 535 H1118" class="ln" marker-end="url(#rcar)"/>
+<path d="M1302 535 H1338" class="ln" marker-end="url(#rcar)"/>
+<path d="M1440 602 V680 H60 V562" class="ln" marker-end="url(#rcar)"/>
+<text x="750" y="674" class="lbl" text-anchor="middle">answer, citing its sources</text>
+<rect x="20" y="700" width="1520" height="74" rx="9" class="nt"/>
+<text x="32" y="722" class="t" text-anchor="start">Evaluation, before and during the pilot</text>
+<text x="32" y="742" class="s" text-anchor="start">30–50 user questions, a third held out; five set-ups: vector, vector + edge sentences, GraphRAG, graph queries, and the full graph as a control while it fits</text>
+<text x="32" y="758" class="s" text-anchor="start">gold sets as node IDs, precision and recall, every named entity checked against the facts; linking accuracy measured on its own; repeated runs stored</text>
+<text x="1528" y="764" class="tag" text-anchor="end">8, 9, 11, 12</text>
+  </svg>
+  </div>
+</figure>
+</body>
+</html>
