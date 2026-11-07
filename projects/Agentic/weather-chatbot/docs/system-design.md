@@ -4,9 +4,16 @@ A visitor flying from Dallas to Zion needs several answers. Will the park weathe
 Does a closure affect the whole park or one trail? Are the available rooms near the park or near the airport?
 Nimbus keeps those questions separate so each answer can show its source, date and limitations.
 
-![How a dated park request becomes a conditions briefing and an optional travel search](images/system-design.svg)
+![Nimbus system map: runtime data flow, source retrieval and the reviewed evaluation loop](images/nimbus-system-map.svg)
+
+[Open the full-size system map](/docs/images/nimbus-system-map.svg).
+
+The map separates the live request path from the harness that checks it. Agent reasoning, direct trip logic,
+stored preparation guidance and current alerts have different jobs; the arrows show where they meet.
 
 ## From a weekend request to a decision
+
+![How a dated park request becomes a conditions briefing and an optional travel search](images/system-design.svg)
 
 1. **Establish the trip.** In chat, a supported park planning request can carry a park or trail, origin,
    dates, party and travel preferences. For “this weekend from DFW,” the date parser can use the departure
@@ -50,8 +57,8 @@ weather, preparation and NPS notices. The NWS decision described above belongs t
 - **Park knowledge** ships with the application. The offline builder validates the records before writing
   and replacing the SQLite index. Visitors can inspect source dates, sections and vectors directly.
   [Inspect the collection](/knowledge/sources).
-- **Open-Meteo data** uses separate lifetimes in Vercel's Runtime Cache. A place lookup can be reused for 30 days, current
-  weather for 10 minutes, and forecasts and air quality for 30 minutes. A cache failure falls through to an
+- **Open-Meteo data** uses separate lifetimes in Vercel's Runtime Cache. A place lookup can be reused for 30 days,
+  current weather for 10 minutes, and forecasts and air quality for 30 minutes. A cache failure falls through to an
   upstream request. [Weather cache chapter](step-7.md).
 - **Current notices** use shorter, per-instance caches. A complete NPS report lasts five minutes, a failed
   or incomplete fetch one minute. NWS uses one minute for a complete point check and 30 seconds otherwise.

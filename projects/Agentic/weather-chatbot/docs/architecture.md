@@ -4,7 +4,14 @@ Ask “Will it rain in Paris tomorrow?” and Nimbus can show the place lookup a
 Ask “Plan a trip to Dallas” and the first useful answer is a question about dates. Ask for a weekend in Zion
 and the first decision is whether conditions affect the visit. One chat supports all three.
 
-![How the browser, FastAPI, the agent and the trip planner connect to their sources](images/architecture.svg)
+![Nimbus: requests, evidence sources, observability and the evaluation harness](images/nimbus-system-map.svg)
+
+[Open the full-size system map](/docs/images/nimbus-system-map.svg).
+
+Follow the request through the upper half of the map, then follow the evaluation loop below. The model can
+choose tools for an agent answer; application code can collect trip details and check park conditions directly.
+Both paths expose their evidence. The harness checks behavior using repeatable cases and live trials, with
+human review between visitor feedback, a new regression case and a release decision.
 
 ## How Nimbus chooses a response
 
@@ -61,6 +68,12 @@ receive sanitized errors. LangSmith adds model and tool timings to eligible Acti
 
 Evaluations shows how the app performed on synthetic questions, including repeated trials and failures.
 Health reports dependency readiness separately from answer quality. [Evaluations](/evaluations) · [Health](/health).
+
+The harness keeps offline replay and live attempts separate. Its scorecards preserve failed attempts, and its
+release evidence check ties complete, repeated evaluation to the specified commit and preview deployment.
+Feedback supplies a category and answer reference; a reviewer writes a synthetic park-intake case before
+promoting it into the regression suite. This process adds a test, without training the model or automatically
+deploying the app. [Follow the harness loop](step-19.md).
 
 For the functions that choose a route, rank a passage and build an offer card, see
 [Technical details](technical-details.md).
