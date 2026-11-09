@@ -908,4 +908,11 @@ package's code**, **deploying**, or **testing a real API**.
      a missing evidence-expiry assertion, now covered. **Check:** the final real embedding set passed 18 cases with
      no false hits or provider errors. A real Dallas paraphrase reused its answer with zero tool calls or Gemini
      calls; 226 Chrome tests and 455 offline harness replay cases passed. Hosted activation remains pending.
+174. **Activity didn't say which steps call Mem0.** *You, 9 November.* A chat's "Read preferences" row looked like
+     any other step, and a deletion's row said "Forget preferences" while its trace link said "Delete preferences".
+     **Why:** the labels were written twice, in the row and in the link. **Fix:** one list names the three
+     operations that call Mem0, "Read Preferences (mem0)", "Save Preferences (mem0)" and "Delete Preferences
+     (mem0)", for both; pause and resume change only the browser's setting, so they keep their names. A chat
+     question still only reads Mem0; only My preferences or a confirmed save preview writes. **Check:** the memory
+     Activity tests expect the new labels.
 

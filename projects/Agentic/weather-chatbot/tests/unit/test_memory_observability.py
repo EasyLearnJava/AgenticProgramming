@@ -154,7 +154,7 @@ def test_real_activity_page_shows_memory_timeline_without_private_fields(client:
     app.state.axiom_query = AxiomQuery(token, lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(recording)))
     response = client.get(address)
     assert response.status_code == 200
-    assert "Save preferences" in response.text
+    assert "Save Preferences (mem0)" in response.text
     assert "awaiting confirmation" in response.text
     assert 'data-tone="warn"' in response.text
     assert private not in response.text
@@ -169,7 +169,12 @@ def test_real_activity_page_shows_memory_timeline_without_private_fields(client:
 
 
 @pytest.mark.parametrize(
-    ("action", "label"), [("read", "Read preferences"), ("save", "Save preferences"), ("forget", "Delete preferences")]
+    ("action", "label"),
+    [
+        ("read", "Read Preferences (mem0)"),
+        ("save", "Save Preferences (mem0)"),
+        ("forget", "Delete Preferences (mem0)"),
+    ],
 )
 def test_memory_operation_links_its_own_signed_root(settings: Settings, action: str, label: str) -> None:
     """Every provider operation can be opened independently without requiring a model call or chat ending."""
@@ -231,7 +236,7 @@ def test_distinct_memory_operations_keep_separate_ordered_links(settings: Settin
     read_root, save_root = uuid4(), uuid4()
     rows = [event(action="read", traceId=str(read_root)), event(action="save", traceId=str(save_root))]
     [item] = to_activity_requests([REQUEST_ID], rows, connected)
-    assert [link.label for link in item.memory_traces] == ["Read preferences", "Save preferences"]
+    assert [link.label for link in item.memory_traces] == ["Read Preferences (mem0)", "Save Preferences (mem0)"]
     assert read_root.hex in item.memory_traces[0].url
     assert save_root.hex in item.memory_traces[1].url
 
@@ -272,7 +277,7 @@ def test_activity_opens_memory_trace_only_on_click_and_keeps_preview_explanation
     app.dependency_overrides[get_activity_trace_reader] = lambda: read
     response = client.get("/activity?show=memory")
     assert response.status_code == 200
-    assert "Read preferences · Mem0 trace" in response.text
+    assert "Read Preferences (mem0) · Mem0 trace" in response.text
     assert "without a model call" in response.text
     assert "did not save any preferences" in response.text
     assert "No linked LangSmith trace for this request" not in response.text

@@ -82,6 +82,13 @@ CHECK_LABELS: Final = {
 }
 UPSTREAM_LABELS: Final = {"open-meteo": "Open-Meteo", "apify": "Apify"}
 STATUS_WORDS: Final = {"ok": "working", "down": "not answering", "off": "off"}
+# The three operations that call Mem0, named once for Activity's rows and their trace links; pause and resume change
+# only the browser's own setting, so their rows say nothing of Mem0.
+MEM0_LABELS: Final = {
+    "read": "Read Preferences (mem0)",
+    "save": "Save Preferences (mem0)",
+    "forget": "Delete Preferences (mem0)",
+}
 # A failure that needs a look: Axiom refused our token, or our query. Each is an error once on each copy of the app,
 # which reaches Sentry; then a warning, as the health check's (issue 74).
 NEEDS_A_LOOK: Final = frozenset({"axiom_refused", "axiom_bad_query"})
@@ -844,13 +851,7 @@ def to_semantic_cache_line(row: Row, at: datetime, took: str) -> ActivityLine:
 def to_memory_line(row: Row, at: datetime, took: str) -> ActivityLine:
     """Show only approved operation metadata; never echo arbitrary stored values, identities or provider errors."""
     action, status = to_words(row, "action"), to_words(row, "status")
-    labels = {
-        "read": "Read preferences",
-        "save": "Save preferences",
-        "pause": "Pause memory",
-        "resume": "Resume memory",
-        "forget": "Forget preferences",
-    }
+    labels = {**MEM0_LABELS, "pause": "Pause memory", "resume": "Resume memory"}
     outcomes = {
         ("read", "ready"): ("preferences available", "ok"),
         ("read", "empty"): ("no saved preferences", "idle"),
@@ -922,7 +923,7 @@ def to_memory_trace_links(
     """Link only unique recorded Mem0 operations, using the same project, age and signature checks as chat."""
     if settings is None:
         return ()
-    labels = {"read": "Read preferences", "save": "Save preferences", "forget": "Delete preferences"}
+    labels = MEM0_LABELS
     roots = Counter(
         to_words(row, "traceId") for row, _ in found if row.get("event") in (*ENDING_EVENTS, "memory.operation")
     )
