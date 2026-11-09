@@ -1,0 +1,51 @@
+[
+  {
+    "status": 200,
+    "cached": false,
+    "receipt": true,
+    "failed": false,
+    "cache_events": [
+      {
+        "action": "lookup",
+        "status": "miss",
+        "reason": ""
+      },
+      {
+        "action": "store",
+        "status": "stored",
+        "reason": ""
+      }
+    ],
+    "endings": [
+      {
+        "event": "chat.done",
+        "workflow": "agent",
+        "toolCalls": 3
+      }
+    ]
+  },
+  {
+    "status": 200,
+    "cached": true,
+    "receipt": true,
+    "failed": false,
+    "cache_events": [
+      {
+        "action": "lookup",
+        "status": "semantic_hit",
+        "reason": ""
+      }
+    ],
+    "endings": [
+      {
+        "event": "chat.done",
+        "workflow": "cached",
+        "toolCalls": 0
+      }
+    ]
+  },
+  {
+    "inventory_status": 200,
+    "inventory_has_entries": true
+  }
+]

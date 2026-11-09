@@ -13,6 +13,7 @@ answer is never kept.
 import asyncio
 import re
 import time
+from collections import Counter
 from collections.abc import Awaitable, Callable, Container, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -20,6 +21,7 @@ from http import HTTPStatus
 from typing import Annotated, Final
 from urllib.parse import urlencode
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -60,6 +62,7 @@ log = structlog.get_logger()
 MS_PER_SECOND = 1000
 HTTP_CLIENT_ERROR = 400
 HTTP_SERVER_ERROR = 500
+ACTIVITY_TIME_ZONE: Final = ZoneInfo("America/Chicago")
 LANE_LABELS: Final = {lane.id: lane.label for lane in LANES}
 TOOL_NAMES: Final = TRACE_TOOL_NAMES | {
     "retrieval_playground",
@@ -103,6 +106,7 @@ TIMELINE_EVENTS: Final = (
     *TOOL_EVENTS,
     "knowledge.call",
     "memory.operation",
+    "semantic_cache.operation",
     "nps.alerts",
     "nws.alerts",
     "travel.call",
@@ -198,6 +202,7 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
         f'or (event == "knowledge.call" and {STATUS} == "unavailable") '
         f'or (event == "nps.alerts" and {STATUS} == "not_configured") '
         f'or (event == "memory.operation" and {STATUS} in ("unavailable", "pending", "conflict")) '
+        f'or (event == "semantic_cache.operation" and {STATUS} == "error") '
         f'or event == "travel.section_error" '
         f'or (event in ("travel.plan", "travel.briefing") '
         f"and (toint({to_field('failedSections', '0')}) > 0 or toint({to_field('missingSections', '0')}) > 0)))"
@@ -291,7 +296,7 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
 # Evaluations' reasons, each event's by the narrowing that finds its questions.
 REASON_LINKS: Final = {"chat.rejected": "refused", "chat.failed": "failed", "lane.fallback": "fellback"}
 RESPONSE_WORKFLOW: Final = (
-    f'case(tostring({to_field("workflow")}) in ("agent", "intake", "briefing"), '
+    f'case(tostring({to_field("workflow")}) in ("agent", "intake", "briefing", "cached"), '
     f'tostring({to_field("workflow")}), tostring({to_field("tripForm")}) == "false", "briefing", '
     f'tostring({to_field("tripForm")}) == "true" '
     f'or tostring({to_field("cityTripIntake")}) == "true" '
@@ -644,6 +649,8 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
             return ActivityLine(at, "Park trip briefing", f"in {took}", "ok")
         if workflow == "intake":
             return ActivityLine(at, "Clarification", f"in {took}", "ok")
+        if workflow == "cached":
+            return ActivityLine(at, "Cached weather answer", f"in {took} · no model or tool calls", "ok")
         calls = (
             to_count(to_number(row, "toolCalls"), "tool call")
             if isinstance(row.get("toolCalls"), int | float)
@@ -801,7 +808,37 @@ def to_activity_line(row: Row) -> ActivityLine | None:
     event, took = to_words(row, "event"), to_duration(to_number(row, "ms"))
     if event == "memory.operation":
         return to_memory_line(row, at, took)
+    if event == "semantic_cache.operation":
+        return to_semantic_cache_line(row, at, took)
     return to_question_line(row, at, event, took) or to_call_line(row, at, event, took)
+
+
+def to_semantic_cache_line(row: Row, at: datetime, took: str) -> ActivityLine:
+    """Allowlist operation metadata; provider errors, questions, scopes and answer contents never become labels."""
+    action = to_words(row, "action")
+    suffix = f" · {action}" if action in {"lookup", "store", "list"} else ""
+    outcomes = {
+        "exact_hit": ("Exact match", "ok"),
+        "semantic_hit": ("Similar question matched", "ok"),
+        "miss": ("No reusable answer", "idle"),
+        "bypass": ("Skipped", "idle"),
+        "error": ("Unavailable; normal answer flow continues", "warn"),
+        "stored": ("Answer saved", "ok"),
+        "shadow_hit": ("Match measured; answer not reused", "idle"),
+        "ready": ("Inventory read", "ok"),
+        "disabled": ("Disabled", "idle"),
+    }
+    label, tone = outcomes.get(to_words(row, "status"), ("Outcome unavailable", "warn"))
+    reason = {
+        "expiry": "expired",
+        "context": "context changed",
+        "unsafe": "outside cache scope",
+        "ineligible": "outside cache scope",
+        "timeout": "time limit reached",
+        "unavailable": "provider unavailable",
+    }.get(to_words(row, "reason"), "")
+    detail = f"{label}{f' · {reason}' if reason else ''} in {took}"
+    return ActivityLine(at, f"Weather answer cache{suffix}", detail, tone)
 
 
 def to_memory_line(row: Row, at: datetime, took: str) -> ActivityLine:
@@ -849,6 +886,14 @@ def to_memory_line(row: Row, at: datetime, took: str) -> ActivityLine:
 
 
 @dataclass(frozen=True)
+class ActivityTraceLink:
+    """A signed operation link with a fixed label, never a visitor value or upstream run name."""
+
+    label: str
+    url: str
+
+
+@dataclass(frozen=True)
 class ActivityRequest:
     """
     One request on Activity: when its first line was written, its row (what it was and how it ended), its ref, and
@@ -863,6 +908,40 @@ class ActivityRequest:
     trace_url: str | None
     answer_ref: str
     trace_note: str = ""
+    memory_traces: tuple[ActivityTraceLink, ...] = ()
+
+    @property
+    def local_at(self) -> datetime:
+        """Show the request in Dallas Central Time while keeping UTC timestamps for traces and durations."""
+        return self.at.astimezone(ACTIVITY_TIME_ZONE)
+
+
+def to_memory_trace_links(
+    found: Sequence[tuple[Row, ActivityLine]], settings: Settings | None, ref: str, now: datetime
+) -> tuple[ActivityTraceLink, ...]:
+    """Link only unique recorded Mem0 operations, using the same project, age and signature checks as chat."""
+    if settings is None:
+        return ()
+    labels = {"read": "Read preferences", "save": "Save preferences", "forget": "Delete preferences"}
+    roots = Counter(
+        to_words(row, "traceId") for row, _ in found if row.get("event") in (*ENDING_EVENTS, "memory.operation")
+    )
+    links = []
+    for row, line in found:
+        if row.get("event") != "memory.operation":
+            continue
+        label, root = labels.get(to_words(row, "action")), to_words(row, "traceId")
+        if label is None or roots[root] != 1:
+            continue
+        # The operation is logged when it ends. Its recorded duration establishes its start-time window.
+        duration = to_number(row, "ms")
+        if not 0 <= duration <= 60_000:
+            continue
+        started = line.at - timedelta(milliseconds=duration)
+        href = trace_url(settings, root, started, ref, now)
+        if href is not None:
+            links.append(ActivityTraceLink(label, href))
+    return tuple(links)
 
 
 def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLine:
@@ -901,6 +980,9 @@ def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLi
         return with_problems(ActivityLine(first.at, call.what, call.detail, call.tone), lines)
     if "memory.operation" in by_event:
         operation = by_event["memory.operation"][1]
+        return with_problems(ActivityLine(first.at, operation.what, operation.detail, operation.tone), lines)
+    if "semantic_cache.operation" in by_event:
+        operation = by_event["semantic_cache.operation"][1]
         return with_problems(ActivityLine(first.at, operation.what, operation.detail, operation.tone), lines)
     if "http.request" in by_event:
         end = by_event["http.request"][1]
@@ -951,6 +1033,7 @@ def to_activity_requests(
         start = lines_of[0].at
         steps = [(f"+{to_duration((line.at - start) / timedelta(milliseconds=1))}", line) for line in lines_of]
         ref = to_ref(request_id)
+        memory_traces = to_memory_trace_links(found, settings, ref, now)
         is_chat = any(row.get("event") in QUESTION_EVENTS for row in rows_of)
         # A server-minted root appears only on a traced chat ending. Ambiguous/reused request IDs have no link.
         endings = [(row, line) for row, line in found if row.get("event") in ENDING_EVENTS]
@@ -963,6 +1046,10 @@ def to_activity_requests(
         trace_note = ""
         if len(endings) == 1 and endings[0][0].get("event") == "chat.done" and not to_words(endings[0][0], "traceId"):
             trace_note = {
+                "cached": (
+                    "Nimbus reused a fresh weather answer without a model call. "
+                    "No LangSmith model trace was created for this cache hit."
+                ),
                 "briefing": (
                     "Nimbus built this park briefing directly without a model call. "
                     "Its source checks appear in this timeline; no LangSmith model trace was created."
@@ -981,17 +1068,20 @@ def to_activity_requests(
             (to_words(row, "answerRef") for row in rows_of if TURN_ID.fullmatch(to_words(row, "answerRef"))), ""
         )
         requests.append(
-            ActivityRequest(start, to_summary(rows_of, lines_of), ref, steps, is_chat, href, answer_ref, trace_note)
+            ActivityRequest(
+                start, to_summary(rows_of, lines_of), ref, steps, is_chat, href, answer_ref, trace_note, memory_traces
+            )
         )
     # By when each began: the first query found each by the line that picked it, which may come later.
     return sorted(requests, key=lambda request: request.at, reverse=True)
 
 
 def to_days(requests: Sequence[ActivityRequest]) -> list[tuple[str, list[ActivityRequest]]]:
-    """The requests grouped by the day they began, in UTC, in the order they came: the latest first."""
+    """Group requests by their Dallas calendar day, retaining their latest-first absolute-time order."""
     days: dict[str, list[ActivityRequest]] = {}
     for request in requests:
-        days.setdefault(f"{request.at:%A} {request.at.day} {request.at:%B %Y}", []).append(request)
+        local = request.local_at
+        days.setdefault(f"{local:%A} {local.day} {local:%B %Y}", []).append(request)
     return list(days.items())
 
 
@@ -1152,7 +1242,7 @@ async def activity_page(
     requests = to_activity_requests(request_ids, lines, request.app.state.settings)
     narrowed = [narrowing.words] if narrowing is not None else []
     if on_day is not None:
-        narrowed.append(to_day_words(on_day))
+        narrowed.append(f"{to_day_words(on_day)} (UTC filter)")
     context = {
         "title": "Activity",
         "tracing_enabled": is_tracing_allowed(request.app.state.settings),
@@ -1220,6 +1310,7 @@ def response_bars(rows: Sequence[Row]) -> list[Bar]:
     """Separate completed agent answers, conditions briefings, clarification replies and older unknown events."""
     labels = {
         "agent": "Agent answers",
+        "cached": "Cached weather answers",
         "briefing": "Park conditions briefings",
         "intake": "Clarifications and guidance",
         "unknown": "Unclassified older responses",

@@ -8,6 +8,12 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 
 ## Done
 
+- **Optional Qdrant weather answer cache:** exact lookup followed by hosted MiniLM similarity, with independent
+  browser/context/date/unit guards, authenticated history and original evidence expiry. Complete successful weather
+  answers can be reused for at most 120 seconds. [Weather cache](/weather-cache) shows private labels and freshness;
+  Activity distinguishes cache reuse from model answers. Local mode is `on` after live provider and chat checks;
+  hosted release remains separate. [Local evidence](technical-details.md#local-validation-on-9-november-2026)
+
 - **Optional Mem0 travel preferences:** explicit preview and save of five typed defaults, browser-scoped ownership,
   edit/pause/resume/forget controls, provider readback verification and integration with chat and park planning.
   Stored values do not approve searches or replace fresh evidence. Hosted configuration and validation remain below.
@@ -35,6 +41,11 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
   ```
 
 ## Next
+
+- **Answer-cache release evidence:** preserve separate results for mock-provider regressions, real hosted embedding
+  smoke cases and independent held-out cases. Check false hits, positive recall, provider errors, browser isolation,
+  expiry, changed context and normal fallback on the exact preview before enabling reuse. Required hosted settings
+  and the rollout sequence are on [Waiting on you](waiting-on-you.md#qdrant-weather-answer-cache).
 
 - **Preference-memory release evidence:** validate the configured preview's save, reload, override, browser isolation,
   pause/resume and deletion flow, plus ordinary chat when memory is unavailable. Record the exact build and results

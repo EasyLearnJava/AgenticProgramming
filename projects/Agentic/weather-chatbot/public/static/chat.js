@@ -17,6 +17,7 @@
   const stop = document.getElementById("stop");
   const errorTemplate = document.getElementById("chat-error-template");
   const historyField = document.getElementById("history");
+  const cacheReceipt = document.getElementById("cache-receipt");
   let isStopping = false;
   let hasStarted = false;
 
@@ -130,6 +131,7 @@
   function rememberConversation() {
     const limits = messages.dataset;
     const turns = [];
+    let latestReceipt = "";
     let question = null;
     for (const item of messages.children) {
       if (item.classList.contains("message-user")) {
@@ -141,6 +143,7 @@
         : "";
       if (question && answer) {
         turns.push([cut(question, +limits.questionMaxChars), cut(answer, +limits.answerMaxChars)]);
+        latestReceipt = item.dataset.cacheReceipt || "";
       }
       question = null;
     }
@@ -150,6 +153,7 @@
     }
     const sent = kept.flatMap(([q, a]) => [{ role: "user", text: q }, { role: "assistant", text: a }]);
     historyField.value = JSON.stringify(sent);
+    if (cacheReceipt) cacheReceipt.value = latestReceipt;
   }
 
   // ⑤ The stream has ended. An answer still busy never got its end: it was stopped, or cut off on the way. A stream
@@ -197,6 +201,7 @@
       messages.lastElementChild.remove();
     }
     historyField.value = "[]";
+    if (cacheReceipt) cacheReceipt.value = "";
     box.focus();
   });
 

@@ -22,7 +22,7 @@ import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator, model_validator
 from starlette.requests import ClientDisconnect
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
@@ -80,6 +80,10 @@ from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
+from nimbus.semantic_cache.evidence import cached_cards
+from nimbus.semantic_cache.identity import set_scope
+from nimbus.semantic_cache.integration import CacheTurn
+from nimbus.semantic_cache.integration import prepare as prepare_cache
 from nimbus.travel import briefing
 from nimbus.travel.city_intake import city_trip_reply
 from nimbus.travel.hotel_intake import hotel_dates_reply
@@ -119,6 +123,7 @@ class ChatRequest(BaseModel):
     time_zone: str = DEFAULT_TIME_ZONE
     history: tuple[HistoryMessage, ...] = ()
     lane: LaneId = "rest-no-auth"
+    cache_receipt: str = Field(default="", max_length=64, pattern=r"^(?:[a-f0-9]{64})?$")
 
     @field_validator("history", mode="before")
     @classmethod
@@ -289,6 +294,7 @@ async def stream_turn(
     *,
     restrict_links: bool = False,
     memory_note: str = "",
+    cache_turn: CacheTurn | None = None,
 ) -> AsyncGenerator[str]:
     """
     A turn of the chat, as server-sent events: the two messages; each tool call's chip as it starts and as it ends;
@@ -359,6 +365,10 @@ async def stream_turn(
             "weather_cards": to_weather_cards(list(chips.values())),
             "memory_note": memory_note,
         }
+        if cache_turn is not None:
+            done["cache_receipt"] = await cache_turn.completed(
+                "".join(pieces), list(chips.values()), str(done["answer"])
+            )
         yield to_sse_message(render_part("chat_end.html", done))
         log.info("chat.done", **ending())
     except (asyncio.CancelledError, GeneratorExit):
@@ -580,7 +590,69 @@ async def chat(request: Request) -> Response:
         response = EventStream(await anext(events), events)
         response.headers["vary"] = "Cookie"
         return response
-    # ② The model, made when the app started; a deployment without its key can't answer at all.
+    # ② Reuse only an independently guarded weather answer after all deterministic workflows have had priority.
+    history = [(message.role, message.text) for message in chat_request.history]
+    cache_turn = prepare_cache(
+        request,
+        chat_request.question,
+        chat_request.locale,
+        chat_request.time_zone,
+        lane.id,
+        history,
+        chat_request.cache_receipt,
+        memory,
+        now,
+    )
+    if cache_turn is not None:
+        lookup = await cache_turn.service.lookup(
+            chat_request.question, cache_turn.scope, cache_turn.context, cache_turn.policy
+        )
+        if lookup.entry is not None and lookup.entry.expires_at > time.time():
+            entry = lookup.entry
+
+            async def cached_events() -> AsyncGenerator[str]:
+                """A new answer turn, with cached evidence and no simulated model or tool executions."""
+                turn_id = new_turn_id()
+                try:
+                    yield to_sse_message(
+                        render_part(
+                            "chat_turn.html",
+                            {
+                                "turn_id": turn_id,
+                                "question": chat_request.question,
+                            },
+                        )
+                    )
+                    html = render_answer(entry.answer)
+                    context = {
+                        "turn_id": turn_id,
+                        "answer": html,
+                        "chips": (),
+                        "weather_cards": cached_cards(entry, time.time()),
+                        "memory_note": memory_note,
+                        "cache_note": "Cached answer · Gemini was not called. "
+                        f"Expires in {max(0, int(entry.expires_at - time.time()))} seconds.",
+                        "cache_receipt": cache_turn.receipt_for(str(html)),
+                    }
+                    yield to_sse_message(render_part("chat_end.html", context))
+                    log.info(
+                        "chat.done",
+                        workflow="cached",
+                        answerRef=answer_ref(turn_id),
+                        answerChars=len(entry.answer),
+                        toolCalls=0,
+                        ms=to_ms(time.perf_counter() - started),
+                    )
+                except (asyncio.CancelledError, GeneratorExit):
+                    log.info("chat.aborted", workflow="cached", answerChars=0, ms=to_ms(time.perf_counter() - started))
+                    raise
+
+            cached_stream = cached_events()
+            response = EventStream(await anext(cached_stream), cached_stream)
+            response.headers["vary"] = "Cookie"
+            set_scope(response, request, cache_turn.cookie)
+            return response
+    # The model, made when the app started; a deployment without its key can still serve a valid cache hit.
     model = request.app.state.chat_model
     if model is None:
         ms = to_ms(time.perf_counter() - started)
@@ -589,7 +661,6 @@ async def chat(request: Request) -> Response:
     # ③ The answer: the system prompt and the question, to the agent, with the weather tools; LangSmith traces it
     # only through the app's own tracer, whose client hides its inputs and outputs, when tracing is allowed at all.
     stats = AnswerStats()
-    history = [(message.role, message.text) for message in chat_request.history]
     messages = to_messages(
         chat_request.question,
         now,
@@ -629,6 +700,7 @@ async def chat(request: Request) -> Response:
         stats,
         settings.gemini_model,
         memory_note=memory_note,
+        cache_turn=cache_turn,
         restrict_links=bool(
             enabled
             and re.search(
@@ -643,4 +715,6 @@ async def chat(request: Request) -> Response:
     # ⑤ The answer, streamed.
     response = EventStream(first, turn)
     response.headers["vary"] = "Cookie"
+    if cache_turn is not None:
+        set_scope(response, request, cache_turn.cookie)
     return response

@@ -38,6 +38,12 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
     ready = UUID("1cd9a312-dd4d-4696-ac81-9e3521b2d07a")
     pending = UUID("2edb2101-262d-41ad-ba41-d71c8c9d128e")
     partial = UUID("3edb2101-262d-41ad-ba41-d71c8c9d128e")
+    memory_traces = {
+        "memory-read-55555555": (UUID("4edb2101-262d-41ad-ba41-d71c8c9d128e"), "read", "ready"),
+        "memory-save-66666666": (UUID("5edb2101-262d-41ad-ba41-d71c8c9d128e"), "save", "ready"),
+        "memory-delete-77777777": (UUID("6edb2101-262d-41ad-ba41-d71c8c9d128e"), "forget", "pending"),
+        "ready-11111111": (UUID("7edb2101-262d-41ad-ba41-d71c8c9d128e"), "read", "ready"),
+    }
     traces = {
         "ready-11111111": ready,
         "pending-22222222": pending,
@@ -47,6 +53,23 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
     now = datetime.now(UTC).isoformat()
 
     async def fake_reader(_settings: Settings, trace_id: UUID) -> TraceView:
+        for identifier, action, outcome in memory_traces.values():
+            if trace_id == identifier:
+                label = "delete" if action == "forget" else action
+                return TraceView(
+                    "ready",
+                    (
+                        TraceRow(
+                            f"Mem0 {label}",
+                            "Memory",
+                            145,
+                            0,
+                            0,
+                            "Failed" if outcome == "pending" else "Completed",
+                            "Memory reported an error." if outcome == "pending" else None,
+                        ),
+                    ),
+                )
         if trace_id == pending:
             return TraceView(status="pending")
         if trace_id == partial:
@@ -90,7 +113,9 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
     app.dependency_overrides[get_activity_trace_reader] = lambda: fake_reader
     return AxiomRecordings(
         {
-            "summarize started = min(_time) by requestId": [{"requestId": key, "started": now} for key in traces],
+            "summarize started = min(_time) by requestId": [
+                {"requestId": key, "started": now} for key in dict.fromkeys([*traces, *memory_traces])
+            ],
             "where requestId in (": [
                 {
                     "requestId": key,
@@ -101,6 +126,20 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
                 }
                 for key, trace_id in traces.items()
                 for event in ("chat.request", "chat.done")
+            ]
+            + [
+                {
+                    "requestId": key,
+                    "_time": now,
+                    "event": "memory.operation",
+                    "action": action,
+                    "status": outcome,
+                    "ms": 145,
+                    "traceId": str(identifier),
+                    "tool": "memory_preferences",
+                    "reason": "pending_confirmation" if outcome == "pending" else "",
+                }
+                for key, (identifier, action, outcome) in memory_traces.items()
             ],
         }
     )

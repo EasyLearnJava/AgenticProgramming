@@ -143,7 +143,47 @@ profile to check that it starts without those preferences. Confirm ordinary weat
 memory is disabled or unavailable. Record the tested commit, deployment and outcomes; local mock tests are not proof
 that hosted credentials work.
 
+For Mem0 tracing, use the existing LangSmith project, tracing key and both input/output-hiding settings; no new key
+is required. After deploying the tracing change, check the synthetic save, read and delete in **Activity → Memory**,
+open each Mem0 trace and confirm its timing and outcome. A chat that reads preferences should show both its Mem0
+read link and, if the agent runs, its chat trace link. Confirm LangSmith contains no preference values, browser or
+record identifiers, cookies or keys. Old memory events without trace IDs cannot acquire links retrospectively.
+
 The feature offers browser-scoped preference memory, not accounts or a backup of conversation history. Expiry stops
 normal use after 180 days from saving; it does not prove physical deletion. Review the controls and retention notice on
 [My preferences](/preferences), and delete the synthetic profile after validation. Implementation details and failure
 behavior are in [Technical details](technical-details.md#follow-an-approved-preference).
+
+## Qdrant weather answer cache
+
+Local setup created and verified the dedicated `nimbus_weather_cache` collection on the Free cluster. The key is in
+ignored `.env.local`. Local mode is now `on` after real provider and chat checks, including a paraphrase answered
+without Gemini or fresh tool calls. These settings do not configure Vercel; no hosted cache deployment was checked.
+Before enabling the hosted feature, use **Project → Settings → Environment Variables** for the intended environment:
+
+| Setting | Where the value comes from | Value for reuse |
+| --- | --- | --- |
+| `QDRANT_URL` | Qdrant Cloud → cluster → Overview → Endpoint | The HTTPS cluster endpoint, without a dashboard path. |
+| `QDRANT_API_KEY` | The Database API key saved privately during cluster setup | Store as a secret; never put it in `.env.example`, chat, a URL or a screenshot. |
+| `SEMANTIC_CACHE_MODE` | An operator-selected rollout mode | `shadow` for observation, then `on` after the release checks; `off` disables cache calls. |
+
+The optional `QDRANT_COLLECTION` defaults to `nimbus_weather_cache`; `SEMANTIC_CACHE_THRESHOLD` defaults to `0.80`.
+Use a dedicated collection per environment when separating preview and production data. A runtime key can be scoped
+to the existing collection with read/write permission; setup requires a credential that can manage collections.
+No separate embedding API key, Gemini embedding purchase or local model installation is required.
+
+Create a deployment after changing settings. On that exact preview, ask “Dallas weather,” then “weather in Dallas”
+in the same conversation. In `shadow` mode Gemini should still answer. With `on`, an accepted fresh repeat should
+show a cache badge and no newly executed weather tools or Gemini call. Open [Weather cache](/weather-cache) to see
+the label, source age and expiry. A separate browser profile must see no entries belonging to the first browser.
+Verify changed units, dates, destinations, preferences and altered history reject reuse; verify expiry and provider
+outages return to the normal flow. Park guidance, alerts, travel planning and Mem0 controls must retain their behavior.
+
+Record the commit, deployment, mode, threshold and live evaluation artifacts before production. Keep provider errors
+separate from semantic misses. A small successful smoke run does not establish held-out recall or production readiness.
+The offline and live commands are in [Technical details](technical-details.md#configure-and-validate-answer-reuse).
+
+The free cluster and hosted MiniLM option are enough for this bounded demo; no paid upgrade is selected by the app.
+Review Qdrant's current Free limits and inactivity policy before relying on it for an unattended deployment.
+Logical expiry prevents reuse immediately, while physical cleanup is opportunistic during later stores.
+[Qdrant Free cluster documentation](https://qdrant.tech/documentation/cloud/create-cluster/).

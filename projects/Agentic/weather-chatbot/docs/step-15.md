@@ -114,7 +114,8 @@ written, times each from the first, gives the request its row through `to_summar
 latest begun first: a health run by how it ended and each check that wasn't answering; a question by how it ended
 and the lane it was asked on; a call to our MCP server by its tool; else the request's own end. `with_problems()`
 adds, to a row whose end went well, how many lines didn't, and makes it a warning. A request none of whose lines a
-timeline shows is left out. `to_days()` groups the requests by the day they began, in UTC.
+timeline shows is left out. `to_days()` groups requests by their Dallas calendar day (`America/Chicago`). The page
+shows CST or CDT beside each time; raw log timestamps and Health's explicitly labelled UTC day filters stay in UTC.
 
 On the MCP lanes, a tool runs in our MCP server's own request, with an id of its own: the question's timeline shows
 the tool call, and the server's request, a row of its own, its fetches. Joining the two is on [To do](todo.md).

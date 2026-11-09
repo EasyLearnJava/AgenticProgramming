@@ -17,6 +17,7 @@ from pydantic import AwareDatetime, BaseModel, TypeAdapter, field_validator
 
 from nimbus.config import Settings
 from nimbus.constants import AGENT_NAME, OBSERVABILITY_DAYS
+from nimbus.memory.tracing import MEMORY_TRACE_NAMES
 from nimbus.model import is_tracing_allowed
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.utils import to_iso, to_ms
@@ -33,6 +34,10 @@ TRACE_TOOL_NAMES: Final = frozenset(tool.name for tool in WEATHER_TOOLS) | {
 }
 STEP_LABELS = {"model": "Model step", "tools": "Tool step", "route": "Route tools"}
 STATUSES = {"SUCCESS": "Completed", "ERROR": "Failed", "PENDING": "Running"}
+MEMORY_LABELS = {
+    MEMORY_TRACE_NAMES[action]: f"Mem0 {label}"
+    for action, label in (("read", "read"), ("save", "save"), ("forget", "delete"))
+}
 # Ask only for identifiers, nesting, names, status and timestamps. Even error text can contain the question.
 SELECTS = ("ID", "PROJECT_ID", "TRACE_ID", "PARENT_RUN_IDS", "NAME", "RUN_TYPE", "START_TIME", "END_TIME", "STATUS")
 
@@ -51,7 +56,7 @@ class TraceIssue(StrEnum):
     WORKSPACE_REQUIRED = "This trace can't be shown: reading traces isn't set up on this deployment."
     WORKSPACE_MISMATCH = "This trace can't be shown: its tracing project doesn't match this deployment."
     WRONG_SCOPE = "LangSmith returned data outside the requested trace or project. Nimbus withheld those calls."
-    WRONG_ROOT = "This trace doesn't belong to a Nimbus chat, so it isn't shown."
+    WRONG_ROOT = "This trace doesn't belong to a Nimbus chat or memory operation, so it isn't shown."
     RATE_LIMITED = "LangSmith reached its read limit. Wait a minute before refreshing the trace."
     SERVICE_ERROR = "LangSmith reported a service error. Try refreshing the trace later."
     REQUEST_REJECTED = "LangSmith rejected the lookup. Try refreshing the trace later."
@@ -128,6 +133,8 @@ class _Runs(BaseModel):
 def _label(span: _Span, root_id: UUID) -> tuple[str, str] | None:
     """Include the graph, model and tool calls, plus any other step that explains a failure."""
     if span.id == root_id:
+        if span.name in MEMORY_LABELS and span.run_type == "TOOL":
+            return "Memory", MEMORY_LABELS[span.name]
         return "Agent", "Nimbus agent"
     if span.run_type == "LLM":
         return "Model", "Gemini" if span.name == "ChatGoogleGenerativeAI" else "Model call"
@@ -146,7 +153,9 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
     root = next((span for span in spans if span.id == trace_id), None)
     if root is None:
         return TraceView("pending")
-    if root.name != AGENT_NAME or root.run_type != "CHAIN":
+    is_agent = root.name == AGENT_NAME and root.run_type == "CHAIN"
+    is_memory = root.name in MEMORY_LABELS and root.run_type == "TOOL"
+    if not (is_agent or is_memory):
         return _failed("runs", TraceIssue.WRONG_ROOT)
     labels = {span.id: display for span in spans if (display := _label(span, trace_id)) is not None}
     visible = sorted(

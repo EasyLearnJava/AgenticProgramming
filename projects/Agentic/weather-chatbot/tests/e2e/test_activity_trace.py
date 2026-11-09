@@ -9,6 +9,45 @@ from playwright.sync_api import Browser, Page, expect
 pytestmark = pytest.mark.parametrize("base_url", ["trace"], indirect=True)
 
 
+@pytest.mark.parametrize(
+    ("ref", "operation", "outcome"),
+    [
+        ("55555555", "read", "Completed"),
+        ("66666666", "save", "Completed"),
+        ("77777777", "delete", "Failed"),
+    ],
+)
+def test_memory_operation_opens_its_private_content_free_trace(
+    page: Page,
+    base_url: str,
+    ref: str,
+    operation: str,
+    outcome: str,
+    tmp_path: Path,
+) -> None:
+    """Read, save and unconfirmed delete traces work without a model call, including mobile accessibility."""
+    page.set_viewport_size({"width": 390, "height": 900})
+    page.goto(f"{base_url}/activity?show=memory")
+    request = page.locator("details.obs-details").filter(has_text=f"Ref {ref}")
+    request.locator("summary").click()
+    expect(request).not_to_contain_text("No linked LangSmith trace")
+    request.locator('a[href^="/activity/trace/"]').click()
+    expect(page.locator(".trace-row")).to_have_count(1)
+    expect(page.locator(".trace-row")).to_contain_text(f"Mem0 {operation}")
+    expect(page.locator(".trace-row")).to_contain_text(outcome)
+    expect(page.locator(".trace-metric").filter(has_text="Trace duration")).to_contain_text("145 ms")
+    expect(page.locator(".trace-metric").filter(has_text="Memory operations")).to_contain_text("1")
+    expect(page.locator(".trace-metric").filter(has_text="Model calls")).to_contain_text("0")
+    page.get_by_role("button", name="Memory", exact=True).click()
+    page.locator("[data-trace-select]").click()
+    expect(page.locator("[data-trace-detail-parent]")).to_have_text("None (trace root)")
+    expect(page.locator(".trace-privacy-note")).to_contain_text("preference values, identities and keys stay private")
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    audit = Axe().run(page)
+    assert audit.violations_count == 0, audit.generate_report()
+    page.screenshot(path=str(tmp_path / f"mem0-trace-{operation}.png"), full_page=True)
+
+
 @pytest.mark.parametrize("width", [360, 1280])
 def test_activity_opens_its_own_trace_with_model_tool_timings_and_error(
     page: Page, base_url: str, width: int, tmp_path: Path

@@ -2140,7 +2140,7 @@ TRACE_MUTATIONS = (
     ),
     Mutation(
         "nimbus/trace_view.py",
-        'if root.name != AGENT_NAME or root.run_type != "CHAIN":',
+        "if not (is_agent or is_memory):",
         "if False:",
         "trace reads still reject a different root identity",
     ),
@@ -2192,12 +2192,62 @@ TRACE_MUTATIONS = (
         'return "0 ms" if value is None else f"{max(0, value):,} ms"',
         "trace details never turn missing duration into zero",
     ),
+    Mutation(
+        "nimbus/trace_view.py",
+        'is_memory = root.name in MEMORY_LABELS and root.run_type == "TOOL"',
+        "is_memory = root.name in MEMORY_LABELS",
+        "memory traces require their exact run type",
+    ),
+    Mutation(
+        "nimbus/trace_presenter.py",
+        'memory_count=sum(row.kind == "Memory" for row in rows)',
+        "memory_count=0",
+        "memory operations are counted independently of model calls",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        "if label is None or roots[root] != 1:",
+        "if label is None:",
+        "memory trace links reject reused roots",
+    ),
+    Mutation(
+        "nimbus/memory/tracing.py",
+        "self.trace_id, self.dotted_order = root, order",
+        "self.trace_id, self.dotted_order = uuid4(), order",
+        "memory traces log and finish the same queued root",
+    ),
+    Mutation(
+        "nimbus/memory/tracing.py",
+        'error=None if self.status in {"ready", "empty"} else "Memory operation not confirmed",',
+        "error=None,",
+        "unconfirmed memory operations remain failed traces",
+    ),
+    Mutation(
+        "nimbus/memory/tracing.py",
+        'self.reason = reason if reason in _REASONS else "unavailable"',
+        "self.reason = reason",
+        "memory trace metadata rejects unapproved private reason text",
+    ),
+    Mutation(
+        "nimbus/memory/tracing.py",
+        "    finally:\n        operation.close()",
+        "    finally:\n        pass",
+        "memory traces close and log on cancellation",
+    ),
+    Mutation(
+        "nimbus/memory/tracing.py",
+        "project_name=self.tracer.project,",
+        'project_name=self.tracer.project or "default",',
+        "memory trace writers preserve the readers SDK project fallback",
+    ),
 )
 MUTATIONS += TRACE_MUTATIONS
 TESTS_FOR["nimbus/answer.py"] += ("test_privacy.py",)
 TESTS_FOR["nimbus/trace_links.py"] = ("test_activity_traces.py",)
 TESTS_FOR["nimbus/trace_view.py"] = ("test_trace_view.py",)
 TESTS_FOR["nimbus/trace_presenter.py"] = ("test_trace_presenter.py",)
+TESTS_FOR["nimbus/memory/tracing.py"] = ("test_memory_tracing.py", "test_memory_trace_routes.py")
+TESTS_FOR["nimbus/observability.py"] += ("test_memory_observability.py",)
 for _travel_module in ("providers", "mcp_client", "kiwi", "trivago"):
     TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_providers.py",)
 for _travel_module in ("service", "models", "tools"):
@@ -2500,6 +2550,133 @@ MEMORY_MUTATIONS = (
 )
 MUTATIONS += MEMORY_MUTATIONS
 
+# Weather answer reuse: privacy, expiry, independent guards and honest evaluation evidence.
+SEMANTIC_CACHE_MUTATIONS = (
+    Mutation(
+        "nimbus/semantic_cache/integration.py",
+        "if entry is not None:\n            await self.service.store(self.question, entry)",
+        'if entry is None:\n            return ""\n        await self.service.store(self.question, entry)',
+        "cache receipts survive successful answers that cannot be stored",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/policy.py",
+        "if PLACE_UNITS.search(place):",
+        "if False:",
+        "cache receipts cannot treat unit instructions as city names",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/policy.py",
+        'CITY_ALIASES = {"vizag": "visakhapatnam"}',
+        'CITY_ALIASES = {"vizag": "vizag"}',
+        "cache city aliases share an approved destination",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/policy.py",
+        'return earlier.model_copy(update={"place": current.place}) == current',
+        "return earlier == current",
+        "cache city changes allow independent explicit weather requests",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/evidence.py",
+        "if first_day != destination_day:",
+        "if False:",
+        "cache city forecasts require the current destination day",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/evidence.py",
+        'if policy.intent == "today" and policy.day not in {day.date for day in forecast.days}:',
+        "if False:",
+        "cache city forecasts preserve the explicit browser today",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/evidence.py",
+        "return expected <= available",
+        "return True",
+        "cache admission requires every requested finite hourly temperature",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/policy.py",
+        '"prompt": digest(prompt_contract),',
+        '"prompt": "",',
+        "cache context invalidates when system prompt rules change",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/policy.py",
+        "if UNSAFE.search(text) or re.search(",
+        "if False or re.search(",
+        "cache eligibility excludes safety and park requests",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/identity.py",
+        'if not hmac.compare_digest(signature(secret, "cookie", value), signed):',
+        "if False:",
+        "cache browser cookies require authentic signatures",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/service.py",
+        'if not hmac.compare_digest(signature(self._key, "entry", record), mac):',
+        "if False:",
+        "cache records require integrity authentication",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/service.py",
+        "entry.scope == scope",
+        "True",
+        "cache records require the current browser scope",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/service.py",
+        "and now < entry.expires_at <= entry.created_at + TTL_SECONDS",
+        "and entry.expires_at <= entry.created_at + TTL_SECONDS",
+        "cache expired records cannot be reused",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/integration.py",
+        "if not compatible_history(earlier, policy):",
+        "if False:",
+        "cache signed history preserves place date and unit constraints",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/evidence.py",
+        "if not expected_dates <= {day.date for day in forecast.days}:",
+        "if False:",
+        "cache admission requires the requested forecast coverage",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/evidence.py",
+        "expires = min(now + TTL_SECONDS, *expiries)",
+        "expires = now + TTL_SECONDS",
+        "cache answers never outlive original evidence",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/page.py",
+        'response.headers["cache-control"] = "no-store"',
+        'response.headers["cache-control"] = "public"',
+        "cache inventory cannot enter a shared HTTP cache",
+    ),
+    Mutation(
+        "tools/eval_semantic_cache.py",
+        "not provider_errors",
+        "True",
+        "cache live provider failures cannot hide inside recall",
+    ),
+)
+MUTATIONS += SEMANTIC_CACHE_MUTATIONS
+TESTS_FOR.update(
+    {
+        "nimbus/semantic_cache/service.py": ("test_semantic_cache_service.py",),
+        "nimbus/semantic_cache/policy.py": ("test_semantic_cache_policy.py",),
+        "nimbus/semantic_cache/identity.py": ("test_semantic_cache_policy.py",),
+        "nimbus/semantic_cache/integration.py": (
+            "test_semantic_cache_chat.py",
+            "test_semantic_cache_receipts.py",
+        ),
+        "nimbus/semantic_cache/evidence.py": ("test_semantic_cache_chat.py", "test_semantic_cache_evidence.py"),
+        "nimbus/semantic_cache/page.py": ("test_semantic_cache_page.py",),
+        "tools/eval_semantic_cache.py": ("test_semantic_cache_evals.py",),
+    }
+)
+
 
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
     """
@@ -2551,6 +2728,7 @@ def main() -> int:
     parser.add_argument("--retrieval", action="store_true", help="Check the retrieval playground diagnostics")
     parser.add_argument("--traces", action="store_true", help="Check Activity trace correlation, access and privacy")
     parser.add_argument("--weather-cards", action="store_true", help="Check weather presentation evidence and dates")
+    parser.add_argument("--semantic-cache", action="store_true", help="Check weather cache isolation and freshness")
     parser.add_argument(
         "--memory", action="store_true", help="Check consent, isolation, expiry and honest memory outcomes"
     )
@@ -2576,6 +2754,8 @@ def main() -> int:
         selected = WEATHER_CARD_MUTATIONS
     if args.memory:
         selected = MEMORY_MUTATIONS
+    if args.semantic_cache:
+        selected = SEMANTIC_CACHE_MUTATIONS
     if args.knowledge:
         selected = tuple(m for m in MUTATIONS if m.file in {"nimbus/knowledge.py", "templates/knowledge_chunks.html"})
     if args.retrieval:

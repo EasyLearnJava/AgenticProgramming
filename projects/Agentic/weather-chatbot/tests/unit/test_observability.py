@@ -102,13 +102,14 @@ def test_activity_shows_each_request_as_a_row_that_opens_onto_its_timeline_by_da
         # Each request's row: how it ended, and the lane it was asked on; an answer that came despite a line that
         # went wrong says how many did.
         "Sunday 1 November 2026",
-        "Answered in 5.8 s · 2 tool calls · 5,150 tokens in, 96 out · on REST · no auth 14:05:06",
-        "Failed ModelBusyError (ClientError) after 9.5 s · on MCP · no auth 13:00:00",
+        "Answered in 5.8 s · 2 tool calls · 5,150 tokens in, 96 out · on REST · no auth 08:05:06 AM CST",
+        "Failed ModelBusyError (ClientError) after 9.5 s · on MCP · no auth 07:00:00 AM CST",
         "Saturday 31 October 2026",
-        "Answered in 4.2 s · 1 tool call · 4,000 tokens in, 80 out · on REST · with auth · 2 lines went wrong 09:00:00",
-        "Health check not answering in 590 ms: Apify's MCP server (UpstreamTimeoutError) 08:00:00",
-        "Refused question_too_long 07:00:00",
-        "Stopped after 2.1 s · on REST · no auth 05:00:00",
+        "Answered in 4.2 s · 1 tool call · 4,000 tokens in, 80 out · on REST · with auth · 2 lines went wrong "
+        "04:00:00 AM CDT",
+        "Health check not answering in 590 ms: Apify's MCP server (UpstreamTimeoutError) 03:00:00 AM CDT",
+        "Refused question_too_long 02:00:00 AM CDT",
+        "Stopped after 2.1 s · on REST · no auth 12:00:00 AM CDT",
         # And its timeline: every line of its own, each with its time since the first.
         "+0 ms Question on REST · no auth",
         "+1.1 s Open-Meteo from our cache in 28 ms",
@@ -172,6 +173,7 @@ def test_the_views_are_these_where_clauses_and_health_runs_have_their_own() -> N
             'or (event == "knowledge.call" and tostring(status) == "unavailable") '
             'or (event == "nps.alerts" and tostring(status) == "not_configured") '
             'or (event == "memory.operation" and tostring(status) in ("unavailable", "pending", "conflict")) '
+            'or (event == "semantic_cache.operation" and tostring(status) == "error") '
             'or event == "travel.section_error" '
             'or (event in ("travel.plan", "travel.briefing") '
             "and (toint(column_ifexists('failedSections', 0)) > 0 "
@@ -281,7 +283,7 @@ def test_a_day_narrows_the_requests_to_its_part_of_the_7_days_and_its_views_keep
     assert start == datetime(today.year, today.month, today.day, tzinfo=UTC)
     assert abs(datetime.now(UTC) - end) < timedelta(minutes=1)
     assert datetime.fromisoformat(lines["endTime"]) - datetime.fromisoformat(lines["startTime"]) == timedelta(days=7)
-    assert f"On {today:%A} {today.day} {today:%B %Y}. Show them all" in text_of(page.text)
+    assert f"On {today:%A} {today.day} {today:%B %Y} (UTC filter). Show them all" in text_of(page.text)
     assert f'href="/activity?show=errors&amp;day={today.isoformat()}"' in page.text
 
 

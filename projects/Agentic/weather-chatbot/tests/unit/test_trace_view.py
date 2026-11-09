@@ -21,6 +21,46 @@ PROJECTS = [{"id": str(PROJECT), "name": "weather"}]
 PRIVATE = "private visitor text and credential"
 
 
+@pytest.mark.parametrize(
+    ("operation", "label"),
+    [("read", "Mem0 read"), ("save", "Mem0 save"), ("delete", "Mem0 delete")],
+)
+@pytest.mark.parametrize("status", ["SUCCESS", "ERROR"])
+def test_memory_roots_show_only_fixed_names_timings_and_outcomes(
+    traced: Settings, operation: str, label: str, status: str
+) -> None:
+    """A memory-only request has its own safe trace, without fetching or exposing saved preferences."""
+    result = with_runs(
+        traced,
+        span(
+            name=f"mem0.{operation}",
+            run_type="TOOL",
+            status=status,
+            inputs={"user_id": PRIVATE},
+            outputs={"preferences": PRIVATE},
+            metadata={"key": PRIVATE},
+            error=PRIVATE,
+        ),
+    )
+    assert result.status == "ready"
+    row = result.rows[0]
+    assert row.label == label
+    assert row.kind == "Memory"
+    assert row.elapsed_ms == 800
+    assert row.parent_index is None
+    assert row.status == ("Completed" if status == "SUCCESS" else "Failed")
+    assert bool(row.error) == (status == "ERROR")
+    assert PRIVATE not in str(result)
+
+
+@pytest.mark.parametrize(("name", "kind"), [("mem0.read", "CHAIN"), ("mem0.save", "LLM"), ("mem0.search", "TOOL")])
+def test_memory_root_allowlist_requires_exact_operation_and_run_type(traced: Settings, name: str, kind: str) -> None:
+    """A similar name or a different run kind must not broaden access to arbitrary traces."""
+    result = with_runs(traced, span(name=name, run_type=kind))
+    assert result.status == "unavailable"
+    assert result.issue == TraceIssue.WRONG_ROOT
+
+
 @pytest.fixture
 def traced(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setattr(smith, "get_api_url", lambda _: "https://eu.api.smith.langchain.com/api/v1")

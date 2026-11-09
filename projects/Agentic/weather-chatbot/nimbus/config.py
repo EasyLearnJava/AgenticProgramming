@@ -9,9 +9,10 @@ import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 from uuid import UUID
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
@@ -90,6 +91,34 @@ class Settings(BaseSettings):
     memory_enabled: bool = False
     mem0_api_key: SecretStr | None = None
     memory_cookie_secret: SecretStr | None = Field(default=None, min_length=32)
+    # Optional private weather-answer reuse. Hosted Qdrant inference keeps ML packages off Vercel.
+    semantic_cache_mode: Literal["off", "shadow", "on"] = "off"
+    semantic_cache_threshold: float = Field(default=0.80, ge=0.80, le=1.0, allow_inf_nan=False)
+    qdrant_url: str = ""
+    qdrant_api_key: SecretStr | None = None
+    qdrant_collection: str = Field(default="nimbus_weather_cache", pattern=r"^[a-z][a-z0-9_]{0,63}$")
+
+    @field_validator("qdrant_url")
+    @classmethod
+    def cloud_cache_endpoint(cls, value: str) -> str:
+        """Keep the database credential on the configured HTTPS Qdrant Cloud cluster, with no redirects."""
+        if not value:
+            return ""
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or not parsed.hostname.endswith(".cloud.qdrant.io")
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+            or parsed.port not in {None, 443, 6333}
+        ):
+            raise ValueError("Use the HTTPS Qdrant Cloud cluster endpoint without credentials or a path")
+        return value.rstrip("/")
+
     # ④ Set by you: LangSmith's tracing, its key and project, and whether it hides each run's inputs and outputs. The
     # app traces only when these say to hide both, through a client of its own that hides both, into this project
     # (model.py).

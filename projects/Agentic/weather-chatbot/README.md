@@ -15,14 +15,22 @@ priority. Preferences belong to this browser profile; no account or cross-device
 notices, prices and availability still use the existing evidence sources.
 [How memory works](docs/technical-details.md#follow-an-approved-preference).
 
+**Optional weather answer cache:** Qdrant Free hosts MiniLM embeddings and short-lived weather answers. Exact lookup
+precedes semantic matching; browser, location, dates, units, context and original data freshness must agree.
+An accepted hit avoids Gemini and fresh tool execution. **Observability → [Weather cache](/weather-cache)** shows
+this browser's normalized labels, source age and remaining lifetime. The maximum is two minutes, never renewed
+by a hit. Local reuse is enabled after live checks; hosted activation requires its own validation and settings.
+[How answer caching works](docs/technical-details.md#follow-a-weather-cache-hit).
+
 **The whole design on one page:** [Architecture and design](docs/architecture.md): what Nimbus does, how it's built,
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
 secure.
 
 **In one line:** your browser → Vercel → the FastAPI app: the security headers, the request's id, the router → a page
 from a Jinja2 template, JSON, or a question's answer, streamed as server-sent events of HTML that htmx puts into the
-page → back to you, with its log lines. Gemini writes the answer, through LangChain (step 3), from what the
-weather tools found: an agent calls them, and they call Open-Meteo (step 4).
+page → back to you, with its log lines. Gemini normally writes the answer through LangChain, from evidence collected
+by the LangGraph agent and Open-Meteo tools. The optional guarded answer cache can serve a fresh weather answer
+before a new model call; a miss or cache outage leaves the normal path available.
 
 ## What you'll build
 
@@ -52,6 +60,7 @@ mutation check; and CI and deploys to Vercel on every push that changes it.
 |---|---|
 | `main.py` | The entry point: `app = create_app()`, which Vercel and Uvicorn both look for |
 | `nimbus/` | The app, one module per job: `app.py`, `config.py`, `constants.py`, `logger.py`, `middleware.py`, `pages.py`, `docs.py`, `health.py`, `chat.py`, `model.py`, `prompts.py`, `agent.py`, `answer.py`, `tools.py`, `open_meteo.py`, `weather.py`, `chips.py`, `cache.py`, `mcp_server.py`, `lanes.py`, `mcp_lane.py`, `auth_lanes.py`, `actor.py`, `apify.py`, `axiom.py`, `sentry.py`, `observability.py`, `axiom_query.py`, `goldens.py`, `errors.py`, `utils.py` |
+| `nimbus/semantic_cache/` | Guarded answer reuse: policy, browser/history authentication, typed evidence, Qdrant REST service, chat integration and private inventory page |
 | `templates/` | The Jinja2 templates: the shell with the menu in groups, the chat and the HTML of its answer's events, a list of pages, a page, the Observability pages, the 404 page |
 | `public/static/` | The stylesheet, the icon, htmx 4 and its stream extension, and our `chat.js`, served by Vercel's CDN |
 | `docs/` | The chapters (`step-N.md`), the system design, the issues log, the interview guide, the to-do list, the TypeScript version's pages (`*_deprecated.md`), and their pictures (`images/`) |
@@ -143,6 +152,22 @@ stale-revision checks passed. Two live Gemini weather checks used saved metric u
 override correctly; both produced weather cards. Temporary Mem0 profiles were deleted and verified absent. These
 two model checks are smoke evidence, not a repeated model-quality benchmark or a hosted deployment check.
 
+For the separate weather-answer cache extension, run its unit/browser regressions and then the real hosted embedding
+evaluation against synthetic fixtures:
+
+```sh
+uv run pytest tests/unit -k semantic_cache
+uv run pytest tests/e2e -k semantic_cache --browser-channel chrome
+uv run python -m tools.eval_semantic_cache --cases evals/semantic_cache.json
+uv run python -m tools.eval_semantic_cache --cases evals/semantic_cache_heldout.json
+```
+
+Live reports separate provider failures, false hits and positive recall. Mock-provider tests verify the adapter
+and safety rules; they cannot prove the hosted model's similarity quality. The live tool uses an isolated `_eval`
+collection and cleans up its own fixtures. The recorded local results include the initial held-out shortfall,
+its subsequent regression checks and a real chat hit; they do not imply a hosted deployment check.
+[Cache validation evidence](docs/technical-details.md#local-validation-on-9-november-2026).
+
 ## When things go wrong
 
 | You see | Why | What to do |
@@ -177,11 +202,30 @@ step ([step 1](docs/step-1.md) to [step 19](docs/step-19.md)), **Architecture an
 **Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), **To do**
 ([`docs/todo.md`](docs/todo.md)), and **Waiting on you** ([`docs/waiting-on-you.md`](docs/waiting-on-you.md)), every
-setting only you can change. Observability includes Activity, Performance, Evaluations and Health. Under **Project**,
+setting only you can change. Observability includes Activity, Weather cache, Performance, Evaluations and Health.
+Under **Project**,
 **Health check (JSON)** opens the monitor endpoint. **Weather MCP server** shows the connection address and tools.
 The earlier TypeScript documentation is archived in the repository.
 
 ## Next
+
+### Weather answer reuse
+
+Keep `QDRANT_URL` and `QDRANT_API_KEY` in ignored `.env.local`, with `SEMANTIC_CACHE_MODE=shadow` for observation.
+Run `uv run python -m tools.setup_semantic_cache` to create or verify the dedicated collection, its 384-dimensional
+cosine vectors, filter indexes and strict capacity limits. The hosted Free MiniLM model uses Qdrant's key;
+this adds no Torch, local model download or new production package.
+
+After reviewing independent live evaluation and the intended preview, `SEMANTIC_CACHE_MODE=on` permits verified
+reuse. `off` makes no cache network calls. The default collection is `nimbus_weather_cache`; the default semantic
+cutoff is `0.80`, with independent guards always required. A miss is preferable to reusing the wrong city's answer.
+[Hosted settings and checks](docs/waiting-on-you.md#qdrant-weather-answer-cache).
+
+In the same browser, ask “Dallas weather,” then “weather in Dallas.” When a fresh match is accepted, the chat
+shows a cache badge with a new answer reference. Open Weather cache for its expiry and source age. Switch to
+“Vizag weather” in the same chat, then “Visakhapatnam weather”: the approved alias shares its own city entry.
+Try a unit override, a park warning or a trip question to verify the normal flow. Unresolved place spelling,
+unsupported wording and changed conversation context can deliberately bypass caching.
 
 ### Saved travel preferences
 

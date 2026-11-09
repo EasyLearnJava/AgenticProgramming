@@ -6,6 +6,19 @@ from nimbus.trace_presenter import duration_label, present_trace
 from nimbus.trace_view import TraceRow, TraceView
 
 
+@pytest.mark.parametrize("status", ["Completed", "Failed", "Running"])
+def test_standalone_memory_trace_summarizes_its_own_operation(status: str) -> None:
+    """A preference operation does not invent a model call or lose its root duration and status."""
+    view = present_trace(TraceView("ready", (TraceRow("Mem0 save", "Memory", 145, 0, 0, status),)))
+    assert view.duration_ms == 145
+    assert view.status == status
+    assert view.model_count == view.tool_count == 0
+    assert view.memory_count == view.total_count == 1
+    assert view.rows[0].kind_slug == "memory"
+    assert view.rows[0].parent_index is None
+    assert view.failed_count == int(status == "Failed")
+
+
 def call(
     label: str,
     start: int,

@@ -12,10 +12,11 @@
 <main class="doc obs">
   <h1>{{ title }}</h1>
   <p class="obs-lead">Open a request to see its timeline. Clarifications and park briefings show their own outcomes.
-    Traced agent runs also include a LangSmith view of model and tool calls.
-    Activity covers the last 7 days in Axiom. Times are in UTC.</p>
-  {% if show == "questions" and not tracing_enabled %}
-  <p class="obs-about">LangSmith tracing is off for new chats in this environment.</p>
+    Traced agent runs and Mem0 operations also include a LangSmith view of their calls and timings.
+    Activity covers the last 7 days in Axiom. Dates and times use Dallas Central Time
+    (CST in winter, CDT in summer).</p>
+  {% if show in ("questions", "memory") and not tracing_enabled %}
+  <p class="obs-about">LangSmith tracing is off for new requests in this environment.</p>
   {% endif %}
   <nav class="obs-tabs" aria-label="Views">
     {% for label, href, is_current in tabs %}
@@ -55,7 +56,8 @@
             <span class="obs-dot" aria-hidden="true"></span>
             <span class="obs-line-what">{{ item.summary.what }}</span>
             <span class="obs-line-detail">{{ item.summary.detail }}</span>
-            <time class="obs-line-time" datetime="{{ item.at.isoformat() }}">{{ item.at.strftime("%H:%M:%S") }}</time>
+            <time class="obs-line-time" datetime="{{ item.local_at.isoformat() }}">
+              {{ item.local_at.strftime("%I:%M:%S %p %Z") }}</time>
           </summary>
           <ol class="obs-steps">
             {% for since, line in item.steps %}
@@ -72,8 +74,14 @@
           {% if item.trace_url %}
           <p class="obs-trace-link"><a href="{{ item.trace_url }}">View LangSmith trace<span class="visually-hidden">
             for request {{ item.ref }}</span></a></p>
-          {% elif item.is_chat %}
-          <p class="obs-ref">{{ item.trace_note or "No linked LangSmith trace for this request." }}</p>
+          {% endif %}
+          {% for memory_trace in item.memory_traces %}
+          <p class="obs-trace-link"><a href="{{ memory_trace.url }}">{{ memory_trace.label }} · Mem0 trace
+            <span class="visually-hidden">for request {{ item.ref }}</span></a></p>
+          {% endfor %}
+          {% if not item.trace_url and item.is_chat %}
+          {% if item.trace_note %}<p class="obs-ref">{{ item.trace_note }}</p>
+          {% elif not item.memory_traces %}<p class="obs-ref">No linked LangSmith trace for this request.</p>{% endif %}
           {% endif %}
         </details>
       </li>

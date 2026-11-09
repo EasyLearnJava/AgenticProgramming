@@ -124,7 +124,8 @@ connected; if one fails, the page shows our sentence instead of any of them.
 A field is read as a number or as words, whatever Axiom sent: a missing one is 0, or empty. A time is milliseconds
 under a second, else seconds to a tenth. **Activity** turns each line into words: "Answered in 5.8 s · 2 tool calls ·
 5,150 tokens in, 96 out", "get_forecast on REST · no auth in 412 ms", "Fell back REST · with auth to REST · no auth:
-AuthError"; an event it doesn't show is left out; the lines are grouped by their day in UTC. **Performance** adds up
+AuthError"; an event it doesn't show is left out; Activity groups requests by their day in Dallas Central Time.
+**Performance** adds up
 each tool's and each lane's calls; **Evaluations**, how answers ended and why; only the cache's hits count as from
 the cache, never a value it couldn't read.
 

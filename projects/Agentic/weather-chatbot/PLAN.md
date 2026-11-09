@@ -20,7 +20,7 @@ working, and each with a chapter written while it's built. The first version's p
 | Tools | LangChain tools with Pydantic inputs; `httpx2` for the calls out, `tenacity` for retries (9.1.4: google-genai wants it below 9.2) |
 | MCP | The official `mcp` SDK (FastMCP) for our server; `langchain-mcp-adapters` for the MCP lanes |
 | Settings | pydantic-settings: one module reads the environment |
-| State between requests | Chat stays in the browser (step 6); Open-Meteo uses Vercel Runtime Cache (step 7); public park guidance uses bundled read-only SQLite (step 16); explicitly approved travel defaults use optional Mem0 storage |
+| State between requests | Chat stays in the browser (step 6); Open-Meteo uses Vercel Runtime Cache (step 7); public park guidance uses bundled read-only SQLite (step 16); explicitly approved travel defaults use optional Mem0 storage; optional Qdrant stores private weather answers with at most 120 seconds of reuse |
 | Logs | structlog, JSON lines with a request id; Axiom (from step 12), read back onto the Observability pages (step 14) |
 | Errors, traces | Sentry; LangSmith for the model's runs (from step 3), then the agent's (from step 4) |
 | Tests | pytest; Playwright for Python with axe; mutation checks |
@@ -34,6 +34,13 @@ storage now holds only five typed travel defaults after explicit consent. An opa
 that preference scope; it is not an account or a LangGraph checkpoint. The app does not persist the conversation as
 preference memory.
 [Preference ownership, retention and deletion](docs/technical-details.md#follow-an-approved-preference).
+
+The optional answer-cache extension checks exact and semantic matches before eligible weather-agent turns. Qdrant
+Free hosts MiniLM inference and a dedicated 384-dimensional cosine collection through the existing async REST client;
+the Vercel runtime gains no local ML stack. Signed one-day browser scopes and authenticated history are separate from
+Mem0 consent. Request guards and original weather-data expiry constrain every hit. The cache is an optimization:
+failures or uncertainty retain the existing agent, park and travel behavior.
+[Cache architecture and validation](docs/technical-details.md#follow-a-weather-cache-hit).
 
 ## 2. The roadmap
 
@@ -64,6 +71,14 @@ weather units, price currency, preparation interest and departure window. Curren
 remain authoritative; saved defaults never authorize a search or booking. It uses the existing chat, planner and
 observability paths. Configuration and hosted validation remain separate release work on
 [Waiting on you](docs/waiting-on-you.md#mem0-travel-preferences); checks must record the actual tested build.
+
+The Qdrant answer-cache extension adds `off`, `shadow` and `on` rollout modes, a private
+[Weather cache inventory](/weather-cache), cache-specific Activity outcomes and live embedding evaluations separate
+from mocked adapter tests. The dedicated collection is configured locally, and mode `on` follows successful local
+provider and chat checks. The validation record preserves the initial held-out recall shortfall and its subsequent
+regression checks. Hosted settings and exact-build checks are on
+[Waiting on you](docs/waiting-on-you.md#qdrant-weather-answer-cache). No new numbered completion tag is implied by
+this extension or by local provider smoke checks.
 
 ## 3. A chapter's sections
 

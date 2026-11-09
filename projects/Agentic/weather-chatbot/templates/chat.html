@@ -13,6 +13,7 @@
 {% block head %}
     <link rel="stylesheet" href="/static/alerts.css">
     <link rel="stylesheet" href="/static/weather-cards.css">
+    <link rel="stylesheet" href="/static/semantic_cache.css">
     {% if request.app.state.settings.memory_enabled %}<link rel="stylesheet" href="/static/preferences.css">{% endif %}
     {% if request.app.state.settings.parks_enabled %}
     <link rel="stylesheet" href="/static/planner.css">
@@ -75,10 +76,15 @@
         <input id="locale" name="locale" type="hidden">
         <input id="time-zone" name="time_zone" type="hidden">
         <input id="history" name="history" type="hidden" value="[]">
+        <input id="cache-receipt" name="cache_receipt" type="hidden" value="">
         <button id="send" type="submit" class="send-button">Send</button>
         <button id="stop" type="button" class="stop-button">Stop</button>
       </form>
       <p class="chat-privacy">
+        {% if request.app.state.semantic_cache.configured %}
+        Eligible weather questions go to Qdrant for embeddings. Answers may be reused for up to two minutes
+        in this browser. <a href="/weather-cache">View weather cache</a>.
+        {% endif %}
         Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal.
         {%- if flights_enabled or hotels_enabled %}
         {% if flights_enabled and hotels_enabled %}Flight and hotel searches go to Kiwi.com and trivago{% elif flights_enabled

@@ -369,6 +369,17 @@ def to_forecast_request(
     return _to_get_request(OPEN_METEO_FORECAST_URL, params)
 
 
+class _CachedAnswer(BaseModel):
+    """Versioned provider data with its original absolute deadline, never renewed by a cache read."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+    version: Literal[1] = 1
+    body: dict[str, Any]
+    fetched_at: float = Field(gt=0, allow_inf_nan=False)
+    expires_at: float = Field(gt=0, allow_inf_nan=False)
+
+
 @dataclass(frozen=True)
 class UpstreamAnswer[T]:
     """One answer from Open-Meteo, in our names; the request that fetched it; and whether the cache gave it (step 7)."""
@@ -376,6 +387,8 @@ class UpstreamAnswer[T]:
     data: T
     request: WireRequest
     from_cache: bool = False
+    fetched_at: float | None = None
+    expires_at: float | None = None
 
 
 class OpenMeteoClient:
@@ -406,16 +419,18 @@ class OpenMeteoClient:
         if country_code is not None:
             params["countryCode"] = country_code.upper()
         request = _to_get_request(OPEN_METEO_GEOCODING_URL, params)
-        answer, from_cache = await self._get(request, _GeocodingAnswer, lambda _: GEOCODING_CACHE_SECONDS)
-        return UpstreamAnswer(answer.results, request, from_cache)
+        answer, from_cache, fetched_at, expires_at = await self._get(
+            request, _GeocodingAnswer, lambda _: GEOCODING_CACHE_SECONDS
+        )
+        return UpstreamAnswer(answer.results, request, from_cache, fetched_at, expires_at)
 
     async def get_forecast(
         self, latitude: float, longitude: float, *, days: int, include_hourly: bool, units: Units
     ) -> UpstreamAnswer[ForecastData]:
         """A point's forecast: its days, and the first 3 days' hours if they're asked for."""
         request = to_forecast_request(latitude, longitude, days=days, include_hourly=include_hourly, units=units)
-        answer, from_cache = await self._get(request, _ForecastAnswer, self._keep_forecast)
-        return UpstreamAnswer(_to_forecast(answer, include_hourly), request, from_cache)
+        answer, from_cache, fetched_at, expires_at = await self._get(request, _ForecastAnswer, self._keep_forecast)
+        return UpstreamAnswer(_to_forecast(answer, include_hourly), request, from_cache, fetched_at, expires_at)
 
     async def get_current_weather(
         self, latitude: float, longitude: float, *, units: Units
@@ -423,15 +438,19 @@ class OpenMeteoClient:
         """The weather now at a point."""
         params = {**_to_point(latitude, longitude), "current": CURRENT_FIELDS, "timezone": "auto", **_to_units(units)}
         request = _to_get_request(OPEN_METEO_FORECAST_URL, params)
-        answer, from_cache = await self._get(request, _CurrentAnswer, lambda _: CURRENT_CACHE_SECONDS)
-        return UpstreamAnswer(_to_current(answer), request, from_cache)
+        answer, from_cache, fetched_at, expires_at = await self._get(
+            request, _CurrentAnswer, lambda _: CURRENT_CACHE_SECONDS
+        )
+        return UpstreamAnswer(_to_current(answer), request, from_cache, fetched_at, expires_at)
 
     async def get_air_quality(self, latitude: float, longitude: float) -> UpstreamAnswer[AirQualityData]:
         """The air now at a point."""
         params = {**_to_point(latitude, longitude), "current": AIR_QUALITY_FIELDS, "timezone": "auto"}
         request = _to_get_request(OPEN_METEO_AIR_QUALITY_URL, params)
-        answer, from_cache = await self._get(request, _AirQualityAnswer, lambda _: AIR_QUALITY_CACHE_SECONDS)
-        return UpstreamAnswer(_to_air_quality(answer), request, from_cache)
+        answer, from_cache, fetched_at, expires_at = await self._get(
+            request, _AirQualityAnswer, lambda _: AIR_QUALITY_CACHE_SECONDS
+        )
+        return UpstreamAnswer(_to_air_quality(answer), request, from_cache, fetched_at, expires_at)
 
     def _keep_forecast(self, answer: _ForecastAnswer) -> int:
         """A forecast's time in the cache: 30 minutes, but never past its place's midnight, when its first day ends."""
@@ -440,17 +459,18 @@ class OpenMeteoClient:
 
     async def _get[M: BaseModel](
         self, request: WireRequest, schema: type[M], keep_for: Callable[[M], int]
-    ) -> tuple[M, bool]:
+    ) -> tuple[M, bool, float, float]:
         """
         One GET: the answer the cache kept, if it reads as a fresh one would; else a try, and one more if the first was
         worth it, the answer checked against the schema, then kept for keep_for(answer) seconds; one line, when it's
         done, with the host, the path, the time and the tries. A retry is a warning. A stop isn't logged. With the
-        answer, whether the cache gave it.
+        answer, whether the cache gave it, and its original fetch and expiry timestamps.
         """
         fields = {"upstream": "open-meteo", "host": request.host, "path": request.path}
-        kept = await self._get_kept(request, schema, fields)
+        kept = await self._get_kept(request, schema, fields, keep_for)
         if kept is not None:
-            return kept, True
+            answer, fetched_at, expires_at = kept
+            return answer, True, fetched_at, expires_at
         started = time.perf_counter()
         attempts = 0
         retrying = AsyncRetrying(
@@ -478,14 +498,25 @@ class OpenMeteoClient:
             answer = schema.model_validate(body)
         except ValidationError as error:
             raise ContractError from error
+        # Original provider freshness travels with the answer even when no cache store is configured.
+        fetched_at = self._clock()
+        seconds = keep_for(answer)
+        expires_at = fetched_at + seconds
+        if isinstance(answer, _ForecastAnswer):
+            # The integer store TTL can round past midnight by a fraction; the absolute deadline cannot.
+            midnight = ((fetched_at + answer.utc_offset_seconds) // SECONDS_PER_DAY + 1) * SECONDS_PER_DAY
+            expires_at = min(expires_at, midnight - answer.utc_offset_seconds)
         if self._cache is not None:
-            await self._cache.set(request.url, body, keep_for(answer))
-        return answer, False
+            entry = _CachedAnswer(body=body, fetched_at=fetched_at, expires_at=expires_at)
+            await self._cache.set(request.url, entry.model_dump(), seconds)
+        return answer, False, fetched_at, expires_at
 
-    async def _get_kept[M: BaseModel](self, request: WireRequest, schema: type[M], fields: dict[str, str]) -> M | None:
+    async def _get_kept[M: BaseModel](
+        self, request: WireRequest, schema: type[M], fields: dict[str, str], keep_for: Callable[[M], int]
+    ) -> tuple[M, float, float] | None:
         """
         The answer the cache kept for the request, checked as a fresh one is; a line says it came from the cache. One
-        that no longer reads, a warning says, is a miss: the answer is fetched again, and kept in its place.
+        that no longer reads, or has no original deadline, is a miss: fetched again and kept in its place.
         """
         if self._cache is None:
             return None
@@ -494,12 +525,21 @@ class OpenMeteoClient:
         if kept is None:
             return None
         try:
-            answer = schema.model_validate(kept)
-        except ValidationError:
+            entry = _CachedAnswer.model_validate(kept)
+            answer = schema.model_validate(entry.body)
+            now = self._clock()
+            maximum = FORECAST_CACHE_SECONDS if isinstance(answer, _ForecastAnswer) else keep_for(answer)
+            if not entry.fetched_at <= now < entry.expires_at <= entry.fetched_at + maximum:
+                raise ValueError("invalid cache freshness")
+            if isinstance(answer, _ForecastAnswer):
+                midnight = ((entry.fetched_at + answer.utc_offset_seconds) // SECONDS_PER_DAY + 1) * SECONDS_PER_DAY
+                if entry.expires_at > midnight - answer.utc_offset_seconds:
+                    raise ValueError("cache crosses midnight")
+        except (ValidationError, ValueError):
             log.warning("upstream.cache", **fields, status="unreadable")
             return None
         log.info("upstream.cache", **fields, status="hit", ms=to_ms(time.perf_counter() - started))
-        return answer
+        return answer, entry.fetched_at, entry.expires_at
 
     async def _fetch_once(self, request: WireRequest) -> Any:
         """One try, of at most 3 s: the answer's JSON, or one of our errors."""

@@ -104,15 +104,19 @@
   The tool calls' list is empty, with nothing in it at all, until a call comes, so :empty hides it.
 #}
 {% macro bot_message(turn_id, answer="", busy=False, failed=False, note="", chips=(), weather_cards=(),
-  memory_note="") -%}
+  memory_note="", cache_note="", cache_receipt="") -%}
 {% set classes = "message message-bot" ~ (" message-error" if failed else "")
   ~ (" message-weather" if weather_cards else "") %}
 <li class="{{ classes }}" id="turn-{{ turn_id }}"
+  {%- if cache_receipt %} data-cache-receipt="{{ cache_receipt }}"{% endif %}
   {%- if busy %} aria-busy="true"{% endif %}>
   {{ bot_meta() }}
   <ul class="tool-chips" id="tools-{{ turn_id }}" aria-label="Tool calls">
     {%- for chip in chips %}{{ tool_chip(turn_id, chip) }}{% endfor -%}
   </ul>
+  {% if cache_note %}
+  <p class="answer-cache-note">{{ cache_note }} <a href="/weather-cache">Weather cache</a></p>
+  {% endif %}
   {% for card in weather_cards %}{{ weather_card(card) }}{% endfor %}
   {% if memory_note %}<p class="memory-used">{{ memory_note }} <a href="/preferences">My preferences</a></p>{% endif %}
   <div class="bubble bubble-bot">

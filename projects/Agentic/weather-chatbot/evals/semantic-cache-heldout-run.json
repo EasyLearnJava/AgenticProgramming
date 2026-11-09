@@ -1,0 +1,92 @@
+{
+  "passed": false,
+  "provider_errors": 0,
+  "false_hits": 0,
+  "positive_recall": 0.6,
+  "threshold": 0.8,
+  "cases": [
+    {
+      "id": "new-show",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 1
+    },
+    {
+      "id": "new-possessive",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 2
+    },
+    {
+      "id": "new-how",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 3
+    },
+    {
+      "id": "new-spelling",
+      "split": "validation",
+      "expected": "hit",
+      "result": "miss",
+      "passed": false,
+      "case": 4
+    },
+    {
+      "id": "new-description",
+      "split": "validation",
+      "expected": "hit",
+      "result": "miss",
+      "passed": false,
+      "case": 5
+    },
+    {
+      "id": "new-qualifier",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 6
+    },
+    {
+      "id": "new-time",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 7
+    },
+    {
+      "id": "new-units",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 8
+    },
+    {
+      "id": "new-date",
+      "split": "validation",
+      "expected": "bypass",
+      "result": "bypass",
+      "passed": true,
+      "case": 9
+    },
+    {
+      "id": "new-safety",
+      "split": "validation",
+      "expected": "bypass",
+      "result": "bypass",
+      "passed": true,
+      "case": 10
+    }
+  ],
+  "exact": "exact_hit",
+  "cross_browser": "miss",
+  "checked_at": "2026-11-09T22:10:12.946979+00:00"
+}

@@ -895,4 +895,17 @@ package's code**, **deploying**, or **testing a real API**.
      parent relationships, including hidden graph wrappers, and keeps parallel branches separate. Summary counts
      describe spans; the agent duration is not a sum of overlapping calls. Collapse, filters and exact call details
      clarify the display without requesting more LangSmith fields. Privacy, hierarchy and timing tests guard it.
+172. **Standalone memory traces could use a different project from the trace reader.** Both independent reviewers
+     found that forcing `default` when the app's project was unset bypassed LangSmith's legacy and hosted project
+     settings. Mem0 now passes the optional project through to the SDK, like the existing tracing path. Actual SDK
+     serialization tests cover both fallback settings, and a mutation restores the bug to prove those tests catch it.
+173. **Similarity alone did not prove that a weather answer was reusable.** The initial independent set at a frozen
+     `0.80` cutoff recalled only 3 of 5 positive examples. General politeness and approved `wether` normalization
+     improved the same set to 10/10 overall; its first report is preserved, and the rerun is labelled regression
+     evidence. **Fix:** independent browser, authenticated-history, prompt-build, location, date and unit guards
+     constrain reuse. Both reviewers also required original source-age limits, complete forecast coverage,
+     cross-version expiry cleanup and provider errors counted separately from retrieval misses. A mutation exposed
+     a missing evidence-expiry assertion, now covered. **Check:** the final real embedding set passed 18 cases with
+     no false hits or provider errors. A real Dallas paraphrase reused its answer with zero tool calls or Gemini
+     calls; 226 Chrome tests and 455 offline harness replay cases passed. Hosted activation remains pending.
 

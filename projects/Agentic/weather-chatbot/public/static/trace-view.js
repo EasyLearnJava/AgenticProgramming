@@ -34,7 +34,7 @@
     setText("[data-trace-detail-start]", row.dataset.start);
     const parent = byKey.get(row.dataset.parent);
     const parentLabel = parent ? parent.dataset.label :
-      (row.dataset.kind === "agent" ? "None (trace root)" : "Not available in this view");
+      (["agent", "memory"].includes(row.dataset.kind) ? "None (trace root)" : "Not available in this view");
     setText("[data-trace-detail-parent]", parentLabel);
     const status = explorer.querySelector("[data-trace-detail-status]");
     status.textContent = row.dataset.callStatus;

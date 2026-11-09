@@ -180,9 +180,13 @@ def _hour_icon(condition: str, moment: datetime, forecast: ForecastOutput) -> st
     return "" if icon in {"clear", "partly"} else icon
 
 
-def _hours(forecast: ForecastOutput) -> tuple[WeatherHour, ...]:
+def _hours(forecast: ForecastOutput, as_of: datetime | None = None) -> tuple[WeatherHour, ...]:
     """Show up to six available upcoming samples, never relabel past hours as upcoming."""
-    now = _local(forecast.local_now, forecast.time_zone)
+    now = (
+        as_of.astimezone(ZoneInfo(forecast.time_zone)).replace(tzinfo=None)
+        if as_of is not None
+        else _local(forecast.local_now, forecast.time_zone)
+    )
     if now is None:
         return ()
     samples = []
@@ -217,7 +221,7 @@ def _place_names(chips: Sequence[ToolChip]) -> dict[tuple[float, float], str]:
     return {key: next(iter(names)) for key, names in places.items() if len(names) == 1}
 
 
-def _card(group: _WeatherGroup, names: dict[tuple[float, float], str]) -> WeatherCard:
+def _card(group: _WeatherGroup, names: dict[tuple[float, float], str], as_of: datetime | None = None) -> WeatherCard:
     """Format one evidence group, retaining source and cache information for its displayed results."""
     result = group.current or group.forecast
     assert result is not None  # noqa: S101 - populated only after a validated weather result
@@ -251,14 +255,14 @@ def _card(group: _WeatherGroup, names: dict[tuple[float, float], str]) -> Weathe
         current_icon=_icon(current.condition, is_day=current.is_day) if current else "unknown",
         observed_label=_stamp(current.observed_at, current.time_zone) if current else "",
         days=_days(forecast) if forecast else (),
-        hours=_hours(forecast) if forecast else (),
+        hours=_hours(forecast, as_of) if forecast else (),
         forecast_label=_stamp(forecast.local_now, forecast.time_zone) if forecast else "",
         cached=any(record is not None and record.from_cache for record in records),
         source="Open-Meteo" if open_meteo else "Weather tools",
     )
 
 
-def to_weather_cards(chips: Sequence[ToolChip]) -> tuple[WeatherCard, ...]:
+def to_weather_cards(chips: Sequence[ToolChip], *, as_of: datetime | None = None) -> tuple[WeatherCard, ...]:
     """Build cards only from validated successful weather tools, grouped by place, zone and returned units."""
     groups: dict[tuple[float, float, str, str], _WeatherGroup] = {}
     # ① The card follows the tool evidence, never numbers or place names extracted from generated prose.
@@ -278,4 +282,4 @@ def to_weather_cards(chips: Sequence[ToolChip]) -> tuple[WeatherCard, ...]:
             group.forecast, group.forecast_chip = result, chip
     # ② Matching geocoded names are optional. Coordinates remain explicit when a reliable label is unavailable.
     names = _place_names(chips)
-    return tuple(_card(group, names) for group in groups.values())
+    return tuple(_card(group, names, as_of) for group in groups.values())

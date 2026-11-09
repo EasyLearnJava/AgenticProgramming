@@ -67,6 +67,11 @@ weather, preparation and NPS notices. The NWS decision described above belongs t
 - **Open-Meteo data** uses separate lifetimes in Vercel's Runtime Cache. A place lookup can be reused for 30 days,
   current weather for 10 minutes, and forecasts and air quality for 30 minutes. A cache failure falls through to an
   upstream request. [Weather cache chapter](step-7.md).
+- **Optional weather answers** live in Qdrant, partitioned by a separate signed one-day browser cookie. Eligible
+  weather text goes to hosted MiniLM inference; the stored record includes Markdown, typed source evidence,
+  context fingerprints, absolute expiry and an integrity signature. Reuse lasts at most 120 seconds, capped by
+  the original source expiry and both visitor and destination midnight. A hit never extends that deadline.
+  [This browser's answer cache](/weather-cache).
 - **Current notices** use shorter, per-instance caches. A complete NPS report lasts five minutes, a failed
   or incomplete fetch one minute. NWS uses one minute for a complete point check and 30 seconds otherwise.
   Offer deduplication is scoped to a single travel turn.
@@ -85,6 +90,31 @@ included as default values in Gemini's answer context. Memory is separate from t
 forecast or alert evidence, prices and booking permission. Weather units are an independent choice from browser
 locale and currency, so Celsius with USD is supported throughout the park briefing and confirmed plan.
 
+## Reuse an answer without inventing a new tool run
+
+![Weather-cache guards, Qdrant lookup and the normal answer path](images/semantic-cache-flow.svg)
+
+An exact match avoids an embedding request. Otherwise the cache compares hosted MiniLM vectors with cosine
+similarity, inside mandatory browser, context and request-policy filters. The application checks the stored
+record's signature, scope and expiry again. A high similarity score cannot cross a date, unit or location boundary.
+Authenticated history receipts allow repeated weather questions in the same conversation; an altered history or
+a prior turn under another policy falls through to the existing agent.
+
+The cached answer is rendered anew from Markdown and typed weather evidence. It receives a new turn ID, feedback
+reference and cache badge; the UI does not replay old tool timings. In `shadow` mode the same lookup measures matches
+while Gemini continues to answer. `off` makes no cache network calls, and `on` permits verified reuse.
+
+Expiry is checked on every read, independent of physical deletion. A later store opportunistically removes expired
+records, including older cache versions; an idle cluster can retain expired data until another store or operator
+cleanup. The setup command applies Qdrant strict limits of 2,000 points and 120,000,000 payload bytes. A separate
+application count check avoids avoidable writes near capacity; it is not the concurrent enforcement mechanism.
+The database limits remain authoritative across Vercel instances.
+
+The [Weather cache page](/weather-cache) lists at most 50 active entries for this browser, with source-data age and
+expiry as of the latest refresh. It exposes no original questions, generated answers, vectors or preference values.
+Its response is never publicly cached. Clearing the browser cookie loses access to that short-lived inventory.
+This cache is an optimization, not long-term history or a memory service.
+
 ## What happens when a dependency fails
 
 The components have separate deadlines and outcomes. If hotels time out, a confirmed plan can still show
@@ -98,6 +128,11 @@ use; a failed read continues from the current request. A fresh read and revision
 readback verification. Mem0 does not provide a transaction spanning those operations: stale forms and observed
 duplicates are rejected, but truly simultaneous updates on separate server instances can still be last-write-wins.
 This is not transactional cross-tab editing.
+
+Qdrant timeouts, refusals, malformed records and quota failures become cache misses, not failed chat answers.
+The cache viewer distinguishes an unavailable inventory from an empty one. Cache operations have their own Activity
+events; cached completions are counted separately from model latency and token usage. No cached question or answer
+text is placed in logs or LangSmith.
 
 The evaluation harness exercises these boundaries with fixed clocks, recorded provider responses and
 human-authored expectations. Repeated live trials record individual failures and latency against an

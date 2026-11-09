@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 700" role="img" aria-labelledby="title desc">
+  <title id="title">Nimbus weather answer cache: guarded reuse and the normal answer path</title>
+  <desc id="desc">An eligible weather question first checks an exact match, then Qdrant's hosted MiniLM vectors.
+    Matching browser, place, time, units, context and freshness are required for reuse. A miss or cache failure
+    follows the ordinary Gemini and weather-tool path. Only complete successful answers are saved, for at most
+    two minutes and never beyond their original evidence expiry.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#3d776b"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="700" rx="24" fill="#f3fbf8"/>
+  <g font-family="Segoe UI,Arial,sans-serif" fill="#123f35">
+    <text x="36" y="51" font-size="30" font-weight="700">Reuse fresh weather. Keep the evidence.</text>
+    <text x="36" y="87" font-size="18" fill="#47645c">Optional Qdrant answer caching after normal request routing</text>
+    <g fill="#fff" stroke="#bdd8cf" stroke-width="2">
+      <rect x="35" y="125" width="430" height="210" rx="16"/>
+      <rect x="535" y="125" width="490" height="210" rx="16"/>
+      <rect x="1095" y="125" width="470" height="210" rx="16" fill="#e0f5ec"/>
+      <rect x="535" y="425" width="490" height="195" rx="16"/>
+      <rect x="1095" y="425" width="470" height="195" rx="16"/>
+    </g>
+    <g font-size="23" font-weight="700">
+      <text x="61" y="169">1. Check the scope</text>
+      <text x="561" y="169">2. Find a candidate</text>
+      <text x="1121" y="169">3. Reuse a verified answer</text>
+      <text x="561" y="469">Normal answer path</text>
+      <text x="1121" y="469">Save only complete success</text>
+    </g>
+    <g font-size="18">
+      <text x="61" y="210">Ordinary single-place weather</text>
+      <text x="61" y="244">Signed browser scope and history</text>
+      <text x="61" y="278">Same dates, units and context</text>
+      <text x="561" y="210">Exact fingerprint before embeddings</text>
+      <text x="561" y="244">Hosted MiniLM · 384 dimensions · cosine</text>
+      <text x="561" y="278">Similarity never overrides the guards</text>
+      <text x="1121" y="210">Fresh IDs, safe Markdown and cards</text>
+      <text x="1121" y="244">No Gemini or weather-tool execution</text>
+      <text x="1121" y="278">Cache badge and Activity outcome</text>
+      <text x="561" y="511">Existing LangGraph agent and weather tools</text>
+      <text x="561" y="545">Provider cache keeps its original expiry</text>
+      <text x="561" y="579">Failures and partial answers are not saved</text>
+      <text x="1121" y="511">Maximum 120 seconds; no sliding expiry</text>
+      <text x="1121" y="545">Original evidence and midnight cap reuse</text>
+      <text x="1121" y="579">Private inventory shows age and time left</text>
+    </g>
+    <g stroke="#3d776b" stroke-width="3" fill="none" marker-end="url(#arrow)">
+      <path d="M465 230 H522"/>
+      <path d="M1025 230 H1082"/>
+      <path d="M780 335 V412"/>
+      <path d="M250 335 V520 H522"/>
+      <path d="M1025 520 H1082"/>
+    </g>
+    <g font-size="16" fill="#47645c">
+      <text x="797" y="374">Miss, expiry or provider failure</text>
+      <text x="63" y="405">Other requests keep</text>
+      <text x="63" y="430">their existing flow</text>
+      <text x="36" y="665">Off: no cache calls · Shadow: measure matches · On: reuse eligible fresh answers</text>
+    </g>
+  </g>
+</svg>

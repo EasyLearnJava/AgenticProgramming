@@ -1,0 +1,16 @@
+{
+  "seed": "Dallas weather",
+  "pass_rules": "Independently chosen after freezing threshold at 0.80: at least four of five positive hits, zero false hits and zero provider errors. Do not tune against these outcomes.",
+  "cases": [
+    {"id": "new-show", "split": "validation", "question": "Show me the weather for Dallas.", "expected": "hit"},
+    {"id": "new-possessive", "split": "validation", "question": "Please tell me Dallas's weather.", "expected": "hit"},
+    {"id": "new-how", "split": "validation", "question": "How's the weather at Dallas?", "expected": "hit"},
+    {"id": "new-spelling", "split": "validation", "question": "Can you give me the wether for Dallas?", "expected": "hit"},
+    {"id": "new-description", "split": "validation", "question": "What does the weather in Dallas look like?", "expected": "hit"},
+    {"id": "new-qualifier", "split": "validation", "question": "Weather in Dallas, Oregon", "expected": "miss"},
+    {"id": "new-time", "split": "validation", "question": "Weather in Dallas right now", "expected": "miss"},
+    {"id": "new-units", "split": "validation", "question": "Please show me Dallas weather in metric", "expected": "miss"},
+    {"id": "new-date", "split": "validation", "question": "Dallas weather next Monday", "expected": "bypass"},
+    {"id": "new-safety", "split": "validation", "question": "Is the weather in Dallas safe for camping?", "expected": "bypass"}
+  ]
+}

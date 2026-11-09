@@ -136,6 +136,7 @@
 .trace-type-icon svg { width: 15px; height: 15px; }
 .trace-type-icon[data-kind="model"] { color: #6d579e; background: #f0ecf8; }
 .trace-type-icon[data-kind="tool"] { color: #33765a; background: #e9f5ed; }
+.trace-type-icon[data-kind="memory"] { color: #85551c; background: #fbf1de; }
 .trace-type-icon[data-kind="step"] { color: #94722f; background: #fbf4e4; }
 .trace-call-copy { min-width: 0; }
 .trace-select {
@@ -158,6 +159,7 @@
 .trace-span-bar { fill: #72a999; }
 .trace-row[data-kind="model"] .trace-span-bar { fill: #a195c7; }
 .trace-row[data-kind="tool"] .trace-span-bar { fill: #75ad8b; }
+.trace-row[data-kind="memory"] .trace-span-bar { fill: #c89a59; }
 .trace-row[data-kind="step"] .trace-span-bar { fill: #cab27c; }
 .trace-row[data-status="failed"] .trace-span-bar { fill: #d78f84; }
 .trace-start-marker { stroke: #9c8a60; stroke-width: 2; vector-effect: non-scaling-stroke; }
@@ -170,6 +172,7 @@
 .trace-legend-dot { width: 7px; height: 7px; border-radius: 2px; }
 .trace-legend-model { background: #a195c7; }
 .trace-legend-tool { background: #75ad8b; }
+.trace-legend-memory { background: #c89a59; }
 .trace-inspector { position: sticky; top: 20px; }
 .trace-inspector-heading { padding: 20px 18px 18px; border-bottom: 1px solid #e7eee9; }
 .trace-inspector-heading .trace-eyebrow { margin: 0 0 9px; font-size: 9px; }

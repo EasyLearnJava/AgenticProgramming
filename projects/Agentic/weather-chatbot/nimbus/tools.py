@@ -65,6 +65,8 @@ class ToolRun:
     upstream_request: WireRequest | None = None
     lane_id: str | None = None
     fallback_note: str | None = None
+    fetched_at: float | None = None
+    expires_at: float | None = None
 
 
 # How a lane runs one of our tools: its input, checked, in; the tool's run, or one of our upstream errors, out.
@@ -256,7 +258,9 @@ async def _geocode(params: GeocodeInput, context: ToolContext) -> ToolRun:
         summary = f"{len(output.candidates)} places, ambiguous"
     else:
         summary = _to_place_line(output.candidates[0])
-    return ToolRun(output, answer.request, summary, answer.from_cache)
+    return ToolRun(
+        output, answer.request, summary, answer.from_cache, fetched_at=answer.fetched_at, expires_at=answer.expires_at
+    )
 
 
 async def _current_weather(params: CurrentWeatherInput, context: ToolContext) -> ToolRun:
@@ -280,7 +284,9 @@ async def _current_weather(params: CurrentWeatherInput, context: ToolContext) ->
         summary = output.condition
     else:
         summary = f"{round(output.temperature)} {output.temperature_unit}, {output.condition.lower()}"
-    return ToolRun(output, answer.request, summary, answer.from_cache)
+    return ToolRun(
+        output, answer.request, summary, answer.from_cache, fetched_at=answer.fetched_at, expires_at=answer.expires_at
+    )
 
 
 async def _forecast(params: ForecastInput, context: ToolContext) -> ToolRun:
@@ -322,7 +328,14 @@ async def _forecast(params: ForecastInput, context: ToolContext) -> ToolRun:
         days=days,
         hours=hours,
     )
-    return ToolRun(output, answer.request, summarize_forecast(output), answer.from_cache)
+    return ToolRun(
+        output,
+        answer.request,
+        summarize_forecast(output),
+        answer.from_cache,
+        fetched_at=answer.fetched_at,
+        expires_at=answer.expires_at,
+    )
 
 
 def summarize_forecast(output: ForecastOutput) -> str:
@@ -348,7 +361,14 @@ async def _air_quality(params: AirQualityInput, context: ToolContext) -> ToolRun
     )
     us = "unknown" if output.us_aqi is None else output.us_aqi
     european = "unknown" if output.european_aqi is None else output.european_aqi
-    return ToolRun(output, answer.request, f"US AQI {us} · European AQI {european}", answer.from_cache)
+    return ToolRun(
+        output,
+        answer.request,
+        f"US AQI {us} · European AQI {european}",
+        answer.from_cache,
+        fetched_at=answer.fetched_at,
+        expires_at=answer.expires_at,
+    )
 
 
 GEOCODE_LOCATION: Final = WeatherTool(
@@ -409,6 +429,8 @@ class ToolCallRecord:
     from_cache: bool = False
     upstream_request: WireRequest | None = None
     fallback_note: str | None = None
+    fetched_at: float | None = None
+    expires_at: float | None = None
 
 
 async def run_in_time(tool: WeatherTool, params: BaseModel, context: ToolContext) -> ToolRun:
@@ -461,6 +483,8 @@ def to_langchain_tool(tool: WeatherTool, run: Callable[[BaseModel], Awaitable[To
             tool_run.from_cache,
             tool_run.upstream_request,
             tool_run.fallback_note,
+            tool_run.fetched_at,
+            tool_run.expires_at,
         )
         return tool_run.output.model_dump_json(), record
 

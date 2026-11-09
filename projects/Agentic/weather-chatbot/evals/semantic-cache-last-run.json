@@ -1,0 +1,156 @@
+{
+  "passed": true,
+  "provider_errors": 0,
+  "false_hits": 0,
+  "positive_recall": 1.0,
+  "threshold": 0.8,
+  "cases": [
+    {
+      "id": "train-order",
+      "split": "training",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 1
+    },
+    {
+      "id": "train-polite",
+      "split": "training",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 2
+    },
+    {
+      "id": "train-question",
+      "split": "training",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 3
+    },
+    {
+      "id": "heldout-order",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 4
+    },
+    {
+      "id": "heldout-conversation",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 5
+    },
+    {
+      "id": "heldout-spelling",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 6
+    },
+    {
+      "id": "heldout-polite",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 7
+    },
+    {
+      "id": "heldout-question",
+      "split": "validation",
+      "expected": "hit",
+      "result": "semantic_hit",
+      "passed": true,
+      "case": 8
+    },
+    {
+      "id": "other-city",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 9
+    },
+    {
+      "id": "other-dallas",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 10
+    },
+    {
+      "id": "uncertain-city-typo",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 11
+    },
+    {
+      "id": "different-timeframe",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 12
+    },
+    {
+      "id": "different-units",
+      "split": "validation",
+      "expected": "miss",
+      "result": "miss",
+      "passed": true,
+      "case": 13
+    },
+    {
+      "id": "future-date",
+      "split": "validation",
+      "expected": "bypass",
+      "result": "bypass",
+      "passed": true,
+      "case": 14
+    },
+    {
+      "id": "safety",
+      "split": "validation",
+      "expected": "bypass",
+      "result": "bypass",
+      "passed": true,
+      "case": 15
+    },
+    {
+      "id": "trip",
+      "split": "validation",
+      "expected": "bypass",
+      "result": "bypass",
+      "passed": true,
+      "case": 16
+    },
+    {
+      "id": "context",
+      "split": "validation",
+      "expected": "bypass",
+      "result": "bypass",
+      "passed": true,
+      "case": 17
+    },
+    {
+      "id": "injection",
+      "split": "validation",
+      "expected": "bypass",
+      "result": "bypass",
+      "passed": true,
+      "case": 18
+    }
+  ],
+  "exact": "exact_hit",
+  "cross_browser": "miss",
+  "checked_at": "2026-11-09T22:23:19.929856+00:00"
+}

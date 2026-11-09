@@ -5,6 +5,8 @@
   {% if kind == 'agent' %}<path d="M5 5h10v10H5zM10 1v4m0 10v4M1 10h4m10 0h4"/><path d="m8 10 2 2 3-4"/>
   {% elif kind == 'model' %}<path d="m10 2 2.2 5.8L18 10l-5.8 2.2L10 18l-2.2-5.8L2 10l5.8-2.2L10 2Z"/>
   {% elif kind == 'tool' %}<path d="M12 3a5 5 0 0 0-5 6l-4 4a2.1 2.1 0 0 0 3 3l4-4a5 5 0 0 0 6-6l-3 3-2-2 3-3Z"/>
+  {% elif kind == 'memory' %}<ellipse cx="10" cy="4" rx="6" ry="2"/>
+    <path d="M4 4v12c0 3 12 3 12 0V4M4 10c0 3 12 3 12 0"/>
   {% else %}<path d="M5 3v5h10v9M2 5l3-3 3 3M12 15l3 3 3-3"/>{% endif %}
 </svg>
 {%- endmacro %}
@@ -20,7 +22,7 @@
     <div>
       <p class="trace-eyebrow">Observability / Request explorer</p>
       <h1>LangSmith trace</h1>
-      <p class="trace-subtitle">Follow the calls behind this answer, from the agent to each model and tool.</p>
+      <p class="trace-subtitle">Inspect the calls, timings and outcomes behind this request.</p>
     </div>
     <div class="trace-header-actions">
       {% if ref %}<span class="trace-reference">Request <code>{{ ref }}</code></span>{% endif %}
@@ -40,8 +42,12 @@
     <div class="trace-metric"><span class="trace-metric-label">Model calls</span>
       <strong>{{ presentation.model_count }}</strong>
       <span class="trace-metric-note">Reasoning &amp; response</span></div>
-    <div class="trace-metric"><span class="trace-metric-label">Tool spans</span>
+    {% if presentation.memory_count %}
+    <div class="trace-metric"><span class="trace-metric-label">Memory operations</span>
+      <strong>{{ presentation.memory_count }}</strong><span class="trace-metric-note">Mem0 preferences</span></div>
+    {% else %}<div class="trace-metric"><span class="trace-metric-label">Tool spans</span>
       <strong>{{ presentation.tool_count }}</strong><span class="trace-metric-note">Including nested calls</span></div>
+    {% endif %}
     <div class="trace-metric"><span class="trace-metric-label">Errors</span>
       <strong{% if presentation.failed_count %} class="trace-error-count"{% endif %}>
         {{ presentation.failed_count }}</strong>
@@ -53,7 +59,8 @@
       <div class="trace-panel-header">
         <div><h2 id="calls">Call timeline</h2><p id="trace-timing">Nested calls follow their parent.
           Timings start at the beginning of this trace.</p></div>
-        <span class="trace-span-count">{{ presentation.total_count }} spans</span>
+        <span class="trace-span-count">{{ presentation.total_count }}
+          {{ 'span' if presentation.total_count == 1 else 'spans' }}</span>
       </div>
       <div class="trace-controls" data-trace-controls hidden>
         <div class="trace-filter-group" role="group" aria-label="Filter calls">
@@ -61,6 +68,9 @@
           <button type="button" class="trace-filter" data-trace-filter="{{ value }}"
             aria-pressed="{{ 'true' if value == 'all' else 'false' }}">{{ label }}</button>
           {% endfor %}
+          {% if presentation.memory_count %}
+          <button type="button" class="trace-filter" data-trace-filter="memory" aria-pressed="false">Memory</button>
+          {% endif %}
         </div>
         <label class="trace-search"><span class="visually-hidden">Find a call</span>
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
@@ -135,6 +145,8 @@
       <footer class="trace-panel-footer">
         <span><span class="trace-legend-dot trace-legend-model"></span>Model</span>
         <span><span class="trace-legend-dot trace-legend-tool"></span>Tool</span>
+        {% if presentation.memory_count %}
+        <span><span class="trace-legend-dot trace-legend-memory"></span>Memory</span>{% endif %}
         <p>Nested spans can cover the same work; durations do not add up.
           Unknown durations show a start marker.</p>
       </footer>
@@ -150,14 +162,18 @@
         <div><dt>Duration</dt><dd data-trace-detail-duration>{{ selected.duration_exact }}</dd></div>
         <div><dt>Started at</dt><dd data-trace-detail-start>{{ selected.start_exact }}</dd></div>
         <div><dt>Parent</dt><dd data-trace-detail-parent>
-          {{ 'None (trace root)' if selected.kind_slug == 'agent' else 'Not available in this view' }}</dd></div>
+          {{ 'None (trace root)' if selected.kind_slug in ['agent', 'memory']
+            else 'Not available in this view' }}</dd></div>
       </dl>
       <div class="trace-inspector-error" data-trace-detail-error{% if not selected.error %} hidden{% endif %}
         role="note">{{ selected.error or '' }}</div>
       <div class="trace-privacy-note"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
           aria-hidden="true" focusable="false"><path d="m10 2 6 2v5c0 4-6 8-6 8S4 13 4 9V4l6-2Z"/>
           <path d="m7 9 2 2 4-4"/></svg>
-        <p>Operational details only. Prompts, answers and tool inputs stay private.</p></div>
+        <p>Operational details only. Prompts, answers, preference values, identities and keys stay private.</p></div>
+      {% if presentation.memory_count %}<p class="trace-inspector-hint">This trace covers one Mem0 operation,
+        including its verification. Activity shows the outcome and any separate chat trace.
+        An unconfirmed save or deletion is marked failed.</p>{% endif %}
       <p class="trace-inspector-hint">Select a call to inspect its timing and outcome.</p>
       <p class="visually-hidden" data-trace-selection-note aria-live="polite"></p>
     </aside>
@@ -172,7 +188,7 @@
       {% else %}Trace unavailable{% endif %}</h2>
     {% if trace.status == "pending" %}
     <p class="trace-notice" role="note">LangSmith has no visible calls for this trace yet.
-      If the chat just finished, give it a moment and refresh.</p>
+      If the request just finished, give it a moment and refresh.</p>
     {% elif trace.status == "disabled" %}
     <p class="trace-notice" role="note">LangSmith tracing is disabled in this environment.</p>
     {% elif trace.issue %}<p class="trace-notice" role="note">{{ trace.issue.value }}</p>

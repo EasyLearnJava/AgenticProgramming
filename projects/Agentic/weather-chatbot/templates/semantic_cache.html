@@ -1,0 +1,78 @@
+{# This browser's cache metadata only. No question, generated answer or private cache identifier is rendered. #}
+{% extends "base.html" %}
+{% block title %}Weather cache · Nimbus{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/semantic_cache.css">{% endblock %}
+{% block content %}
+<main class="cache-page" id="main-content">
+  <header class="cache-header">
+    <div>
+      <p class="cache-eyebrow">Observability</p>
+      <h1>Weather cache</h1>
+      <p class="cache-intro">Recent weather answers available to this browser. Similar questions can reuse a fresh
+        answer when the place, dates, units and context match.</p>
+    </div>
+    <a class="cache-refresh" href="/weather-cache">Refresh status</a>
+  </header>
+  <div class="cache-summary" aria-label="Cache overview">
+    <div><span>Active entries shown</span><strong>{{ entries|length if status == 'ready' else '—' }}</strong></div>
+    <div><span>Maximum answer lifetime</span><strong>2 minutes</strong></div>
+    <div><span>Visibility</span><strong>This browser only</strong></div>
+  </div>
+  {% if status == 'disabled' %}
+  <section class="cache-empty" aria-labelledby="cache-status-heading">
+    <h2 id="cache-status-heading">Weather answer caching is off</h2>
+    <p>This deployment has not enabled the Qdrant answer cache. Nimbus can still answer using its normal weather
+      tools and Gemini.</p>
+  </section>
+  {% elif status != 'ready' %}
+  <section class="cache-empty cache-unavailable" aria-labelledby="cache-status-heading">
+    <h2 id="cache-status-heading">Cache status is temporarily unavailable</h2>
+    <p>Nimbus could not read the inventory. This does not mean the cache is empty. Weather questions can continue
+      through the normal answer flow.</p>
+  </section>
+  {% else %}
+  {% if mode == 'shadow' %}
+  <p class="cache-mode"><strong>Shadow mode.</strong> Cache matches are measured, but Gemini still answers each
+    question. Entries here are candidates for reuse.</p>
+  {% endif %}
+  {% if entries %}
+  <section aria-labelledby="cache-entries-heading">
+    <h2 id="cache-entries-heading">Available at this refresh</h2>
+    <p class="cache-caption">Times are a snapshot. Refresh to update them; Nimbus always checks expiry again before
+      reusing an answer. Up to 50 active entries are shown.</p>
+    <ul class="cache-entries">
+      {% for entry in entries %}
+      <li class="cache-entry">
+        <div class="cache-entry-heading">
+          <h3>{{ entry.label }}</h3>
+          <span class="cache-lifetime">{{ entry.remaining_seconds }} seconds remaining</span>
+        </div>
+        <dl class="cache-entry-details">
+          <div><dt>Answer saved</dt><dd>{{ entry.age_seconds }} seconds ago</dd></div>
+          <div><dt>Weather data fetched</dt><dd>{{ entry.evidence_age_seconds }} seconds ago</dd></div>
+          <div><dt>Expires</dt><dd><time datetime="{{ entry.expires_iso }}">{{ entry.expires_label }}</time></dd></div>
+        </dl>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% else %}
+  <section class="cache-empty" aria-labelledby="cache-status-heading">
+    <h2 id="cache-status-heading">No active cached answers</h2>
+    <p>Ask a simple weather question, such as “Dallas weather,” then check here. Eligible successful answers appear
+      briefly; expired entries are never reused.</p>
+    <a href="/">Ask Nimbus about the weather →</a>
+  </section>
+  {% endif %}
+  {% endif %}
+  <aside class="cache-explainer" aria-labelledby="cache-explainer-heading">
+    <h2 id="cache-explainer-heading">What these times mean</h2>
+    <p>The two-minute limit starts when an answer is saved. It can expire sooner if its weather data expires or the
+      date changes. Reusing an answer does not extend its lifetime.</p>
+    <p>This page shows normalized weather labels, not your original questions, answers or saved preferences.
+      Trip plans, park guidance, safety advice and alerts are excluded from this answer cache.</p>
+    <p>Open-Meteo’s weather-data cache is separate. It can save a provider request even when Gemini writes a new
+      answer.</p>
+  </aside>
+</main>
+{% endblock %}

@@ -18,6 +18,7 @@ human review between visitor feedback, a new regression case and a release decis
 | What you ask in chat | What you see | Why it works this way |
 | --- | --- | --- |
 | “Will it rain in Paris tomorrow?” | The weather agent can look up the place, request a forecast and stream its answer with expandable tool calls. | The forecast needs coordinates and the local date. The tool results give the model evidence for its answer. |
+| “Dallas weather,” then “weather in Dallas” | An eligible fresh answer can be reused with a cache badge when caching is on. | Exact lookup precedes semantic search; browser, place, dates, units, context and freshness must still match. |
 | “Plan a trip to Dallas” | A question about dates. Reply with dates and Nimbus can offer weather and the travel searches enabled here. | The city intake can collect missing details without a speculative forecast or a model call. |
 | “Plan a trip to Zion” | An inline trip form with editable dates and travel details. | A park name alone gives no dates against which to check a warning or price a stay. |
 | “Plan a trip to Zion this weekend from DFW” | A dated conditions briefing, or a choice if the weekend is ambiguous. | A verified park reference point and visit dates let the app check conditions before offering a travel search. |
@@ -53,6 +54,21 @@ This branch is separate from the source-retrieval and weather-cache paths in the
 prefers to travel, not whether a destination is safe, what a room costs or whether a flight is available. A missing
 or unavailable memory service leaves the ordinary chat and planner available.
 
+**Optional weather answer reuse** reduces repeated model work for short, ordinary weather questions. A separate
+signed browser cookie owns the Qdrant partition; it does not enable preference memory. Nimbus checks an exact
+fingerprint first, then asks Qdrant's hosted `sentence-transformers/all-minilm-l6-v2` model for a semantic match.
+The Free model produces 384-dimensional vectors. The REST adapter adds no local Torch installation or new runtime
+package. The SQLite park-retrieval profile remains separate.
+
+![Guarded weather answer reuse and the ordinary model fallback](images/semantic-cache-flow.svg)
+
+Similarity is a candidate score. Independent guards check the location, request intent, dates, units, context,
+browser ownership and original evidence expiry. Uncertain spelling, a changed context or a provider outage keeps
+the normal answer path. Only complete successful REST weather answers can be stored, for at most 120 seconds.
+An accepted hit renders new cards and a fresh answer reference without replaying past tool calls or model traces.
+[Weather cache](/weather-cache) shows this browser's eligible labels, source age and remaining lifetime.
+[Implementation and validation](technical-details.md#follow-a-weather-cache-hit).
+
 ## Where the evidence comes from
 
 - **Weather and air quality** come from weather tools. The place, forecast dates and available hours constrain
@@ -75,6 +91,10 @@ function serves FastAPI routes. Request middleware attaches a request ID to stru
 Axiom stores those events and a separate read credential lets Activity and Performance display them. Sentry can
 receive sanitized errors. LangSmith adds model and tool timings to eligible Activity rows when tracing is enabled.
 [Activity](/activity) · [Performance](/performance).
+
+Activity distinguishes cached answers from agent answers and records cache hits, misses, bypasses and failures.
+A cache hit has no new Gemini or weather-tool execution, so its timeline explains the absence of a model trace.
+The private inventory shows normalized labels and expiry metadata, while public Activity never shows cached text.
 
 Evaluations shows how the app performed on synthetic questions, including repeated trials and failures.
 Health reports dependency readiness separately from answer quality. [Evaluations](/evaluations) · [Health](/health).

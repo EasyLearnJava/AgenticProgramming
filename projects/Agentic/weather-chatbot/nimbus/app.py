@@ -30,6 +30,8 @@ from nimbus.nps_alerts import NpsAlertsService
 from nimbus.nws_alerts import NwsAlertsService
 from nimbus.parks import make_park_knowledge
 from nimbus.retrieval_gate import RetrievalGate
+from nimbus.semantic_cache import page as semantic_cache_page
+from nimbus.semantic_cache.service import SemanticCacheService
 from nimbus.sentry import start_sentry
 from nimbus.travel import briefing_page, kiwi, planner_page, trivago
 from nimbus.travel.service import TravelService
@@ -69,7 +71,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.feedback_gate = RetrievalGate()
     app.state.trace_gate = RetrievalGate()
     app.state.memory_gate = RetrievalGate()
-    app.state.mem0 = Mem0Service(settings.mem0_api_key)
+    app.state.mem0 = Mem0Service(settings.mem0_api_key, tracer=app.state.tracer)
+    app.state.semantic_cache = SemanticCacheService(settings)
     app.state.travel_service = TravelService(
         flights=kiwi.search_flights if settings.flights_enabled else None,
         hotels=trivago.search_hotels if settings.hotels_enabled else None,
@@ -110,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(briefing_page.router)
     app.include_router(feedback.router)
     app.include_router(memory_routes.router)
+    app.include_router(semantic_cache_page.router)
     app.include_router(chat.router)
     app.include_router(health.router)
     app.include_router(observability.router)

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from nimbus.trace_view import TraceView, safe_parent_indices
 
-KINDS = {"Agent": "agent", "Model": "model", "Tool": "tool", "Step": "step"}
+KINDS = {"Agent": "agent", "Model": "model", "Tool": "tool", "Step": "step", "Memory": "memory"}
 STATUSES = {"Completed": "completed", "Failed": "failed", "Running": "running", "Unknown": "unknown"}
 BAR_SCALE = 1000
 
@@ -36,7 +36,7 @@ class PresentedSpan:
 
 @dataclass(frozen=True)
 class TracePresentation:
-    """Summary counts describe displayed spans; elapsed time is the agent's own duration, never a sum of children."""
+    """Summary counts describe displayed spans; elapsed time is the root duration, never a sum of children."""
 
     rows: tuple[PresentedSpan, ...]
     duration: str
@@ -46,6 +46,7 @@ class TracePresentation:
     ticks: tuple[str, str, str]
     model_count: int
     tool_count: int
+    memory_count: int
     failed_count: int
     running_count: int
     total_count: int
@@ -76,7 +77,9 @@ def present_trace(trace: TraceView) -> TracePresentation:
         children.setdefault(parent, []).append(index)
     for siblings in children.values():
         siblings.sort(key=lambda index: (max(0, rows[index].offset_ms), index))
-    root = next((row for index, row in enumerate(rows) if row.kind == "Agent" and parents[index] is None), None)
+    root = next(
+        (row for index, row in enumerate(rows) if row.kind in {"Agent", "Memory"} and parents[index] is None), None
+    )
     elapsed = root.elapsed_ms if root and root.elapsed_ms is not None and root.elapsed_ms >= 0 else None
     timeline_ms = max((max(0, row.offset_ms) + max(0, row.elapsed_ms or 0) for row in rows), default=0)
     failed = sum(row.status == "Failed" for row in rows)
@@ -131,6 +134,7 @@ def present_trace(trace: TraceView) -> TracePresentation:
         ticks=("0 ms", duration_label(timeline_ms // 2), duration_label(timeline_ms)),
         model_count=sum(row.kind == "Model" for row in rows),
         tool_count=sum(row.kind == "Tool" for row in rows),
+        memory_count=sum(row.kind == "Memory" for row in rows),
         failed_count=failed,
         running_count=running,
         total_count=len(rows),

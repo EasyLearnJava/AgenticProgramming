@@ -327,7 +327,15 @@ def test_each_answer_is_kept_under_its_address_hash_for_its_own_time(
     answer = call_with_cache(stub, store, run)
     key = to_cache_key(str(stub.requests[0].url))
     assert answer.from_cache is False
-    assert store.items == {key: fixture(name)}
+    assert store.items == {
+        key: {
+            "version": 1,
+            "body": fixture(name),
+            "fetched_at": NOON_IN_PARIS,
+            "expires_at": NOON_IN_PARIS + seconds,
+        }
+    }
+    assert (answer.fetched_at, answer.expires_at) == (NOON_IN_PARIS, NOON_IN_PARIS + seconds)
     assert store.ttls == {key: seconds}
 
 
@@ -368,7 +376,14 @@ def test_an_answer_kept_that_no_longer_reads_is_fetched_again_and_kept_in_its_pl
     with capture_logs() as lines:
         answer = call_with_cache(stub, store, lambda client: client.search_places("Paris", 5, None))
     assert (len(stub.requests), answer.from_cache) == (1, False)
-    assert store.items == {to_cache_key(GEOCODE_ADDRESS): fixture("geocode-paris")}
+    assert store.items == {
+        to_cache_key(GEOCODE_ADDRESS): {
+            "version": 1,
+            "body": fixture("geocode-paris"),
+            "fetched_at": NOON_IN_PARIS,
+            "expires_at": NOON_IN_PARIS + 30 * 24 * 60 * 60,
+        }
+    }
     assert [(line["event"], line["log_level"], line.get("status")) for line in lines] == [
         ("upstream.cache", "warning", "unreadable"),
         ("upstream.http", "info", "ok"),

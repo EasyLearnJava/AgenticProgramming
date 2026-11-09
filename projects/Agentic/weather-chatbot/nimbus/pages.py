@@ -78,6 +78,7 @@ MENU_GROUPS: tuple[MenuGroup, ...] = (
         "Observability",
         (
             MenuItem("/activity", "Activity"),
+            MenuItem("/weather-cache", "Weather cache"),
             MenuItem("/performance", "Performance"),
             MenuItem("/evaluations", "Evaluations"),
             MenuItem("/health", "Health"),

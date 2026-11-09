@@ -191,7 +191,7 @@ def test_the_menu_lists_its_groups_each_with_its_links() -> None:
     assert [(group.title, [item.href for item in group.items]) for group in MENU_GROUPS] == [
         ("App", ["/", "/parks/alerts"]),
         ("Knowledge", ["/knowledge/sources", "/knowledge/chunks", "/knowledge/retrieval"]),
-        ("Observability", ["/activity", "/performance", "/evaluations", "/health"]),
+        ("Observability", ["/activity", "/weather-cache", "/performance", "/evaluations", "/health"]),
         ("Learn", ["/docs", "/architecture", "/system-design", "/technical-details"]),
         ("Project", ["/issues", "/todo", "/waiting-on-you", SOURCE_URL, "/api/health", "/health#mcp-server"]),
     ]

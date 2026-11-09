@@ -3,17 +3,17 @@
 import asyncio
 import json
 import re
-import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
 import httpx2
-import structlog
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 from nimbus.memory.models import MemoryReason, PreferenceProfile, Snapshot
+from nimbus.memory.tracing import MemoryTrace, memory_trace
+from nimbus.model import Tracer
 
 MEM0_BASE = "https://api.mem0.ai"
 HTTP_SECONDS = 3.0
@@ -95,9 +95,12 @@ class Mem0Service:
         self,
         key: SecretStr | None,
         make_client: Callable[[], httpx2.AsyncClient] | None = None,
+        *,
+        tracer: Tracer | None = None,
     ) -> None:
         """Create no network connection until an opted-in visitor requests an operation."""
         self._key = key
+        self._tracer = tracer
         self._make_client = make_client or httpx2.AsyncClient
 
     @property
@@ -112,16 +115,9 @@ class Mem0Service:
         if USER_ID.fullmatch(user_id) is None:
             raise _MemoryError("invalid_identity")
 
-    def _logged(self, action: str, snapshot: Snapshot, started: float) -> Snapshot:
-        """Only operation metadata reaches Activity; identities, values and raw errors are never logged."""
-        structlog.get_logger().info(
-            "memory.operation",
-            tool="memory_preferences",
-            action=action,
-            status=snapshot.status,
-            reason=snapshot.reason,
-            ms=round((time.monotonic() - started) * 1000),
-        )
+    def _logged(self, snapshot: Snapshot, trace: MemoryTrace) -> Snapshot:
+        """Give tracing only the checked outcome vocabulary; the private snapshot stays inside this service."""
+        trace.outcome(snapshot.status, snapshot.reason)
         return snapshot
 
     async def _exchange(
@@ -212,111 +208,111 @@ class Mem0Service:
 
     async def read(self, user_id: str) -> Snapshot:
         """Read approved preferences, returning no usable values when the provider or ownership check fails."""
-        started = time.monotonic()
-        try:
-            self._check_identity(user_id)
-            async with asyncio.timeout(OPERATION_SECONDS), self._make_client() as client:
-                snapshot = _snapshot(await self._records(client, user_id))
-        except _MemoryError as error:
-            snapshot = Snapshot(status="unavailable", reason=error.reason)
-        except (TimeoutError, httpx2.TimeoutException):
-            snapshot = Snapshot(status="unavailable", reason="timeout")
-        except httpx2.HTTPError:
-            snapshot = Snapshot(status="unavailable", reason="unavailable")
-        except (ValidationError, ValueError):
-            snapshot = Snapshot(status="unavailable", reason="invalid_response")
-        return self._logged("read", snapshot, started)
+        with memory_trace(self._tracer, "read") as trace:
+            try:
+                self._check_identity(user_id)
+                async with asyncio.timeout(OPERATION_SECONDS), self._make_client() as client:
+                    snapshot = _snapshot(await self._records(client, user_id))
+            except _MemoryError as error:
+                snapshot = Snapshot(status="unavailable", reason=error.reason)
+            except (TimeoutError, httpx2.TimeoutException):
+                snapshot = Snapshot(status="unavailable", reason="timeout")
+            except httpx2.HTTPError:
+                snapshot = Snapshot(status="unavailable", reason="unavailable")
+            except (ValidationError, ValueError):
+                snapshot = Snapshot(status="unavailable", reason="invalid_response")
+            return self._logged(snapshot, trace)
 
     async def save(self, user_id: str, preferences: PreferenceProfile, expected_revision: str) -> Snapshot:
         """Replace the matching revision, then verify provider readback; an acknowledgement alone is not success."""
-        started = time.monotonic()
-        attempted = False
-        acknowledged = False
-        try:
-            self._check_identity(user_id)
-            preferences = PreferenceProfile.model_validate(preferences.model_dump())
-            async with asyncio.timeout(OPERATION_SECONDS), self._make_client() as client:
-                # ① Read immediately before mutation. Mem0 does not expose transactional compare-and-swap;
-                # concurrent first saves become a visible conflict rather than silently selecting a duplicate.
-                current = _snapshot(await self._records(client, user_id))
-                if current.status == "conflict":
-                    return self._logged("save", current, started)
-                if current.revision != expected_revision:
-                    return self._logged("save", Snapshot(status="conflict", reason="stale_revision"), started)
-                revision = str(uuid4())
-                metadata = {
-                    "nimbus_kind": PROFILE_KIND,
-                    "nimbus_schema": 1,
-                    "nimbus_owner": user_id,
-                    "nimbus_revision": revision,
-                }
-                expiry = (datetime.now(UTC).date() + timedelta(days=RETENTION_DAYS)).isoformat()
-                text = preferences.model_dump_json()
-                # ② Only this typed JSON is sent, with inference disabled. No raw message or automatic extraction.
-                attempted = True
-                if current.memory_ids:
-                    await self._exchange(
-                        client,
-                        "PUT",
-                        f"/v1/memories/{current.memory_ids[0]}/",
-                        {
-                            "text": text,
-                            "metadata": metadata,
-                            "expiration_date": expiry,
-                        },
-                    )
-                else:
-                    await self._exchange(
-                        client,
-                        "POST",
-                        "/v3/memories/add/",
-                        {
-                            "messages": [{"role": "user", "content": text}],
-                            "user_id": user_id,
-                            "metadata": metadata,
-                            "infer": False,
-                            "expiration_date": expiry,
-                        },
-                    )
-                acknowledged = True
-                # ③ Verify persisted content and revision, not a provider success string or returned ID alone.
-                snapshot = _snapshot(await self._records(client, user_id))
-                if snapshot.status == "conflict":
-                    return self._logged("save", snapshot, started)
-                if snapshot.revision != revision or snapshot.preferences != preferences:
-                    snapshot = Snapshot(status="pending", reason="pending_confirmation")
-        except _MemoryError as error:
-            uncertain = acknowledged or (attempted and error.reason in {"unavailable", "invalid_response"})
-            snapshot = Snapshot(status="pending" if uncertain else "unavailable", reason=error.reason)
-        except (TimeoutError, httpx2.TimeoutException):
-            snapshot = Snapshot(status="pending" if attempted else "unavailable", reason="timeout")
-        except httpx2.HTTPError:
-            snapshot = Snapshot(status="pending" if attempted else "unavailable", reason="unavailable")
-        except (ValidationError, ValueError):
-            snapshot = Snapshot(status="pending" if attempted else "unavailable", reason="invalid_response")
-        return self._logged("save", snapshot, started)
+        with memory_trace(self._tracer, "save") as trace:
+            attempted = False
+            acknowledged = False
+            try:
+                self._check_identity(user_id)
+                preferences = PreferenceProfile.model_validate(preferences.model_dump())
+                async with asyncio.timeout(OPERATION_SECONDS), self._make_client() as client:
+                    # ① Read immediately before mutation. Mem0 does not expose transactional compare-and-swap;
+                    # concurrent first saves become a visible conflict rather than silently selecting a duplicate.
+                    current = _snapshot(await self._records(client, user_id))
+                    if current.status == "conflict":
+                        return self._logged(current, trace)
+                    if current.revision != expected_revision:
+                        return self._logged(Snapshot(status="conflict", reason="stale_revision"), trace)
+                    revision = str(uuid4())
+                    metadata = {
+                        "nimbus_kind": PROFILE_KIND,
+                        "nimbus_schema": 1,
+                        "nimbus_owner": user_id,
+                        "nimbus_revision": revision,
+                    }
+                    expiry = (datetime.now(UTC).date() + timedelta(days=RETENTION_DAYS)).isoformat()
+                    text = preferences.model_dump_json()
+                    # ② Only this typed JSON is sent, with inference disabled. No raw message or automatic extraction.
+                    attempted = True
+                    if current.memory_ids:
+                        await self._exchange(
+                            client,
+                            "PUT",
+                            f"/v1/memories/{current.memory_ids[0]}/",
+                            {
+                                "text": text,
+                                "metadata": metadata,
+                                "expiration_date": expiry,
+                            },
+                        )
+                    else:
+                        await self._exchange(
+                            client,
+                            "POST",
+                            "/v3/memories/add/",
+                            {
+                                "messages": [{"role": "user", "content": text}],
+                                "user_id": user_id,
+                                "metadata": metadata,
+                                "infer": False,
+                                "expiration_date": expiry,
+                            },
+                        )
+                    acknowledged = True
+                    # ③ Verify persisted content and revision, not a provider success string or returned ID alone.
+                    snapshot = _snapshot(await self._records(client, user_id))
+                    if snapshot.status == "conflict":
+                        return self._logged(snapshot, trace)
+                    if snapshot.revision != revision or snapshot.preferences != preferences:
+                        snapshot = Snapshot(status="pending", reason="pending_confirmation")
+            except _MemoryError as error:
+                uncertain = acknowledged or (attempted and error.reason in {"unavailable", "invalid_response"})
+                snapshot = Snapshot(status="pending" if uncertain else "unavailable", reason=error.reason)
+            except (TimeoutError, httpx2.TimeoutException):
+                snapshot = Snapshot(status="pending" if attempted else "unavailable", reason="timeout")
+            except httpx2.HTTPError:
+                snapshot = Snapshot(status="pending" if attempted else "unavailable", reason="unavailable")
+            except (ValidationError, ValueError):
+                snapshot = Snapshot(status="pending" if attempted else "unavailable", reason="invalid_response")
+            return self._logged(snapshot, trace)
 
     async def forget(self, user_id: str) -> bool:
         """Delete only discovered, owned Nimbus records, including expired ones, and confirm their absence."""
-        started = time.monotonic()
-        try:
-            self._check_identity(user_id)
-            async with asyncio.timeout(OPERATION_SECONDS), self._make_client() as client:
-                # Keep the identity until this verification succeeds so a failed deletion can be retried.
-                records = await self._records(client, user_id, expired=True)
-                for record in records:
-                    await self._exchange(client, "DELETE", f"/v1/memories/{record.id}/")
-                remaining = await self._records(client, user_id, expired=True)
-                snapshot = Snapshot(
-                    status="empty" if not remaining else "pending",
-                    reason="" if not remaining else "pending_confirmation",
-                )
-        except _MemoryError as error:
-            snapshot = Snapshot(status="unavailable", reason=error.reason)
-        except (TimeoutError, httpx2.TimeoutException):
-            snapshot = Snapshot(status="unavailable", reason="timeout")
-        except httpx2.HTTPError:
-            snapshot = Snapshot(status="unavailable", reason="unavailable")
-        except (ValidationError, ValueError):
-            snapshot = Snapshot(status="unavailable", reason="invalid_response")
-        return self._logged("forget", snapshot, started).status == "empty"
+        with memory_trace(self._tracer, "forget") as trace:
+            try:
+                self._check_identity(user_id)
+                async with asyncio.timeout(OPERATION_SECONDS), self._make_client() as client:
+                    # Keep the identity until this verification succeeds so a failed deletion can be retried.
+                    records = await self._records(client, user_id, expired=True)
+                    for record in records:
+                        await self._exchange(client, "DELETE", f"/v1/memories/{record.id}/")
+                    remaining = await self._records(client, user_id, expired=True)
+                    snapshot = Snapshot(
+                        status="empty" if not remaining else "pending",
+                        reason="" if not remaining else "pending_confirmation",
+                    )
+            except _MemoryError as error:
+                snapshot = Snapshot(status="unavailable", reason=error.reason)
+            except (TimeoutError, httpx2.TimeoutException):
+                snapshot = Snapshot(status="unavailable", reason="timeout")
+            except httpx2.HTTPError:
+                snapshot = Snapshot(status="unavailable", reason="unavailable")
+            except (ValidationError, ValueError):
+                snapshot = Snapshot(status="unavailable", reason="invalid_response")
+            return self._logged(snapshot, trace).status == "empty"

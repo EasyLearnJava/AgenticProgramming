@@ -37,7 +37,7 @@
 {%- endmacro %}
 
 {% macro weather_card(card) -%}
-<section class="weather-card" aria-label="Weather for {{ card.location }}">
+<div class="weather-card" role="group" aria-label="Weather for {{ card.location }}">
   <header class="weather-heading">
     <div>
       <p class="weather-eyebrow">Weather at a glance</p>
@@ -125,5 +125,5 @@
     <p>Local time: {{ card.time_zone }} · {{ card.coordinates }}</p>
     {% if card.forecast_label %}<p>Forecast checked {{ card.forecast_label }}.</p>{% endif %}
   </footer>
-</section>
+</div>
 {%- endmacro %}
