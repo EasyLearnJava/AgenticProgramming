@@ -42,6 +42,7 @@ def test_replay_passes_without_live_http_and_includes_the_reviewed_catalog(monke
     assert {"dallas-trip-intake", "dallas-trip-date-follow-up", "missing-hotel-dates"} <= {
         row["case_id"] for row in rows if row["suite"] == "golden_replay"
     }
+    assert len([row for row in rows if row["case_id"].startswith("memory-")]) == 6
     assert [(row["case_id"], row.get("checks")) for row in rows if row["outcome"] != "pass"] == []
     assert {row["suite"] for row in rows} == {"regressions", "weekend", "red_team", "provider_replay", "golden_replay"}
     assert len({(row["suite"], row["case_id"]) for row in rows}) == len(rows)

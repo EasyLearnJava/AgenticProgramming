@@ -37,16 +37,33 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
     """A recent traced request, one awaiting upload, and one recorded before trace correlation was enabled."""
     ready = UUID("1cd9a312-dd4d-4696-ac81-9e3521b2d07a")
     pending = UUID("2edb2101-262d-41ad-ba41-d71c8c9d128e")
-    traces = {"ready-11111111": ready, "pending-22222222": pending, "legacy-33333333": None}
+    partial = UUID("3edb2101-262d-41ad-ba41-d71c8c9d128e")
+    traces = {
+        "ready-11111111": ready,
+        "pending-22222222": pending,
+        "legacy-33333333": None,
+        "partial-44444444": partial,
+    }
     now = datetime.now(UTC).isoformat()
 
     async def fake_reader(_settings: Settings, trace_id: UUID) -> TraceView:
         if trace_id == pending:
             return TraceView(status="pending")
+        if trace_id == partial:
+            return TraceView(
+                "ready",
+                (
+                    TraceRow("Nimbus agent", "Agent", None, 0, 0, "Running"),
+                    TraceRow("search_hotels", "Tool", None, 250, 0, "Running"),
+                ),
+                truncated=True,
+            )
         assert trace_id == ready
         rows = (
             TraceRow(kind="Agent", label="Nimbus agent", depth=0, offset_ms=0, elapsed_ms=950, status="Completed"),
-            TraceRow(kind="Model", label="Gemini", depth=1, offset_ms=30, elapsed_ms=880, status="Completed"),
+            TraceRow(
+                kind="Model", label="Gemini", depth=1, offset_ms=30, elapsed_ms=880, status="Completed", parent_index=0
+            ),
             TraceRow(
                 kind="Tool",
                 label="get_forecast",
@@ -55,6 +72,17 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
                 elapsed_ms=12,
                 status="Failed",
                 error="Tool call failed",
+                parent_index=0,
+            ),
+            TraceRow(
+                kind="Tool",
+                label="get_forecast",
+                depth=2,
+                offset_ms=921,
+                elapsed_ms=10,
+                status="Failed",
+                error="Tool call failed",
+                parent_index=2,
             ),
         )
         return TraceView(status="ready", rows=rows)

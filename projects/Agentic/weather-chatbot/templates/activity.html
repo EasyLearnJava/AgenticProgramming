@@ -26,6 +26,10 @@
   <p class="obs-about">Visitors choose a category. Open a report for its answer reference, which also appears
     on the original question’s timeline.</p>
   {% endif %}
+  {% if show == "memory" %}
+  <p class="obs-about">Preference reviews and memory operations show only their action, outcome, timing and any
+    failure reason. Saved values, browser identities and conversation text are never shown here.</p>
+  {% endif %}
   {% if narrowed %}
   <p class="obs-narrowed">{{ narrowed | join(" · ") }}. <a href="{{ everything }}">Show them all</a></p>
   {% endif %}

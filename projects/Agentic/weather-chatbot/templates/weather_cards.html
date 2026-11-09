@@ -1,0 +1,129 @@
+{#
+  templates/weather_cards.html: weather at a glance, from validated tool results rather than the model's prose.
+  Icons are decorative: every condition and measurement is also text. The narrative stays outside these cards.
+#}
+{% macro weather_icon(kind) -%}
+<svg class="weather-icon weather-icon-{{ kind }}" viewBox="0 0 64 64" fill="none"
+  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true" focusable="false">
+  {% if kind == "clear" %}
+  <circle class="weather-icon-sun" cx="32" cy="32" r="12" />
+  <path d="M32 6v6m0 40v6M6 32h6m40 0h6M14 14l4 4m28 28 4 4M14 50l4-4m28-28 4-4" />
+  {% elif kind == "night" %}
+  <path class="weather-icon-moon" d="M45 43A22 22 0 0 1 24 10a22 22 0 1 0 30 30 21 21 0 0 1-9 3Z" />
+  <path d="M46 9v8m-4-4h8" />
+  {% elif kind == "unknown" %}
+  <circle cx="32" cy="32" r="22" />
+  <path d="M25 25a7 7 0 1 1 11 6c-3 2-4 3-4 7m0 7h.01" />
+  {% elif kind == "fog" %}
+  <path d="M14 24h36M8 32h40M18 40h38M12 48h30" />
+  {% else %}
+    {% if kind == "partly" %}
+    <circle class="weather-icon-sun" cx="23" cy="23" r="11" />
+    <path d="M23 5v4M5 23h4m1-13 3 3m23-3-3 3" />
+    {% endif %}
+  <path class="weather-icon-cloud"
+    d="M18 43h30a11 11 0 0 0 1-22 16 16 0 0 0-29-2 12 12 0 0 0-2 24Z" />
+    {% if kind == "rain" %}<path d="m22 50-2 5m12-5-2 5m12-5-2 5" />{% endif %}
+    {% if kind == "storm" %}<path class="weather-icon-lightning" d="m33 36-7 13h8l-4 10 13-17h-9l4-6" />{% endif %}
+    {% if kind == "snow" %}<path d="M22 49v8m-4-4h8m12-4v8m-4-4h8" />{% endif %}
+  {% endif %}
+</svg>
+{%- endmacro %}
+
+{% macro measurement(value, unit="") -%}
+{% if value is not none %}{{ "%g"|format(value) }}<span class="weather-unit">{{ unit }}</span>
+{% else %}<span aria-hidden="true">—</span><span class="visually-hidden">Not available</span>{% endif %}
+{%- endmacro %}
+
+{% macro weather_card(card) -%}
+<section class="weather-card" aria-label="Weather for {{ card.location }}">
+  <header class="weather-heading">
+    <div>
+      <p class="weather-eyebrow">Weather at a glance</p>
+      <h2 class="weather-location">{{ card.location }}</h2>
+    </div>
+    <span class="weather-badge">{{ card.temperature_unit }}</span>
+  </header>
+  {% if card.current %}
+  <div class="weather-current">
+    <div class="weather-current-main">
+      <div>
+        <p class="weather-label">Current conditions</p>
+        <p class="weather-temperature">{{ measurement(card.current.temperature, card.temperature_unit) }}</p>
+        <p class="weather-condition">{{ card.current.condition }}</p>
+      </div>
+      {{ weather_icon(card.current_icon) }}
+    </div>
+    <dl class="weather-metrics">
+      <div><dt>Feels like</dt><dd>{{ measurement(card.current.feels_like, card.temperature_unit) }}</dd></div>
+      <div><dt>Wind</dt><dd>{{ measurement(card.current.wind_speed, " " ~ card.current.wind_speed_unit) }}</dd></div>
+    </dl>
+    <p class="weather-observed">As of {{ card.observed_label }}</p>
+  </div>
+  {% endif %}
+  {% if card.days %}
+  <div class="weather-section">
+    <h3 class="weather-section-title">Forecast
+      <span>{{ card.days|length }} day{% if card.days|length != 1 %}s{% endif %}</span>
+    </h3>
+    <div class="weather-days">
+      {% for day in card.days %}
+      <article class="weather-day" aria-label="Forecast for {{ day.date }}">
+        <div class="weather-day-heading">
+          <h4>{{ day.label }}</h4>
+          <time datetime="{{ day.date }}">{{ day.date_label }}</time>
+        </div>
+        {{ weather_icon(day.icon) }}
+        <p class="weather-day-condition">{{ day.condition }}</p>
+        <dl class="weather-day-temperatures">
+          <div><dt>High</dt><dd>{{ measurement(day.high, card.temperature_unit) }}</dd></div>
+          <div><dt>Low</dt><dd>{{ measurement(day.low, card.temperature_unit) }}</dd></div>
+        </dl>
+        <p class="weather-rain">Precip. chance <strong>{{ measurement(day.rain, "%") }}</strong></p>
+        {% if day.sunrise or day.sunset %}
+        <details class="weather-daylight">
+          <summary>Daylight</summary>
+          <dl>
+            {% if day.sunrise %}<div><dt>Sunrise</dt><dd>{{ day.sunrise }}</dd></div>{% endif %}
+            {% if day.sunset %}<div><dt>Sunset</dt><dd>{{ day.sunset }}</dd></div>{% endif %}
+          </dl>
+        </details>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% if card.hours %}
+  <div class="weather-section weather-hourly">
+    <h3 class="weather-section-title">Next hours</h3>
+    <ol class="weather-hours" aria-label="Upcoming hourly forecast">
+      {% for hour in card.hours %}
+      <li class="weather-hour">
+        <p class="weather-hour-time">{{ hour.label }}<span>{{ hour.date_label }}</span></p>
+        {% if hour.icon %}
+        {{ weather_icon(hour.icon) }}
+        <span class="visually-hidden">{{ hour.condition }}</span>
+        {% else %}
+        <p class="weather-hour-condition">{{ hour.condition }}</p>
+        {% endif %}
+        <p class="weather-hour-temperature">{{ measurement(hour.temperature, card.temperature_unit) }}</p>
+        <p class="weather-hour-rain">
+          <span class="visually-hidden">Precipitation chance </span>{{ measurement(hour.rain, "%") }}
+        </p>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+  <footer class="weather-source">
+    <p><strong>{{ card.source }}</strong>{% if card.cached %} · Includes cached data{% endif %}</p>
+    {% if card.days or card.hours %}
+    <p>Precipitation chance includes rain or snow, not how much will fall.</p>
+    {% endif %}
+    <p>Local time: {{ card.time_zone }} · {{ card.coordinates }}</p>
+    {% if card.forecast_label %}<p>Forecast checked {{ card.forecast_label }}.</p>{% endif %}
+  </footer>
+</section>
+{%- endmacro %}

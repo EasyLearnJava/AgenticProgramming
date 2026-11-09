@@ -32,6 +32,8 @@ async def update_briefing(request: Request) -> HTMLResponse:
         period = fields.pop("weekend", "")
         dates = period.split("/") if period else [fields.pop("arrival", ""), fields.pop("departure", "")]
         # Only typed preferences may be overridden by the editable form.
+        if "depart_window" in fields:
+            fields["depart_window_explicit"] = "true"
         prefs = BriefPreferences.model_validate({**prefs.model_dump(), **fields})
         ZoneInfo(prefs.time_zone)
         if prefs.destination_id and not prefs.destination_id.startswith(park):
@@ -41,7 +43,13 @@ async def update_briefing(request: Request) -> HTMLResponse:
         arrival, departure = (date.fromisoformat(s).isoformat() for s in dates)
         # An undated form's weekend shortcut introduces the defaults. A dated choice already carries
         # its outbound preference and can intentionally leave the return time unrestricted.
-        if period and not prefs.depart_window and not prefs.skip_flights and prefs.transport != "drive":
+        if (
+            period
+            and not prefs.depart_window
+            and not prefs.depart_window_explicit
+            and not prefs.skip_flights
+            and prefs.transport != "drive"
+        ):
             prefs = prefs.model_copy(
                 update={
                     "depart_window": "evening",

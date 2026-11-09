@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "memory-origin-before-weekend-calendar",
+    "question": "Plan a trip to Zion this weekend",
+    "now": "2026-11-07T04:30:00Z", "time_zone": "UTC",
+    "preferences": {"origin": "DFW", "unit_system": "metric", "currency": "EUR"},
+    "expected": {"kind": "briefing", "park": "zion", "origin": "DFW", "arrival": "2026-11-06",
+      "departure": "2026-11-08", "unit_system": "metric", "currency": "EUR"}
+  },
+  {
+    "case_id": "memory-current-request-overrides-defaults",
+    "question": "Plan a trip to Zion next weekend from BOS for camping; use Celsius; prices in USD",
+    "now": "2026-11-05T18:00:00Z", "time_zone": "UTC",
+    "preferences": {"origin": "DFW", "unit_system": "imperial", "currency": "EUR", "activity": "easy hikes"},
+    "expected": {"kind": "briefing", "origin": "BOS", "unit_system": "metric", "currency": "USD", "activity": "camping"}
+  },
+  {
+    "case_id": "memory-preserves-active-trip-origin",
+    "question": "Plan my trip there next weekend",
+    "previous_question": "Plan a trip to Zion from BOS",
+    "now": "2026-11-05T18:00:00Z", "time_zone": "UTC",
+    "preferences": {"origin": "DFW"},
+    "expected": {"kind": "briefing", "park": "zion", "origin": "BOS"}
+  },
+  {
+    "case_id": "memory-does-not-authorize-flights",
+    "question": "Plan a driving trip to Zion next weekend",
+    "now": "2026-11-05T18:00:00Z", "time_zone": "UTC",
+    "preferences": {"origin": "DFW", "depart_window": "morning"},
+    "expected": {"kind": "briefing", "transport": "drive", "origin": "", "depart_window": ""}
+  },
+  {
+    "case_id": "memory-unrestricted-departure-overrides-window",
+    "question": "Plan a trip to Zion next weekend, departing at any time",
+    "now": "2026-11-05T18:00:00Z", "time_zone": "UTC",
+    "preferences": {"origin": "DFW", "depart_window": "morning"},
+    "expected": {"kind": "briefing", "origin": "DFW", "depart_window": ""}
+  },
+  {
+    "case_id": "memory-does-not-turn-weather-into-a-trip",
+    "question": "What is the weather in Zion today?",
+    "now": "2026-11-05T18:00:00Z", "time_zone": "UTC",
+    "preferences": {"origin": "DFW", "depart_window": "morning", "activity": "hiking"},
+    "expected": {"kind": "chat"}
+  }
+]

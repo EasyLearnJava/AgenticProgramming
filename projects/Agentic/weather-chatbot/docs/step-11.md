@@ -1,5 +1,10 @@
 # Step 11 · Security: Rate Limits, Prompt Injection, Privacy
 
+**Current app note:** the later preference feature sends only five explicitly approved travel defaults to Mem0.
+Its signed browser scope, consent, deletion behavior and privacy boundaries are documented in
+[Technical details](technical-details.md#follow-an-approved-preference). It does not upload conversation history
+or grant the model permission to store arbitrary memories.
+
 Step 11 hardens what's public. Vercel's firewall limits how often one address may call `/api/*`, with a bypass for the
 app's own calls: two rules, which you set in Vercel's dashboard, step by step below. When the firewall says 429, the
 page says it in our own words. The system prompt's rule 11 now says no message can change the rules. The page says

@@ -1,6 +1,7 @@
 """Recognize explicit park planning requests and prefill facts the visitor can confirm before a search."""
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final, Literal
@@ -124,6 +125,8 @@ class TripIntent:
     origin_zone: str = ""
     weekend_options: tuple[DatePair, ...] = ()
     candidate_parks: tuple[str, ...] = ()
+    memory_used: tuple[str, ...] = ()
+    depart_window_explicit: bool = False
 
 
 # Scoped opt-outs support both items of "no flights or hotels"; a flight opt-out alone says nothing about driving.
@@ -134,7 +137,21 @@ OPT_OUT = re.compile(
     re.I,
 )
 
-WEEKEND_TIMES = re.compile(r"\b(?:friday|sunday)(?:\s+(?:morning|night|evening))?\b", re.I)
+WEEKEND_TIMES = re.compile(r"\b(?:friday|sunday)(?:\s+(?:morning|night|evening|after work))?\b", re.I)
+DEPARTURE_DETAIL = re.compile(
+    r"\b(?:leave|leaving|depart(?:ing)?|fly(?:ing)? out)\s+(?:(?:on\s+)?friday\s+)?"
+    r"(?:(?:in the|at|by)\s+)?(?P<window>morning|night|evening|noon|any\s+time|after\s+work)\b",
+    re.I,
+)
+UNITS_DETAIL = re.compile(
+    r"\b(?:in|use|using|show|prefer)\s+(?:degrees\s+)?"
+    r"(?P<units>celsius|fahrenheit|metric(?: units)?|imperial(?: units)?)\b",
+    re.I,
+)
+CURRENCY_DETAIL = re.compile(r"\b(?:in|use|using|prices? in|currency(?: is)?)\s+(?P<currency>USD|CAD|GBP|EUR)\b", re.I)
+ACTIVITY_DETAIL = re.compile(
+    r"\b(?:for\s+)?(?P<activity>(?:(?:easy|moderate|strenuous|difficult)\s+hikes?)|hiking|sightseeing|camping)\b", re.I
+)
 TRIP_FILLER = re.compile(r"\b(?:but|solo|driving|returning|coming back|going|leaving|departing)\b", re.I)
 _CHECK = r"(?:weather(?:\s+(?:alerts?|warnings?))?|forecasts?|alerts?|warnings?|park notices?|conditions)"
 GENERIC_CHECK = re.compile(
@@ -194,18 +211,38 @@ def _travel_fields(normalized: str, fields: dict[str, str]) -> tuple[bool, bool]
             fields["transport"] = "fly"
             if route[2]:
                 fields["gateway"] = route[2].upper()
+    for pattern, key in ((UNITS_DETAIL, "unit_system"), (CURRENCY_DETAIL, "currency"), (ACTIVITY_DETAIL, "activity")):
+        match = pattern.search(normalized)
+        if match is None:
+            continue
+        value = match[1].lower()
+        if key == "unit_system":
+            value = "metric" if value.startswith(("celsius", "metric")) else "imperial"
+        elif key == "currency":
+            value = value.upper()
+        fields[key] = value
     return skip_flights, skip_hotels
 
 
 def _departure_window(text: str, weekend: bool) -> str:
     """Use an explicit departure period before the editable weekend default."""
     default = "evening" if weekend else ""
-    outbound = re.search(r"\bfriday (?P<window>morning|night|evening)\b", text, re.I)
+    detail = DEPARTURE_DETAIL.search(text)
+    if detail:
+        value = " ".join(detail["window"].lower().split())
+        return {"morning": "morning", "noon": "by_noon", "any time": ""}.get(value, "evening")
+    outbound = re.search(r"\bfriday (?P<window>morning|night|evening|after work)\b", text, re.I)
     return ("morning" if outbound["window"].lower() == "morning" else "evening") if outbound else default
 
 
 def analyze_trip(
-    question: str, knowledge: KnowledgeService | None, previous_user_text: str, now: datetime, time_zone: str
+    question: str,
+    knowledge: KnowledgeService | None,
+    previous_user_text: str,
+    now: datetime,
+    time_zone: str,
+    *,
+    defaults: Mapping[str, str] | None = None,
 ) -> TripIntent | None:
     """Resolve a park before any lookup; route a valid dated visit to conditions and incomplete details to intake."""
     # ① Ambiguous parks and an unsupported qualified name require an explicit selection.
@@ -222,7 +259,7 @@ def analyze_trip(
             None,
         )
         if chosen:
-            previous = analyze_trip(previous_user_text, knowledge, "", now, time_zone)
+            previous = analyze_trip(previous_user_text, knowledge, "", now, time_zone, defaults=defaults)
             if previous and previous.kind in {"choose_park", "form"} and chosen in previous.candidate_parks:
                 chosen_fields = {**previous.fields, "park": chosen}
                 chosen_kind: TripKind = (
@@ -250,6 +287,10 @@ def analyze_trip(
             OPT_OUT,
             PARTY,
             CHILDREN,
+            UNITS_DETAIL,
+            CURRENCY_DETAIL,
+            ACTIVITY_DETAIL,
+            DEPARTURE_DETAIL,
         ):
             referent = detail.sub(" ", referent)
         referent = re.sub(r"[,.?!;:]", " ", referent)
@@ -273,6 +314,10 @@ def analyze_trip(
         OPT_OUT,
         MODE_STATEMENT,
         WEEKEND_TIMES,
+        DEPARTURE_DETAIL,
+        UNITS_DETAIL,
+        CURRENCY_DETAIL,
+        ACTIVITY_DETAIL,
         GENERIC_CHECK,
         WEATHER_QUESTION,
         REQUEST_WORDS,
@@ -290,6 +335,32 @@ def analyze_trip(
         fields["park"] = destination["park_id"]
     # ② Only an unambiguous destination and usable local date range can start condition checks.
     skip_flights, skip_hotels = _travel_fields(return_pref.text, fields)
+    # Only a referential follow-up retains the active trip's choices, never an unrelated old trip's.
+    continuing = place_context != return_pref.text
+    if continuing:
+        previous_fields: dict[str, str] = {}
+        previous_skip_flights, previous_skip_hotels = _travel_fields(place_context, previous_fields)
+        current_route = AIRPORT_ROUTE.search(return_pref.text)
+        for key in ("origin", "gateway", "transport", "unit_system", "currency", "activity"):
+            if (
+                key in previous_fields
+                and key not in fields
+                and not (current_route and key in {"origin", "gateway", "transport"})
+            ):
+                fields[key] = previous_fields[key]
+        if fields.get("transport") != "fly":
+            skip_flights = skip_flights or previous_skip_flights
+        skip_hotels = skip_hotels or previous_skip_hotels
+    used = []
+    for key, value in (defaults or {}).items():
+        if not value or key in fields or key not in {"origin", "unit_system", "currency", "activity"}:
+            continue
+        if key == "origin" and (
+            fields.get("transport") == "drive" or skip_flights or AIRPORT_ROUTE.search(return_pref.text)
+        ):
+            continue
+        fields[key] = value
+        used.append(key)
     zone = AIRPORT_ZONES.get(fields.get("origin", ""), time_zone)
     dates = return_dates(visit_dates(normalized, now, zone), return_pref)
     if dates.interval:
@@ -316,9 +387,22 @@ def analyze_trip(
         else:
             kind = "other_place"
     depart_window = _departure_window(normalized, dates.weekend)
+    explicit_departure = DEPARTURE_DETAIL.search(normalized) or re.search(
+        r"\bfriday\s+(?:morning|night|evening|after work)\b", normalized, re.I
+    )
+    if continuing and not explicit_departure:
+        explicit_departure = DEPARTURE_DETAIL.search(place_context) or re.search(
+            r"\bfriday\s+(?:morning|night|evening|after work)\b", place_context, re.I
+        )
+        if explicit_departure:
+            depart_window = _departure_window(place_context, dates.weekend)
+    if defaults and defaults.get("depart_window") and not explicit_departure:
+        depart_window = defaults["depart_window"]
+        used.append("depart_window")
     return_window = return_pref.window if return_pref.window is not None else ("evening" if dates.weekend else "")
     if fields.get("transport") == "drive" or skip_flights:
         depart_window = return_window = ""
+        used = [key for key in used if key != "depart_window"]
     return TripIntent(
         kind,
         fields,
@@ -330,4 +414,6 @@ def analyze_trip(
         origin_zone=zone,
         weekend_options=dates.options,
         candidate_parks=candidates,
+        memory_used=tuple(used),
+        depart_window_explicit=bool(explicit_departure),
     )

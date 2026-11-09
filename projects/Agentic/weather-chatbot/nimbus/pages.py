@@ -136,12 +136,15 @@ def render_page(request: Request, template: str, context: Mapping[str, object], 
     """A page: its template, with the build's label for the menu's last line."""
     settings: Settings = request.app.state.settings
     planner_enabled = settings.parks_enabled and (settings.flights_enabled or settings.hotels_enabled)
+    menu = TRAVEL_MENU_GROUPS if planner_enabled else MENU_GROUPS
+    if settings.memory_enabled:
+        menu = (MenuGroup("App", (*menu[0].items, MenuItem("/preferences", "My preferences"))), *menu[1:])
     return templates.TemplateResponse(
         request,
         template,
         {
             "build_label": settings.build_label,
-            "menu_groups": TRAVEL_MENU_GROUPS if planner_enabled else MENU_GROUPS,
+            "menu_groups": menu,
             "flights_enabled": settings.flights_enabled,
             "hotels_enabled": settings.hotels_enabled,
             **context,

@@ -72,6 +72,10 @@ from nimbus.feedback import answer_ref
 from nimbus.forecast_horizon import forecast_limit_reply
 from nimbus.lanes import MCP_NO_AUTH, MCP_WITH_AUTH, REST_WITH_AUTH, Lane, LaneId, get_lane, is_open
 from nimbus.mcp_lane import open_mcp_lane
+from nimbus.memory.context import load_memory
+from nimbus.memory.intake import memory_intent
+from nimbus.memory.models import PreferenceProfile
+from nimbus.memory.routes import view_context
 from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
@@ -80,9 +84,10 @@ from nimbus.travel import briefing
 from nimbus.travel.city_intake import city_trip_reply
 from nimbus.travel.hotel_intake import hotel_dates_reply
 from nimbus.travel.models import TRAVEL_ANSWER_RESERVE_SECONDS, TravelCallRecord
-from nimbus.travel.planner_intake import analyze_trip
+from nimbus.travel.preferences import analyze_with_preferences
 from nimbus.travel.service import TravelService
 from nimbus.utils import is_usable_locale, new_turn_id, to_currency, to_ms, to_ref, to_sse_message
+from nimbus.weather_cards import to_weather_cards
 
 router = APIRouter()
 # The status a request gets when the browser went before it was answered, as nginx logs it: no one reads it.
@@ -283,6 +288,7 @@ async def stream_turn(
     model_name: str,
     *,
     restrict_links: bool = False,
+    memory_note: str = "",
 ) -> AsyncGenerator[str]:
     """
     A turn of the chat, as server-sent events: the two messages; each tool call's chip as it starts and as it ends;
@@ -350,6 +356,8 @@ async def stream_turn(
             "turn_id": turn_id,
             "answer": render_answer("".join(pieces), park_sources=evidence_urls if restrict_links else None),
             "chips": final_chips(),
+            "weather_cards": to_weather_cards(list(chips.values())),
+            "memory_note": memory_note,
         }
         yield to_sse_message(render_part("chat_end.html", done))
         log.info("chat.done", **ending())
@@ -370,6 +378,8 @@ async def stream_turn(
             "failed": True,
             "note": note,
             "chips": final_chips(),
+            "weather_cards": to_weather_cards(list(chips.values())),
+            "memory_note": memory_note,
         }
         yield to_sse_message(render_part("chat_end.html", failed))
 
@@ -434,6 +444,55 @@ async def chat(request: Request) -> Response:
     if chat_request.history:
         extra["historyMessages"] = len(chat_request.history)
     log.info("chat.request", questionChars=len(chat_request.question), lane=chat_request.lane, **extra)
+    memory_command = memory_intent(chat_request.question, PreferenceProfile())
+    memory = await load_memory(request, include_paused=memory_command is not None)
+    if memory_command is not None:
+        saved = memory.snapshot.preferences if memory.snapshot.status == "ready" else PreferenceProfile()
+        command = memory_intent(chat_request.question, saved)
+        assert command is not None  # noqa: S101 - the same question was recognized above
+        turn_id = new_turn_id()
+
+        async def memory_events() -> AsyncGenerator[str]:
+            """An explicit memory request previews normalized fields without calling Gemini or saving a fact."""
+            yield to_sse_message(render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question}))
+            context = view_context(request, memory.identity, memory.snapshot)
+            context.update(
+                turn_id=turn_id,
+                message=command.message,
+                preferences=(
+                    command.preferences
+                    if command.kind == "preview"
+                    and memory.snapshot.status in {"empty", "ready"}
+                    and not (memory.identity and memory.identity.mode == "deleting")
+                    else None
+                ),
+            )
+            if memory.snapshot.status not in {"empty", "ready"}:
+                context["error"] = "Saved preferences could not be verified. Open My preferences to review them."
+            elif not context["configured"]:
+                context["error"] = "Preference memory is not configured here. You can still give details for each trip."
+            html = render_part("chat_memory.html", context)
+            yield to_sse_message(f'<hx-partial hx-target="#turn-{turn_id}" hx-swap="outerHTML">{html}</hx-partial>')
+            log.info(
+                "chat.done",
+                workflow="intake",
+                memoryIntake=True,
+                answerRef=answer_ref(turn_id),
+                answerChars=len(command.message),
+                toolCalls=0,
+                ms=to_ms(time.perf_counter() - started),
+            )
+
+        memory_stream = memory_events()
+        response = EventStream(await anext(memory_stream), memory_stream)
+        response.headers["vary"] = "Cookie"
+        return response
+    preferences = memory.preferences
+    memory_note = ""
+    if any(preferences.model_dump().values()):
+        memory_note = "Saved travel preferences are available for this answer. Your current instructions take priority."
+    elif memory.snapshot.status in {"unavailable", "conflict", "pending"}:
+        memory_note = "Saved preferences are unavailable for this answer. Nimbus is using your current details."
     # Open a trip intake before accessing the model. Only an explicit planning request needs this workflow.
     enabled = tuple(
         name
@@ -445,7 +504,9 @@ async def chat(request: Request) -> Response:
     knowledge = request.app.state.park_knowledge
     now = briefing.utc_now()
     intent = (
-        analyze_trip(chat_request.question, knowledge, previous_user_text, now, chat_request.time_zone)
+        analyze_with_preferences(
+            chat_request.question, knowledge, previous_user_text, now, chat_request.time_zone, preferences
+        )
         if settings.parks_enabled
         else None
     )
@@ -453,7 +514,13 @@ async def chat(request: Request) -> Response:
     reply_kind = "cityTripIntake"
     if intent is None:
         intake_reply = city_trip_reply(
-            chat_request.question, enabled, now, chat_request.time_zone, prior_questions, knowledge
+            chat_request.question,
+            enabled,
+            now,
+            chat_request.time_zone,
+            prior_questions,
+            knowledge,
+            preferences=preferences,
         )
         if intake_reply is None and settings.hotels_enabled:
             intake_reply = hotel_dates_reply(chat_request.question)
@@ -480,7 +547,9 @@ async def chat(request: Request) -> Response:
                     workflow = "briefing" if "conditions" in context else "intake"
                 else:
                     answer = render_answer(intake_reply or "", park_sources=())
-                    yield to_sse_message(render_part("chat_end.html", {"turn_id": turn_id, "answer": answer}))
+                    yield to_sse_message(
+                        render_part("chat_end.html", {"turn_id": turn_id, "answer": answer, "memory_note": memory_note})
+                    )
                     intake_type = {reply_kind: True}
                     workflow = "intake"
                 log.info(
@@ -508,7 +577,9 @@ async def chat(request: Request) -> Response:
                 yield to_sse_message(render_part("chat_end.html", failed))
 
         events = intake_events()
-        return EventStream(await anext(events), events)
+        response = EventStream(await anext(events), events)
+        response.headers["vary"] = "Cookie"
+        return response
     # ② The model, made when the app started; a deployment without its key can't answer at all.
     model = request.app.state.chat_model
     if model is None:
@@ -527,11 +598,12 @@ async def chat(request: Request) -> Response:
         history,
         parks_enabled=knowledge is not None,
         travel_tools=enabled,
+        preferences=preferences,
     )
     deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
     service: TravelService = request.app.state.travel_service
     today = now.astimezone(zoneinfo.ZoneInfo(chat_request.time_zone)).date()
-    currency = to_currency(chat_request.locale)
+    currency = preferences.currency or to_currency(chat_request.locale)
     travel = (
         service.new_turn(deadline - TRAVEL_ANSWER_RESERVE_SECONDS, today=today, currency=currency) if enabled else None
     )
@@ -556,6 +628,7 @@ async def chat(request: Request) -> Response:
         request.state.request_id,
         stats,
         settings.gemini_model,
+        memory_note=memory_note,
         restrict_links=bool(
             enabled
             and re.search(
@@ -568,4 +641,6 @@ async def chat(request: Request) -> Response:
     )
     first = await anext(turn)
     # ⑤ The answer, streamed.
-    return EventStream(first, turn)
+    response = EventStream(first, turn)
+    response.headers["vary"] = "Cookie"
+    return response

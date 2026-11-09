@@ -1,0 +1,31 @@
+{# Editable choices shared by initial intake and the confirmed quote form. #}
+{% macro trip_options(fields, prefix, open_options=false) -%}
+  <details class="trip-options"{% if open_options or fields.activity or fields.unit_system or
+      (fields.currency and fields.currency != 'USD') %} open{% endif %}>
+    <summary>Activity, units &amp; currency</summary>
+    <div class="trip-fields trip-fields-options">
+      <div class="trip-field">
+        <label for="{{ prefix }}-activity">Activity or preparation topic <span class="trip-hint">(optional)</span></label>
+        <input id="{{ prefix }}-activity" name="activity" maxlength="160" value="{{ fields.get('activity', '') }}">
+      </div>
+      <div class="trip-field">
+        <label for="{{ prefix }}-units">Weather units</label>
+        <select id="{{ prefix }}-units" name="unit_system">
+          {% for value, label in [('', 'Browser default'), ('metric', 'Metric (°C, km/h)'),
+              ('imperial', 'Imperial (°F, mph)')] %}
+          <option value="{{ value }}"{% if fields.get('unit_system', '') == value %} selected{% endif %}>
+            {{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="trip-field">
+        <label for="{{ prefix }}-currency">Price currency</label>
+        <select id="{{ prefix }}-currency" name="currency">
+          {% for unit in ['USD', 'EUR', 'GBP', 'CAD'] %}
+          <option value="{{ unit }}"{% if fields.currency == unit %} selected{% endif %}>{{ unit }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </details>
+{%- endmacro %}

@@ -1,0 +1,19 @@
+{# An explicit save preview. The form stays outside .answer, so chat history contains only the explanatory text. #}
+{% from "chat_parts.html" import bot_meta %}
+{% from "preference_form.html" import preference_form %}
+<li class="message message-bot message-memory" id="turn-{{ turn_id }}">
+  {{ bot_meta() }}
+  <div class="bubble bubble-bot">
+    <div class="answer" id="answer-{{ turn_id }}">{{ message }}</div>
+    {% if error %}<p class="message-note">{{ error }}</p>{% endif %}
+  </div>
+  {% if configured and preferences is defined and preferences is not none %}
+  <section class="memory-preview" aria-label="Review preferences before saving">
+    <p class="preferences-eyebrow">Review before saving</p>
+    <h2>A starting point for future trips</h2>
+    <p>These are the exact details proposed for this browser profile. Nothing is saved until you confirm.</p>
+    {{ preference_form(preferences, token, revision, allow_cancel=True) }}
+  </section>
+  {% endif %}
+  <p class="memory-manage"><a href="/preferences">Manage my preferences</a></p>
+</li>

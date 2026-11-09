@@ -121,8 +121,8 @@ def test_one_trace_in_one_project_selects_only_operational_fields(traced: Settin
         "ready",
         (
             TraceRow("Nimbus agent", "Agent", 800, 0, 0, "Completed"),
-            TraceRow("Gemini", "Model", 700, 100, 1, "Completed"),
-            TraceRow("get_forecast", "Tool", 12, 660, 1, "Failed", "Tool reported an error."),
+            TraceRow("Gemini", "Model", 700, 100, 1, "Completed", parent_index=0),
+            TraceRow("get_forecast", "Tool", 12, 660, 1, "Failed", "Tool reported an error.", parent_index=0),
         ),
     )
 
@@ -333,3 +333,59 @@ def test_public_trace_messages_name_no_setting_or_server_detail() -> None:
         assert "log" not in issue.value.lower()
         assert "key" not in issue.value.lower()
     assert len({issue.value for issue in TraceIssue}) == len(TraceIssue)
+
+
+def test_parent_indices_preserve_parallel_nested_spans_with_an_unordered_ancestor_array(traced: Settings) -> None:
+    outer, sibling, inner, hidden = (UUID(int=value) for value in (500, 501, 502, 503))
+    view = with_runs(
+        traced,
+        span(),
+        span(outer, run_type="TOOL", name="get_forecast", start_time="2026-11-05T12:00:00.100Z"),
+        span(sibling, run_type="TOOL", name="get_current_weather", start_time="2026-11-05T12:00:00.101Z"),
+        span(hidden, name="tools", parent_run_ids=[str(TRACE), str(outer)]),
+        span(
+            inner,
+            run_type="TOOL",
+            name="get_forecast",
+            parent_run_ids=[str(hidden), str(outer), str(TRACE)],
+            start_time="2026-11-05T12:00:00.102Z",
+        ),
+    )
+    assert [row.parent_index for row in view.rows] == [None, 0, 0, 1]
+    assert [row.depth for row in view.rows] == [0, 1, 1, 2]
+    assert view.rows[1].label == view.rows[3].label == "get_forecast"
+    assert str(outer) not in repr(view)
+    assert str(inner) not in repr(view)
+
+
+def test_duplicate_provider_span_ids_cannot_create_ambiguous_public_relationships(traced: Settings) -> None:
+    result = with_runs(traced, span(), span(OTHER, run_type="TOOL"), span(OTHER, run_type="LLM"))
+    assert result.status == "unavailable"
+    assert result.issue == TraceIssue.INVALID_RESPONSE
+
+
+def test_direct_parent_links_cross_filtered_graph_wrappers(traced: Settings) -> None:
+    hidden, model = UUID(int=600), UUID(int=601)
+    result = with_runs(
+        traced,
+        span(),
+        span(hidden, name="model", parent_run_ids=[str(TRACE)]),
+        span(model, run_type="LLM", name="ChatGoogleGenerativeAI", parent_run_ids=[str(hidden)]),
+    )
+    assert len(result.rows) == 2
+    assert result.rows[1].parent_index == 0
+    assert result.rows[1].depth == 1
+
+
+def test_cyclic_or_missing_ancestors_do_not_create_false_nesting(traced: Settings) -> None:
+    a, b, absent = UUID(int=500), UUID(int=501), UUID(int=999)
+    result = with_runs(
+        traced,
+        span(),
+        span(a, run_type="TOOL", name="get_forecast", parent_run_ids=[str(TRACE), str(b)]),
+        span(b, run_type="TOOL", name="get_current_weather", parent_run_ids=[str(TRACE), str(a)]),
+        span(OTHER, run_type="LLM", parent_run_ids=[str(absent)]),
+    )
+    assert result.status == "ready"
+    assert all(row.parent_index is None for row in result.rows)
+    assert all(row.depth == 0 for row in result.rows)

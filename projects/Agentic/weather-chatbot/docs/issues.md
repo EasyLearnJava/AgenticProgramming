@@ -875,4 +875,24 @@ package's code**, **deploying**, or **testing a real API**.
      during and after the trial series. A mismatched response fails its attempt.
 164. **A reviewed case could gain unintended assertions when saved.** Promotion serializes only the expected fields
      the reviewer supplied. An isolated mutation inserts the defaults again and the regression test catches it.
+165. **Mem0 returned a different schema type from the initial fixtures.** A live synthetic save showed metadata
+     version `"1"` as text. The adapter accepts exactly integer `1` or text `"1"`, rejects other values, and verifies
+     readback. Offline wire-format tests and a live create/read/update/delete check cover the fix.
+166. **Refreshing after saving preferences resubmitted an old form.** Chrome testing caught a token mismatch after
+     first save. Confirmed save, resume and deletion now redirect to a GET. Browser tests reload and reopen profiles.
+167. **A stale Pause form could clear deletion-pending state.** Independent review found that a failed Forget could
+     then be resumed from another tab. Pause now preserves pending deletion; a regression and mutation guard it.
+168. **Rate-limited preference forms could claim a profile was active before a write or read.** Initial Save now
+     mints its identity only after the gate permits work. Resume activates only after verified readback. Rejected
+     forms retain the correct state and a usable retry token.
+169. **Saved defaults were uneven across trip entry points.** Review found city intake ignored saved airports and
+     dated quote forms hid units, currency and activity. City calendars now use eligible saved or explicit origins;
+     shared editable controls carry trip-specific overrides to the providers without changing stored preferences.
+170. **Negated preference requests could propose the opposite default.** Curly apostrophes and `no`, `avoid` or
+     `without` were not recognized. The preview now normalizes punctuation and declines to guess those clauses.
+     Consent is still required; expiry, isolation, malformed tokens and private-log regressions run alongside it.
+171. **The trace table made nested tool spans look like duplicate requests.** The explorer preserves declared
+     parent relationships, including hidden graph wrappers, and keeps parallel branches separate. Summary counts
+     describe spans; the agent duration is not a sum of overlapping calls. Collapse, filters and exact call details
+     clarify the display without requesting more LangSmith fields. Privacy, hierarchy and timing tests guard it.
 

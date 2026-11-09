@@ -43,6 +43,16 @@ preparation guidance, current NPS notices and active National Weather Service (N
 explain which check is incomplete or which warning overlaps a visit before a visitor requests prices. The
 separate park trip form runs the searches a visitor confirms. [How a park trip is assembled](system-design.md).
 
+**Optional preference memory** supplies an editable starting point across visits in the same browser. Mem0 stores
+only an airport code, weather units, price currency, preparation interest and departure window that the visitor
+explicitly approves. A chat request to remember something opens a preview; saving requires confirmation. The model
+cannot silently write memory. Current instructions, active trip details and submitted form values take priority.
+[My preferences](/preferences) provides edit, pause and forget controls.
+
+This branch is separate from the source-retrieval and weather-cache paths in the map. It remembers how a visitor
+prefers to travel, not whether a destination is safe, what a room costs or whether a flight is available. A missing
+or unavailable memory service leaves the ordinary chat and planner available.
+
 ## Where the evidence comes from
 
 - **Weather and air quality** come from weather tools. The place, forecast dates and available hours constrain

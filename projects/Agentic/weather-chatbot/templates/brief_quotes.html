@@ -1,5 +1,6 @@
 {% set fly = flights_enabled and not prefs.skip_flights and prefs.transport != 'drive' %}
 {% from "flight_windows.html" import flight_windows %}
+{% from "trip_options.html" import trip_options %}
 {% set stay = hotels_enabled and not prefs.skip_hotels and hotel_arrival < departure %}
 {% set start_with_hotels = stay and not (prefs.transport == 'fly' or prefs.origin or prefs.gateway) %}
 <details class="trip-editor">
@@ -8,7 +9,7 @@
     hx-target="#trip-result-{{ turn_id }}" hx-swap="innerHTML" hx-sync="this:drop" hx-disable="find button[type='submit']">
     <input type="hidden" name="arrival" value="{{ hotel_arrival if (not fly or start_with_hotels) else arrival }}"
       data-flight-date="{{ arrival }}" data-hotel-date="{{ hotel_arrival }}">
-    {% for key in ['park','departure','activity','currency','locale','lane'] %}
+    {% for key in ['park','departure','locale','lane'] %}
     {% if fields.get(key) %}<input type="hidden" name="{{ key }}" value="{{ fields[key] }}">{% endif %}{% endfor %}
     <input type="hidden" name="transport" value="{{ 'fly' if fly else 'drive' if prefs.transport == 'drive' else 'skip' }}">
     {% if fly and stay %}
@@ -43,6 +44,7 @@
         value="{{ prefs.children_ages }}"></label></div></fieldset>
     {% if stay %}<p class="trip-hint">Searching shares the park location, dates, rooms, party, children's ages
       and currency with trivago.</p>{% endif %}
+    {{ trip_options(fields, turn_id ~ '-quote', open_options=true) }}
     <button type="submit" class="trip-submit">Search {{ 'flights and hotels' if fly and stay and not start_with_hotels
       else 'hotels' if stay else 'flights' }}</button>
     <p class="trip-status" role="status" data-trip-status></p>

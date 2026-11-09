@@ -9,8 +9,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
+from nimbus.memory.models import PreferenceProfile
 from nimbus.parks import ParkKnowledge
-from nimbus.travel.planner_intake import analyze_trip
+from nimbus.travel.preferences import analyze_with_preferences
 
 ROOT = Path(__file__).resolve().parents[1]
 type CaseId = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,95}$")]
@@ -35,6 +36,9 @@ class IntakeExpected(BaseModel):
     skip_hotels: bool = False
     weekend_options: tuple[tuple[str, str], ...] = ()
     candidate_parks: tuple[Park, ...] = ()
+    unit_system: Literal["", "metric", "imperial"] = ""
+    currency: str = ""
+    activity: str = ""
 
 
 class IntakeCase(BaseModel):
@@ -47,6 +51,7 @@ class IntakeCase(BaseModel):
     now: AwareDatetime
     time_zone: Annotated[str, Field(min_length=1, max_length=80)]
     expected: IntakeExpected
+    preferences: PreferenceProfile = Field(default_factory=PreferenceProfile)
 
     @field_validator("time_zone")
     @classmethod
@@ -70,7 +75,9 @@ def run_intake_case(case: IntakeCase, *, suite: str = "regressions") -> dict[str
     expected = case.expected.model_dump(exclude_unset=True)
     checks: list[str] = []
     try:
-        intent = analyze_trip(case.question, park_index(), case.previous_question, case.now, case.time_zone)
+        intent = analyze_with_preferences(
+            case.question, park_index(), case.previous_question, case.now, case.time_zone, case.preferences
+        )
         actual: dict[str, Any] = {"kind": "chat"}
         if intent:
             actual = {
@@ -182,6 +189,12 @@ def replay_cases() -> list[dict[str, Any]]:
     from tools.harness_review import reviewed_cases
 
     rows = [run_intake_case(case, suite="weekend") for case in matrix_cases()]
+    memory_cases = TypeAdapter(list[IntakeCase]).validate_json(
+        (ROOT / "evals/harness/memory-defaults.json").read_bytes()
+    )
+    if len(memory_cases) != 6 or len({case.case_id for case in memory_cases}) != 6:
+        raise ValueError("Memory regression catalog is missing scenarios or contains duplicate IDs.")
+    rows.extend(run_intake_case(case, suite="golden_replay") for case in memory_cases)
     rows.extend(recorded_cases())
     rows.extend(run_intake_case(case) for case in reviewed_cases())
     return rows

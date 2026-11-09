@@ -50,6 +50,7 @@ from nimbus.pages import render_page
 from nimbus.retrieval_gate import RetrievalGate
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.trace_links import resolve_trace_link, trace_url
+from nimbus.trace_presenter import present_trace
 from nimbus.trace_view import TRACE_TOOL_NAMES, TraceView, read_trace
 from nimbus.utils import to_ms, to_ref
 
@@ -60,7 +61,13 @@ MS_PER_SECOND = 1000
 HTTP_CLIENT_ERROR = 400
 HTTP_SERVER_ERROR = 500
 LANE_LABELS: Final = {lane.id: lane.label for lane in LANES}
-TOOL_NAMES: Final = TRACE_TOOL_NAMES | {"retrieval_playground", "park_alerts", "park_trip_plan", "park_trip_briefing"}
+TOOL_NAMES: Final = TRACE_TOOL_NAMES | {
+    "retrieval_playground",
+    "park_alerts",
+    "park_trip_plan",
+    "park_trip_briefing",
+    "memory_preferences",
+}
 CHECK_LABELS: Final = {
     "open-meteo": "Open-Meteo geocoding",
     "our-mcp": "Nimbus weather MCP tools",
@@ -95,6 +102,7 @@ TIMELINE_EVENTS: Final = (
     *QUESTION_EVENTS,
     *TOOL_EVENTS,
     "knowledge.call",
+    "memory.operation",
     "nps.alerts",
     "nws.alerts",
     "travel.call",
@@ -155,6 +163,8 @@ TIMELINE_FIELDS: Final = (
     "hotelDateIntake",
     "forecastHorizon",
     "section",
+    "action",
+    "memoryIntake",
 )
 
 
@@ -187,18 +197,23 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
         f'or (event == "travel.call" and {STATUS} !in ("found", "no_results", "disabled")) '
         f'or (event == "knowledge.call" and {STATUS} == "unavailable") '
         f'or (event == "nps.alerts" and {STATUS} == "not_configured") '
+        f'or (event == "memory.operation" and {STATUS} in ("unavailable", "pending", "conflict")) '
         f'or event == "travel.section_error" '
         f'or (event in ("travel.plan", "travel.briefing") '
         f"and (toint({to_field('failedSections', '0')}) > 0 or toint({to_field('missingSections', '0')}) > 0)))"
     ),
     "health": 'event == "health.done"',
     "feedback": 'event == "answer.feedback"',
+    "memory": (
+        f'event == "memory.operation" or (event == "chat.done" and tostring({to_field("memoryIntake")}) == "true")'
+    ),
 }
 ACTIVITY_TABS: Final = (
     ("questions", "Questions"),
     ("errors", "Errors"),
     ("health", "Health"),
     ("feedback", "Feedback"),
+    ("memory", "Memory"),
 )
 DAY_PATTERN: Final = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
 NO_REASON: Final = "none given"
@@ -241,6 +256,7 @@ NARROWINGS: Final[Mapping[str, tuple[Container[str], str, str]]] = {
                 "travel.call",
                 "travel.plan",
                 "travel.briefing",
+                "memory.operation",
             ),
         )
         + f' and {to_field("tool")} == "{{value}}"',
@@ -393,6 +409,8 @@ def to_narrowing(links: Mapping[str, str | None]) -> Narrowing | None:
         return Narrowing(kind, "Park alert checks", where.format(value=value))
     if kind == "tool" and value == "retrieval_playground":
         return Narrowing(kind, "Retrieval Playground runs", where.format(value=value))
+    if kind == "tool" and value == "memory_preferences":
+        return Narrowing(kind, "Preference memory operations", where.format(value=value))
     return Narrowing(kind, words.format(label=label), where.format(value=value))
 
 
@@ -616,6 +634,7 @@ def to_question_line(row: Row, at: datetime, event: str, took: str) -> ActivityL
             ("cityTripIntake", "City trip clarification"),
             ("hotelDateIntake", "Hotel date clarification"),
             ("forecastHorizon", "Forecast limit explained"),
+            ("memoryIntake", "Preference review"),
             ("tripForm", "Trip details requested"),
         ):
             if to_words(row, flag).lower() == "true":
@@ -780,7 +799,53 @@ def to_activity_line(row: Row) -> ActivityLine | None:
     if at is None:
         return None
     event, took = to_words(row, "event"), to_duration(to_number(row, "ms"))
+    if event == "memory.operation":
+        return to_memory_line(row, at, took)
     return to_question_line(row, at, event, took) or to_call_line(row, at, event, took)
+
+
+def to_memory_line(row: Row, at: datetime, took: str) -> ActivityLine:
+    """Show only approved operation metadata; never echo arbitrary stored values, identities or provider errors."""
+    action, status = to_words(row, "action"), to_words(row, "status")
+    labels = {
+        "read": "Read preferences",
+        "save": "Save preferences",
+        "pause": "Pause memory",
+        "resume": "Resume memory",
+        "forget": "Forget preferences",
+    }
+    outcomes = {
+        ("read", "ready"): ("preferences available", "ok"),
+        ("read", "empty"): ("no saved preferences", "idle"),
+        ("save", "ready"): ("save confirmed", "ok"),
+        ("pause", "ready"): ("paused locally; saved preferences retained", "idle"),
+        ("resume", "ready"): ("preference use resumed", "ok"),
+        ("forget", "empty"): ("deletion confirmed", "ok"),
+    }
+    fallback = {
+        "pending": ("awaiting confirmation", "warn"),
+        "conflict": ("needs review", "warn"),
+        "unavailable": ("unavailable", "bad"),
+        "failed": ("failed", "bad"),
+    }
+    outcome, tone = outcomes.get((action, status), fallback.get(status, ("outcome unavailable", "warn")))
+    reasons = {
+        "not_configured": "not configured",
+        "invalid_identity": "browser identity rejected",
+        "timeout": "timeout",
+        "authentication_failed": "authentication failed",
+        "rate_limited": "rate limit",
+        "unavailable": "provider unavailable",
+        "invalid_response": "invalid provider response",
+        "pagination_limit": "record limit reached",
+        "ownership_mismatch": "record scope could not be verified",
+        "stale_revision": "saved preferences changed",
+        "duplicates": "conflicting records",
+        "pending_confirmation": "confirmation pending",
+    }
+    reason = reasons.get(to_words(row, "reason"), "")
+    detail = f"{outcome}{f' · {reason}' if reason else ''} in {took}"
+    return ActivityLine(at, labels.get(action, "Preference memory"), detail, tone)
 
 
 @dataclass(frozen=True)
@@ -834,6 +899,9 @@ def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLi
     if "mcp.call" in by_event:
         call = by_event["mcp.call"][1]
         return with_problems(ActivityLine(first.at, call.what, call.detail, call.tone), lines)
+    if "memory.operation" in by_event:
+        operation = by_event["memory.operation"][1]
+        return with_problems(ActivityLine(first.at, operation.what, operation.detail, operation.tone), lines)
     if "http.request" in by_event:
         end = by_event["http.request"][1]
         if end.tone == "ok":
@@ -904,6 +972,11 @@ def to_activity_requests(
                     "No LangSmith model trace was created."
                 ),
             }.get(to_words(endings[0][0], "workflow"), "")
+            if to_words(endings[0][0], "memoryIntake").lower() == "true":
+                trace_note = (
+                    "Nimbus handled this preference request directly without a model call. "
+                    "This chat reply did not save any preferences."
+                )
         answer_ref = next(
             (to_words(row, "answerRef") for row in rows_of if TURN_ID.fullmatch(to_words(row, "answerRef"))), ""
         )
@@ -1120,7 +1193,8 @@ async def activity_trace_page(
         gate: RetrievalGate = request.app.state.trace_gate
         try:
             async with gate.reserve(request.client.host if request.client else "unknown"):
-                context["trace"] = await reader(settings, trace_id)
+                trace = await reader(settings, trace_id)
+            context.update(trace=trace, presentation=present_trace(trace))
             response = render_page(request, "activity_trace.html", context)
         except HTTPException as error:
             if error.status_code != HTTPStatus.TOO_MANY_REQUESTS:

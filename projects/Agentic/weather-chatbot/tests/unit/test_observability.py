@@ -171,6 +171,7 @@ def test_the_views_are_these_where_clauses_and_health_runs_have_their_own() -> N
             'or (event == "travel.call" and tostring(status) !in ("found", "no_results", "disabled")) '
             'or (event == "knowledge.call" and tostring(status) == "unavailable") '
             'or (event == "nps.alerts" and tostring(status) == "not_configured") '
+            'or (event == "memory.operation" and tostring(status) in ("unavailable", "pending", "conflict")) '
             'or event == "travel.section_error" '
             'or (event in ("travel.plan", "travel.briefing") '
             "and (toint(column_ifexists('failedSections', 0)) > 0 "
@@ -178,6 +179,10 @@ def test_the_views_are_these_where_clauses_and_health_runs_have_their_own() -> N
         ),
         "health": 'event == "health.done"',
         "feedback": 'event == "answer.feedback"',
+        "memory": (
+            'event == "memory.operation" '
+            "or (event == \"chat.done\" and tostring(column_ifexists('memoryIntake', '')) == \"true\")"
+        ),
     } == ACTIVITY_VIEWS
     assert {"health.check", "health.done", "http.request", "upstream.http", "lane.fallback"} <= set(TIMELINE_EVENTS)
 
@@ -223,7 +228,7 @@ def test_each_view_asks_its_own_where_and_marks_its_tab(
             "/activity?tool=get_forecast",
             "Questions that called get_forecast",
             'event in ("tool.call", "knowledge.call", "nps.alerts", "nws.alerts", "travel.call", "travel.plan", '
-            '"travel.briefing") '
+            '"travel.briefing", "memory.operation") '
             "and column_ifexists('tool', '') == \"get_forecast\"",
         ),
         (

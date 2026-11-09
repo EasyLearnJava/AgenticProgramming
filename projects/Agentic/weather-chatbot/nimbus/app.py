@@ -22,6 +22,8 @@ from nimbus.constants import DOCS_IMAGES_DIR, STATIC_DIR
 from nimbus.logger import configure_logging
 from nimbus.mcp_lane import make_mcp_http_client, to_self_mcp_url
 from nimbus.mcp_server import make_mcp_server, to_routes
+from nimbus.memory import routes as memory_routes
+from nimbus.memory.client import Mem0Service
 from nimbus.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from nimbus.model import make_chat_model, make_tracer
 from nimbus.nps_alerts import NpsAlertsService
@@ -66,6 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.planner_gate = RetrievalGate()
     app.state.feedback_gate = RetrievalGate()
     app.state.trace_gate = RetrievalGate()
+    app.state.memory_gate = RetrievalGate()
+    app.state.mem0 = Mem0Service(settings.mem0_api_key)
     app.state.travel_service = TravelService(
         flights=kiwi.search_flights if settings.flights_enabled else None,
         hotels=trivago.search_hotels if settings.hotels_enabled else None,
@@ -105,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(planner_page.router)
     app.include_router(briefing_page.router)
     app.include_router(feedback.router)
+    app.include_router(memory_routes.router)
     app.include_router(chat.router)
     app.include_router(health.router)
     app.include_router(observability.router)

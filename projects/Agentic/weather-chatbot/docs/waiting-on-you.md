@@ -121,3 +121,29 @@ says Axiom didn't answer. The token the app already has can only ingest, and sta
 
 [gh-env]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments
 [vc-promo]: https://vercel.com/docs/deployments/promoting-a-deployment
+
+## Mem0 travel preferences
+
+Local `.env.local` settings do not configure Vercel. Before enabling this feature on a hosted target, add the following
+in **Settings → Environment Variables** for that environment, then create a new deployment or redeploy:
+
+| Setting | Value to supply | Purpose |
+| --- | --- | --- |
+| `MEMORY_ENABLED` | `true` only on the environment where you want preference memory | The feature defaults to off. |
+| `MEM0_API_KEY` | Your Mem0 API credential, stored as a secret | Server-side read, save and delete access for approved preference profiles. Never place it in `.env.example`, a URL or a screenshot. |
+| `MEMORY_COOKIE_SECRET` | A cryptographically random secret of at least 32 characters | Signs browser ownership and form tokens. Keep the same value across replicas and redeploys of this environment. |
+
+Use a distinct signing secret for each environment and retain it securely. Changing it invalidates existing browser
+links; those visitors can lose access to stored profiles and the ability to delete them through Nimbus. Do not rotate
+it as part of an ordinary redeploy. Configure the Mem0 project and account usage limits appropriate for the target.
+
+Validate the exact preview build before enabling production: save a synthetic DFW/Celsius/USD profile, reload it,
+check a trip with an explicit different origin, and verify pause, resume and confirmed deletion. Use a separate browser
+profile to check that it starts without those preferences. Confirm ordinary weather and park requests still work when
+memory is disabled or unavailable. Record the tested commit, deployment and outcomes; local mock tests are not proof
+that hosted credentials work.
+
+The feature offers browser-scoped preference memory, not accounts or a backup of conversation history. Expiry stops
+normal use after 180 days from saving; it does not prove physical deletion. Review the controls and retention notice on
+[My preferences](/preferences), and delete the synthetic profile after validation. Implementation details and failure
+behavior are in [Technical details](technical-details.md#follow-an-approved-preference).

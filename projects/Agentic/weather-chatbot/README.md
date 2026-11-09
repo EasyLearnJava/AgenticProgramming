@@ -9,6 +9,12 @@ Run `uv run python -m tools.harness run --mode replay` for a credential-free com
 Open **Observability → Evaluations** for the scorecard and weekend matrix. The chapter includes a three-minute
 walkthrough and instructions for a named preview. [The Evaluation Harness](docs/step-19.md)
 
+**Optional travel preferences:** [My preferences](/preferences) lets a visitor explicitly save an airport,
+weather units, price currency, preparation interest and departure window through Mem0. Current trip details take
+priority. Preferences belong to this browser profile; no account or cross-device sync is provided. Weather,
+notices, prices and availability still use the existing evidence sources.
+[How memory works](docs/technical-details.md#follow-an-approved-preference).
+
 **The whole design on one page:** [Architecture and design](docs/architecture.md): what Nimbus does, how it's built,
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
 secure.
@@ -108,27 +114,34 @@ and never its query string; this one is for `/docs?q=private`:
 
 ## Test it
 
-This captured output is from step 13. See [step 17](docs/step-17.md) for the current notice checks and commands.
+Local preference-memory validation on 9 November 2026, against the working tree. These checks are not production
+deployment evidence; the hosted settings and release checks are on [Waiting on you](docs/waiting-on-you.md).
 
 ```text
-$ uv run ruff check .
+$ .venv\Scripts\python.exe -m ruff check .
 All checks passed!
-$ uv run ruff format --check .
-117 files already formatted
-$ uv run mypy
-Success: no issues found in 78 source files
-$ uv run pytest
-696 passed in 31.99s
-$ uv run pytest tests/e2e --browser-channel msedge
-205 passed in 143.87s (0:02:23)
-$ uv run python tools/mutation_check.py
+$ .venv\Scripts\python.exe -m ruff format --check .
+225 files already formatted
+$ .venv\Scripts\python.exe -m mypy
+Success: no issues found in 181 source files
+$ .venv\Scripts\python.exe -m pytest tests/unit -q
+1735 passed in 38.88s
+$ .venv\Scripts\python.exe -m pytest tests/e2e -q --browser chromium --browser-channel chrome
+213 passed in 187.57s (0:03:07)
+$ .venv\Scripts\python.exe -m tools.mutation_check --memory
 ...
-210 of 210 caught
+11 of 11 caught
 ```
 
 `uv run pytest` runs the unit tests; `tests/e2e` serves the real app with Uvicorn and drives it in a browser, on all
-42 pages and in the chat (leave out `--browser-channel msedge` to use Playwright's own Chromium). pytest also prints
+published pages and in the chat (leave out `--browser-channel chrome` to use Playwright's own Chromium). pytest prints
 its platform line and each test's dot, and the mutation check a line per rule (each chapter lists its own).
+
+The offline harness passed 455 cases, including six preference-default regressions. Two independent reviewers
+checked the changes and their findings were fixed and rechecked. Live synthetic Mem0 create/read/update/delete and
+stale-revision checks passed. Two live Gemini weather checks used saved metric units and then an explicit Fahrenheit
+override correctly; both produced weather cards. Temporary Mem0 profiles were deleted and verified absent. These
+two model checks are smoke evidence, not a repeated model-quality benchmark or a hosted deployment check.
 
 ## When things go wrong
 
@@ -160,7 +173,8 @@ The app explains itself: open **Documentation** in its menu, or read the same pa
 step ([step 1](docs/step-1.md) to [step 19](docs/step-19.md)), **Architecture and design**
 ([`docs/architecture.md`](docs/architecture.md)), the whole design on one page, the
 **System design** ([`docs/system-design.md`](docs/system-design.md)), **Technical details**
-([`docs/technical-details.md`](docs/technical-details.md)), weather and trip requests through the code, **Issues and fixes**
+([`docs/technical-details.md`](docs/technical-details.md)), weather and trip requests through the code,
+**Issues and fixes**
 ([`docs/issues.md`](docs/issues.md)), **To do**
 ([`docs/todo.md`](docs/todo.md)), and **Waiting on you** ([`docs/waiting-on-you.md`](docs/waiting-on-you.md)), every
 setting only you can change. Observability includes Activity, Performance, Evaluations and Health. Under **Project**,
@@ -168,6 +182,23 @@ setting only you can change. Observability includes Activity, Performance, Evalu
 The earlier TypeScript documentation is archived in the repository.
 
 ## Next
+
+### Saved travel preferences
+
+Keep `MEM0_API_KEY` and a stable, randomly generated `MEMORY_COOKIE_SECRET` of at least 32 characters in ignored
+`.env.local`; set `MEMORY_ENABLED=true` and restart. Leave secrets blank in `.env.example`. Each hosted environment
+needs its own configuration and redeploy. [Deployment checklist](docs/waiting-on-you.md#mem0-travel-preferences).
+
+Open **My preferences**, select the values to remember, review the consent text and save. Alternatively, ask
+“Remember that I fly from DFW, prefer Celsius and easy hikes” to get an editable preview; that question alone
+does not save anything. Ask “Plan a trip to Zion next weekend” to use saved defaults, then “Plan a trip to Zion
+next weekend from BOS” to override the origin for this trip. Changes to the trip do not silently update memory.
+
+**Pause** stops preference use without deleting it. **Forget** requests deletion and confirms the result after
+checking Mem0; an unconfirmed deletion stays visibly pending and can be retried. A failed read falls back to the
+current request. The signed browser link and saved preferences expire after 180 days from saving. Expiry stops
+normal use; it does not guarantee physical deletion. Delete preferences before clearing cookies if you want to
+retain the ability to confirm their removal. **New chat** clears the conversation, not saved preferences.
 
 ### Flights, hotels and park trips
 

@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -73,6 +73,7 @@ class TraceRow:
     depth: int
     status: str
     error: str | None = None
+    parent_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -140,6 +141,8 @@ def _label(span: _Span, root_id: UUID) -> tuple[str, str] | None:
 def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
     if any(span.trace_id != trace_id or span.project_id != project_id for span in spans):
         return _failed("runs", TraceIssue.WRONG_SCOPE)
+    if len({span.id for span in spans}) != len(spans):
+        return _failed("runs", TraceIssue.INVALID_RESPONSE)
     root = next((span for span in spans if span.id == trace_id), None)
     if root is None:
         return TraceView("pending")
@@ -150,8 +153,10 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
         (span for span in spans if span.id in labels),
         key=lambda span: (span.id != trace_id, span.start_time, len(span.parent_run_ids or []), span.id),
     )
+    retained = visible[:TRACE_MAX_ROWS]
+    parents = _visible_parents(retained, spans, trace_id)
     rows = []
-    for span in visible[:TRACE_MAX_ROWS]:
+    for index, span in enumerate(retained):
         kind, label = labels[span.id]
         elapsed = (span.end_time - span.start_time).total_seconds() if span.end_time else None
         rows.append(
@@ -160,12 +165,70 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
                 kind=kind,
                 elapsed_ms=to_ms(elapsed) if elapsed is not None and elapsed >= 0 else None,
                 offset_ms=max(0, to_ms((span.start_time - root.start_time).total_seconds())),
-                depth=sum(ancestor in labels for ancestor in span.parent_run_ids or ()),
+                depth=len(_ancestors(index, parents)),
                 status=STATUSES.get(span.status or "", "Unknown"),
                 error=f"{kind} reported an error." if span.status == "ERROR" else None,
+                parent_index=parents[index],
             )
         )
     return TraceView("ready", tuple(rows), truncated=len(visible) > TRACE_MAX_ROWS)
+
+
+def _visible_parents(spans: list[_Span], all_spans: list[_Span], root_id: UUID) -> list[int | None]:
+    """Keep nearest displayed ancestors; malformed cycles and absent parents never become invented nesting."""
+    positions = {span.id: index for index, span in enumerate(spans)}
+    by_id = {span.id: span for span in all_spans}
+
+    def ancestors(identifier: UUID) -> set[UUID]:
+        """Cross omitted graph wrappers using declared links, without requiring a full or ordered ancestor array."""
+        pending = list(by_id[identifier].parent_run_ids or ())
+        seen: set[UUID] = set()
+        while pending:
+            ancestor = pending.pop()
+            if ancestor in seen or ancestor not in by_id:
+                continue
+            seen.add(ancestor)
+            pending.extend(by_id[ancestor].parent_run_ids or ())
+        return seen - {identifier}
+
+    ancestry = {span.id: ancestors(span.id) for span in spans}
+    parents: list[int | None] = []
+    for span in spans:
+        candidates = [positions[ancestor] for ancestor in ancestry[span.id] if ancestor in positions]
+        # Compare known ancestor depth rather than trusting the upstream array's order.
+        depths = {index: len(ancestry[spans[index].id] & positions.keys()) for index in candidates}
+        deepest = [index for index, depth in depths.items() if depth == max(depths.values(), default=-1)]
+        parent = deepest[0] if len(deepest) == 1 else None
+        parents.append(None if span.id == root_id else parent)
+    return safe_parent_indices(parents)
+
+
+def safe_parent_indices(values: Sequence[int | None]) -> list[int | None]:
+    """Validate page-local relationships once for projection and presentation; cycles become unlinked spans."""
+    parents = [
+        parent if type(parent) is int and 0 <= parent < len(values) and parent != index else None
+        for index, parent in enumerate(values)
+    ]
+    for index in range(len(values)):
+        path: list[int] = []
+        current: int | None = index
+        while current is not None and current not in path:
+            path.append(current)
+            current = parents[current]
+        if current is not None:
+            for member in path[path.index(current) :]:
+                parents[member] = None
+    return parents
+
+
+def _ancestors(index: int, parents: list[int | None]) -> tuple[int, ...]:
+    """Walk a validated finite parent chain without exposing upstream identifiers."""
+    result = []
+    current = parents[index]
+    while current is not None:
+        result.append(current)
+        current = parents[current]
+    return tuple(reversed(result))
 
 
 async def _read_json(

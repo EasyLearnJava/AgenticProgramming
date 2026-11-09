@@ -1,14 +1,18 @@
-"""Follow a trace from Activity inside Nimbus, including a keyboard-only visit and a pending upload."""
+"""Explore safe trace call trees, filters, timings and errors using Chrome, keyboard and mobile layouts."""
+
+from pathlib import Path
 
 import pytest
 from axe_playwright_python.sync_playwright import Axe
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Browser, Page, expect
 
 pytestmark = pytest.mark.parametrize("base_url", ["trace"], indirect=True)
 
 
 @pytest.mark.parametrize("width", [360, 1280])
-def test_activity_opens_its_own_trace_with_model_tool_timings_and_error(page: Page, base_url: str, width: int) -> None:
+def test_activity_opens_its_own_trace_with_model_tool_timings_and_error(
+    page: Page, base_url: str, width: int, tmp_path: Path
+) -> None:
     page.set_viewport_size({"width": width, "height": 900})
     seen: list[str] = []
     page.on("request", lambda req: seen.append(req.url))
@@ -29,14 +33,92 @@ def test_activity_opens_its_own_trace_with_model_tool_timings_and_error(page: Pa
     model = timeline.get_by_role("row").filter(has_text="Gemini")
     for part in ("Model", "+30 ms", "880 ms", "Completed"):
         expect(model).to_contain_text(part)
-    tool = timeline.get_by_role("row").filter(has_text="get_forecast")
+    tool = timeline.get_by_role("row").filter(has_text="get_forecast").first
     for part in ("Tool", "+920 ms", "12 ms", "Failed", "Tool call failed"):
         expect(tool).to_contain_text(part)
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     audit = Axe().run(page)
     assert audit.violations_count == 0, audit.generate_report()
+    page.screenshot(path=str(tmp_path / f"trace-{width}.png"), full_page=True)
     page.get_by_role("link", name="Back to Activity").click()
     expect(page).to_have_url(f"{base_url}/activity")
+
+
+def open_ready_trace(page: Page, base_url: str) -> None:
+    """Follow the same signed, on-demand trace link that an Activity visitor opens."""
+    page.goto(f"{base_url}/activity")
+    request = page.locator("details.obs-details").filter(has_text="Ref 11111111")
+    request.locator("summary").click()
+    request.get_by_role("link", name="View LangSmith trace for request 11111111").click()
+    expect(page.get_by_role("heading", name="LangSmith trace", exact=True)).to_be_visible()
+
+
+def test_tree_collapse_and_filters_preserve_context_without_network_requests(page: Page, base_url: str) -> None:
+    open_ready_trace(page, base_url)
+    calls: list[str] = []
+    page.on("request", lambda request: calls.append(request.url))
+    rows = page.locator(".trace-row")
+    expect(rows).to_have_count(4)
+    toggles = page.locator("[data-trace-toggle]")
+    toggles.first.focus()
+    page.keyboard.press("Enter")
+    expect(toggles.first).to_have_attribute("aria-expanded", "false")
+    expect(page.locator(".trace-row:visible")).to_have_count(1)
+    toggles.first.press("Enter")
+    expect(page.locator(".trace-row:visible")).to_have_count(4)
+    toggles.nth(1).click()
+    expect(page.locator(".trace-row:visible")).to_have_count(3)
+    page.locator('[data-trace-filter="model"]').click()
+    expect(page.locator(".trace-row:visible")).to_have_count(2)
+    expect(page.locator(".trace-row:visible").last).to_contain_text("Gemini")
+    page.locator('[data-trace-filter="failed"]').click()
+    expect(page.locator(".trace-row:visible")).to_have_count(3)
+    expect(page.locator(".trace-row:visible").last).to_contain_text("get_forecast")
+    assert calls == []
+    audit = Axe().run(page)
+    assert audit.violations_count == 0, audit.generate_report()
+
+
+def test_call_inspector_search_and_keyboard_selection(page: Page, base_url: str) -> None:
+    open_ready_trace(page, base_url)
+    select = page.locator("[data-trace-select]").last
+    select.focus()
+    page.keyboard.press("Enter")
+    inspector = page.locator("[data-trace-inspector]")
+    expect(inspector).to_contain_text("get_forecast")
+    expect(inspector).to_contain_text("10 ms")
+    expect(inspector).to_contain_text("921 ms")
+    expect(inspector).to_contain_text("Tool call failed")
+    audit = Axe().run(page)
+    assert audit.violations_count == 0, audit.generate_report()
+    page.locator("#trace-search").fill("nothing-matches-this-call")
+    expect(page.locator(".trace-row:visible")).to_have_count(0)
+    expect(page.get_by_text("No matching calls", exact=False)).to_be_visible()
+    page.locator("#trace-search").fill("Gemini")
+    expect(page.locator(".trace-row:visible")).to_have_count(2)
+    page.locator("#trace-search").clear()
+    expect(page.locator(".trace-row:visible")).to_have_count(4)
+
+
+def test_trace_remains_readable_without_javascript(browser: Browser, base_url: str) -> None:
+    with browser.new_context(java_script_enabled=False) as context:
+        page = context.new_page()
+        open_ready_trace(page, base_url)
+        expect(page.locator(".trace-row:visible")).to_have_count(4)
+        expect(page.get_by_role("table", name="Call timeline")).to_contain_text("Tool call failed")
+        expect(page.get_by_role("link", name="Refresh trace")).to_be_visible()
+
+
+def test_partial_trace_keeps_missing_ancestry_and_timings_explicit(page: Page, base_url: str) -> None:
+    page.goto(f"{base_url}/activity")
+    request = page.locator("details.obs-details").filter(has_text="Ref 44444444")
+    request.locator("summary").click()
+    request.get_by_role("link", name="View LangSmith trace for request 44444444").click()
+    page.locator("[data-trace-select]").last.click()
+    expect(page.locator("[data-trace-detail-parent]")).to_have_text("Not available in this view")
+    expect(page.locator("[data-trace-detail-duration]")).to_have_text("Unknown")
+    expect(page.locator("[data-trace-detail-status]")).to_have_text("Running")
+    expect(page.get_by_text("Additional calls were omitted", exact=False)).to_be_visible()
 
 
 def test_pending_trace_can_be_refreshed_and_legacy_request_has_no_trace_link(page: Page, base_url: str) -> None:

@@ -1,53 +1,184 @@
+{# A private-content-free explorer of the trace's projected call hierarchy and timings. #}
 {% extends "base.html" %}
+{% macro trace_icon(kind) -%}
+<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+  {% if kind == 'agent' %}<path d="M5 5h10v10H5zM10 1v4m0 10v4M1 10h4m10 0h4"/><path d="m8 10 2 2 3-4"/>
+  {% elif kind == 'model' %}<path d="m10 2 2.2 5.8L18 10l-5.8 2.2L10 18l-2.2-5.8L2 10l5.8-2.2L10 2Z"/>
+  {% elif kind == 'tool' %}<path d="M12 3a5 5 0 0 0-5 6l-4 4a2.1 2.1 0 0 0 3 3l4-4a5 5 0 0 0 6-6l-3 3-2-2 3-3Z"/>
+  {% else %}<path d="M5 3v5h10v9M2 5l3-3 3 3M12 15l3 3 3-3"/>{% endif %}
+</svg>
+{%- endmacro %}
 {% block title %}LangSmith trace · Activity · Nimbus{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/trace-view.css">
+<script src="/static/trace-view.js" defer></script>
+{% endblock %}
 {% block content %}
-<main class="doc obs">
-  <p><a href="/activity">Back to Activity</a></p>
-  <h1>LangSmith trace</h1>
-  {% if ref %}<p class="obs-about">Request ref {{ ref }}</p>{% endif %}
+<main class="trace-page" data-trace-explorer>
+  <a class="trace-back" href="/activity"><span aria-hidden="true">←</span> Back to Activity</a>
+  <header class="trace-header">
+    <div>
+      <p class="trace-eyebrow">Observability / Request explorer</p>
+      <h1>LangSmith trace</h1>
+      <p class="trace-subtitle">Follow the calls behind this answer, from the agent to each model and tool.</p>
+    </div>
+    <div class="trace-header-actions">
+      {% if ref %}<span class="trace-reference">Request <code>{{ ref }}</code></span>{% endif %}
+      {% if trace.status != "disabled" %}<a class="trace-button" href="{{ request.url.path }}">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
+          aria-hidden="true" focusable="false"><path d="M16 7a6 6 0 1 0 .1 6M16 2v5h-5"/></svg>
+        Refresh trace</a>{% endif %}
+    </div>
+  </header>
   {% if trace.status == "ready" %}
-  <h2 id="calls">Call timeline</h2>
-  <p class="obs-about" id="trace-timing">Start times are relative to the start of this trace.
-    Indented calls ran inside their parent call.</p>
-  <table class="trace-calls" aria-labelledby="calls" aria-describedby="trace-timing">
-    <thead>
-      <tr>
-        <th scope="col">Call</th><th scope="col">Start</th><th scope="col">Duration</th><th scope="col">Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in trace.rows %}
-      <tr>
-        <td>
-          <div class="trace-call" data-depth="{{ [row.depth, 3]|min }}">
-            <span class="trace-kind">
-              {{ row.kind }}<span class="visually-hidden">, level {{ row.depth + 1 }}</span>
-            </span>
-            {{ row.label }}
-          </div>
-        </td>
-        <td>+{{ "{:,}".format(row.offset_ms) }} ms</td>
-        <td>{% if row.elapsed_ms is not none %}{{ "{:,}".format(row.elapsed_ms) }} ms{% else %}Unknown{% endif %}</td>
-        <td>
-          <span{% if row.status == "Failed" %} class="obs-fail"{% endif %}>{{ row.status }}</span>
-          {% if row.error %}<span class="trace-error">{{ row.error }}</span>{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% if trace.truncated %}<p class="obs-about">Additional calls were omitted from this view.</p>{% endif %}
-  {% elif trace.status == "pending" %}
-  <p class="obs-notice" role="note">LangSmith has no visible calls for this trace yet.
-    If the chat just finished, give it a moment and refresh.</p>
-  {% elif trace.status == "disabled" %}
-  <p class="obs-notice" role="note">LangSmith tracing is disabled in this environment.</p>
-  {% elif trace.issue %}
-  <p class="obs-notice" role="note">{{ trace.issue.value }}</p>
+  <section class="trace-summary" aria-label="Trace overview">
+    <div class="trace-metric trace-metric-primary">
+      <span class="trace-metric-label">Trace duration</span>
+      <strong title="{{ presentation.duration_exact }}">{{ presentation.duration }}</strong>
+      <span class="trace-badge" data-status="{{ presentation.status_slug }}">{{ presentation.status }}</span>
+    </div>
+    <div class="trace-metric"><span class="trace-metric-label">Model calls</span>
+      <strong>{{ presentation.model_count }}</strong>
+      <span class="trace-metric-note">Reasoning &amp; response</span></div>
+    <div class="trace-metric"><span class="trace-metric-label">Tool spans</span>
+      <strong>{{ presentation.tool_count }}</strong><span class="trace-metric-note">Including nested calls</span></div>
+    <div class="trace-metric"><span class="trace-metric-label">Errors</span>
+      <strong{% if presentation.failed_count %} class="trace-error-count"{% endif %}>
+        {{ presentation.failed_count }}</strong>
+      <span class="trace-metric-note">{% if presentation.running_count %}{{ presentation.running_count }} running
+        {% else %}Across displayed calls{% endif %}</span></div>
+  </section>
+  <section class="trace-workspace" aria-labelledby="calls">
+    <div class="trace-timeline-panel">
+      <div class="trace-panel-header">
+        <div><h2 id="calls">Call timeline</h2><p id="trace-timing">Nested calls follow their parent.
+          Timings start at the beginning of this trace.</p></div>
+        <span class="trace-span-count">{{ presentation.total_count }} spans</span>
+      </div>
+      <div class="trace-controls" data-trace-controls hidden>
+        <div class="trace-filter-group" role="group" aria-label="Filter calls">
+          {% for value, label in [('all', 'All calls'), ('model', 'Models'), ('tool', 'Tools'), ('failed', 'Errors')] %}
+          <button type="button" class="trace-filter" data-trace-filter="{{ value }}"
+            aria-pressed="{{ 'true' if value == 'all' else 'false' }}">{{ label }}</button>
+          {% endfor %}
+        </div>
+        <label class="trace-search"><span class="visually-hidden">Find a call</span>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
+            aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5"/><path d="m12 12 5 5"/></svg>
+          <input id="trace-search" type="search" placeholder="Find a call…" autocomplete="off" maxlength="100">
+        </label>
+      </div>
+      <div class="trace-tree-controls" data-trace-controls hidden>
+        <p class="trace-visible-count" data-trace-count aria-live="polite">
+          {{ presentation.total_count }} calls shown</p>
+        <div><button type="button" data-trace-expand>Expand all</button>
+          <button type="button" data-trace-collapse>Collapse all</button></div>
+      </div>
+      <table class="trace-table" aria-labelledby="calls" aria-describedby="trace-timing">
+        <thead><tr>
+          <th scope="col" class="trace-call-heading">Call</th>
+          <th scope="col" class="trace-waterfall-heading"><span class="visually-hidden">Waterfall timing</span>
+            <span class="trace-axis" aria-hidden="true">{% for tick in presentation.ticks %}<span>{{ tick }}</span>
+              {% endfor %}</span></th>
+          <th scope="col" class="trace-duration-heading">Duration</th><th scope="col">Status</th>
+        </tr></thead>
+        <tbody>
+          {% for row in presentation.rows %}
+          <tr class="trace-row" data-trace-row="{{ row.key }}" data-kind="{{ row.kind_slug }}"
+            data-status="{{ row.status_slug }}"
+            data-parent="{{ row.parent_index if row.parent_index is not none else '' }}"
+            data-ancestors="{{ row.ancestor_keys|join(',') }}" data-label="{{ row.label }}"
+            data-call-kind="{{ row.kind }}" data-call-status="{{ row.status }}" data-start="{{ row.start_exact }}"
+            data-duration="{{ row.duration_exact }}"
+            data-error="{{ row.error or '' }}"{% if loop.first %} data-selected="true"{% endif %}>
+            <th scope="row" class="trace-call-cell">
+              <div class="trace-call-content">
+                {% for _ in range([row.depth, 5]|min) %}<span class="trace-indent" aria-hidden="true"></span>
+                {% endfor %}
+                {% if row.has_children %}<button type="button" class="trace-toggle" data-trace-toggle="{{ row.key }}"
+                  aria-expanded="true" aria-label="Collapse {{ row.label }}" hidden>
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4"/></svg>
+                </button>{% else %}<span class="trace-toggle-space" aria-hidden="true"></span>{% endif %}
+                <span class="trace-type-icon" data-kind="{{ row.kind_slug }}">{{ trace_icon(row.kind_slug) }}</span>
+                <div class="trace-call-copy">
+                  <button type="button" class="trace-select" data-trace-select="{{ row.key }}"
+                    aria-pressed="{{ 'true' if loop.first else 'false' }}" disabled>{{ row.label }}</button>
+                  <span class="trace-call-meta">{{ row.kind }}<span aria-hidden="true"> · </span>{{ row.start_exact }}
+                    <span class="visually-hidden">, level {{ row.depth + 1 }}</span>
+                    {% if row.depth > 1 %}<span class="trace-nested-label">Nested span</span>{% endif %}</span>
+                  {% if row.error %}<span class="trace-row-error">{{ row.error }}</span>{% endif %}
+                </div>
+              </div>
+            </th>
+            <td class="trace-waterfall-cell">
+              <svg class="trace-waterfall" viewBox="0 0 1000 22" preserveAspectRatio="none"
+                aria-hidden="true" focusable="false">
+                <path class="trace-grid-line" d="M1 0v22M500 0v22M999 0v22"/>
+                {% if row.elapsed_ms is not none %}<rect class="trace-span-bar" x="{{ row.bar_x }}" y="5"
+                  width="{{ row.bar_width }}" height="12" rx="3"/>
+                {% else %}<line class="trace-start-marker" x1="{{ row.bar_x }}" x2="{{ row.bar_x }}"
+                  y1="4" y2="18"/>{% endif %}
+              </svg>
+            </td>
+            <td class="trace-duration" title="{{ row.duration_exact }}">{{ row.duration }}
+              <span class="visually-hidden"> ({{ row.duration_exact }})</span></td>
+            <td class="trace-status-cell"><span class="trace-badge" data-status="{{ row.status_slug }}">
+              {{ row.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="trace-no-results" data-trace-empty hidden>
+        <strong>No matching calls</strong><p>Try a different call name or show all call types.</p>
+        <button type="button" class="trace-button" data-trace-clear>Clear filters</button>
+      </div>
+      <footer class="trace-panel-footer">
+        <span><span class="trace-legend-dot trace-legend-model"></span>Model</span>
+        <span><span class="trace-legend-dot trace-legend-tool"></span>Tool</span>
+        <p>Nested spans can cover the same work; durations do not add up.
+          Unknown durations show a start marker.</p>
+      </footer>
+    </div>
+    {% if presentation.rows %}{% set selected = presentation.rows[0] %}
+    <aside class="trace-inspector" data-trace-inspector aria-labelledby="trace-inspector-heading">
+      <div class="trace-inspector-heading"><p class="trace-eyebrow">Selected call</p>
+        <h2 id="trace-inspector-heading" data-trace-detail-label>{{ selected.label }}</h2>
+        <span class="trace-badge" data-trace-detail-status data-status="{{ selected.status_slug }}">
+          {{ selected.status }}</span></div>
+      <dl class="trace-details">
+        <div><dt>Type</dt><dd data-trace-detail-kind>{{ selected.kind }}</dd></div>
+        <div><dt>Duration</dt><dd data-trace-detail-duration>{{ selected.duration_exact }}</dd></div>
+        <div><dt>Started at</dt><dd data-trace-detail-start>{{ selected.start_exact }}</dd></div>
+        <div><dt>Parent</dt><dd data-trace-detail-parent>
+          {{ 'None (trace root)' if selected.kind_slug == 'agent' else 'Not available in this view' }}</dd></div>
+      </dl>
+      <div class="trace-inspector-error" data-trace-detail-error{% if not selected.error %} hidden{% endif %}
+        role="note">{{ selected.error or '' }}</div>
+      <div class="trace-privacy-note"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
+          aria-hidden="true" focusable="false"><path d="m10 2 6 2v5c0 4-6 8-6 8S4 13 4 9V4l6-2Z"/>
+          <path d="m7 9 2 2 4-4"/></svg>
+        <p>Operational details only. Prompts, answers and tool inputs stay private.</p></div>
+      <p class="trace-inspector-hint">Select a call to inspect its timing and outcome.</p>
+      <p class="visually-hidden" data-trace-selection-note aria-live="polite"></p>
+    </aside>
+    {% endif %}
+  </section>
+  {% if trace.truncated %}<p class="trace-notice" role="note">Additional calls were omitted from this view.
+    Counts and the timeline describe only the calls shown.</p>{% endif %}
   {% else %}
-  <p class="obs-notice" role="note">Nimbus could not read the trace from LangSmith. The request timeline
-    is still available in Activity.</p>
+  <section class="trace-empty-state">
+    <span class="trace-empty-icon" aria-hidden="true">{{ trace_icon('agent') }}</span>
+    <h2>{% if trace.status == "pending" %}Waiting for trace data{% elif trace.status == "disabled" %}Tracing is disabled
+      {% else %}Trace unavailable{% endif %}</h2>
+    {% if trace.status == "pending" %}
+    <p class="trace-notice" role="note">LangSmith has no visible calls for this trace yet.
+      If the chat just finished, give it a moment and refresh.</p>
+    {% elif trace.status == "disabled" %}
+    <p class="trace-notice" role="note">LangSmith tracing is disabled in this environment.</p>
+    {% elif trace.issue %}<p class="trace-notice" role="note">{{ trace.issue.value }}</p>
+    {% else %}<p class="trace-notice" role="note">Nimbus could not read the trace from LangSmith. The request timeline
+      is still available in Activity.</p>{% endif %}
+  </section>
   {% endif %}
-  {% if trace.status != "disabled" %}<p><a href="{{ request.url.path }}">Refresh trace</a></p>{% endif %}
 </main>
 {% endblock %}

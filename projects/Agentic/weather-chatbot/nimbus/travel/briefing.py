@@ -40,6 +40,7 @@ class BriefPreferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
     lane: LaneId = "rest-no-auth"
     locale: ShortText = "en-US"
+    unit_system: Literal["", "metric", "imperial"] = ""
     time_zone: ShortText = "America/Chicago"
     origin: ShortText = ""
     gateway: ShortText = ""
@@ -51,6 +52,7 @@ class BriefPreferences(BaseModel):
     currency: Literal["USD", "CAD", "GBP", "EUR"] = "USD"
     destination_id: Annotated[str, StringConstraints(pattern=r"^[a-z0-9-]{0,100}$")] = ""
     depart_window: FlightWindow = ""
+    depart_window_explicit: bool = False
     return_window: ReturnWindow = ""
     skip_flights: bool = False
     skip_hotels: bool = False
@@ -69,6 +71,7 @@ class BriefPreferences(BaseModel):
                 **fields,
                 "destination_id": intent.destination_id,
                 "depart_window": intent.depart_window,
+                "depart_window_explicit": intent.depart_window_explicit,
                 "return_window": intent.return_window,
                 "skip_flights": intent.skip_flights,
                 "skip_hotels": intent.skip_hotels,
@@ -109,6 +112,7 @@ async def briefing_context(
         "candidates": intent.candidate_parks,
         "flights_enabled": state.settings.flights_enabled,
         "hotels_enabled": state.settings.hotels_enabled,
+        "memory_used": intent.memory_used,
     }
     lane = get_lane(prefs.lane)
     if not is_open(lane, state.settings):
@@ -152,7 +156,9 @@ async def briefing_context(
 
             async def forecast(destination: Destination, days: int) -> ForecastOutput:
                 locale = prefs.locale if is_usable_locale(prefs.locale) else "en-US"
-                return await park_forecast(destination, days, locale, open_tools(request, lane, deadline))
+                return await park_forecast(
+                    destination, days, locale, open_tools(request, lane, deadline), unit_system=prefs.unit_system
+                )
 
             conditions = await check_conditions(
                 park=park_id,

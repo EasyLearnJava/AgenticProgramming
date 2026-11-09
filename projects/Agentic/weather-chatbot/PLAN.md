@@ -20,18 +20,20 @@ working, and each with a chapter written while it's built. The first version's p
 | Tools | LangChain tools with Pydantic inputs; `httpx2` for the calls out, `tenacity` for retries (9.1.4: google-genai wants it below 9.2) |
 | MCP | The official `mcp` SDK (FastMCP) for our server; `langchain-mcp-adapters` for the MCP lanes |
 | Settings | pydantic-settings: one module reads the environment |
-| State between requests | Each chat stays in the browser (step 6); Open-Meteo's answers use Vercel Runtime Cache (step 7); public park reference material uses a bundled read-only SQLite index (step 16) |
+| State between requests | Chat stays in the browser (step 6); Open-Meteo uses Vercel Runtime Cache (step 7); public park guidance uses bundled read-only SQLite (step 16); explicitly approved travel defaults use optional Mem0 storage |
 | Logs | structlog, JSON lines with a request id; Axiom (from step 12), read back onto the Observability pages (step 14) |
 | Errors, traces | Sentry; LangSmith for the model's runs (from step 3), then the agent's (from step 4) |
 | Tests | pytest; Playwright for Python with axe; mutation checks |
 | Lint, types | Ruff; mypy in strict mode |
 | CI, hosting | GitHub Actions with uv; Vercel's Python runtime |
 
-Why no database: Vercel runs many copies of the app, which share no memory, so whatever must last from one request to
-the next lives outside them. The conversation lives in the visitor's browser, so nothing a visitor types is ever
-stored on our side; the weather lives in Vercel's Runtime Cache. A database would pay off with accounts, or with runs
-that pause for a person's approval (LangGraph's checkpoints); neither is planned. Step 16 adds a read-only SQLite
-artifact of public park guidance. It is built before deployment and stores no visitor data.
+Vercel runs many copies of the app, which share no process memory. The chat transcript lives in the visitor's browser;
+agent requests send bounded conversation to Gemini. Weather data uses Vercel Runtime Cache. Step 16 adds a read-only
+SQLite artifact of public park guidance, built before deployment and containing no visitor data. Optional Mem0
+storage now holds only five typed travel defaults after explicit consent. An opaque signed browser cookie identifies
+that preference scope; it is not an account or a LangGraph checkpoint. The app does not persist the conversation as
+preference memory.
+[Preference ownership, retention and deletion](docs/technical-details.md#follow-an-approved-preference).
 
 ## 2. The roadmap
 
@@ -56,6 +58,12 @@ artifact of public park guidance. It is built before deployment and stores no vi
 | 17 | Official NPS notices: bounded API checks, a separate page, shared chat tool and source attribution | Configure the NPS key for the intended Vercel environments; verify notices and quota before releasing |
 | 18 | Read-only Kiwi flights, trivago hotels and a shared national park trip planner | Local provider checks complete. Run repeated chat evaluations and verify the target preview before release |
 | 19 | Deterministic replay, scored live trials, feedback and reviewed regression cases | Validate the operator-configured preview and review deployment evidence before promotion |
+
+The current preference-memory extension adds explicit preview, save, edit, pause and verified deletion of an airport,
+weather units, price currency, preparation interest and departure window. Current requests and explicit trip choices
+remain authoritative; saved defaults never authorize a search or booking. It uses the existing chat, planner and
+observability paths. Configuration and hosted validation remain separate release work on
+[Waiting on you](docs/waiting-on-you.md#mem0-travel-preferences); checks must record the actual tested build.
 
 ## 3. A chapter's sections
 

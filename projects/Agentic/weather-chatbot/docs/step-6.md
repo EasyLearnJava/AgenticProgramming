@@ -1,5 +1,9 @@
 # Step 6 · The Chat Remembers, in the Browser
 
+**Current app note:** this chapter describes conversation history. Optional Mem0 preferences are a separate,
+explicitly approved browser profile; New chat does not clear them. The transcript is not uploaded to Mem0.
+[Preference ownership, controls and retention](technical-details.md#follow-an-approved-preference).
+
 Step 6 gives the chat a memory, without a database: the page keeps the conversation, and sends it back with each
 question, in one hidden field. The server takes it as what it is, untrusted input: only the visitor's questions and
 Nimbus's answers, in turn, as text, never a tool's result, checked and capped before any work is done. The model reads

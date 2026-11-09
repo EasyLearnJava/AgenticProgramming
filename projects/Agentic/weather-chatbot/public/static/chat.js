@@ -20,6 +20,15 @@
   let isStopping = false;
   let hasStarted = false;
 
+  // An explicit memory preview stays unsaved until its form is submitted; cancelling preserves this chat.
+  messages.addEventListener("click", (event) => {
+    const cancel = event.target.closest("[data-memory-cancel]");
+    if (!cancel) return;
+    const message = cancel.closest(".message");
+    message.querySelector(".memory-preview")?.remove();
+    message.querySelector(".answer").textContent = "Nothing was saved. You can manage preferences from the left menu.";
+  });
+
   messages.addEventListener("submit", async (event) => {
     const feedback = event.target;
     if (!feedback.matches(".answer-feedback form")) return;

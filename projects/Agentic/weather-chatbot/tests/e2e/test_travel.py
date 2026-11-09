@@ -159,10 +159,21 @@ def test_hotel_only_then_edit_flight_windows_in_the_same_briefing(
     mode = form.get_by_label("Search for")
     expect(mode).to_have_value("true")
     expect(form.get_by_label("Flying from")).to_be_disabled()
-    with page.expect_request("**/api/parks/trip") as sent:
+    # Hotel-only mode disables flight controls, but preparation, units and currency remain editable.
+    expect(form.get_by_label("Weather units")).to_be_visible()
+    expect(form.get_by_label("Weather units")).to_be_enabled()
+    form.get_by_label("Weather units").select_option("imperial")
+    form.get_by_label("Price currency").select_option("EUR")
+    form.get_by_label("Activity or preparation topic").fill("camping")
+    with page.expect_response("**/api/parks/trip") as sent:
         form.get_by_role("button", name="Search hotels", exact=True).click()
-    assert "skip_flights=true" in (sent.value.post_data or "")
-    assert "gateway=" not in (sent.value.post_data or "")
+    assert sent.value.status == 200
+    body = sent.value.request.post_data or ""
+    assert "skip_flights=true" in body
+    assert "gateway=" not in body
+    assert "unit_system=imperial" in body
+    assert "currency=EUR" in body
+    assert "activity=camping" in body
     # Reopen the same form and switch to flights. An evening preference must be editable before retrying a search.
     expect(form).to_be_hidden()
     turn.locator("summary").filter(has_text=re.compile("travel options", re.I)).click()

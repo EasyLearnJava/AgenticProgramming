@@ -1,0 +1,107 @@
+{# The private browser-profile settings page. Preference content never appears in shared Activity logs. #}
+{% extends "base.html" %}
+{% from "preference_form.html" import preference_form, preference_action %}
+{% block title %}My preferences · Nimbus{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/preferences.css">{% endblock %}
+{% block content %}
+<main class="preferences-page">
+  <header class="preferences-header">
+    <div>
+      <p class="preferences-eyebrow">Nimbus / Your browser profile</p>
+      <h1>My preferences</h1>
+      <p class="preferences-intro">A familiar starting point for your next trip. Save the details you want Nimbus to
+        remember, then change them whenever a trip calls for something different.</p>
+    </div>
+    <span class="preferences-status">
+      {% if not configured %}Not configured{% elif deleting|default(False) %}Deletion pending
+      {% elif snapshot_status == "pending" %}Awaiting confirmation
+      {% elif enabled and has_identity %}Memory on{% elif has_identity %}Memory paused{% else %}Not enabled{% endif %}
+    </span>
+  </header>
+
+  {% if message %}<p class="preferences-notice" role="status">{{ message }}</p>{% endif %}
+  {% if error %}<p class="preferences-notice preferences-notice-error" role="alert">{{ error }}</p>{% endif %}
+
+  {% if not configured %}
+  <section class="preferences-panel">
+    <h2>Preference memory is not available here yet</h2>
+    <p>You can keep using Nimbus and supply your details for each trip.</p>
+    <a class="preference-text-link" href="/">Back to chat</a>
+  </section>
+  {% else %}
+  <div class="preferences-layout">
+    <section class="preferences-panel" aria-labelledby="preferences-details">
+      <div class="preferences-panel-heading">
+        <h2 id="preferences-details">A few things worth remembering</h2>
+        <p>Your current request and any edits to a trip form always take priority.</p>
+      </div>
+      {% if deleting|default(False) or snapshot_status in ("unavailable", "conflict", "pending") %}
+      <div class="preferences-empty">
+        {% if deleting|default(False) %}
+        <h3>Preference use is off</h3>
+        <p>Deletion has not been confirmed. Use Forget saved preferences below to retry. Editing and resuming stay
+          unavailable while deletion is pending.</p>
+        {% elif snapshot_status == "unavailable" %}
+        <h3>Saved preferences could not be checked</h3>
+        <p>Editing is unavailable until Nimbus can read your saved preferences. Chat still works without them.</p>
+        {% elif snapshot_status == "conflict" %}
+        <h3>Your saved preferences need attention</h3>
+        <p>Nimbus found conflicting saved records and will not choose a default for you. You can forget them below
+          and save a fresh set.</p>
+        {% else %}
+        <h3>The save is not confirmed yet</h3>
+        <p>Mem0 has not confirmed the saved values. Check again before making another change.</p>
+        {% endif %}
+        <a class="preference-text-link" href="/preferences">Check again</a>
+      </div>
+      {% else %}
+      {{ preference_form(preferences, token, revision) }}
+      {% endif %}
+    </section>
+
+    <aside class="preferences-aside" aria-label="How preference memory works">
+      <section class="preferences-panel preferences-explainer">
+        <div class="preferences-symbol" aria-hidden="true">N</div>
+        <h2>You choose what stays</h2>
+        <p>Mem0 stores only preferences you explicitly save here or confirm from a chat preview. Nimbus does not
+          send your full conversation to memory.</p>
+        <ul>
+          <li>Weather, alerts, prices and availability are checked again for each relevant request.</li>
+          <li>New chat clears the conversation, but keeps these saved defaults.</li>
+          <li>Trip dates, guests and booking permissions are not saved as preferences.</li>
+        </ul>
+      </section>
+      <section class="preferences-panel preferences-browser-note">
+        <h2>Saved for this browser</h2>
+        <p>This is a browser profile, not an account. A different browser or device starts separately. Anyone using
+          this browser profile can view or change these preferences.</p>
+        <p>The browser link and preferences expire after 180 days from saving. Expiry stops normal use; it does not
+          guarantee removal from Mem0's storage. Use Forget below to request deletion.</p>
+        <p>Clearing browser cookies can lose access to your saved preferences. Forget them first if you want them
+          deleted.</p>
+      </section>
+    </aside>
+  </div>
+
+  {% if has_identity %}
+  <section class="preferences-panel preferences-controls" aria-labelledby="preferences-controls-title">
+    <div>
+      <h2 id="preferences-controls-title">Your controls</h2>
+      <p>Pause stops Nimbus from using saved preferences. It keeps them available for later.</p>
+    </div>
+    {% if enabled %}
+    {{ preference_action("pause", "Pause memory", token, revision) }}
+    {% elif not deleting|default(False) and snapshot_status not in ("unavailable", "conflict", "pending") %}
+    {{ preference_action("resume", "Resume memory", token, revision) }}
+    {% endif %}
+    <details class="preferences-forget">
+      <summary>Forget saved preferences</summary>
+      <p>This deletes the preferences linked to this browser profile from Mem0. Nimbus stops using them immediately
+        and confirms when deletion succeeds. If Mem0 is unavailable, you can retry here.</p>
+      {{ preference_action("forget", "Delete saved preferences", token, revision) }}
+    </details>
+  </section>
+  {% endif %}
+  {% endif %}
+</main>
+{% endblock %}

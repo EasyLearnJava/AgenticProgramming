@@ -20,6 +20,9 @@ stored preparation guidance and current alerts have different jobs; the arrows s
    airport's time zone. A full weekend normally spans Friday through Sunday, with editable evening flight
    preferences. During the weekend Nimbus can offer the remaining days or the following weekend. Missing dates
    or an uncertain destination prompt a choice.
+   When enabled and approved, saved preferences fill missing defaults before date interpretation. A saved DFW origin
+   therefore uses the Dallas calendar near midnight. An explicit BOS origin uses Boston instead; driving and flight
+   opt-outs do not become flight requests because an airport was saved.
 2. **Check four sources in parallel.** The dated chat briefing looks up the forecast for a named park reference
    point, retrieves preparation passages, checks current NPS notices and requests active NWS alerts at that
    point. A forecast can cover only part of a stay. An active alert has its own start and end times. The park's
@@ -54,6 +57,10 @@ weather, preparation and NPS notices. The NWS decision described above belongs t
 - **Chat history** lives in the browser page. Follow-ups send bounded prior text to Nimbus. Agent turns send
   the question and relevant conversation to Gemini. Flight and hotel providers receive structured search
   fields such as places, dates and party size.
+- **Approved travel preferences** live in Mem0, behind an opaque signed browser cookie. The cookie holds a random
+  scope, expiry and mode, not preference values. Five typed fields are allowed: airport, weather units,
+  currency, preparation interest and departure window. No accounts or cross-device linking are implemented. Anyone
+  using the same browser profile can manage its preferences. New chat does not clear them.
 - **Park knowledge** ships with the application. The offline builder validates the records before writing
   and replacing the SQLite index. Visitors can inspect source dates, sections and vectors directly.
   [Inspect the collection](/knowledge/sources).
@@ -67,6 +74,17 @@ weather, preparation and NPS notices. The NWS decision described above belongs t
   Activity timeline and optional LangSmith trace expose that evidence without displaying conversation text.
   [Inspect a request](/activity).
 
+Preferences and the browser link expire 180 days after saving. Expiry excludes them from normal use, but is not a
+guarantee of physical deletion at Mem0. **Pause** stops their use while retaining them. **Forget** deletes the owned
+Nimbus records, including expired records, then reads back to confirm absence. If confirmation fails, preference use
+stays off and the cookie is retained so deletion can be retried. Clearing the cookie first can lose that access.
+[Manage saved preferences](/preferences).
+
+Only the approved typed profile is sent to Mem0; no automatic conversation extraction runs. A usable profile may be
+included as default values in Gemini's answer context. Memory is separate from trip dates, guests, payment details,
+forecast or alert evidence, prices and booking permission. Weather units are an independent choice from browser
+locale and currency, so Celsius with USD is supported throughout the park briefing and confirmed plan.
+
 ## What happens when a dependency fails
 
 The components have separate deadlines and outcomes. If hotels time out, a confirmed plan can still show
@@ -74,6 +92,12 @@ flights, weather and notices. An empty inventory is a different result from a pr
 embedding query is unavailable, park retrieval can still use keywords. If an optional travel service fails
 its tool-discovery check, Health shows that result separately from core weather and park-index readiness.
 [Read the health report](/health).
+
+Mem0 failures, conflicting records and uncertain writes cannot supply defaults. An unconfirmed save pauses memory
+use; a failed read continues from the current request. A fresh read and revision check precede a save, followed by
+readback verification. Mem0 does not provide a transaction spanning those operations: stale forms and observed
+duplicates are rejected, but truly simultaneous updates on separate server instances can still be last-write-wins.
+This is not transactional cross-tab editing.
 
 The evaluation harness exercises these boundaries with fixed clocks, recorded provider responses and
 human-authored expectations. Repeated live trials record individual failures and latency against an

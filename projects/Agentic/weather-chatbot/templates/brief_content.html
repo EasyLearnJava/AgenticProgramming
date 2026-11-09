@@ -16,6 +16,15 @@
     </p></div>
   </div>
 </header>
+{% if memory_used %}
+<p class="brief-body">Using saved preferences:
+  {% set labels = {'origin':'departure airport', 'unit_system':'weather units', 'currency':'currency',
+    'activity':'preparation interests', 'depart_window':'departure window'} %}
+  {% for key in memory_used %}{{ labels.get(key, key) }}{% if not loop.last %}, {% endif %}{% endfor %}.
+  You can edit the trip details before searching.
+  <a href="/preferences">Manage preferences</a>
+</p>
+{% endif %}
 {% macro action_fields() %}
   <input type="hidden" name="prefs" value="{{ preference_json }}">
 {% endmacro %}

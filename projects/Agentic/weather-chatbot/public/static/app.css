@@ -894,25 +894,6 @@ body {
   font-size: 0.9rem;
 }
 
-.trace-calls {
-  font-variant-numeric: tabular-nums;
-}
-
-.trace-call {
-  line-height: 1.4;
-}
-
-.trace-call[data-depth="1"] { margin-inline-start: .4rem; }
-.trace-call[data-depth="2"] { margin-inline-start: .8rem; }
-.trace-call[data-depth="3"] { margin-inline-start: 1.2rem; }
-
-.trace-kind,
-.trace-error {
-  display: block;
-  font-size: .8rem;
-  color: var(--muted);
-}
-
 /* A line's dot, and a status's: the words beside it say how it went, never the colour alone. */
 .obs-dot {
   display: inline-block;

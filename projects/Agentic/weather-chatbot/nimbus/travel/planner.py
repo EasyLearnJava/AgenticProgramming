@@ -61,6 +61,7 @@ class ParkTrip(BaseModel):
     currency: Literal["USD", "EUR", "GBP", "CAD"] = "USD"
     # The chat's locale, when the form came from the chat: the plan's units then match the chat's.
     locale: Annotated[str, StringConstraints(max_length=35)] = ""
+    unit_system: Literal["", "metric", "imperial"] = ""
     time_zone: Annotated[str, StringConstraints(max_length=100)] = ""
 
     @field_validator("children_ages", mode="before")

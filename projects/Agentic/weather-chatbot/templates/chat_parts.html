@@ -5,6 +5,7 @@
 #}
 {% from "nps_alert_parts.html" import notices %}
 {% from "travel_parts.html" import travel_results %}
+{% from "weather_cards.html" import weather_card %}
 {% macro feedback_form(turn_id) -%}
 <details class="answer-feedback">
   <summary>Give feedback</summary>
@@ -102,14 +103,20 @@
 {#
   The tool calls' list is empty, with nothing in it at all, until a call comes, so :empty hides it.
 #}
-{% macro bot_message(turn_id, answer="", busy=False, failed=False, note="", chips=()) -%}
-<li class="message message-bot{% if failed %} message-error{% endif %}" id="turn-{{ turn_id }}"
+{% macro bot_message(turn_id, answer="", busy=False, failed=False, note="", chips=(), weather_cards=(),
+  memory_note="") -%}
+{% set classes = "message message-bot" ~ (" message-error" if failed else "")
+  ~ (" message-weather" if weather_cards else "") %}
+<li class="{{ classes }}" id="turn-{{ turn_id }}"
   {%- if busy %} aria-busy="true"{% endif %}>
   {{ bot_meta() }}
   <ul class="tool-chips" id="tools-{{ turn_id }}" aria-label="Tool calls">
     {%- for chip in chips %}{{ tool_chip(turn_id, chip) }}{% endfor -%}
   </ul>
+  {% for card in weather_cards %}{{ weather_card(card) }}{% endfor %}
+  {% if memory_note %}<p class="memory-used">{{ memory_note }} <a href="/preferences">My preferences</a></p>{% endif %}
   <div class="bubble bubble-bot">
+    {% if weather_cards and answer %}<h2 class="weather-summary-label">Summary &amp; context</h2>{% endif %}
     <div class="answer{% if busy %} answer-streaming{% endif %}" id="answer-{{ turn_id }}">{{ answer }}</div>
     {%- set shown = namespace(reports=[]) %}
     {%- for chip in chips if chip.travel_record and chip.travel_record.report not in shown.reports %}

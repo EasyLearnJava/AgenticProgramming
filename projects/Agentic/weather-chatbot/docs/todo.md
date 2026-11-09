@@ -8,6 +8,11 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 
 ## Done
 
+- **Optional Mem0 travel preferences:** explicit preview and save of five typed defaults, browser-scoped ownership,
+  edit/pause/resume/forget controls, provider readback verification and integration with chat and park planning.
+  Stored values do not approve searches or replace fresh evidence. Hosted configuration and validation remain below.
+  [How preferences work](technical-details.md#follow-an-approved-preference)
+
 - **Repeated live evaluation and visitor feedback (step 19).** The harness keeps all three trials and reports both
   first-try and all-three scores. Visitors can share a category and answer reference in Activity. Reviewers can
   promote human-written park intake regressions. [The Evaluation Harness](step-19.md)
@@ -30,6 +35,11 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
   ```
 
 ## Next
+
+- **Preference-memory release evidence:** validate the configured preview's save, reload, override, browser isolation,
+  pause/resume and deletion flow, plus ordinary chat when memory is unavailable. Record the exact build and results
+  before production. Required account settings and the stable signing secret are on
+  [Waiting on you](waiting-on-you.md#mem0-travel-preferences). Expiry is not a substitute for verified deletion.
 
 - **Step 18 travel release checks:** verify both providers on the intended preview and run the repeated chat
   evaluation. Record the tested commit, deployment, tool outcomes and timeouts before enabling production.

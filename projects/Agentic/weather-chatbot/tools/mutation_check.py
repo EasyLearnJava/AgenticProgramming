@@ -2174,11 +2174,30 @@ TRACE_MUTATIONS = (
         "self.client.flush()",
         "trace flushing has a bounded SDK wait",
     ),
+    Mutation(
+        "nimbus/trace_view.py",
+        "parent_index=parents[index]",
+        "parent_index=None",
+        "trace hierarchy preserves real parent relationships",
+    ),
+    Mutation(
+        "nimbus/trace_presenter.py",
+        'model_count=sum(row.kind == "Model" for row in rows)',
+        'model_count=sum(row.kind == "Tool" for row in rows)',
+        "trace summaries distinguish model and tool spans",
+    ),
+    Mutation(
+        "nimbus/trace_presenter.py",
+        'return "Unknown" if value is None else f"{max(0, value):,} ms"',
+        'return "0 ms" if value is None else f"{max(0, value):,} ms"',
+        "trace details never turn missing duration into zero",
+    ),
 )
 MUTATIONS += TRACE_MUTATIONS
 TESTS_FOR["nimbus/answer.py"] += ("test_privacy.py",)
 TESTS_FOR["nimbus/trace_links.py"] = ("test_activity_traces.py",)
 TESTS_FOR["nimbus/trace_view.py"] = ("test_trace_view.py",)
+TESTS_FOR["nimbus/trace_presenter.py"] = ("test_trace_presenter.py",)
 for _travel_module in ("providers", "mcp_client", "kiwi", "trivago"):
     TESTS_FOR[f"nimbus/travel/{_travel_module}.py"] = ("test_travel_providers.py",)
 for _travel_module in ("service", "models", "tools"):
@@ -2353,6 +2372,134 @@ MUTATIONS += (
 TESTS_FOR["nimbus/feedback.py"] = TESTS_FOR["tools/harness_review.py"] = ("test_harness_feedback.py",)
 TESTS_FOR["nimbus/harness_scorecard.py"] = ("test_harness_scorecard.py",)
 
+TESTS_FOR["nimbus/weather_cards.py"] = ("test_weather_cards.py",)
+WEATHER_CARD_MUTATIONS = (
+    Mutation(
+        "nimbus/weather_cards.py",
+        'if chip.status != "done" or chip.output is None:',
+        "if chip.output is None:",
+        "weather cards exclude failed and unfinished tools",
+    ),
+    Mutation(
+        "nimbus/weather_cards.py",
+        "return value if value is not None and math.isfinite(value) else None",
+        "return value if value and math.isfinite(value) else None",
+        "weather cards preserve zero instead of inventing missing values",
+    ),
+    Mutation(
+        "nimbus/weather_cards.py",
+        "key = round_point(result.latitude), round_point(result.longitude), result.time_zone, result.temperature_unit",
+        'key = round_point(result.latitude), round_point(result.longitude), result.time_zone, "ignored"',
+        "weather cards never combine incompatible unit systems",
+    ),
+    Mutation(
+        "nimbus/weather_cards.py",
+        "key = round_point(place.latitude), round_point(place.longitude)",
+        "key = (32.78, -96.81)",
+        "weather cards match the city to its actual coordinates",
+    ),
+    Mutation(
+        "nimbus/weather_cards.py",
+        "if moment.date() == now.date():",
+        "if moment.date() != now.date():",
+        "weather cards label today using the destination date",
+    ),
+    Mutation(
+        "nimbus/weather_cards.py",
+        "moment is not None and moment >= now",
+        "moment is not None and moment <= now",
+        "weather cards show upcoming rather than past hours",
+    ),
+    Mutation(
+        "nimbus/weather_cards.py",
+        "return _icon(condition, is_day=sunrise <= moment < sunset)",
+        "return _icon(condition, is_day=True)",
+        "weather cards do not show a sun after sunset",
+    ),
+    Mutation(
+        "nimbus/weather_cards.py",
+        "except (ValueError, OverflowError, ZoneInfoNotFoundError):",
+        "except (ValueError, ZoneInfoNotFoundError):",
+        "weather cards cannot abort an answer on unrepresentable local timestamps",
+    ),
+)
+MUTATIONS += WEATHER_CARD_MUTATIONS
+
+TESTS_FOR["nimbus/memory/identity.py"] = ("test_memory_routes.py",)
+TESTS_FOR["nimbus/memory/routes.py"] = ("test_memory_routes.py",)
+TESTS_FOR["nimbus/memory/context.py"] = ("test_memory_routes.py",)
+TESTS_FOR["nimbus/memory/client.py"] = ("test_memory_client.py",)
+TESTS_FOR["nimbus/observability.py"] += ("test_memory_observability.py",)
+MEMORY_MUTATIONS = (
+    Mutation(
+        "nimbus/memory/identity.py",
+        "if not hmac.compare_digest(supplied, expected):",
+        "if False:",
+        "memory rejects forged browser signatures",
+    ),
+    Mutation(
+        "nimbus/memory/identity.py",
+        "not int(time.time()) < expires",
+        "not 0 < expires",
+        "memory expires browser credentials",
+    ),
+    Mutation(
+        "nimbus/memory/routes.py",
+        'if fields.pop("consent", "") != "yes" or (identity and identity.mode == "deleting"):',
+        'if (fields.pop("consent", "") and False) or (identity and identity.mode == "deleting"):',
+        "memory saves require explicit consent",
+    ),
+    Mutation(
+        "nimbus/memory/context.py",
+        'if identity.mode != "active" and not include_paused:',
+        "if False:",
+        "memory paused chat makes no provider request",
+    ),
+    Mutation(
+        "nimbus/memory/routes.py",
+        'mode="deleting" if identity.mode == "deleting" else "paused"',
+        'mode="paused"',
+        "memory stale pause cannot cancel pending deletion",
+    ),
+    Mutation(
+        "nimbus/memory/client.py",
+        'if record.metadata.get("nimbus_owner") != user_id:',
+        "if False:",
+        "memory independently verifies record ownership",
+    ),
+    Mutation(
+        "nimbus/memory/client.py",
+        '"infer": False',
+        '"infer": True',
+        "memory stores only explicit facts without inference",
+    ),
+    Mutation(
+        "nimbus/memory/client.py",
+        "if current.revision != expected_revision:",
+        "if False:",
+        "memory refuses stale profile revisions",
+    ),
+    Mutation(
+        "nimbus/memory/client.py",
+        "if snapshot.revision != revision or snapshot.preferences != preferences:",
+        "if False:",
+        "memory verifies persisted values before claiming success",
+    ),
+    Mutation(
+        "nimbus/memory/client.py",
+        "if expired or record.expiration_date is None or record.expiration_date >= datetime.now(UTC).date():",
+        "if True:",
+        "memory never uses expired profile records",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        'labels.get(action, "Preference memory")',
+        "action",
+        "memory activity never echoes unapproved private metadata",
+    ),
+)
+MUTATIONS += MEMORY_MUTATIONS
+
 
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
     """
@@ -2403,6 +2550,10 @@ def main() -> int:
     parser.add_argument("--knowledge", action="store_true", help="Check the knowledge browser safeguards")
     parser.add_argument("--retrieval", action="store_true", help="Check the retrieval playground diagnostics")
     parser.add_argument("--traces", action="store_true", help="Check Activity trace correlation, access and privacy")
+    parser.add_argument("--weather-cards", action="store_true", help="Check weather presentation evidence and dates")
+    parser.add_argument(
+        "--memory", action="store_true", help="Check consent, isolation, expiry and honest memory outcomes"
+    )
     args = parser.parse_args()
     selected = (
         tuple(
@@ -2421,6 +2572,10 @@ def main() -> int:
         selected = HARNESS_MUTATIONS
     if args.traces:
         selected = TRACE_MUTATIONS
+    if args.weather_cards:
+        selected = WEATHER_CARD_MUTATIONS
+    if args.memory:
+        selected = MEMORY_MUTATIONS
     if args.knowledge:
         selected = tuple(m for m in MUTATIONS if m.file in {"nimbus/knowledge.py", "templates/knowledge_chunks.html"})
     if args.retrieval:

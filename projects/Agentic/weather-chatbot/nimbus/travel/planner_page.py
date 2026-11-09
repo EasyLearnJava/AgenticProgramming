@@ -13,6 +13,7 @@ from nimbus.chat import TIME_ZONES, open_lane_tools
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.forms import read_form_fields
 from nimbus.lanes import Lane, get_lane, is_open
+from nimbus.memory.context import load_memory
 from nimbus.nps_alerts import PARKS
 from nimbus.pages import render_page
 from nimbus.parks import Destination
@@ -23,6 +24,7 @@ from nimbus.travel.airports import AIRPORT_ZONES, normalize_origin
 from nimbus.travel.models import MAX_DAYS_AHEAD
 from nimbus.travel.park_forecast import park_forecast
 from nimbus.travel.planner import ParkPlan, ParkTrip, make_plan, park_destination
+from nimbus.travel.preferences import prefill_preferences
 from nimbus.travel.service import TravelService
 from nimbus.utils import is_usable_locale, to_browser_locale
 
@@ -79,19 +81,23 @@ async def planner_page(request: Request) -> HTMLResponse:
         or fields["park"] not in PARKS
     ):
         return _render(request, {}, error="Choose a supported park using the form.", status=400)
-    return _render(request, fields)
+    memory = await load_memory(request)
+    return _render(request, prefill_preferences(fields, memory.preferences))
 
 
 async def _forecast(
     request: Request, destination: Destination, days: int, lane: Lane, deadline: float
 ) -> ForecastOutput:
-    """
-    Use the selected weather lane, including its normal timeout, cache, telemetry and fallbacks, in the units of the
-    browser's first language, as the chat's rule 13 does.
-    """
+    """Use the chosen units, with the browser locale as fallback, through the normal weather lane protections."""
     chat_locale: str = getattr(request.state, "units_locale", "")
     locale = chat_locale or to_browser_locale(request.headers.get("accept-language", ""))
-    return await park_forecast(destination, days, locale, open_lane_tools(request, lane, deadline))
+    return await park_forecast(
+        destination,
+        days,
+        locale,
+        open_lane_tools(request, lane, deadline),
+        unit_system=getattr(request.state, "unit_system", ""),
+    )
 
 
 @router.post("/api/parks/trip", response_class=HTMLResponse)
@@ -115,6 +121,7 @@ async def build_trip(request: Request) -> HTMLResponse:
             fields.pop("rooms", None)
         trip = ParkTrip.model_validate(fields)
         request.state.units_locale = trip.locale if is_usable_locale(trip.locale) else ""
+        request.state.unit_system = trip.unit_system
         lane = get_lane(trip.lane)
         if not is_open(lane, state.settings):
             return _render(request, fields, error="The selected weather lane is unavailable.", status=400)

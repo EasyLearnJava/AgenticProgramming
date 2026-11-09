@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from nimbus.constants import MAX_FORECAST_DAYS
+from nimbus.memory.models import PreferenceProfile
 from nimbus.park_tools import KnowledgeService
+from nimbus.travel.airports import AIRPORT_ZONES, normalize_origin
 from nimbus.travel.planner_intake import (
     AIRPORT_ROUTE,
     DECLINES_DRIVING,
@@ -71,6 +73,8 @@ def city_trip_reply(
     time_zone: str,
     prior_questions: Sequence[str] = (),
     knowledge: KnowledgeService | None = None,
+    *,
+    preferences: PreferenceProfile | None = None,
 ) -> str | None:
     """Give a bounded intake response; leave specific searches and park requests to their usual routes."""
     text = _trip_text(question)
@@ -100,12 +104,21 @@ def city_trip_reply(
     if not PLACE.fullmatch(label) or re.search(r"\b(?:or|and|there|here|somewhere|park|trail)\b", label, re.I):
         return None
     place = label.title() if label.islower() else label
+    # A stored airport supplies a default only where flights are an available, wanted option.
+    excluded = " ".join(OPT_OUT.findall(text)).lower()
+    driving = DRIVING.search(text) and not DECLINES_DRIVING.search(text)
+    flights = "search_flights" in travel_tools and "fl" not in excluded and not driving
+    hotels = "search_hotels" in travel_tools and "hotel" not in excluded and "lodging" not in excluded
+    routes = list(AIRPORT_ROUTE.finditer(text))
+    origin = normalize_origin(routes[0][1]) if len(routes) == 1 else ""
+    saved_origin = preferences.origin if preferences and flights and not routes else ""
+    date_zone = AIRPORT_ZONES.get(origin or saved_origin, time_zone)
     # ③ Retain the arrival when the visitor supplies a departure in a later turn.
-    dates = visit_dates(current_dates or text, now, time_zone)
+    dates = visit_dates(current_dates or text, now, date_zone)
     if current_dates and dates.arrival_only:
-        earlier_arrival = visit_dates(preceding_dates or text, now, time_zone).arrival_only
+        earlier_arrival = visit_dates(preceding_dates or text, now, date_zone).arrival_only
         if earlier_arrival:
-            dates = visit_dates(f"{earlier_arrival} to {dates.arrival_only}", now, time_zone)
+            dates = visit_dates(f"{earlier_arrival} to {dates.arrival_only}", now, date_zone)
     if dates.interval:
         when = f"Your travel dates are {dates.interval[0]} to {dates.interval[1]}."
     elif dates.arrival_only:
@@ -116,11 +129,7 @@ def city_trip_reply(
     else:
         when = f"What dates will you be in {place}?"
     # ④ Offer only enabled, wanted services. Origin is relevant only if the visitor chooses flights.
-    excluded = " ".join(OPT_OUT.findall(text)).lower()
-    driving = DRIVING.search(text) and not DECLINES_DRIVING.search(text)
-    flights = "search_flights" in travel_tools and "fl" not in excluded and not driving
-    hotels = "search_hotels" in travel_tools and "hotel" not in excluded and "lodging" not in excluded
-    last_forecast = (now.astimezone(ZoneInfo(time_zone)).date() + timedelta(days=MAX_FORECAST_DAYS - 1)).isoformat()
+    last_forecast = (now.astimezone(ZoneInfo(date_zone)).date() + timedelta(days=MAX_FORECAST_DAYS - 1)).isoformat()
     start = dates.interval[0] if dates.interval else dates.arrival_only
     beyond_forecast = bool(start and start > last_forecast)
     services = [] if beyond_forecast else ["the forecast"]
@@ -142,6 +151,11 @@ def city_trip_reply(
             help_text = f"Which would you like me to check: {choices}?"
         if beyond_forecast:
             help_text += f" The forecast covers up to {MAX_FORECAST_DAYS} days, so check back closer to departure."
-    if flights and not AIRPORT_ROUTE.search(text):
+    if saved_origin:
+        help_text += (
+            f" Using your saved departure airport: {saved_origin}."
+            " Tell me a different departure city or airport for this trip if needed."
+        )
+    elif flights and not routes:
         help_text += " For flights, include your departure city or airport."
     return f"**Your trip to {place}**\n\n{when}\n\n{help_text}"

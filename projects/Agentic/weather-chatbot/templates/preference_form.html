@@ -1,0 +1,80 @@
+{# A shared, explicit review form: only these typed preferences can be saved, after visitor consent. #}
+{% macro preference_form(preferences, token, revision, buttonlabel="Save preferences", allow_cancel=False) -%}
+<form class="preference-form" action="/api/preferences/action" method="post" aria-label="Travel preferences">
+  <input type="hidden" name="_token" value="{{ token }}">
+  <input type="hidden" name="revision" value="{{ revision }}">
+  <input type="hidden" name="action" value="save">
+  <fieldset>
+    <legend>Your travel defaults</legend>
+    <div class="preference-fields">
+      <label>Departure airport
+        <input name="origin" value="{{ preferences.origin }}" maxlength="3" pattern="[A-Za-z]{3}"
+          autocomplete="off" autocapitalize="characters" placeholder="For example, DFW">
+        <span class="preference-hint">Three-letter airport code. Leave blank to choose for each trip.</span>
+      </label>
+      <label>Weather measurements
+        <select name="unit_system">
+          <option value=""{% if not preferences.unit_system %} selected{% endif %}>Use browser defaults</option>
+          <option value="metric"{% if preferences.unit_system == "metric" %} selected{% endif %}>
+            Metric (°C, km/h)</option>
+          <option value="imperial"{% if preferences.unit_system == "imperial" %} selected{% endif %}>
+            Imperial (°F, mph)</option>
+        </select>
+        <span class="preference-hint">Your currency remains a separate choice.</span>
+      </label>
+      <label>Travel currency
+        <select name="currency">
+          <option value=""{% if not preferences.currency %} selected{% endif %}>Use browser defaults</option>
+          {% for code, name in [("USD", "US dollars"), ("CAD", "Canadian dollars"),
+            ("EUR", "Euros"), ("GBP", "British pounds")] %}
+          <option value="{{ code }}"{% if preferences.currency == code %} selected{% endif %}>
+            {{ code }} · {{ name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Preparation interest
+        <select name="activity">
+          <option value=""{% if not preferences.activity %} selected{% endif %}>Choose for each trip</option>
+          {% for value, label in [("easy hikes", "Easy hikes"), ("hiking", "Hiking"),
+            ("sightseeing", "Sightseeing"), ("camping", "Camping")] %}
+          <option value="{{ value }}"{% if preferences.activity == value %} selected{% endif %}>
+            {{ label }}</option>
+          {% endfor %}
+        </select>
+        <span class="preference-hint">Helps tailor preparation guidance;
+          it is not a fitness or safety assessment.</span>
+      </label>
+      <label>Usual departure window
+        <select name="depart_window">
+          <option value=""{% if not preferences.depart_window %} selected{% endif %}>Use trip defaults</option>
+          {% for value, label in [("morning", "Morning"), ("evening", "Evening"), ("by_noon", "By noon")] %}
+          <option value="{{ value }}"{% if preferences.depart_window == value %} selected{% endif %}>
+            {{ label }}</option>
+          {% endfor %}
+        </select>
+        <span class="preference-hint">In the departure airport's local time. Each trip can override this.</span>
+      </label>
+    </div>
+  </fieldset>
+  <label class="preference-consent">
+    <input type="checkbox" name="consent" value="yes" required>
+    <span>Save these preferences with Mem0 for this browser profile. Anyone using this profile can access them.</span>
+  </label>
+  <div class="preference-actions">
+    <button class="preference-button" type="submit">{{ buttonlabel }}</button>
+    {% if allow_cancel %}<button class="preference-button preference-button-secondary" type="button"
+      data-memory-cancel>Cancel</button>{% endif %}
+  </div>
+  <p class="preference-form-note">Only the fields shown here are saved. Clearing a field removes that saved default.</p>
+</form>
+{%- endmacro %}
+
+{% macro preference_action(action, label, token, revision, secondary=True) -%}
+<form method="post" action="/api/preferences/action" class="preference-action-form">
+  <input type="hidden" name="_token" value="{{ token }}">
+  <input type="hidden" name="revision" value="{{ revision }}">
+  <input type="hidden" name="action" value="{{ action }}">
+  <button type="submit" class="preference-button{% if secondary %} preference-button-secondary{% endif %}">
+    {{ label }}</button>
+</form>
+{%- endmacro %}

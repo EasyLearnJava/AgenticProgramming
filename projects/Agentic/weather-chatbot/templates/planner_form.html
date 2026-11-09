@@ -86,23 +86,8 @@
       </div>
     </div>
   </fieldset>
-  <details class="trip-options"{% if fields.activity or (fields.currency and fields.currency != 'USD') %} open{% endif %}>
-    <summary>Activity &amp; currency</summary>
-    <div class="trip-fields trip-fields-options">
-      <div class="trip-field">
-        <label for="{{ prefix }}-activity">Activity or preparation topic <span class="trip-hint">(optional)</span></label>
-        <input id="{{ prefix }}-activity" name="activity" maxlength="160" value="{{ fields.get('activity', '') }}">
-      </div>
-      <div class="trip-field">
-        <label for="{{ prefix }}-currency">Price currency</label>
-        <select id="{{ prefix }}-currency" name="currency">
-          {% for unit in ['USD', 'EUR', 'GBP', 'CAD'] %}
-          <option value="{{ unit }}"{% if fields.currency == unit %} selected{% endif %}>{{ unit }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-  </details>
+  {% from "trip_options.html" import trip_options %}
+  {{ trip_options(fields, prefix) }}
   <button type="submit" class="trip-submit">Build my trip plan</button>
   {% if inline %}<p class="trip-status" role="status" data-trip-status></p>{% endif %}
 </form>
