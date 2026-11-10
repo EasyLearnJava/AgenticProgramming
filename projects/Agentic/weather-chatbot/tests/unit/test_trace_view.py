@@ -61,6 +61,47 @@ def test_memory_root_allowlist_requires_exact_operation_and_run_type(traced: Set
     assert result.issue == TraceIssue.WRONG_ROOT
 
 
+def test_a_chat_request_root_shows_its_mem0_read_cache_steps_and_nested_agent(traced: Settings) -> None:
+    """A chat request's trace holds Mem0, the weather answer cache and the agent's own calls under one root."""
+    read, lookup, graph, model, tool, store = (UUID(int=value) for value in range(700, 706))
+    inside = [str(TRACE), str(graph)]
+    result = with_runs(
+        traced,
+        span(name="nimbus.chat"),
+        span(read, name="mem0.read", run_type="TOOL", start_time="2026-11-05T12:00:00.010Z"),
+        span(lookup, name="weather_cache.lookup", start_time="2026-11-05T12:00:00.050Z"),
+        span(graph, start_time="2026-11-05T12:00:00.100Z"),
+        span(
+            model,
+            name="ChatGoogleGenerativeAI",
+            run_type="LLM",
+            parent_run_ids=inside,
+            start_time="2026-11-05T12:00:00.200Z",
+        ),
+        span(tool, name="get_forecast", run_type="TOOL", parent_run_ids=inside, start_time="2026-11-05T12:00:00.300Z"),
+        span(store, name="weather_cache.store", start_time="2026-11-05T12:00:00.700Z"),
+    )
+    assert result.status == "ready"
+    assert [(row.kind, row.label) for row in result.rows] == [
+        ("Agent", "Chat request"),
+        ("Memory", "Mem0 read"),
+        ("Step", "Weather answer cache lookup"),
+        ("Agent", "Nimbus agent"),
+        ("Model", "Gemini"),
+        ("Tool", "get_forecast"),
+        ("Step", "Weather answer cache store"),
+    ]
+    assert [row.parent_index for row in result.rows] == [None, 0, 0, 0, 3, 3, 0]
+
+
+@pytest.mark.parametrize("kind", ["TOOL", "LLM"])
+def test_a_chat_request_root_requires_its_exact_run_type(traced: Settings, kind: str) -> None:
+    """The request's name alone doesn't open a trace: it must be a chain, as Nimbus writes it."""
+    result = with_runs(traced, span(name="nimbus.chat", run_type=kind))
+    assert result.status == "unavailable"
+    assert result.issue == TraceIssue.WRONG_ROOT
+
+
 @pytest.fixture
 def traced(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setattr(smith, "get_api_url", lambda _: "https://eu.api.smith.langchain.com/api/v1")

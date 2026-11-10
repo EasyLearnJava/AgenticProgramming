@@ -13,7 +13,7 @@ import re
 import time
 import zoneinfo
 from collections.abc import AsyncGenerator, Mapping
-from contextlib import AbstractAsyncContextManager, aclosing, suppress
+from contextlib import AbstractAsyncContextManager, AbstractContextManager, aclosing, nullcontext, suppress
 from http import HTTPStatus
 from typing import Annotated, Literal, Self
 from urllib.parse import parse_qsl
@@ -80,6 +80,7 @@ from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
+from nimbus.request_trace import RequestTrace
 from nimbus.semantic_cache.evidence import cached_cards
 from nimbus.semantic_cache.identity import set_scope
 from nimbus.semantic_cache.integration import CacheTurn
@@ -295,10 +296,12 @@ async def stream_turn(
     restrict_links: bool = False,
     memory_note: str = "",
     cache_turn: CacheTurn | None = None,
+    request_trace: RequestTrace | None = None,
 ) -> AsyncGenerator[str]:
     """
     A turn of the chat, as server-sent events: the two messages; each tool call's chip as it starts and as it ends;
-    each piece of the answer; then the answer's end, with every chip as it ended.
+    each piece of the answer; then the answer's end, with every chip as it ended. Its ending lines name the chat
+    request's trace, when there's one, else the graph's own.
     """
     log = structlog.get_logger()
     turn_id = new_turn_id()
@@ -309,6 +312,7 @@ async def stream_turn(
 
     def ending() -> dict[str, object]:
         """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
+        trace_id = request_trace.trace_id if request_trace is not None else stats.trace_id
         return {
             "workflow": "agent" if stats.agent_started else "intake",
             "answerChars": len("".join(pieces)),
@@ -317,7 +321,7 @@ async def stream_turn(
             "toolCalls": len(chips),
             **({"tokensIn": stats.tokens_in, "tokensOut": stats.tokens_out} if stats.usage_recorded else {}),
             "model": model_name,
-            **({"traceId": str(stats.trace_id)} if stats.trace_id is not None else {}),
+            **({"traceId": str(trace_id)} if trace_id is not None else {}),
         }
 
     def final_chips() -> list[ToolChip]:
@@ -366,9 +370,13 @@ async def stream_turn(
             "memory_note": memory_note,
         }
         if cache_turn is not None:
-            done["cache_receipt"] = await cache_turn.completed(
-                "".join(pieces), list(chips.values()), str(done["answer"])
+            storing: AbstractContextManager[None] = (
+                request_trace.step("store") if request_trace is not None else nullcontext()
             )
+            with storing:
+                done["cache_receipt"] = await cache_turn.completed(
+                    "".join(pieces), list(chips.values()), str(done["answer"])
+                )
         yield to_sse_message(render_part("chat_end.html", done))
         log.info("chat.done", **ending())
     except (asyncio.CancelledError, GeneratorExit):
@@ -380,6 +388,8 @@ async def stream_turn(
         # error's own text, which stays out of the logs too; the model's own error is logged by its class.
         cause = error.__cause__
         causes = {"causeClass": type(cause).__name__} if cause is not None else {}
+        if request_trace is not None:
+            request_trace.failed = True
         log.error("chat.failed", errorClass=type(error).__name__, **causes, **ending())
         note = f"{to_user_message(error)} (ref {to_ref(request_id)})"
         failed: dict[str, object] = {
@@ -454,9 +464,34 @@ async def chat(request: Request) -> Response:
     if chat_request.history:
         extra["historyMessages"] = len(chat_request.history)
     log.info("chat.request", questionChars=len(chat_request.question), lane=chat_request.lane, **extra)
+    # ② The request's own trace, begun before its first step: the Mem0 read, the weather answer cache and the agent
+    # nest in it. A streamed response ends it as its events end; any other response, or a failure, ends it here.
+    # An app made for one workflow (the replay harness's intake client) may have no tracer at all.
+    request_trace = RequestTrace.begin(getattr(request.app.state, "tracer", None))
+    try:
+        response = await answer_question(request, chat_request, lane, started, request_trace)
+    except BaseException as error:
+        request_trace.failed = isinstance(error, Exception)
+        request_trace.end()
+        raise
+    if not isinstance(response, EventStream):
+        request_trace.end()
+    return response
+
+
+async def answer_question(
+    request: Request, chat_request: ChatRequest, lane: Lane, started: float, request_trace: RequestTrace
+) -> Response:
+    """
+    A checked question's response: a preference preview, a trip form or clarification, a reused weather answer, or
+    the agent's answer, in that order of priority; each streamed one's events end its request's trace.
+    """
+    log = structlog.get_logger()
+    settings: Settings = request.app.state.settings
     memory_command = memory_intent(chat_request.question, PreferenceProfile())
-    memory = await load_memory(request, include_paused=memory_command is not None)
+    memory = await load_memory(request, include_paused=memory_command is not None, trace=request_trace.parent)
     if memory_command is not None:
+        request_trace.workflow = "memory"
         saved = memory.snapshot.preferences if memory.snapshot.status == "ready" else PreferenceProfile()
         command = memory_intent(chat_request.question, saved)
         assert command is not None  # noqa: S101 - the same question was recognized above
@@ -491,9 +526,10 @@ async def chat(request: Request) -> Response:
                 answerChars=len(command.message),
                 toolCalls=0,
                 ms=to_ms(time.perf_counter() - started),
+                **request_trace.fields(),
             )
 
-        memory_stream = memory_events()
+        memory_stream = request_trace.wrap(memory_events())
         response = EventStream(await anext(memory_stream), memory_stream)
         response.headers["vary"] = "Cookie"
         return response
@@ -555,6 +591,8 @@ async def chat(request: Request) -> Response:
                     yield to_sse_message(render_part("chat_trip.html", context))
                     intake_type = {"tripForm": "conditions" not in context}
                     workflow = "briefing" if "conditions" in context else "intake"
+                    if "conditions" in context:
+                        request_trace.workflow = "briefing"
                 else:
                     answer = render_answer(intake_reply or "", park_sources=())
                     yield to_sse_message(
@@ -570,23 +608,29 @@ async def chat(request: Request) -> Response:
                     toolCalls=0,
                     ms=to_ms(time.perf_counter() - started),
                     **intake_type,
+                    **request_trace.fields(),
                 )
             except (asyncio.CancelledError, GeneratorExit):
-                log.info("chat.aborted", answerChars=0, ms=to_ms(time.perf_counter() - started))
+                log.info(
+                    "chat.aborted", answerChars=0, ms=to_ms(time.perf_counter() - started), **request_trace.fields()
+                )
                 raise
             except Exception as error:
+                request_trace.failed = True
                 log.error(
                     "chat.failed",
                     answerRef=answer_ref(turn_id),
                     errorClass=type(error).__name__,
                     answerChars=0,
                     ms=to_ms(time.perf_counter() - started),
+                    **request_trace.fields(),
                 )
                 note = f"{to_user_message(error)} (ref {to_ref(request.state.request_id)})"
                 failed = {"turn_id": turn_id, "answer": "", "failed": True, "note": note, "chips": []}
                 yield to_sse_message(render_part("chat_end.html", failed))
 
-        events = intake_events()
+        request_trace.workflow = "intake"
+        events = request_trace.wrap(intake_events())
         response = EventStream(await anext(events), events)
         response.headers["vary"] = "Cookie"
         return response
@@ -604,11 +648,13 @@ async def chat(request: Request) -> Response:
         now,
     )
     if cache_turn is not None:
-        lookup = await cache_turn.service.lookup(
-            chat_request.question, cache_turn.scope, cache_turn.context, cache_turn.policy
-        )
+        with request_trace.step("lookup"):
+            lookup = await cache_turn.service.lookup(
+                chat_request.question, cache_turn.scope, cache_turn.context, cache_turn.policy
+            )
         if lookup.entry is not None and lookup.entry.expires_at > time.time():
             entry = lookup.entry
+            request_trace.workflow = "cached"
 
             async def cached_events() -> AsyncGenerator[str]:
                 """A new answer turn, with cached evidence and no simulated model or tool executions."""
@@ -642,12 +688,19 @@ async def chat(request: Request) -> Response:
                         answerChars=len(entry.answer),
                         toolCalls=0,
                         ms=to_ms(time.perf_counter() - started),
+                        **request_trace.fields(),
                     )
                 except (asyncio.CancelledError, GeneratorExit):
-                    log.info("chat.aborted", workflow="cached", answerChars=0, ms=to_ms(time.perf_counter() - started))
+                    log.info(
+                        "chat.aborted",
+                        workflow="cached",
+                        answerChars=0,
+                        ms=to_ms(time.perf_counter() - started),
+                        **request_trace.fields(),
+                    )
                     raise
 
-            cached_stream = cached_events()
+            cached_stream = request_trace.wrap(cached_events())
             response = EventStream(await anext(cached_stream), cached_stream)
             response.headers["vary"] = "Cookie"
             set_scope(response, request, cache_turn.cookie)
@@ -656,7 +709,8 @@ async def chat(request: Request) -> Response:
     model = request.app.state.chat_model
     if model is None:
         ms = to_ms(time.perf_counter() - started)
-        log.error("chat.failed", errorClass=ConfigError.__name__, answerChars=0, ms=ms)
+        request_trace.failed = True
+        log.error("chat.failed", errorClass=ConfigError.__name__, answerChars=0, ms=ms, **request_trace.fields())
         return refusal(ConfigError())
     # ③ The answer: the system prompt and the question, to the agent, with the weather tools; LangSmith traces it
     # only through the app's own tracer, whose client hides its inputs and outputs, when tracing is allowed at all.
@@ -690,6 +744,7 @@ async def chat(request: Request) -> Response:
         knowledge=knowledge,
         alerts=request.app.state.nps_alerts,
         travel=travel,
+        parent=request_trace.run_tree(),
     )
     # ④ The turn's first event, made before the response starts: from then on, however the stream ends, it ends in
     # stream_turn()'s own code, which logs how. A generator closed before it has started runs none of its code.
@@ -701,6 +756,7 @@ async def chat(request: Request) -> Response:
         settings.gemini_model,
         memory_note=memory_note,
         cache_turn=cache_turn,
+        request_trace=request_trace,
         restrict_links=bool(
             enabled
             and re.search(
@@ -711,6 +767,7 @@ async def chat(request: Request) -> Response:
             )
         ),
     )
+    turn = request_trace.wrap(turn)
     first = await anext(turn)
     # ⑤ The answer, streamed.
     response = EventStream(first, turn)

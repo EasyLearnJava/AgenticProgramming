@@ -18,6 +18,7 @@ from nimbus.app import create_app
 from nimbus.config import Settings
 from nimbus.memory.client import Mem0Service
 from nimbus.memory.models import PreferenceProfile, Snapshot
+from nimbus.request_trace import TraceParent
 from tests.fakes import FakeModel
 
 
@@ -31,8 +32,8 @@ class BrowserMemory(Mem0Service):
         self.unavailable = False
         self.fail_forget = False
 
-    async def read(self, user_id: str) -> Snapshot:
-        """Return only this visitor's profile, or an explicit simulated outage."""
+    async def read(self, user_id: str, parent: TraceParent | None = None) -> Snapshot:
+        """Return only this visitor's profile, or an explicit simulated outage; nothing here is traced."""
         if self.unavailable:
             return Snapshot(status="unavailable", reason="unavailable")
         return self.rows.get(user_id, Snapshot(status="empty"))

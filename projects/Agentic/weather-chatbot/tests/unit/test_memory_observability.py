@@ -187,8 +187,23 @@ def test_memory_operation_links_its_own_signed_root(settings: Settings, action: 
     assert resolve_trace_link(connected, link.url.rsplit("/", 1)[-1], datetime.now(UTC)) == (root, item.ref)
 
 
+def test_a_chat_read_inside_its_request_trace_has_no_link_of_its_own(settings: Settings) -> None:
+    """Since a chat's Mem0 read is a step of its request's trace, the request's one link opens both."""
+    connected = settings.model_copy(update={"axiom_query_token": SecretStr("test-read")})
+    root = uuid4()
+    rows = [
+        event("chat.request", lane="rest-open"),
+        event(action="read", status="ready", traceId=str(root)),
+        event("chat.done", workflow="agent", traceId=str(root)),
+    ]
+    [item] = to_activity_requests([REQUEST_ID], rows, connected)
+    assert item.trace_url is not None
+    assert root.hex in item.trace_url
+    assert not item.memory_traces
+
+
 def test_chat_read_and_model_trace_have_distinct_links(settings: Settings) -> None:
-    """A memory read before the agent is visible without pretending the two roots are nested."""
+    """Before reads nested in the chat's trace: a read with its own root keeps its own link beside the agent's."""
     connected = settings.model_copy(update={"axiom_query_token": SecretStr("test-read")})
     memory_root, agent_root = uuid4(), uuid4()
     rows = [

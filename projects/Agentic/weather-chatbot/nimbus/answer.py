@@ -28,6 +28,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, Huma
 from langchain_core.tools import StructuredTool, ToolException
 from langgraph.graph.state import CompiledStateGraph
 from langsmith import tracing_context
+from langsmith.run_trees import RunTree
 from markdown_it import MarkdownIt
 from markdown_it.renderer import RendererHTML
 from markdown_it.token import Token
@@ -163,24 +164,36 @@ async def stream_answer(
     tracer: Tracer | None,
     lane: Lane = REST_NO_AUTH,
     deadline: float | None = None,
+    *,
+    parent: RunTree | None = None,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The agent's run, as events: each tool call as it starts and ends, each piece of the words as the model writes it;
     within 30 s in all. LangSmith traces the run only with a tracer, whose client hides its inputs and outputs, in its
-    project. A failure becomes ours: ModelBusyError, AnswerTimeoutError, ConfigError or ModelFailedError.
+    project: under the parent, the chat request's root, when there is one, else as a root of its own. A failure
+    becomes ours: ModelBusyError, AnswerTimeoutError, ConfigError or ModelFailedError.
     """
     if deadline is None:
         deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
     client, project = (tracer.client, tracer.project) if tracer is not None else (None, None)
+    nested = parent if tracer is not None else None
     # Whether the model has written words yet, and whether a tool call has started since: the words that follow it
     # start a paragraph of their own, rather than running on from "Let me check." (issue 53).
     wrote_words = break_due = False
     try:
-        with tracing_context(enabled=tracer is not None, client=client, project_name=project, parent=False):
+        with tracing_context(
+            enabled=tracer is not None,
+            client=client,
+            project_name=project,
+            parent=nested if nested is not None else False,
+        ):
             # The run's stream is closed however this one ends, so no call to Gemini or Open-Meteo outlives the answer.
             # Two kinds of item: "messages", the model's chunks as it writes; "updates", each node's result as it ends.
             config = to_agent_config(lane)
-            if tracer is not None:
+            if nested is not None:
+                # The request's root is already queued: the graph's runs nest under it, and its ID finds them all.
+                stats.trace_id = nested.trace_id
+            elif tracer is not None:
                 stats.trace_id = uuid4()
                 config["run_id"] = stats.trace_id
             stats.agent_started = True
@@ -218,7 +231,8 @@ async def stream_answer(
             raise ConfigError from error
         raise ModelFailedError from error
     finally:
-        if tracer is not None and stats.trace_id is not None:
+        # A root of the graph's own is sent from here; a nested graph's runs are sent with the request's root.
+        if tracer is not None and stats.trace_id is not None and nested is None:
             tracer.defer_flush()
 
 
@@ -345,10 +359,12 @@ async def stream_weather_answer(
     knowledge: KnowledgeService | None = None,
     alerts: NpsAlertsService | None = None,
     travel: TravelTurn | None = None,
+    parent: RunTree | None = None,
 ) -> AsyncGenerator[AnswerEvent]:
     """
     The answer, by the agent with the four weather tools of the question's lane (step 9), open for as long as the
-    answer is, and closed with it. Setup failures remain in per-turn state so chat can report their original class.
+    answer is, and closed with it; its runs nest under the parent, the chat request's root, when there is one. Setup
+    failures remain in per-turn state so chat can report their original class.
     """
     latest = messages[-1] if messages else None
     if (
@@ -381,7 +397,7 @@ async def stream_weather_answer(
         notice_tools = make_alert_tools(alerts) if alerts is not None and knowledge is not None else []
         travel_tools = make_travel_tools(travel) if travel is not None else []
         agent = make_agent(model, [*weather_tools, *knowledge_tools, *notice_tools, *travel_tools])
-        async with aclosing(stream_answer(agent, messages, stats, tracer, lane, deadline)) as events:
+        async with aclosing(stream_answer(agent, messages, stats, tracer, lane, deadline, parent=parent)) as events:
             async for event in events:
                 yield event
 

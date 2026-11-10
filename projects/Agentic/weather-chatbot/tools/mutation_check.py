@@ -289,8 +289,8 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/answer.py",
-        "client=client, project_name=project",
-        "client=client, project_name=None",
+        "client=client,\n            project_name=project,",
+        "client=client,\n            project_name=None,",
         "the run is traced into the tracer's project",
     ),
     Mutation(
@@ -2140,7 +2140,7 @@ TRACE_MUTATIONS = (
     ),
     Mutation(
         "nimbus/trace_view.py",
-        "if not (is_agent or is_memory):",
+        "if not (is_request or is_agent or is_memory):",
         "if False:",
         "trace reads still reject a different root identity",
     ),
@@ -2240,8 +2240,64 @@ TRACE_MUTATIONS = (
         'project_name=self.tracer.project or "default",',
         "memory trace writers preserve the readers SDK project fallback",
     ),
+    # One trace for each chat request (issue 175): its root, the Mem0 read, the cache steps and the agent nested in it.
+    Mutation(
+        "nimbus/chat.py",
+        'request_trace = RequestTrace.begin(getattr(request.app.state, "tracer", None))',
+        "request_trace = RequestTrace.begin(None)",
+        "every chat request begins its own trace",
+    ),
+    Mutation(
+        "nimbus/answer.py",
+        "parent=nested if nested is not None else False,",
+        "parent=False,",
+        "the agent's runs nest under the chat request's root",
+    ),
+    Mutation(
+        "nimbus/memory/tracing.py",
+        "root = self.parent.trace_id",
+        "root = run",
+        "a chat's Mem0 read is a step of its request's trace",
+    ),
+    Mutation(
+        "nimbus/memory/tracing.py",
+        "            if self.parent is None:\n                try:\n                    self.tracer.defer_flush()",
+        "            if True:\n                try:\n                    self.tracer.defer_flush()",
+        "a chat's Mem0 step leaves the sending to its request's root",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        'return {"traceId": str(self.parent.trace_id)} if self.parent is not None else {}',
+        "return {}",
+        "every traced chat ending names its request's trace",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        "            self.failed = True\n            raise",
+        "            raise",
+        "a stream that raises ends its request's trace failed",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        "        if self.ended:\n            return\n        self.ended = True",
+        "        self.ended = True",
+        "a request's root is ended once",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        'is_request = root.name == REQUEST_TRACE_NAME and root.run_type == "CHAIN"',
+        "is_request = root.name == REQUEST_TRACE_NAME",
+        "chat request traces require their exact run type",
+    ),
+    Mutation(
+        "nimbus/trace_presenter.py",
+        'memory_root=root is not None and root.kind == "Memory",',
+        "memory_root=root is not None,",
+        "only a Mem0 operation's own trace reads as a memory trace",
+    ),
 )
 MUTATIONS += TRACE_MUTATIONS
+TESTS_FOR["nimbus/request_trace.py"] = ("test_request_trace.py", "test_privacy.py", "test_memory_tracing.py")
 TESTS_FOR["nimbus/answer.py"] += ("test_privacy.py",)
 TESTS_FOR["nimbus/trace_links.py"] = ("test_activity_traces.py",)
 TESTS_FOR["nimbus/trace_view.py"] = ("test_trace_view.py",)

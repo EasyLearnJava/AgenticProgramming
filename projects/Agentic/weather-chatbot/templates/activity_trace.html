@@ -42,7 +42,7 @@
     <div class="trace-metric"><span class="trace-metric-label">Model calls</span>
       <strong>{{ presentation.model_count }}</strong>
       <span class="trace-metric-note">Reasoning &amp; response</span></div>
-    {% if presentation.memory_count %}
+    {% if presentation.memory_root %}
     <div class="trace-metric"><span class="trace-metric-label">Memory operations</span>
       <strong>{{ presentation.memory_count }}</strong><span class="trace-metric-note">Mem0 preferences</span></div>
     {% else %}<div class="trace-metric"><span class="trace-metric-label">Tool spans</span>
@@ -171,9 +171,11 @@
           aria-hidden="true" focusable="false"><path d="m10 2 6 2v5c0 4-6 8-6 8S4 13 4 9V4l6-2Z"/>
           <path d="m7 9 2 2 4-4"/></svg>
         <p>Operational details only. Prompts, answers, preference values, identities and keys stay private.</p></div>
-      {% if presentation.memory_count %}<p class="trace-inspector-hint">This trace covers one Mem0 operation,
+      {% if presentation.memory_root %}<p class="trace-inspector-hint">This trace covers one Mem0 operation,
         including its verification. Activity shows the outcome and any separate chat trace.
-        An unconfirmed save or deletion is marked failed.</p>{% endif %}
+        An unconfirmed save or deletion is marked failed.</p>
+      {% elif presentation.memory_count %}<p class="trace-inspector-hint">This chat request read saved preferences
+        from Mem0 before its answer began. Only the read's outcome is recorded, never the preferences.</p>{% endif %}
       <p class="trace-inspector-hint">Select a call to inspect its timing and outcome.</p>
       <p class="visually-hidden" data-trace-selection-note aria-live="polite"></p>
     </aside>

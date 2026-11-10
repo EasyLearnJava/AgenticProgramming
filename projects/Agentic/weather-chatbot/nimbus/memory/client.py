@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, f
 from nimbus.memory.models import MemoryReason, PreferenceProfile, Snapshot
 from nimbus.memory.tracing import MemoryTrace, memory_trace
 from nimbus.model import Tracer
+from nimbus.request_trace import TraceParent
 
 MEM0_BASE = "https://api.mem0.ai"
 HTTP_SECONDS = 3.0
@@ -206,9 +207,12 @@ class Mem0Service:
                 return records
         raise _MemoryError("pagination_limit")
 
-    async def read(self, user_id: str) -> Snapshot:
-        """Read approved preferences, returning no usable values when the provider or ownership check fails."""
-        with memory_trace(self._tracer, "read") as trace:
+    async def read(self, user_id: str, parent: TraceParent | None = None) -> Snapshot:
+        """
+        Read approved preferences, returning no usable values when the provider or ownership check fails; traced as a
+        step of the parent, a chat request's root, when there is one.
+        """
+        with memory_trace(self._tracer, "read", parent) as trace:
             try:
                 self._check_identity(user_id)
                 async with asyncio.timeout(OPERATION_SECONDS), self._make_client() as client:

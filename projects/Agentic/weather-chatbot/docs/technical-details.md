@@ -286,8 +286,11 @@ Performance separates those response paths and calculates model latency and toke
 When usage was never recorded, the page shows it as unavailable. Service timings include park retrieval,
 official alerts and travel searches across the configured Axiom dataset, even after a provider is disabled.
 
-For a traced agent request, open **View LangSmith trace** on its Activity row to see the model calls, tool
-calls and their parent-child relationships in the trace explorer. Summary cards show the agent's elapsed time
+Each traced chat request has one LangSmith root, `nimbus.chat`, begun before its first step. Its Mem0 read, its
+weather answer cache lookup and store, and the agent with its model and tool calls nest under it, so a cached
+answer, a trip form or a preference preview has a trace too. The root carries only the workflow (agent, cached,
+intake, briefing or memory) and whether it failed. Open **View LangSmith trace** on its Activity row to see those
+steps and their parent-child relationships in the trace explorer. Summary cards show the request's elapsed time
 and displayed model/tool span counts. The waterfall uses a common time axis; nested durations overlap and must
 not be added together. Filter by call type or errors, search call labels, collapse a branch, or select a call
 for exact timings and its parent. These controls operate in the browser without another LangSmith request.
@@ -299,9 +302,10 @@ same privacy settings and signed, bounded read path described below.
 
 The reader restricts the trace to the configured project. Nimbus requires tracing, a key and both input/output
 privacy settings. A signed link binds the trace to the project and Activity dataset. It expires within one hour
-and within the seven-day Activity window. Deterministic intake can finish without a graph trace.
-An independently traced Mem0 lookup can still be linked on that request. Memory trace roots must match one of
-the three exact operation names and the tool run type; arbitrary LangSmith roots remain withheld.
+and within the seven-day Activity window. A chat's Mem0 read shares its request's trace, so the request has one
+link. A save or delete on My preferences is still a Mem0 trace of its own, with its own link. Accepted roots are
+a chat request (`nimbus.chat`), the agent's own (older traces) or one of the three exact Mem0 operation names
+with the tool run type; arbitrary LangSmith roots remain withheld.
 [Activity](/activity) · [Performance](/performance).
 
 Health reports whether enabled weather dependencies and the park index are ready. Its optional Kiwi and

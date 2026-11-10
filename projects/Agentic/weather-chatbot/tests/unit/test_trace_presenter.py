@@ -17,6 +17,23 @@ def test_standalone_memory_trace_summarizes_its_own_operation(status: str) -> No
     assert view.rows[0].kind_slug == "memory"
     assert view.rows[0].parent_index is None
     assert view.failed_count == int(status == "Failed")
+    assert view.memory_root
+
+
+def test_a_chat_requests_mem0_read_is_counted_but_the_trace_is_the_requests() -> None:
+    """A read inside a chat request's trace is one memory operation of that request, not a Mem0 trace of its own."""
+    view = present_trace(
+        TraceView(
+            "ready",
+            (
+                TraceRow("Chat request", "Agent", 900, 0, 0, "Completed"),
+                TraceRow("Mem0 read", "Memory", 120, 10, 1, "Completed", parent_index=0),
+            ),
+        )
+    )
+    assert view.memory_count == 1
+    assert not view.memory_root
+    assert view.duration_ms == 900
 
 
 def call(

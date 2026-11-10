@@ -47,6 +47,7 @@ class TracePresentation:
     model_count: int
     tool_count: int
     memory_count: int
+    memory_root: bool
     failed_count: int
     running_count: int
     total_count: int
@@ -135,6 +136,8 @@ def present_trace(trace: TraceView) -> TracePresentation:
         model_count=sum(row.kind == "Model" for row in rows),
         tool_count=sum(row.kind == "Tool" for row in rows),
         memory_count=sum(row.kind == "Memory" for row in rows),
+        # A Mem0 operation's own trace, rather than a chat request that read Mem0 as one of its steps.
+        memory_root=root is not None and root.kind == "Memory",
         failed_count=failed,
         running_count=running,
         total_count=len(rows),

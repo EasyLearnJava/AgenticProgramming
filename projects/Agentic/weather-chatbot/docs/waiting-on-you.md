@@ -145,8 +145,9 @@ that hosted credentials work.
 
 For Mem0 tracing, use the existing LangSmith project, tracing key and both input/output-hiding settings; no new key
 is required. After deploying the tracing change, check the synthetic save, read and delete in **Activity → Memory**,
-open each Mem0 trace and confirm its timing and outcome. A chat that reads preferences should show both its Mem0
-read link and, if the agent runs, its chat trace link. Confirm LangSmith contains no preference values, browser or
+open each Mem0 trace and confirm its timing and outcome. A chat that reads preferences should show one **View
+LangSmith trace** link, whose trace holds the Mem0 read and, if the agent runs, its calls. Confirm LangSmith contains
+no preference values, browser or
 record identifiers, cookies or keys. Old memory events without trace IDs cannot acquire links retrospectively.
 
 The feature offers browser-scoped preference memory, not accounts or a backup of conversation history. Expiry stops

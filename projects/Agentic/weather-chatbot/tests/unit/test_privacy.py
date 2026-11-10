@@ -162,10 +162,10 @@ def test_langsmith_gets_neither_word_even_of_a_run_that_failed(traced_app: FastA
         assert HISTORY_WORD not in sent
 
 
-def test_activity_id_matches_the_sdk_root_and_its_children_for_success_and_failure(
+def test_activity_id_matches_the_request_root_and_the_agent_nests_under_it_for_success_and_failure(
     traced_app: FastAPI, chat_model: FakeModel, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Each question gets its own root even if the caller supplies the same request ID twice."""
+    """Each question gets its own request root, even with a repeated request ID; the agent's runs nest under it."""
     external_id = "b242283d-50ae-48d4-9ee6-29617632c206"
     trace_ids = set()
     waiting: list[Coroutine[Any, Any, None]] = []
@@ -184,19 +184,32 @@ def test_activity_id_matches_the_sdk_root_and_its_children_for_success_and_failu
             trace_ids.add(trace_id)
             wait_for_all_tracers()
             runs = [run for run in traced_app.state.tracer.client.kept_runs if run.get("trace_id") == trace_id]
-            assert any(run.get("name") == "nimbus" and run["id"] == trace_id for run in runs)
+            [root] = [run for run in runs if run["id"] == trace_id and run.get("start_time")]
+            assert root["name"] == "nimbus.chat"
+            assert root.get("parent_run_id") is None
+            # The graph is sent when it starts and again when it ends: one run, under the request's root.
+            graphs = [run for run in runs if run.get("name") == "nimbus"]
+            assert len({run["id"] for run in graphs}) == 1
+            for graph in graphs:
+                assert graph["parent_run_id"] == trace_id
+                assert graph["dotted_order"].startswith(root["dotted_order"] + ".")
             kinds = {run["run_type"] for run in runs if run.get("parent_run_id") and "run_type" in run}
             assert "llm" in kinds
             if outcome == "done":
                 assert "tool" in kinds
+            # The root ends once, failed only when the answer did; LangChain never sends the parent it was given.
+            [ended] = [run for run in runs if run["id"] == trace_id and run.get("end_time")]
+            assert bool(ended.get("error")) is (outcome == "failed")
+            assert len([run for run in runs if run["id"] == trace_id]) == 2
     assert len(trace_ids) == 2
     assert waiting == []
 
 
-def test_vercel_defers_a_bounded_sdk_flush_only_for_a_traced_question(
+def test_vercel_defers_one_bounded_sdk_flush_for_each_traced_chat_request(
     traced_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Vercel can finish sending a trace after the answer; a flush failure exposes none of its text."""
+    """Vercel can finish sending a request's trace after its response, a trip form's or an answer's alike; a flush
+    failure exposes none of its text."""
     settings = traced_app.state.settings.model_copy(update={"flights_enabled": True, "is_vercel": True})
     traced_app.state.settings = settings
     traced_app.state.tracer = model.make_tracer(settings)
@@ -212,13 +225,16 @@ def test_vercel_defers_a_bounded_sdk_flush_only_for_a_traced_question(
     with TestClient(traced_app) as client, capture_logs() as lines:
         intake = client.post("/api/chat", data={"question": "Plan a trip to Zion National Park"})
         assert 'action="/api/parks/briefing"' in intake.text
-        assert waiting == []
-        assert all("traceId" not in line for line in lines)
+        assert len(waiting) == 1
         answer = client.post("/api/chat", data={"question": "Paris?"})
         assert answer.status_code == 200
-        [task] = waiting
+        # One flush for each request: the agent nested under the answer's root doesn't send its own.
+        assert len(waiting) == 2
         assert timeouts == []
-        asyncio.run(task)
-        assert timeouts == [2]
-    assert any(line["event"] == "chat.done" and "traceId" in line for line in lines)
+        for task in waiting:
+            asyncio.run(task)
+        assert timeouts == [2, 2]
+    endings = [line for line in lines if line["event"] == "chat.done"]
+    assert len(endings) == 2
+    assert all("traceId" in line for line in endings)
     assert "private provider detail" not in str(lines)

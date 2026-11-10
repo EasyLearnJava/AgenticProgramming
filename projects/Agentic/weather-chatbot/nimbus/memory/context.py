@@ -7,6 +7,7 @@ from fastapi import HTTPException, Request
 from nimbus.memory.client import Mem0Service
 from nimbus.memory.identity import BrowserIdentity, read_identity
 from nimbus.memory.models import PreferenceProfile, Snapshot
+from nimbus.request_trace import TraceParent
 from nimbus.utils import is_same_origin
 
 
@@ -34,8 +35,13 @@ def configured(request: Request) -> bool:
     return service.configured
 
 
-async def load_memory(request: Request, *, include_paused: bool = False) -> MemoryContext:
-    """Read once for this request, with a per-instance gate and no public-response caching."""
+async def load_memory(
+    request: Request, *, include_paused: bool = False, trace: TraceParent | None = None
+) -> MemoryContext:
+    """
+    Read once for this request, with a per-instance gate and no public-response caching; a chat request gives its
+    trace's root, so the read is a step in it.
+    """
     identity = read_identity(request)
     empty = MemoryContext(identity, Snapshot(status="empty"))
     if not configured(request) or identity is None:
@@ -53,7 +59,7 @@ async def load_memory(request: Request, *, include_paused: bool = False) -> Memo
     service: Mem0Service = request.app.state.mem0
     try:
         async with request.app.state.memory_gate.reserve(request.client.host if request.client else "unknown"):
-            snapshot = await service.read(identity.user_id)
+            snapshot = await service.read(identity.user_id, trace)
     except HTTPException:
         snapshot = Snapshot(status="unavailable", reason="rate_limited")
     context = MemoryContext(identity, snapshot)

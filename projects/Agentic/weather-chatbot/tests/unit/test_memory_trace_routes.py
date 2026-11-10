@@ -54,3 +54,36 @@ def test_save_read_chat_and_delete_trace_actual_request_operations(client: TestC
     assert [line["traceId"] for line in operations] == [run["id"] for run in starts]
     assert [line["status"] for line in operations] == ["ready", "ready", "ready", "ready", "empty"]
     assert_private([recorded.kept_runs, logs], *private_values, "Show my preferences")
+
+
+def test_with_tracing_on_a_chats_mem0_read_is_a_step_of_the_chat_requests_trace(client: TestClient) -> None:
+    """The chat's root holds its read; the read's line and the chat's ending name that one trace, for one link."""
+    app = cast(FastAPI, client.app)
+    app.state.settings.memory_enabled = True
+    app.state.settings.memory_cookie_secret = SecretStr("synthetic-cookie-secret-for-trace-routes")
+    tracing, recorded = tracer()
+    provider = ScopedRecorder()
+    app.state.mem0 = Mem0Service(
+        SecretStr(KEY),
+        lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(provider)),
+        tracer=tracing,
+    )
+    save(client, **PROFILE.model_dump())
+    app.state.tracer = tracing
+    with capture_logs() as logs:
+        response = client.post(
+            "/api/chat", data={"question": "Show my preferences"}, headers={"origin": "http://testserver"}
+        )
+    assert response.status_code == 200
+    [done] = [line for line in logs if line["event"] == "chat.done"]
+    [operation] = [line for line in logs if line["event"] == "memory.operation"]
+    root_id = done["traceId"]
+    assert operation["traceId"] == root_id
+    runs = [run for run in recorded.kept_runs if run.get("trace_id") == root_id]
+    [root, read] = [run for run in runs if run.get("start_time")]
+    assert (root["id"], root["name"]) == (root_id, "nimbus.chat")
+    assert (read["name"], read["parent_run_id"]) == ("mem0.read", root_id)
+    [ended] = [run for run in runs if run["id"] == root_id and run.get("end_time")]
+    assert ended["extra"]["metadata"]["workflow"] == "memory"
+    assert not ended.get("error")
+    assert_private([recorded.kept_runs, logs], client.cookies[COOKIE], "Show my preferences")

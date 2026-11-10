@@ -915,4 +915,16 @@ package's code**, **deploying**, or **testing a real API**.
      (mem0)", for both; pause and resume change only the browser's setting, so they keep their names. A chat
      question still only reads Mem0; only My preferences or a confirmed save preview writes. **Check:** the memory
      Activity tests expect the new labels.
+175. **A chat's Mem0 read wasn't in its LangSmith trace.** *You, 9 November.* "View LangSmith trace" opened the
+     agent's trace, with no Mem0 in it; the read was a trace of its own, behind a second link. A cached answer, a
+     trip form or a preference preview had no trace at all. **Why:** the read runs before the agent, whose trace
+     LangGraph starts, so there was no parent to put it in. **Fix:** each chat request begins its own root,
+     `nimbus.chat` (nimbus/request_trace.py), before its first step. The Mem0 read, the weather answer cache lookup
+     and store, and the agent's graph nest under it, all with no inputs or outputs. The root ends once, however
+     the response ends, failed only when the answer failed, and is sent once after the response. Its ID is on every
+     chat ending, so Activity shows one link. The trace page names the steps and keeps "one Mem0 operation" for a
+     Mem0 trace of its own (saves and deletes on My preferences). **Check:** with the real LangSmith SDK, offline,
+     the graph, the read and the cache steps are children of the root in its dotted order. The root is sent
+     exactly twice (start, end), and a trip form, a reused answer and an answer each flush once on Vercel. Eleven
+     mutation rules are caught, and the activity-trace and preferences browser tests pass.
 

@@ -12,6 +12,7 @@ import httpx2
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from langchain_core.tracers.langchain import wait_for_all_tracers
 from pydantic import SecretStr
 from structlog.testing import capture_logs
 
@@ -22,6 +23,7 @@ from nimbus.semantic_cache.identity import COOKIE, plain_answer
 from nimbus.semantic_cache.service import SemanticCacheService
 from tests.fakes import FakeModel
 from tests.unit.test_chat import events
+from tests.unit.test_memory_tracing import tracer
 
 QUESTION = "Dallas weather"
 NARRATIVE = "Dallas has **cloudy skies**. Check the forecast again before heading out."
@@ -264,6 +266,37 @@ def test_browser_repeat_skips_gemini_and_tools_but_has_new_ids_cards_and_feedbac
     assert "tokensIn" not in ending
     assert QUESTION not in json.dumps(lines)
     assert NARRATIVE not in json.dumps(lines)
+
+
+def test_with_tracing_on_each_answer_traces_its_cache_steps_under_its_own_request(
+    cache_chat: tuple[TestClient, FakeModel, CacheProvider, DallasWeather],
+) -> None:
+    """The first answer's trace holds the lookup, the agent and the store; the reused answer's, its lookup alone."""
+    client, _model, _provider, _weather = cache_chat
+    assert isinstance(client.app, FastAPI)
+    tracing, recorded = tracer()
+    client.app.state.tracer = tracing
+    with capture_logs() as lines:
+        first = ask_cache(client)
+        ask_cache(client, **history_fields(first))
+    wait_for_all_tracers()
+    answered, reused = (row["traceId"] for row in lines if row["event"] == "chat.done")
+    assert answered != reused
+
+    def steps(trace_id: str) -> list[str]:
+        """The names of the root's direct steps, each once, though a run is sent as it starts and as it ends."""
+        runs = {
+            run["id"]: run["name"]
+            for run in recorded.kept_runs
+            if run.get("trace_id") == trace_id and run.get("parent_run_id") == trace_id and run.get("name")
+        }
+        return sorted(runs.values())
+
+    assert steps(answered) == ["nimbus", "weather_cache.lookup", "weather_cache.store"]
+    assert steps(reused) == ["weather_cache.lookup"]
+    [reused_end] = [run for run in recorded.kept_runs if run["id"] == reused and run.get("end_time")]
+    assert reused_end["extra"]["metadata"]["workflow"] == "cached"
+    assert QUESTION not in json.dumps(recorded.kept_runs)
 
 
 @pytest.mark.parametrize("change", ["answer", "question", "missing_receipt", "forged_receipt"])

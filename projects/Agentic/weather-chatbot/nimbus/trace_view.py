@@ -19,6 +19,7 @@ from nimbus.config import Settings
 from nimbus.constants import AGENT_NAME, OBSERVABILITY_DAYS
 from nimbus.memory.tracing import MEMORY_TRACE_NAMES
 from nimbus.model import is_tracing_allowed
+from nimbus.request_trace import CACHE_STEP_NAMES, REQUEST_TRACE_NAME
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.utils import to_iso, to_ms
 
@@ -37,6 +38,10 @@ STATUSES = {"SUCCESS": "Completed", "ERROR": "Failed", "PENDING": "Running"}
 MEMORY_LABELS = {
     MEMORY_TRACE_NAMES[action]: f"Mem0 {label}"
     for action, label in (("read", "read"), ("save", "save"), ("forget", "delete"))
+}
+CACHE_LABELS = {
+    CACHE_STEP_NAMES["lookup"]: "Weather answer cache lookup",
+    CACHE_STEP_NAMES["store"]: "Weather answer cache store",
 }
 # Ask only for identifiers, nesting, names, status and timestamps. Even error text can contain the question.
 SELECTS = ("ID", "PROJECT_ID", "TRACE_ID", "PARENT_RUN_IDS", "NAME", "RUN_TYPE", "START_TIME", "END_TIME", "STATUS")
@@ -131,11 +136,18 @@ class _Runs(BaseModel):
 
 
 def _label(span: _Span, root_id: UUID) -> tuple[str, str] | None:
-    """Include the graph, model and tool calls, plus any other step that explains a failure."""
+    """
+    Include the chat request, the graph, Mem0, the weather answer cache, model and tool calls, plus any other step
+    that explains a failure. Mem0 and the graph are named wherever they sit: a root, or a step of a chat request.
+    """
+    if span.name in MEMORY_LABELS and span.run_type == "TOOL":
+        return "Memory", MEMORY_LABELS[span.name]
     if span.id == root_id:
-        if span.name in MEMORY_LABELS and span.run_type == "TOOL":
-            return "Memory", MEMORY_LABELS[span.name]
+        return "Agent", "Chat request" if span.name == REQUEST_TRACE_NAME else "Nimbus agent"
+    if span.name == AGENT_NAME and span.run_type == "CHAIN":
         return "Agent", "Nimbus agent"
+    if span.name in CACHE_LABELS and span.run_type == "CHAIN":
+        return "Step", CACHE_LABELS[span.name]
     if span.run_type == "LLM":
         return "Model", "Gemini" if span.name == "ChatGoogleGenerativeAI" else "Model call"
     if span.run_type == "TOOL":
@@ -153,9 +165,11 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
     root = next((span for span in spans if span.id == trace_id), None)
     if root is None:
         return TraceView("pending")
+    # A chat request's root since it began nesting its steps; the graph's own root and a Mem0 root, as before.
+    is_request = root.name == REQUEST_TRACE_NAME and root.run_type == "CHAIN"
     is_agent = root.name == AGENT_NAME and root.run_type == "CHAIN"
     is_memory = root.name in MEMORY_LABELS and root.run_type == "TOOL"
-    if not (is_agent or is_memory):
+    if not (is_request or is_agent or is_memory):
         return _failed("runs", TraceIssue.WRONG_ROOT)
     labels = {span.id: display for span in spans if (display := _label(span, trace_id)) is not None}
     visible = sorted(

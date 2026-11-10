@@ -19,6 +19,7 @@ from nimbus.memory.client import Mem0Service
 from nimbus.memory.models import MemoryReason, MemoryStatus
 from nimbus.memory.tracing import memory_trace
 from nimbus.model import Tracer
+from nimbus.request_trace import RequestTrace
 from nimbus.utils import hide_error_text
 from tests.unit.test_memory_client import KEY, PROFILE, USER, MemoryRecorder, row
 from tests.unit.test_privacy import KeepingClient
@@ -228,6 +229,36 @@ def test_memory_operation_defers_existing_vercel_flush(monkeypatch: pytest.Monke
     asyncio.run(service(MemoryRecorder(), tracing).read(USER))
     assert len(waiting) == 1
     waiting[0].close()
+
+
+def test_a_chat_read_is_a_step_of_its_request_trace_and_leaves_the_sending_to_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Given the chat request's root, the read nests under it, logs its ID, and the root's end sends them both."""
+    tracing, client = tracer()
+    tracing = Tracer(client, tracing.project, is_vercel=True)
+    waiting: list[Coroutine[Any, Any, None]] = []
+    monkeypatch.setattr("nimbus.model.wait_until", waiting.append)
+    request = RequestTrace.begin(tracing)
+    assert request.parent is not None
+    root_id = str(request.parent.run_id)
+    with capture_logs() as logs:
+        read = asyncio.run(service(MemoryRecorder(), tracing).read(USER, request.parent))
+    assert read.status == "empty"
+    assert waiting == []
+    request.end()
+    assert len(waiting) == 1
+    waiting[0].close()
+    [root, step] = [run for run in client.kept_runs if run.get("start_time")]
+    assert step["name"] == "mem0.read"
+    assert step["id"] != root_id
+    assert step["trace_id"] == step["parent_run_id"] == root_id
+    assert step["dotted_order"].startswith(root["dotted_order"] + ".")
+    [step_end] = [run for run in client.kept_runs if run["id"] == step["id"] and run.get("end_time")]
+    assert step_end["parent_run_id"] == root_id
+    [line] = [line for line in logs if line["event"] == "memory.operation"]
+    assert line["traceId"] == root_id
+    assert_private(client.kept_runs)
 
 
 def test_unconfigured_and_invalid_identity_attempts_are_failed_without_private_inputs() -> None:

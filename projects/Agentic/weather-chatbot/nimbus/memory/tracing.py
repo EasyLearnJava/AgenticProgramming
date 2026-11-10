@@ -1,4 +1,7 @@
-"""Independent Mem0 operation traces with empty payloads and a fixed, nonpersonal outcome vocabulary."""
+"""
+Mem0 operation traces with empty payloads and a fixed, nonpersonal outcome vocabulary: a chat's read is a step in the
+chat request's trace (nimbus/request_trace.py); an operation from My preferences is a trace of its own.
+"""
 
 import time
 from collections.abc import Iterator
@@ -12,6 +15,7 @@ import structlog
 
 from nimbus.memory.models import MemoryReason, MemoryStatus
 from nimbus.model import Tracer
+from nimbus.request_trace import TraceParent, to_dotted_order
 
 type MemoryAction = Literal["read", "save", "forget"]
 
@@ -26,26 +30,35 @@ class MemoryTrace:
 
     tracer: Tracer | None = field(repr=False)
     action: MemoryAction
+    parent: TraceParent | None = None
     started: float = field(default_factory=time.monotonic)
     status: MemoryStatus = "unavailable"
     reason: MemoryReason = "unavailable"
     trace_id: UUID | None = None
+    run_id: UUID | None = None
     dotted_order: str = ""
 
     def start(self) -> None:
-        """Queue an explicit root, ignoring ambient LangSmith parents, tags, metadata and input capture."""
+        """
+        Queue an explicit run: a root of its own, or a child of the given chat request's root. Ambient LangSmith
+        parents, tags, metadata and input capture are ignored either way.
+        """
         if self.tracer is None:
             return
-        root = uuid4()
-        start_time = datetime.now(UTC)
-        order = start_time.strftime("%Y%m%dT%H%M%S%fZ") + str(root)
+        if self.parent is None:
+            root = run = uuid4()
+            start_time = datetime.now(UTC)
+            order = to_dotted_order(start_time, run)
+        else:
+            run, order, start_time = self.parent.child()
+            root = self.parent.trace_id
         try:
             # Both identifiers are mandatory: without them the SDK may use synchronous HTTP instead of its queue.
             self.tracer.client.create_run(
-                id=root,
+                id=run,
                 trace_id=root,
                 dotted_order=order,
-                parent_run_id=None,
+                parent_run_id=self.parent.run_id if self.parent is not None else None,
                 name=MEMORY_TRACE_NAMES[self.action],
                 run_type="tool",
                 project_name=self.tracer.project,
@@ -59,6 +72,7 @@ class MemoryTrace:
             structlog.get_logger().warning("trace.memory_write_failed", stage="start")
         else:
             self.trace_id, self.dotted_order = root, order
+            self.run_id = run
 
     def outcome(self, status: MemoryStatus, reason: MemoryReason) -> None:
         """Accept only the small operational vocabulary, even if an internal caller supplies malformed metadata."""
@@ -66,14 +80,17 @@ class MemoryTrace:
         self.reason = reason if reason in _REASONS else "unavailable"
 
     def close(self) -> None:
-        """Finish with fixed metadata, flush after Vercel's response, and record the matching safe Activity event."""
-        if self.tracer is not None and self.trace_id is not None:
+        """
+        Finish with fixed metadata and record the matching safe Activity event. A root of its own is sent after
+        Vercel's response from here; a step's is sent with its chat request's root.
+        """
+        if self.tracer is not None and self.trace_id is not None and self.run_id is not None:
             try:
                 self.tracer.client.update_run(
-                    self.trace_id,
+                    self.run_id,
                     trace_id=self.trace_id,
                     dotted_order=self.dotted_order,
-                    parent_run_id=None,
+                    parent_run_id=self.parent.run_id if self.parent is not None else None,
                     end_time=datetime.now(UTC),
                     inputs={},
                     outputs={},
@@ -82,10 +99,11 @@ class MemoryTrace:
                 )
             except Exception:
                 structlog.get_logger().warning("trace.memory_write_failed", stage="finish")
-            try:
-                self.tracer.defer_flush()
-            except Exception:
-                structlog.get_logger().warning("trace.memory_write_failed", stage="flush")
+            if self.parent is None:
+                try:
+                    self.tracer.defer_flush()
+                except Exception:
+                    structlog.get_logger().warning("trace.memory_write_failed", stage="flush")
         structlog.get_logger().info(
             "memory.operation",
             tool="memory_preferences",
@@ -98,9 +116,11 @@ class MemoryTrace:
 
 
 @contextmanager
-def memory_trace(tracer: Tracer | None, action: MemoryAction) -> Iterator[MemoryTrace]:
+def memory_trace(
+    tracer: Tracer | None, action: MemoryAction, parent: TraceParent | None = None
+) -> Iterator[MemoryTrace]:
     """Always close the safe operation, including cancellation, without catching or serializing its exception."""
-    operation = MemoryTrace(tracer, action)
+    operation = MemoryTrace(tracer, action, parent)
     operation.start()
     try:
         yield operation
