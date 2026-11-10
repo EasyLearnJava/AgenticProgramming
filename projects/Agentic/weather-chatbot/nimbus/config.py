@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     hotels_enabled: bool = False
     parks_enabled: bool = True
     parks_retrieval_mode: Literal["auto", "lexical", "hybrid"] = "auto"
+    parks_semantic_provider: Literal["local", "qdrant"] = "local"
+    parks_qdrant_collection: str = Field(default="nimbus_park_guidance", pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    parks_qdrant_api_key: SecretStr | None = None
     parks_index_path: Path = PROJECT_ROOT / "data" / "parks" / "index.sqlite"
     parks_model_cache: Path = PROJECT_ROOT / "data" / "parks" / "model"
     parks_model_revision: str = Field(default="1110a243fdf4706b3f48f1d95db1a4f5529b4d41", pattern=r"^[a-f0-9]{40}$")

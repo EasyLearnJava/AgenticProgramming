@@ -280,27 +280,106 @@ no local LangSmith credential was configured, and this validation did not deploy
 
 In the [Retrieval Playground](/knowledge/retrieval), select **The Narrows** and ask **What should I know about
 flash floods?** Inspect the retrieved section and its source, then compare the highest-ranked candidate with
-another candidate. The mode shown on that run explains whether a semantic score contributed.
+another candidate. Also try **What should I wear to hike The Narrows in Zion in spring?** The mode identifies
+the available ranking branches; individual score contributions show which branches influenced each result.
 
 1. **Build the collection offline.** `nimbus/park_ingest.py` makes passages from reviewed NPS sections.
    The manifest supplies destination and season scope. Each record includes a document ID, source URL,
    section, fetch date and content hash. `write_index()` validates the records and atomically replaces
    `data/parks/index.sqlite`. The request path opens that index read-only.
 2. **Limit the candidates.** `ParkKnowledge.resolve()` checks known names and aliases.
-   `ParkKnowledge.search()` filters by park, destination and, when supplied, visit season. A matching word
-   from another park cannot bring that passage back into the result.
+   `ParkKnowledge.search()` filters by park, destination and season before both ranking branches. An actual
+   visit date takes priority; otherwise use an explicit season or one unambiguous seasonal phrase. Names such
+   as Nevada Fall do not imply a season. Conflicting explicit date and season selections are rejected.
 3. **Calculate the scores.** Keyword scoring expands selected terms, gives section headings extra weight and
-   accounts for term rarity and passage length. The keyword component is `keyword_score / (1 + keyword_score)`.
-   When the query and index use compatible embeddings, the ranker adds their cosine similarity. A passage
-   with no keyword hit needs a similarity of at least 0.65 to qualify. Equal totals break by passage ID.
+   uses BM25 term rarity and passage length. The optional dense branch compares MiniLM embeddings. Reciprocal
+   rank fusion (RRF) combines qualifying ranks rather than adding raw BM25 and cosine scores. The Playground
+   shows the actual terms, raw scores, branch ranks and contributions, threshold and final order. A cosine
+   score is a similarity measurement, not an answer-confidence percentage. Equal totals break by passage ID.
 4. **Build the context.** Up to four passages fit within 10,000 characters of passage text. The Playground
    exposes candidate scores, ranks, cutoffs and selection reasons from this same search. The chunks page
-   can plot stored vectors in two dimensions. That projection is for inspection. Ranking uses the original
-   vectors. [Browse chunks and vectors](/knowledge/chunks).
-5. **Check the mode.** In automatic mode Vercel uses keyword retrieval. A provisioned host can use the pinned
-   CPU `all-MiniLM-L6-v2` encoder with compatible 384-dimensional vectors. Missing weights, a busy worker
-   or a timeout leave keyword retrieval available. Builds and visitors do not need an embedding service key.
-   [Park retrieval chapter](step-16.md).
+   can plot the SQLite artifact's stored local vectors in two dimensions; this is not a map of hosted search
+   vectors. Qdrant supplies candidate IDs and scores; text and citations always come from validated SQLite
+   records. [Browse chunks and vectors](/knowledge/chunks).
+5. **Check the mode.** Set `PARKS_SEMANTIC_PROVIDER=qdrant` to use hosted MiniLM with no local ML runtime.
+   Missing configuration, an unpublished or mismatched index, timeout or provider error produces an explicit
+   BM25 fallback. `PARKS_RETRIEVAL_MODE=lexical` disables semantic calls. The default `local` provider retains
+   optional pinned CPU MiniLM; its `auto` mode uses keywords on Vercel and local inference only when available.
+   Chat, the trip planner and Playground share this retrieval core. [Park retrieval chapter](step-16.md).
+
+For hosted retrieval, dense ranks include cosine scores of at least `0.30`. A candidate with a positive BM25 match
+can receive that semantic contribution; a candidate with no BM25 match needs cosine of at least `0.55` to enter
+the fused result. The score is `1 / (60 + BM25_rank) + 0.1 / (60 + semantic_rank)`, with absent or ineligible
+contributions set to zero. The two thresholds control admission; the `0.1` weight limits how strongly semantic rank
+can change the BM25 order. The optional local-vector profile retains its `0.65` semantic cutoff. The Playground
+displays the active thresholds and branch contributions rather than implying every returned vector changes ranking.
+
+### Publish and validate hosted park search
+
+The park collection defaults to `nimbus_park_guidance` and must differ from `QDRANT_COLLECTION`, the private weather
+answer cache. Public guidance has no answer-cache TTL or browser partition. The explicit setup command verifies
+collection ownership and dimensions, generates hosted 384-dimensional MiniLM vectors from the approved title,
+section and passage text, and reads every batch back. It publishes a versioned readiness marker only after successful
+verification. Runtime requests require that marker and validate returned IDs, source hashes and scope against SQLite.
+Setup never runs on application startup and never deletes weather-cache records.
+
+Use ignored `.env.local` for `QDRANT_URL` and credentials. Select `PARKS_SEMANTIC_PROVIDER=qdrant` and
+`PARKS_RETRIEVAL_MODE=hybrid`. Optional `PARKS_QDRANT_API_KEY` overrides the existing Qdrant credential for park
+operations; the serving app needs read access to the published collection. The setup credential must also be able
+to create the collection, indexes and points. The bundled tokenizer-prepared MiniLM artifact can be published without
+loading local weights; rebuilding that artifact still uses the optional ML group.
+
+```sh
+uv run python -m tools.setup_park_search
+uv run python -m tools.eval_parks --lexical-only
+uv run python -m tools.eval_park_hybrid
+```
+
+The comparison evaluates BM25, semantic-only and fused evidence on the same labeled questions. Its sanitized JSON
+records evidence recall@4, top-1, MRR@4 and provider failures; a failed provider is not a successful hybrid trial.
+Compare ranking quality and unsupported-question abstention, rather than using a passing top-four count as proof of
+improvement. These retrieval checks do not grade Gemini's answer faithfulness.
+
+The semantic-only comparison independently ranks hosted candidates with cosine at least `0.30`, without BM25 deciding
+admission. It therefore exposes dense retrieval's unsupported-question errors instead of hiding them behind the
+hybrid gate.
+
+With hosted retrieval, the search question is sent to Qdrant for embedding; full chat history and preferences are not
+sent by this adapter. Public source text is sent during setup. Nimbus logs and traces contain no questions, passage
+text, embeddings or keys. **Activity → LangSmith trace** shows park retrieval with BM25, semantic lookup and fusion
+steps, timings, safe outcomes, provider/mode and bounded counts. A failed semantic step remains visible even when
+BM25 still answers. Playground requests can have their own linked trace; chat retrieval nests under its tool call.
+
+Local setup does not configure Vercel or verify a production build. Follow the hosted configuration and exact-build
+checks on [Waiting on you](waiting-on-you.md#qdrant-hybrid-park-retrieval).
+
+### Hosted ranking calibration on 10 November 2026
+
+The first real-provider comparison exposed a regression: a `0.65` cutoff with equal branch weights reduced top-1
+evidence from 81.6% to 76.3%, despite all 41 cases passing their top-four evidence rules. Calibration introduced
+the `0.30` reranking / `0.55` semantic-only admission cutoffs and `1:0.1` branch weights. It also corrected generic
+keyword noise and the clothes/clothing expansion. The final comparisons used public index `d93691d32a848853`:
+
+| Calibration evidence | BM25 | Hybrid |
+| --- | --- | --- |
+| Main set: case rules passed | 41/41 | 41/41 |
+| Main set: evidence top-1 | 81.6% | 86.8% |
+| Main set: MRR@4 | 0.897 | 0.930 |
+| Additional six relevant and six unsupported questions | 11/12 | 12/12 |
+| Supplementary five relevant and three unsupported questions | 8/8 | 8/8 |
+
+All three runs reported zero provider failures. The main artifact is `evals/park-hybrid-last-run.json`; the
+additional artifacts are `evals/park-hybrid-regression-last-run.json` and `evals/park-hybrid-validation-last-run.json`.
+The supplementary questions exposed generic `by`, `have` and `there` matches, which became stop-word regressions.
+Those questions informed the changes, so these measurements demonstrate
+the observed calibration result, not independent generalization or production readiness. The semantic-only profile
+still exposes unsupported-question errors. A separate fresh evaluation is needed before claiming broader gains.
+
+Validation also passed the primary 477 affected unit/integration checks, 147 planner/harness compatibility checks,
+461 offline replay scenarios, 22 focused mutation checks and nine Chrome cases at desktop/mobile widths. Later
+targeted reruns covered final edits; these counts overlap and are not a full-suite total. The real local Playground
+returned HTTP 200 for the spring Narrows question using hosted retrieval. Local LangSmith delivery was not checked
+because no tracing key was configured, and no production deployment was performed for this extension.
 
 ## Trace a failure without reading a conversation
 

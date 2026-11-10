@@ -42,6 +42,13 @@ Mem0 consent. Request guards and original weather-data expiry constrain every hi
 failures or uncertainty retain the existing agent, park and travel behavior.
 [Cache architecture and validation](docs/technical-details.md#follow-a-weather-cache-hit).
 
+Optional hosted park retrieval uses a separate Qdrant collection of public guidance vectors. The shared search
+filters by park, destination and season, combines BM25 and MiniLM ranks, and resolves final text and citations from
+SQLite. The Playground exposes each ranking contribution; Activity links private BM25, semantic and fusion traces.
+Provider failures retain BM25. Setup verifies the published index version before enabling semantic queries, without
+adding Torch to Vercel.
+[Retrieval setup and comparison](docs/technical-details.md#publish-and-validate-hosted-park-search).
+
 ## 2. The roadmap
 
 | Step | What it builds | What you do |
@@ -61,7 +68,7 @@ failures or uncertainty retain the existing agent, park and travel behavior.
 | 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; Technical details; the backup deleted | |
 | 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token (done) |
 | 15 | Activity by request: each a row that opens onto its timeline, shown only by its ref; every tool, lane, ending, reason and day on the other pages a link to its requests | |
-| 16 | Park and trail preparation: official source ingestion, a versioned index, destination-filtered retrieval, citations and offline retrieval evaluations | CPU MiniLM weights are cached by the index build; production release remains a separate operation |
+| 16 | Park and trail preparation: official source ingestion, a versioned index, scoped BM25/optional hosted hybrid retrieval, citations and retrieval comparisons | Publish the dedicated public park collection and configure hosted settings before verifying the exact preview build; local CPU MiniLM remains optional |
 | 17 | Official NPS notices: bounded API checks, a separate page, shared chat tool and source attribution | Configure the NPS key for the intended Vercel environments; verify notices and quota before releasing |
 | 18 | Read-only Kiwi flights, trivago hotels and a shared national park trip planner | Local provider checks complete. Run repeated chat evaluations and verify the target preview before release |
 | 19 | Deterministic replay, scored live trials, feedback and reviewed regression cases | Validate the operator-configured preview and review deployment evidence before promotion |

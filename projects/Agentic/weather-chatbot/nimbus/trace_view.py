@@ -20,6 +20,7 @@ from nimbus.config import Settings
 from nimbus.constants import AGENT_NAME, OBSERVABILITY_DAYS
 from nimbus.memory.tracing import MEMORY_TRACE_NAMES
 from nimbus.model import is_tracing_allowed
+from nimbus.park_tracing import PARK_RETRIEVAL_NAME, PARK_TRACE_NAMES, RETRIEVAL_STATUSES
 from nimbus.request_trace import CACHE_OPERATION_NAMES, CACHE_STEP_NAMES, REQUEST_TRACE_NAME
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.utils import to_iso, to_ms
@@ -49,6 +50,37 @@ CACHE_LABELS = {
     CACHE_OPERATION_NAMES["count"]: "Qdrant count",
     CACHE_OPERATION_NAMES["save"]: "Qdrant save",
 }
+PARK_LABELS = {
+    PARK_RETRIEVAL_NAME: "Park guidance retrieval",
+    PARK_TRACE_NAMES["bm25"]: "Park BM25 search",
+    PARK_TRACE_NAMES["semantic"]: "Park semantic search",
+    PARK_TRACE_NAMES["fusion"]: "Park rank fusion",
+}
+RETRIEVAL_LABELS = {
+    "completed": "Completed",
+    "ready": "Ready",
+    "found": "Passages found",
+    "not_found": "No matching passages",
+    "not_needed": "Not needed",
+    "disabled": "Disabled",
+    "unconfigured": "Not configured",
+    "index_not_ready": "Index not ready",
+    "index_mismatch": "Index version mismatch",
+    "timeout": "Timed out",
+    "busy": "Busy",
+    "error": "Error",
+    "cancelled": "Cancelled",
+    "missing_dependencies": "Local model unavailable",
+    "missing_weights": "Local model unavailable",
+    "incompatible_model": "Incompatible embedding model",
+    "failed": "Failed",
+    "invalid_response": "Invalid response",
+    "unavailable": "Unavailable",
+    "unsupported": "Unsupported destination",
+}
+RETRIEVAL_MODES = {"hybrid": "Hybrid (BM25 + semantic)", "lexical": "BM25 only", "none": ""}
+RETRIEVAL_PROVIDERS = {"qdrant": "Qdrant hosted MiniLM", "local": "Local CPU MiniLM", "none": ""}
+SEASON_SOURCES = {"date": "Visit date", "explicit": "Season selection", "query": "Question", "none": ""}
 CACHE_OUTCOMES = {
     "completed": "Completed",
     "exact_hit": "Exact hit",
@@ -147,6 +179,11 @@ class TraceRow:
     cache_reason: str = ""
     similarity_score: float | None = None
     similarity_threshold: float | None = None
+    retrieval_mode: str = ""
+    retrieval_provider: str = ""
+    retrieval_candidates: int | None = None
+    retrieval_selected: int | None = None
+    retrieval_season_source: str = ""
 
 
 @dataclass(frozen=True)
@@ -185,6 +222,42 @@ class _CacheMetadata(BaseModel):
     rejection: str = ""
     similarity_score: float | None = None
     similarity_threshold: float | None = None
+    retrieval_outcome: str = ""
+    retrieval_mode: str = ""
+    retrieval_provider: str = ""
+    retrieval_season_source: str = ""
+    retrieval_candidates: int | None = None
+    retrieval_selected: int | None = None
+
+    @field_validator("retrieval_outcome", mode="before")
+    @classmethod
+    def checked_retrieval_outcome(cls, value: object) -> str:
+        """Only operational retrieval statuses can survive public projection."""
+        return value if isinstance(value, str) and value in RETRIEVAL_STATUSES else ""
+
+    @field_validator("retrieval_mode", mode="before")
+    @classmethod
+    def checked_retrieval_mode(cls, value: object) -> str:
+        """Never display arbitrary upstream retrieval labels."""
+        return value if isinstance(value, str) and value in RETRIEVAL_MODES else ""
+
+    @field_validator("retrieval_provider", mode="before")
+    @classmethod
+    def checked_retrieval_provider(cls, value: object) -> str:
+        """Provider names come from our fixed configuration vocabulary."""
+        return value if isinstance(value, str) and value in RETRIEVAL_PROVIDERS else ""
+
+    @field_validator("retrieval_season_source", mode="before")
+    @classmethod
+    def checked_season_source(cls, value: object) -> str:
+        """Display the source of seasonal filtering, never the user's date or query."""
+        return value if isinstance(value, str) and value in SEASON_SOURCES else ""
+
+    @field_validator("retrieval_candidates", "retrieval_selected", mode="before")
+    @classmethod
+    def checked_retrieval_count(cls, value: object) -> int | None:
+        """Counts are bounded integers, not coerced strings or booleans."""
+        return value if type(value) is int and 0 <= value <= 1000 else None
 
     @field_validator("outcome", "cache_outcome", mode="before")
     @classmethod
@@ -267,6 +340,10 @@ def _label(span: _Span, root_id: UUID) -> tuple[str, str] | None:
     """
     if span.name in MEMORY_LABELS and span.run_type == "TOOL":
         return "Memory", MEMORY_LABELS[span.name]
+    if span.name in PARK_LABELS and span.run_type == "CHAIN":
+        if span.name == PARK_TRACE_NAMES["semantic"] and span.metadata.retrieval_provider == "qdrant":
+            return "Step", "Qdrant park semantic search"
+        return ("Retrieval" if span.name == PARK_RETRIEVAL_NAME else "Step"), PARK_LABELS[span.name]
     if span.id == root_id:
         return "Agent", "Chat request" if span.name == REQUEST_TRACE_NAME else "Nimbus agent"
     if span.name == AGENT_NAME and span.run_type == "CHAIN":
@@ -294,7 +371,8 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
     is_request = root.name == REQUEST_TRACE_NAME and root.run_type == "CHAIN"
     is_agent = root.name == AGENT_NAME and root.run_type == "CHAIN"
     is_memory = root.name in MEMORY_LABELS and root.run_type == "TOOL"
-    if not (is_request or is_agent or is_memory):
+    is_retrieval = root.name == PARK_RETRIEVAL_NAME and root.run_type == "CHAIN"
+    if not (is_request or is_agent or is_memory or is_retrieval):
         return _failed("runs", TraceIssue.WRONG_ROOT)
     labels = {span.id: display for span in spans if (display := _label(span, trace_id)) is not None}
     visible = sorted(
@@ -316,6 +394,7 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
         if rejection:
             decision = f"Not reusable: {REJECTION_LABELS[rejection]}"
         similarity = span.name == CACHE_OPERATION_NAMES["similarity"] and cache_step
+        park_step = span.name in PARK_LABELS and span.run_type == "CHAIN"
         rows.append(
             TraceRow(
                 label=label,
@@ -326,10 +405,19 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
                 status=STATUSES.get(span.status or "", "Unknown"),
                 error=f"{kind} reported an error." if span.status == "ERROR" else None,
                 parent_index=parents[index],
-                outcome=CACHE_OUTCOMES.get(outcome, ""),
+                outcome=RETRIEVAL_LABELS.get(span.metadata.retrieval_outcome, "")
+                if park_step
+                else CACHE_OUTCOMES.get(outcome, ""),
                 cache_reason=decision,
                 similarity_score=span.metadata.similarity_score if similarity else None,
                 similarity_threshold=span.metadata.similarity_threshold if similarity else None,
+                retrieval_mode=RETRIEVAL_MODES.get(span.metadata.retrieval_mode, "") if park_step else "",
+                retrieval_provider=RETRIEVAL_PROVIDERS.get(span.metadata.retrieval_provider, "") if park_step else "",
+                retrieval_candidates=span.metadata.retrieval_candidates if park_step else None,
+                retrieval_selected=span.metadata.retrieval_selected if park_step else None,
+                retrieval_season_source=SEASON_SOURCES.get(span.metadata.retrieval_season_source, "")
+                if park_step
+                else "",
             )
         )
     return TraceView("ready", tuple(rows), truncated=len(visible) > TRACE_MAX_ROWS)

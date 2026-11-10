@@ -29,7 +29,9 @@ def no_settings_from_the_shell(monkeypatch: pytest.MonkeyPatch) -> None:
     # Encoder behavior is covered separately with test doubles; the CLI evaluates real CPU embeddings.
     monkeypatch.setattr(
         "nimbus.app.make_park_knowledge",
-        lambda settings: ParkKnowledge(settings.parks_index_path) if settings.parks_enabled else None,
+        lambda settings, tracer=None: (
+            ParkKnowledge(settings.parks_index_path, tracer=tracer) if settings.parks_enabled else None
+        ),
     )
 
 

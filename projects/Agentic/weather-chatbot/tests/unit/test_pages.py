@@ -19,6 +19,7 @@ from nimbus.constants import QUESTION_MAX_CHARS, SOURCE_URL
 from nimbus.docs import CHAPTERS, PAGES, DocPage, read_markdown, title_of
 from nimbus.errors import CUT_OFF, RATE_LIMITED, STOPPED, UNREACHABLE
 from nimbus.pages import MENU_GROUPS, to_aria_current
+from nimbus.parks import make_park_knowledge
 
 
 def test_the_chat_page_shows_its_card_and_marks_its_menu_link(client: TestClient) -> None:
@@ -124,6 +125,51 @@ def test_the_chat_page_says_where_questions_go(client: TestClient) -> None:
     # Step 11: on Gemini's free tier, Google may use what it gets; the page says so, under the form.
     note = "Your questions go to Google's Gemini, which may use them to improve its products: share nothing personal."
     assert note in client.get("/").text
+
+
+@pytest.mark.parametrize("cache_mode", ["off", "on"])
+@pytest.mark.parametrize(
+    ("changes", "disclosed"),
+    [
+        ({}, True),
+        ({"parks_retrieval_mode": "auto"}, True),
+        ({"parks_retrieval_mode": "lexical"}, False),
+        ({"parks_semantic_provider": "local", "parks_retrieval_mode": "lexical"}, False),
+        ({"parks_enabled": False}, False),
+        ({"qdrant_api_key": None}, False),
+        ({"qdrant_api_key": None, "parks_qdrant_api_key": SecretStr("private-park-key")}, True),
+        ({"qdrant_url": ""}, False),
+        ({"parks_qdrant_collection": "nimbus_weather_cache"}, False),
+    ],
+)
+def test_chat_discloses_hosted_park_queries_independently_of_weather_caching(
+    settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    changes: dict[str, object],
+    disclosed: bool,
+    cache_mode: str,
+) -> None:
+    """Use the real service selection: dedicated park credentials work even with weather caching disabled."""
+    monkeypatch.setattr("nimbus.app.make_park_knowledge", make_park_knowledge)
+    configured = settings.model_copy(
+        update={
+            "parks_semantic_provider": "qdrant",
+            "parks_retrieval_mode": "hybrid",
+            "qdrant_url": "https://synthetic.cloud.qdrant.io",
+            "qdrant_api_key": SecretStr("private-shared-key"),
+            "semantic_cache_mode": cache_mode,
+            **changes,
+        }
+    )
+    with TestClient(create_app(configured)) as client:
+        page = client.get("/")
+    assert page.status_code == 200
+    assert ("Park guidance search terms go to Qdrant for semantic retrieval." in page.text) is disclosed
+    assert ("Eligible weather questions go to Qdrant" in page.text) is bool(
+        cache_mode != "off" and configured.qdrant_url and configured.qdrant_api_key
+    )
+    assert "private-park-key" not in page.text
+    assert "private-shared-key" not in page.text
 
 
 def test_only_the_chat_page_loads_scripts(client: TestClient) -> None:

@@ -4,7 +4,14 @@ from dataclasses import dataclass
 
 from nimbus.trace_view import TraceView, safe_parent_indices
 
-KINDS = {"Agent": "agent", "Model": "model", "Tool": "tool", "Step": "step", "Memory": "memory"}
+KINDS = {
+    "Agent": "agent",
+    "Model": "model",
+    "Tool": "tool",
+    "Step": "step",
+    "Memory": "memory",
+    "Retrieval": "retrieval",
+}
 STATUSES = {"Completed": "completed", "Failed": "failed", "Running": "running", "Unknown": "unknown"}
 BAR_SCALE = 1000
 
@@ -36,6 +43,11 @@ class PresentedSpan:
     cache_reason: str
     similarity_score: str
     similarity_threshold: str
+    retrieval_mode: str
+    retrieval_provider: str
+    retrieval_candidates: str
+    retrieval_selected: str
+    retrieval_season_source: str
 
 
 @dataclass(frozen=True)
@@ -83,7 +95,12 @@ def present_trace(trace: TraceView) -> TracePresentation:
     for siblings in children.values():
         siblings.sort(key=lambda index: (max(0, rows[index].offset_ms), index))
     root = next(
-        (row for index, row in enumerate(rows) if row.kind in {"Agent", "Memory"} and parents[index] is None), None
+        (
+            row
+            for index, row in enumerate(rows)
+            if row.kind in {"Agent", "Memory", "Retrieval"} and parents[index] is None
+        ),
+        None,
     )
     elapsed = root.elapsed_ms if root and root.elapsed_ms is not None and root.elapsed_ms >= 0 else None
     timeline_ms = max((max(0, row.offset_ms) + max(0, row.elapsed_ms or 0) for row in rows), default=0)
@@ -127,6 +144,11 @@ def present_trace(trace: TraceView) -> TracePresentation:
                 cache_reason=row.cache_reason,
                 similarity_score="" if row.similarity_score is None else f"{row.similarity_score:.3f}",
                 similarity_threshold="" if row.similarity_threshold is None else f"{row.similarity_threshold:.3f}",
+                retrieval_mode=row.retrieval_mode,
+                retrieval_provider=row.retrieval_provider,
+                retrieval_candidates="" if row.retrieval_candidates is None else str(row.retrieval_candidates),
+                retrieval_selected="" if row.retrieval_selected is None else str(row.retrieval_selected),
+                retrieval_season_source=row.retrieval_season_source,
             )
         )
         for child in children.get(index, ()):

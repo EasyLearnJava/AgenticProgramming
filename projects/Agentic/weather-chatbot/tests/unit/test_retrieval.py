@@ -2,6 +2,8 @@
 
 import asyncio
 import math
+import re
+from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 from typing import cast
@@ -11,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from structlog.testing import capture_logs
 
+from nimbus.park_semantic import PARK_MODEL, SemanticResult
 from nimbus.parks import ParkKnowledge
 from tests.unit.test_parks import chunk, write_index
 
@@ -42,20 +45,29 @@ def test_explanation_uses_the_actual_scores_order_and_selected_passages(tmp_path
     diagnostics = explained.pop("diagnostics")
     assert explained == normal
     assert "diagnostics" not in normal
-    assert [item["id"] for item in normal["passages"]] == ["meaning", "keyword"]
+    assert [item["id"] for item in normal["passages"]] == ["keyword", "meaning"]
     assert diagnostics["candidate_count"] == 3
     rows = diagnostics["candidates"]
-    assert [item["chunk"]["id"] for item in rows] == ["meaning", "keyword", "irrelevant"]
+    assert [item["chunk"]["id"] for item in rows] == ["keyword", "meaning", "irrelevant"]
     assert [item["rank"] for item in rows] == [1, 2, None]
-    assert rows[0]["keyword_score"] == 0
-    assert rows[0]["semantic_score"] == pytest.approx(1)
-    assert rows[0]["final_score"] == pytest.approx(1)
+    assert diagnostics["fusion"] == "rrf"
+    assert diagnostics["rrf_k"] == 60
+    assert diagnostics["keyword_terms"] == ["clothing"]
+    assert rows[1]["keyword_score"] == 0
+    assert rows[1]["semantic_score"] == pytest.approx(1)
+    assert rows[1]["semantic_rank"] == 1
+    assert rows[1]["keyword_rank"] is None
+    assert rows[1]["semantic_component"] == pytest.approx(0.1 / 61)
+    assert rows[1]["final_score"] == pytest.approx(0.1 / 61)
     # With equal-length passages and one term present in one of three, BM25 is ln(1 + 2.5 / 1.5).
     expected_keyword = math.log(1 + 2.5 / 1.5)
-    assert rows[1]["keyword_score"] == pytest.approx(expected_keyword)
-    assert rows[1]["keyword_component"] == pytest.approx(expected_keyword / (1 + expected_keyword))
-    assert rows[1]["semantic_score"] == pytest.approx(0)
-    assert rows[1]["final_score"] == pytest.approx(expected_keyword / (1 + expected_keyword))
+    assert rows[0]["keyword_score"] == pytest.approx(expected_keyword)
+    assert rows[0]["keyword_rank"] == 1
+    assert rows[0]["keyword_component"] == pytest.approx(1 / 61)
+    assert rows[0]["semantic_score"] == pytest.approx(0)
+    assert rows[0]["semantic_rank"] is None
+    assert rows[0]["semantic_component"] == 0
+    assert rows[0]["final_score"] == pytest.approx(1 / 61)
     assert [item["selection"] for item in rows] == ["retrieved", "retrieved", "below_threshold"]
     assert rows[2]["semantic_score"] == pytest.approx(0.6)
 
@@ -141,6 +153,10 @@ def test_playground_shows_real_hybrid_scores_and_links_without_gemini(client: Te
     assert "Keyword score" in page.text
     assert "Semantic score" in page.text
     assert "Final score" in page.text
+    assert "Semantic contribution" in page.text
+    assert "Reciprocal Rank Fusion" in page.text
+    assert "Keyword terms used:" in page.text
+    assert "0.0164" in page.text
     assert "Below relevance threshold" in page.text
     assert "chunk=meaning" in page.text
     assert 'href="/knowledge/sources/narrows-guide"' in page.text
@@ -150,9 +166,50 @@ def test_playground_explains_lexical_fallback_and_no_matches(client: TestClient)
     page = client.post("/api/knowledge/retrieval", data={"destination": "zion", "q": "zzzzunmatched"})
     assert page.status_code == 200
     assert "Keyword-only retrieval" in page.text
-    assert "Semantic scoring was unavailable" in page.text
+    assert "Keyword results remain available" in page.text
     assert "No chunks retrieved" in page.text
     assert "Not available" in page.text
+
+
+def test_hosted_playground_identifies_its_model_and_absent_dense_candidates(client: TestClient, tmp_path: Path) -> None:
+    """Hosted results must not imply their scores came from the bundled local vectors or a missing score is zero."""
+
+    class HostedScores:
+        """A bounded dense ranking whose text still comes from the real local index."""
+
+        provider = "qdrant"
+        model = PARK_MODEL
+
+        async def search(
+            self,
+            query: str,
+            *,
+            index_version: str,
+            park_id: str,
+            destination_id: str,
+            season: str | None,
+            eligible: Mapping[str, str],
+        ) -> SemanticResult:
+            """Return one semantic match; the keyword-only candidate is absent from the provider's result."""
+            return SemanticResult("ready", {"meaning": 0.91})
+
+    local = scored_knowledge(tmp_path)
+    path = tmp_path / "scores.sqlite"
+    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(path, semantic_search=HostedScores())
+    page = client.post("/api/knowledge/retrieval", data={"destination": "zion-narrows", "q": "clothing"})
+    assert page.status_code == 200
+    assert "Hybrid retrieval" in page.text
+    assert "Qdrant Cloud MiniLM" in page.text
+    assert PARK_MODEL in page.text
+    assert local.embedding_model not in page.text
+    keyword_row = re.search(r'<tr data-chunk="keyword".*?</tr>', page.text, re.DOTALL)
+    assert keyword_row is not None
+    semantic_cell = re.findall(r'<td class="retrieval-score">(.*?)</td>', keyword_row.group(), re.DOTALL)[2]
+    assert "Not returned" in semantic_cell
+    assert "0.0000" not in semantic_cell
+    assert "0.9100" in page.text
+    assert "separately built local index" in page.text
+    assert "Inspect source chunk" in page.text
 
 
 @pytest.mark.parametrize(
@@ -162,12 +219,64 @@ def test_playground_explains_lexical_fallback_and_no_matches(client: TestClient)
         {"destination": "../zion", "q": "clothing"},
         {"destination": "unknown", "q": "clothing"},
         {"destination": "zion", "q": "clothing", "visit_date": "2026-02-30"},
+        {"destination": "zion", "q": "clothing", "season": "monsoon"},
+        {"destination": "zion", "q": "clothing", "season": "spring", "visit_date": "2027-12-01"},
         {"destination": "zion", "unknown": "x"},
         {"q": "clothing"},
     ],
 )
 def test_playground_validates_all_inputs(client: TestClient, params: dict[str, str]) -> None:
     assert client.post("/api/knowledge/retrieval", data=params).status_code == 400
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_spring_filter_keeps_year_round_guidance_and_excludes_winter(
+    client: TestClient, tmp_path: Path, explicit: bool
+) -> None:
+    """An explicit season and a season in the question use the same shared filter without inventing a date."""
+    path = write_index(
+        tmp_path / "spring.sqlite",
+        [
+            chunk("spring-gear", "Clothing layers", ["zion-narrows"], seasons=["spring"]),
+            chunk("year-round", "Clothing footwear", ["zion-narrows"]),
+            chunk("winter-gear", "Clothing drysuit", ["zion-narrows"], seasons=["winter"]),
+        ],
+    )
+    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(path)
+    data = {"destination": "zion-narrows", "q": "What clothing should I wear in spring?", "visit_date": ""}
+    if explicit:
+        data["season"] = "spring"
+    page = client.post("/api/knowledge/retrieval", data=data)
+    assert page.status_code == 200
+    assert 'data-chunk="spring-gear"' in page.text
+    assert 'data-chunk="year-round"' in page.text
+    assert 'data-chunk="winter-gear"' not in page.text
+    assert "Season: Spring" in page.text
+    assert ("selected season" if explicit else "(question)") in page.text
+    assert re.search(r'name="visit_date"\s+value=""', page.text)
+    if explicit:
+        assert 'value="spring" selected' in page.text
+
+
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [
+        ("disabled", "No semantic search was requested"),
+        ("index_mismatch", "not ready for this document version"),
+        ("timeout", "exceeded its time limit"),
+    ],
+)
+def test_fallback_notice_explains_configuration_index_and_temporary_failures(
+    client: TestClient, tmp_path: Path, status: str, message: str
+) -> None:
+    """Disabled inference and an unprepared index must not suggest a retry will activate semantic search."""
+    path = write_index(tmp_path / "state.sqlite", [chunk("item", "Clothing", ["zion"])])
+    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(path, semantic_status=status)
+    page = client.post("/api/knowledge/retrieval", data={"destination": "zion", "q": "clothing"})
+    assert page.status_code == 200
+    assert message in page.text
+    assert "try again shortly" not in page.text
+    assert "local CPU embeddings" not in page.text
 
 
 def test_playground_escapes_questions_and_passages_and_retains_form_values(client: TestClient, tmp_path: Path) -> None:

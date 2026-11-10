@@ -4,6 +4,7 @@ way a bug would; the unit tests must fail with it. Each rule runs the test files
 suite for the constants, or for a rule those files miss before it's called missed. Two workers run the rules, each in
 a copy of the project, so your files are never changed, even by a check that's stopped. Run it from the project's
 folder: `uv run python tools/mutation_check.py` (MUTATION_WORKERS sets how many workers).
+`--park-hybrid` checks a passing affected baseline and only those test files, with no full-suite fallback.
 """
 
 import argparse
@@ -1528,8 +1529,8 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/parks.py",
-        '"semantic_score": similarity if vector is not None and stored is not None else None,',
-        '"semantic_score": similarity,',
+        '"semantic_score": semantic.get(chunk.id),',
+        '"semantic_score": semantic.get(chunk.id, 0.0),',
         "retrieval unavailable semantic scores are distinct from zero",
     ),
     Mutation(
@@ -2153,7 +2154,7 @@ TRACE_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/trace_view.py",
-        "if not (is_request or is_agent or is_memory):",
+        "if not (is_request or is_agent or is_memory or is_retrieval):",
         "if False:",
         "trace reads still reject a different root identity",
     ),
@@ -2891,10 +2892,159 @@ SEMANTIC_CACHE_MUTATIONS += CACHE_REJECTION_MUTATIONS
 TESTS_FOR["nimbus/request_trace.py"] += ("test_semantic_cache_tracing.py",)
 
 
-def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
+# Hosted park retrieval: each mutation must fail an affected test, never merely break collection or syntax.
+PARK_HYBRID_MUTATIONS: tuple[Mutation, ...] = (
+    Mutation(
+        "nimbus/park_semantic.py",
+        "and collection != settings.qdrant_collection",
+        "",
+        "park hybrid never reads or publishes into the weather cache collection",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        "or any(payload.get(key) != value for key, value in expected.items())",
+        "",
+        "park hybrid verifies the published model and index before embedding a query",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        'conditions.append({"has_id": [point_id(index_version, identity) for identity in sorted(eligible)]})',
+        "pass",
+        "park hybrid restricts remote ranking to the exact local candidate IDs",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        'or payload.get("content_hash") != eligible[identity]',
+        "",
+        "park hybrid rejects remote passages whose content identity changed",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        "or destination_id not in destinations",
+        "",
+        "park hybrid rechecks destination scope on returned candidates",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        'or (season is not None and season not in seasons and "all" not in seasons)',
+        "",
+        "park hybrid rechecks season scope on returned candidates",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        "asyncio.timeout(PARK_SEARCH_SECONDS)",
+        "asyncio.timeout(30)",
+        "park hybrid bounds the complete readiness and query operation",
+    ),
+    Mutation(
+        "tools/setup_park_search.py",
+        "await _verify_batch(api, http, batch, version)",
+        "pass",
+        "park hybrid never publishes readiness before validating every batch",
+    ),
+    Mutation(
+        "nimbus/park_ranking.py",
+        "if len(words) == 1 and contextual:",
+        "if False:",
+        "park hybrid infers a single contextual season without inventing dates",
+    ),
+    Mutation(
+        "nimbus/park_ranking.py",
+        "and (not positive or score > 0)",
+        "and (not positive or score >= 0)",
+        "park hybrid lexical ranking excludes zero evidence",
+    ),
+    Mutation(
+        "nimbus/park_ranking.py",
+        "SEMANTIC_WEIGHT = 0.1",
+        "SEMANTIC_WEIGHT = 1.0",
+        "park hybrid preserves the evaluated semantic contribution in rank fusion",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        'mode = "hybrid" if semantic_status == "ready" else "lexical"',
+        'mode = "hybrid"',
+        "park hybrid reports BM25 fallback when the semantic provider fails",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        "if semantic_rank is not None and semantic_eligible",
+        "if semantic_rank is not None",
+        "park hybrid weak semantic matches need keyword support",
+    ),
+    Mutation(
+        "nimbus/park_tracing.py",
+        'error="Park retrieval step failed" if self._metadata["retrieval_outcome"] in _FAILED else None,',
+        "error=None,",
+        "park hybrid returned semantic errors mark the child span failed",
+    ),
+    Mutation(
+        "nimbus/park_tracing.py",
+        'status if isinstance(status, str) and status in RETRIEVAL_STATUSES else "error"',
+        'status if isinstance(status, str) else "error"',
+        "park hybrid traces only allow fixed operational outcome words",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        'park_step = span.name in PARK_LABELS and span.run_type == "CHAIN"',
+        "park_step = True",
+        "park hybrid metadata appears only on approved retrieval spans",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        'if to_words(row, "tool") != "retrieval_playground" or roots[root] != 1:',
+        'if to_words(row, "tool") != "retrieval_playground":',
+        "park hybrid standalone trace links reject a reused trace root",
+    ),
+    Mutation(
+        "nimbus/knowledge.py",
+        "explain=True, season=filters.season",
+        "explain=True, season=None",
+        "park hybrid Playground sends the visitor selected season to shared retrieval",
+    ),
+    Mutation(
+        "templates/knowledge_retrieval.html",
+        "'ready' %}Not returned",
+        "'ready' %}0.0000",
+        "park hybrid Playground distinguishes absent semantic candidates from zero scores",
+    ),
+    Mutation(
+        "templates/chat.html",
+        "{% if hosted_park_search %}",
+        "{% if false %}",
+        "park hybrid discloses hosted query processing independently of weather caching",
+    ),
+)
+MUTATIONS += PARK_HYBRID_MUTATIONS
+PARK_HYBRID_MUTATIONS += tuple(
+    mutation
+    for mutation in MUTATIONS
+    if mutation.rule
+    in {
+        "retrieval unavailable semantic scores are distinct from zero",
+        "trace reads still reject a different root identity",
+    }
+)
+PARK_HYBRID_TESTS: Final[dict[str, tuple[str, ...]]] = {
+    "nimbus/park_semantic.py": ("test_park_semantic.py",),
+    "tools/setup_park_search.py": ("test_setup_park_search.py",),
+    "nimbus/park_ranking.py": ("test_park_hybrid.py",),
+    "nimbus/parks.py": ("test_park_hybrid.py", "test_retrieval.py"),
+    "nimbus/park_tracing.py": ("test_park_tracing.py",),
+    "nimbus/trace_view.py": ("test_trace_view.py",),
+    "nimbus/observability.py": ("test_activity_traces.py",),
+    "nimbus/knowledge.py": ("test_retrieval.py",),
+    "templates/knowledge_retrieval.html": ("test_retrieval.py",),
+    "templates/chat.html": ("test_pages.py",),
+}
+for _module, _tests in PARK_HYBRID_TESTS.items():
+    TESTS_FOR[_module] = tuple(dict.fromkeys((*TESTS_FOR.get(_module, ()), *_tests)))
+
+
+def _fails(copy: Path, test_files: tuple[str, ...], *, strict: bool = False, explain_failure: bool = False) -> bool:
     """
     Whether the unit tests fail in the copy: these test files, or, given none, the whole suite. Tests that run past
-    10 minutes count as failing: the mutation made one wait forever.
+    10 minutes count as failing unless strict. Strict scoped checks reject timeouts and collection errors.
     """
     targets = [f"tests/unit/{name}" for name in test_files]
     # The unit tests, with this same Python: `uv run` started it in the project's environment. The files named are
@@ -2904,18 +3054,28 @@ def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:
             [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", *targets],
             cwd=copy,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=TESTS_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired:
+        if strict:
+            raise RuntimeError("Affected tests timed out; this is not evidence of a caught mutation") from None
         return True
+    if strict and tests.returncode not in {0, 1}:
+        raise RuntimeError(f"Affected tests did not execute successfully:\n{tests.stdout}\n{tests.stderr}")
+    if explain_failure and tests.returncode:
+        print(tests.stdout)
+        print(tests.stderr)
     return tests.returncode != 0
 
 
-def is_caught(mutation: Mutation, copy: Path) -> bool:
+def is_caught(mutation: Mutation, copy: Path, *, affected_tests: tuple[str, ...] | None = None) -> bool:
     """
     Whether the unit tests fail with this mutation in place, in a copy of the project: the module's own test files
-    first, then, if they pass, the whole suite. The copy's file is put back afterwards.
+    first, then, if they pass, the whole suite. Explicit affected tests disable that fallback entirely.
+    The copy's file is put back afterwards.
     """
     path = copy / mutation.file
     original = path.read_text(encoding="utf-8")
@@ -2923,6 +3083,10 @@ def is_caught(mutation: Mutation, copy: Path) -> bool:
         raise RuntimeError(f"{mutation.file} doesn't hold this text exactly once: {mutation.old!r}")
     try:
         path.write_text(original.replace(mutation.old, mutation.new, 1), encoding="utf-8", newline="\n")
+        if affected_tests is not None:
+            if not affected_tests:
+                raise RuntimeError("Scoped mutations require explicit affected test files")
+            return _fails(copy, affected_tests, strict=True)
         test_files = TESTS_FOR.get(mutation.file, ())
         return (bool(test_files) and _fails(copy, test_files)) or _fails(copy, ())
     finally:
@@ -2939,6 +3103,9 @@ def main() -> int:
     parser.add_argument("--parks", action="store_true", help="Check the park rules and affected prompt guards")
     parser.add_argument("--knowledge", action="store_true", help="Check the knowledge browser safeguards")
     parser.add_argument("--retrieval", action="store_true", help="Check the retrieval playground diagnostics")
+    parser.add_argument(
+        "--park-hybrid", action="store_true", help="Check hosted park retrieval with affected tests only"
+    )
     parser.add_argument("--traces", action="store_true", help="Check Activity trace correlation, access and privacy")
     parser.add_argument("--weather-cards", action="store_true", help="Check weather presentation evidence and dates")
     parser.add_argument("--semantic-cache", action="store_true", help="Check weather cache isolation and freshness")
@@ -2987,6 +3154,8 @@ def main() -> int:
                 "hardening foreign browser origins cannot submit inference",
             }
         )
+    if args.park_hybrid:
+        selected = PARK_HYBRID_MUTATIONS
     workers = max(1, int(os.environ.get("MUTATION_WORKERS", "2")))
     with tempfile.TemporaryDirectory(prefix="mut") as scratch:
         # Each worker takes a copy of the project from the queue, and gives it back when its rule is done.
@@ -2995,12 +3164,18 @@ def main() -> int:
             copy = Path(scratch) / str(index)
             shutil.copytree(PROJECT_ROOT, copy, ignore=NOT_COPIED)
             copies.put(copy)
+        if args.park_hybrid:
+            targets = tuple(dict.fromkeys(test for tests in PARK_HYBRID_TESTS.values() for test in tests))
+            if _fails(Path(scratch) / "0", targets, strict=True, explain_failure=True):
+                raise RuntimeError("Affected baseline tests must pass before testing mutations")
 
         def check(mutation: Mutation) -> bool:
             """One rule, in whichever copy is free."""
             copy = copies.get()
             try:
-                return is_caught(mutation, copy)
+                return is_caught(
+                    mutation, copy, affected_tests=PARK_HYBRID_TESTS[mutation.file] if args.park_hybrid else None
+                )
             finally:
                 copies.put(copy)
 

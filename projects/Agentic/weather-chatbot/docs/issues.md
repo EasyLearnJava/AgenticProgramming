@@ -979,3 +979,16 @@ package's code**, **deploying**, or **testing a real API**.
      their code once. The browser (e2e) tests weren't run. Live: ask "Vizag weather" from an en-US browser and look
      for "Answer saved", or the named reason if it's still refused.
 
+181. **A passing hybrid benchmark initially hid worse evidence ordering.** *Live Qdrant comparison and independent
+     review, 10 November.* All 41 case rules passed, but a `0.65` cutoff with equal RRF weights reduced top-1 evidence
+     from 81.6% to 76.3%. A second set exposed a missed clothing paraphrase and unrelated keyword noise; lowering
+     the semantic cutoff alone also admitted an unsupported restaurant question. **Fix:** hosted dense ranks start
+     at `0.30`, but a candidate without a positive BM25 match needs `0.55` cosine to contribute. Weighted RRF uses
+     BM25 weight `1`, semantic weight `0.1` and rank constant `60`. Generic keyword noise and the clothes/clothing
+     expansion were corrected. Playground diagnostics expose both admission thresholds and contributions.
+     **Check:** the real-provider comparator separates BM25, independent semantic-only and hybrid profiles, provider
+     failures, top-1 and MRR@4. The calibrated main set passed 41/41 with hybrid top-1 86.8% and MRR@4 0.930, versus
+     BM25 81.6% and 0.897. The additional set passed 12/12 versus BM25 11/12; both runs had zero provider failures.
+     These questions informed tuning and are regression evidence, not an independent generalization claim or a
+     production check. [Calibration details](technical-details.md#hosted-ranking-calibration-on-10-november-2026).
+

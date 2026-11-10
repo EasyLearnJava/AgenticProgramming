@@ -4,7 +4,7 @@
 {% block knowledge_title %}Retrieval Playground{% endblock %}
 {% block knowledge_heading %}Retrieval Playground{% endblock %}
 {% block knowledge_intro %}
-Ask a question, inspect the matching passages, and see how keyword and semantic relevance determine their ranking.
+Compare keyword and semantic matches, inspect their combined ranking, and read the passages chat receives.
 {% endblock %}
 {% block knowledge_action %}
 <a class="knowledge-button knowledge-secondary" href="/knowledge/chunks">Explore stored chunks →</a>
@@ -40,19 +40,49 @@ Ask a question, inspect the matching passages, and see how keyword and semantic 
       <input id="retrieval-date" type="date" name="visit_date"
         value="{{ retrieval_filters.visit_date or '' }}" aria-describedby="date-hint">
     </div>
+    <div>
+      <label for="retrieval-season">Season (optional)</label>
+      <select id="retrieval-season" name="season" aria-describedby="date-hint">
+        <option value="">Use date or question</option>
+        {% for season in ('spring', 'summer', 'fall', 'winter') %}
+        <option value="{{ season }}"{% if retrieval_filters.season == season %} selected{% endif %}>
+          {{ season|title }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
     <button class="knowledge-button" type="submit">Run retrieval</button>
     <a class="knowledge-reset" href="/knowledge/retrieval">Reset</a>
     <p id="date-hint" class="retrieval-hint retrieval-wide">
-      A date applies the same seasonal filter as chat. Leave it empty to include every season.
+      A date sets the season; an explicit season must agree with it. With both blank, one season named in the
+      question is used. Otherwise, all seasons remain eligible. Year-round guidance is always included.
     </p>
   </form>
-  <p class="retrieval-hint">Uses the chat retriever and local CPU embeddings. No Gemini or weather call is made.</p>
+  <p class="retrieval-hint">Uses the same retriever as chat. Hosted semantic search sends this question to Qdrant.
+    No Gemini or weather call is made.</p>
 </section>
 {% if result and result.diagnostics is defined %}
 {% set diagnostics = result.diagnostics %}
 {% set labels = {
   'retrieved': 'Retrieved', 'below_threshold': 'Below relevance threshold',
+  'needs_keyword_support': 'Needs keyword support or a higher semantic score',
   'result_limit': 'Outside top 4', 'context_limit': 'Context budget exceeded'
+} %}
+{% set provider_labels = {'local': 'Local CPU MiniLM', 'qdrant': 'Qdrant Cloud MiniLM', 'none': 'Not used'} %}
+{% set season_labels = {
+  'date': 'visit date', 'explicit': 'selected season', 'query': 'question', 'none': 'no season'
+} %}
+{% set notices = {
+  'disabled': 'Keyword retrieval is configured for this server. No semantic search was requested.',
+  'not_needed': 'No passages match these destination and season filters. Semantic search was not needed.',
+  'timeout': 'Semantic search exceeded its time limit. This run uses keyword results.',
+  'busy': 'The local semantic worker is busy. This run uses keyword results.',
+  'unconfigured': 'Hosted semantic search is not configured on this server. Keyword results remain available.',
+  'index_mismatch': 'The hosted park index is not ready for this document version. Keyword results remain available.',
+  'invalid_response': 'Semantic search returned an invalid result. This run uses keyword results.',
+  'missing_dependencies': 'Local semantic inference is not installed on this server. Keyword results remain available.',
+  'missing_weights': 'The local embedding model is not available on this server. Keyword results remain available.',
+  'incompatible_model': 'The query and document embedding models do not match. Keyword results remain available.'
 } %}
 <section class="knowledge-panel retrieval-results" aria-labelledby="retrieval-results-title"
   data-retrieval-mode="{{ result.retrieval_mode }}">
@@ -62,15 +92,9 @@ Ask a question, inspect the matching passages, and see how keyword and semantic 
       {{ 'Hybrid retrieval' if result.retrieval_mode == 'hybrid' else 'Keyword-only retrieval' }}
     </span>
   </div>
-  {% if result.retrieval_mode == 'lexical' and diagnostics.candidate_count %}
-  <p class="retrieval-notice">Semantic scoring was unavailable for this run. Ranking uses keyword scores only.
-    {% if result.semantic_status in ('timeout', 'busy') %}
-    The local embedding worker is starting or busy. You can try again shortly.
-    {% elif result.semantic_status == 'disabled' %}
-    This server is configured for keyword retrieval.
-    {% else %}
-    Semantic retrieval is not currently available on this server.
-    {% endif %}</p>
+  {% if result.retrieval_mode == 'lexical' %}
+  <p class="retrieval-notice">{{ notices.get(result.semantic_status,
+    'Semantic search is unavailable for this run. Keyword results remain available.') }}</p>
   {% endif %}
   <dl class="retrieval-summary">
     <div><dt>Destination</dt><dd>{{ result.destination.name }}</dd></div>
@@ -78,20 +102,35 @@ Ask a question, inspect the matching passages, and see how keyword and semantic 
     <div><dt>Chunks retrieved</dt><dd>{{ result.passages|length }} / {{ diagnostics.max_passages }}</dd></div>
     <div><dt>Retrieval time</dt><dd>{{ elapsed_ms }} ms</dd></div>
   </dl>
-  <p class="retrieval-hint">Season: {{ diagnostics.season or 'All seasons' }} ·
-    Context: {{ diagnostics.context_chars }} / {{ diagnostics.max_context_chars }} characters ·
-    Model: {{ catalog.embedding_model.split('@')[0].split('/')[-1] or 'No model' }}</p>
+  <p class="retrieval-hint">Season: {{ diagnostics.season|title if diagnostics.season else 'All seasons' }}
+    ({{ season_labels.get(diagnostics.season_source, 'no season') }}) ·
+    Context: {{ diagnostics.context_chars }} / {{ diagnostics.max_context_chars }} characters</p>
+  <p class="retrieval-hint">Semantic provider: {{ provider_labels.get(result.semantic_provider, 'Not used') }}
+    {% if result.semantic_model %} · Model: {{ result.semantic_model }}{% endif %}</p>
+  {% if result.semantic_provider == 'qdrant' %}
+  <p class="retrieval-hint">Hosted similarity uses Qdrant's vectors.
+    The Chunks &amp; vectors page shows the separately built local index.</p>
+  {% endif %}
+  <p class="retrieval-hint"><strong>Keyword terms used:</strong>
+    {% if diagnostics.keyword_terms %}{{ diagnostics.keyword_terms|join(', ') }}{% else %}None{% endif %}.
+    Common words and destination names are removed; fixed vocabulary rules add related terms.</p>
   <details class="retrieval-explanation">
     <summary>How to read the scores</summary>
-    <p><strong>Keyword score</strong> is the raw BM25-style score.
-      <strong>Keyword contribution</strong> compresses it with <code>keyword / (1 + keyword)</code>.</p>
-    <p><strong>Semantic score</strong> is cosine similarity using all {{ catalog.dimensions }} vector dimensions,
-      from −1 to 1. “Not available” means it was not computed, rather than a similarity of zero.</p>
-    <p><strong>Final score = keyword contribution + semantic score.</strong>
-      A missing semantic score contributes nothing. In keyword-only mode, the final score is just the keyword
-      contribution. Scores are not probabilities.</p>
-    <p>A chunk qualifies with a positive keyword score or semantic similarity of at least
-      {{ diagnostics.semantic_threshold }}. Qualified chunks are ranked by final score, with chunk ID breaking ties.
+    <p><strong>Keyword score</strong> is the raw BM25-style score, based on matching terms, rarity and passage length.
+      Each retrieval method ranks its qualifying passages independently.</p>
+    <p><strong>Semantic score</strong> is cosine similarity from −1 to 1.
+      “Not returned” means the hosted search did not return that candidate; “Not available” means no score is
+      available for this run. Neither means a measured zero.</p>
+    <p><strong>Reciprocal Rank Fusion (RRF)</strong> combines those ranks:
+      BM25 contributes <code>{{ diagnostics.keyword_weight }} / ({{ diagnostics.rrf_k }} + rank)</code>;
+      semantic contributes <code>{{ diagnostics.semantic_weight }} / ({{ diagnostics.rrf_k }} + rank)</code>.
+      Without a BM25 match, a semantic score must also reach
+      {{ diagnostics.standalone_semantic_threshold }} before it contributes.
+      <strong>Final score = keyword contribution + semantic contribution.</strong>
+      Keyword-only results use the keyword contribution. Scores measure relevance, not correctness or confidence.</p>
+    <p>Semantic ranking starts at {{ diagnostics.semantic_threshold }}. A chunk qualifies for the answer with a
+      positive keyword score or semantic similarity of at least {{ diagnostics.standalone_semantic_threshold }}.
+      Qualified chunks are ranked by final score, with chunk ID breaking ties.
       Chat takes up to {{ diagnostics.max_passages }} chunks within its character budget.</p>
   </details>
   {% if not result.passages %}
@@ -106,7 +145,8 @@ Ask a question, inspect the matching passages, and see how keyword and semantic 
       <caption class="visually-hidden">Actual keyword, semantic and combined scores for eligible chunks</caption>
       <thead><tr><th scope="col">Rank</th><th scope="col">Chunk / source</th>
         <th scope="col">Keyword score</th><th scope="col">Keyword contribution</th>
-        <th scope="col">Semantic score</th><th scope="col">Final score</th><th scope="col">Decision</th></tr></thead>
+        <th scope="col">Semantic score</th><th scope="col">Semantic contribution</th>
+        <th scope="col">Final score</th><th scope="col">Decision</th></tr></thead>
       <tbody>{% for item in diagnostics.candidates %}
       <tr data-chunk="{{ item.chunk.id }}" data-selection="{{ item.selection }}"
         {% if item.selection == 'retrieved' %} class="knowledge-row-selected"{% endif %}>
@@ -119,11 +159,16 @@ Ask a question, inspect the matching passages, and see how keyword and semantic 
           {% endif %}
           <span>{{ item.chunk.title }}</span><code>{{ item.chunk.id }}</code>
         </th>
-        <td class="retrieval-score">{{ '%.4f'|format(item.keyword_score) }}</td>
+        <td class="retrieval-score">{{ '%.4f'|format(item.keyword_score) }}
+          <span class="retrieval-branch-rank">Rank {{ item.keyword_rank or '—' }}</span></td>
         <td class="retrieval-score">{{ '%.4f'|format(item.keyword_component) }}</td>
         <td class="retrieval-score">
-          {{ '%.4f'|format(item.semantic_score) if item.semantic_score is not none else 'Not available' }}
+          {% if item.semantic_score is not none %}{{ '%.4f'|format(item.semantic_score) }}
+          {% elif result.semantic_provider == 'qdrant' and result.semantic_status == 'ready' %}Not returned
+          {% else %}Not available{% endif %}
+          <span class="retrieval-branch-rank">Rank {{ item.semantic_rank or '—' }}</span>
         </td>
+        <td class="retrieval-score">{{ '%.4f'|format(item.semantic_component) }}</td>
         <td class="retrieval-score"><strong>{{ '%.4f'|format(item.final_score) }}</strong></td>
         <td><span class="retrieval-decision">{{ labels[item.selection] }}</span></td>
       </tr>{% endfor %}</tbody>
@@ -148,7 +193,9 @@ Ask a question, inspect the matching passages, and see how keyword and semantic 
     <p class="knowledge-document-id">{{ item.chunk.id }} · Source updated:
       {{ item.chunk.source_updated_at or 'Not provided' }} · Retrieved: {{ item.chunk.fetched_at[:10] }}</p>
     <div class="knowledge-card-links">
-      <a href="{{ chunk_url(item.chunk.id, knowledge_filters) }}">Inspect chunk &amp; vector →</a>
+      <a href="{{ chunk_url(item.chunk.id, knowledge_filters) }}">
+        {{ 'Inspect source chunk →' if result.semantic_provider == 'qdrant' else 'Inspect chunk & vector →' }}
+      </a>
       <a href="{{ item.chunk.source_url }}" target="_blank" rel="noopener noreferrer">Official source ↗
         <span class="visually-hidden"> (opens in a new tab)</span></a>
     </div>

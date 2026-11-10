@@ -5,17 +5,17 @@ from collections import defaultdict
 from datetime import date
 from functools import lru_cache
 from time import perf_counter
-from typing import Any, Literal
+from typing import Any, Literal, Self
 from urllib.parse import urlencode
 
 import structlog
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from nimbus.forms import read_form_fields
 from nimbus.pages import render_page
-from nimbus.parks import ParkKnowledge
+from nimbus.parks import ParkKnowledge, to_season
 from nimbus.retrieval_gate import RetrievalGate
 
 router = APIRouter()
@@ -34,18 +34,26 @@ class KnowledgeFilters(BaseModel):
 
 
 class RetrievalFilters(BaseModel):
-    """A bounded question and explicit destination, with an optional valid date for the existing season filter."""
+    """A bounded question and destination, with an optional date or explicit season that must agree."""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     q: str = Field(default="", max_length=1000)
     destination: str = Field(default="", max_length=101, pattern=r"^[a-z0-9_-]*$")
     visit_date: date | None = None
+    season: Literal["winter", "spring", "summer", "fall"] | None = None
 
-    @field_validator("visit_date", mode="before")
+    @field_validator("visit_date", "season", mode="before")
     @classmethod
-    def empty_date(cls, value: object) -> object:
-        """An empty HTML date field means no seasonal filtering."""
+    def empty_optional(cls, value: object) -> object:
+        """Empty HTML fields leave date and season inference to the shared retriever."""
         return None if value == "" else value
+
+    @model_validator(mode="after")
+    def consistent_season(self) -> Self:
+        """Reject contradictory explicit inputs before any semantic request can leave the server."""
+        if self.visit_date and self.season and to_season(self.visit_date) != self.season:
+            raise ValueError("The visit date and season must agree")
+        return self
 
 
 def read_filters(request: Request) -> KnowledgeFilters:
@@ -233,7 +241,7 @@ async def retrieval_playground(request: Request) -> HTMLResponse:
 
 async def read_retrieval_request(request: Request) -> RetrievalFilters:
     """Read one small URL-encoded body, rejecting foreign origins, duplicate fields and invalid values."""
-    fields = await read_form_fields(request, max_bytes=16_384, max_fields=3)
+    fields = await read_form_fields(request, max_bytes=16_384, max_fields=4)
     try:
         filters = RetrievalFilters.model_validate(fields)
         if not filters.q or not filters.destination:
@@ -280,7 +288,9 @@ async def render_retrieval(request: Request, filters: RetrievalFilters) -> HTMLR
     # ② Reuse the shared service and its existing embedding deadline, scope rules, fusion and context limits.
     if filters.q and enabled:
         started = perf_counter()
-        context["result"] = await service.search(filters.destination, filters.q, filters.visit_date, explain=True)
+        context["result"] = await service.search(
+            filters.destination, filters.q, filters.visit_date, explain=True, season=filters.season
+        )
         context["elapsed_ms"] = round((perf_counter() - started) * 1000)
         structlog.get_logger().info(
             "knowledge.call",
@@ -288,6 +298,7 @@ async def render_retrieval(request: Request, filters: RetrievalFilters) -> HTMLR
             status=context["result"]["status"],
             ms=context["elapsed_ms"],
             indexVersion=service.index_version,
+            **({"traceId": context["result"]["trace_id"]} if context["result"].get("trace_id") else {}),
         )
     response = render_page(request, "knowledge_retrieval.html", context)
     response.headers["cache-control"] = "no-store"

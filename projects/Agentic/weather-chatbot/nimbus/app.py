@@ -62,7 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.chat_model = make_chat_model(settings)
     app.state.tracer = make_tracer(settings)
     # Public, reviewed park guidance, independently replaceable in tests and disabled with PARKS_ENABLED=false.
-    app.state.park_knowledge = make_park_knowledge(settings)
+    app.state.park_knowledge = make_park_knowledge(settings, tracer=app.state.tracer)
     app.state.retrieval_gate = RetrievalGate()
     app.state.nps_alerts = NpsAlertsService(settings.nps_api_key)
     app.state.nws_alerts = NwsAlertsService()

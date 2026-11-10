@@ -34,6 +34,7 @@ class ParkCase(BaseModel):
     document_ids: list[str] = Field(default_factory=list)
     evidence_terms: list[str] = Field(default_factory=list)
     max_evidence_rank: int = Field(default=4, ge=1, le=4)
+    forbidden_sections: list[str] = Field(default_factory=list)
 
 
 class ParkResult(BaseModel):
@@ -95,6 +96,8 @@ def grade_retrieval(case: ParkCase, result: dict[str, Any]) -> list[str]:
     # ② A relevant-sounding paragraph from another trail is still wrong.
     if any(case.destination_id not in passage.get("destination_ids", []) for passage in passages):
         misses.append("passage belongs to another destination")
+    if any(passage.get("section") in case.forbidden_sections for passage in passages):
+        misses.append("passage belongs to an excluded season or section")
     # ③ Source and evidence must occur together; finding each in unrelated passages does not pass.
     rank = evidence_rank(case, result)
     if rank is None:
@@ -176,13 +179,15 @@ def main() -> int:
     knowledge = ParkKnowledge(args.index) if args.lexical_only else make_park_knowledge(settings)
     if knowledge is None:
         raise ValueError("Park knowledge is disabled")
-    if not args.lexical_only and knowledge.semantic_status == "ready":
+    if not args.lexical_only and knowledge.semantic_provider == "local" and knowledge.semantic_status == "ready":
         # The CLI can warm up outside a chat deadline, so this evaluation measures semantic retrieval from case one.
         encoder = cached_encoder(settings.parks_model_cache, settings.parks_model_revision)
         try:
             encoder.encode(["Park preparation"])
         except (OSError, ValueError):
             print("Cached MiniLM weights unavailable; evaluating keyword fallback.")
+    elif not args.lexical_only and knowledge.semantic_provider == "qdrant":
+        print("Evaluating hosted park retrieval; per-case modes identify any keyword fallback.")
     elif not args.lexical_only:
         print("Semantic retrieval is not configured; evaluating the keyword profile.")
     results = asyncio.run(run_cases(knowledge, read_cases(args.cases)))

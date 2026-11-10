@@ -11,13 +11,14 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Annotated, Any, Protocol
+from typing import Annotated, Any, Protocol, Self
 
 import structlog
 from langchain_core.tools import StructuredTool, ToolException
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from nimbus.nps_alerts import PARKS, AlertsCallRecord, AlertsReport, NpsAlertsService, ParkId
+from nimbus.park_ranking import VisitSeason, resolve_season
 from nimbus.utils import checked_source_url, to_ms
 
 PARK_TOOL_SECONDS = 6.0
@@ -57,7 +58,9 @@ class KnowledgeService(Protocol):
         """Return verified destination candidates or an explicit coverage limitation."""
         ...
 
-    async def search(self, destination_id: str, query: str, visit_date: date | None = None) -> dict[str, Any]:
+    async def search(
+        self, destination_id: str, query: str, visit_date: date | None = None, *, season: VisitSeason | None = None
+    ) -> dict[str, Any]:
         """Return a bounded collection of cited passages for a verified destination."""
         ...
 
@@ -91,6 +94,16 @@ class SearchParkGuidanceInput(_ParkInput):
         description="The user's weather-related preparation question, with the activity or equipment topic."
     )
     visit_date: date | None = Field(default=None, description="The intended visit date as YYYY-MM-DD, when known.")
+    season: VisitSeason | None = Field(
+        default=None,
+        description="The explicitly requested season, when no exact visit date is known. Never invent a date.",
+    )
+
+    @model_validator(mode="after")
+    def consistent_season(self) -> Self:
+        """Reject contradictory explicit date and season filters before calling either retriever."""
+        resolve_season(self.query, self.visit_date, self.season)
+        return self
 
 
 class ParkAlertsInput(_ParkInput):
@@ -250,14 +263,16 @@ def make_park_tools(knowledge: KnowledgeService) -> list[StructuredTool]:
         return await resolve_park(knowledge, query)
 
     async def search(
-        destination_id: str, query: str, visit_date: date | None = None
+        destination_id: str, query: str, visit_date: date | None = None, season: VisitSeason | None = None
     ) -> tuple[str, KnowledgeCallRecord]:
         """Find supporting passages, bounded by destination and date."""
-        params = SearchParkGuidanceInput(destination_id=destination_id, query=query, visit_date=visit_date)
+        params = SearchParkGuidanceInput(
+            destination_id=destination_id, query=query, visit_date=visit_date, season=season
+        )
 
         async def run() -> dict[str, Any]:
             """Retrieve guidance using validated inputs."""
-            return await knowledge.search(params.destination_id, params.query, params.visit_date)
+            return await knowledge.search(params.destination_id, params.query, params.visit_date, season=params.season)
 
         return await _run_knowledge("search_park_guidance", run)
 
@@ -279,7 +294,8 @@ def make_park_tools(knowledge: KnowledgeService) -> list[StructuredTool]:
             name="search_park_guidance",
             description=(
                 "Search official preparation guidance for a destination_id returned by resolve_destination. "
-                "Include visit_date when known. Returns cited passages and source dates, not live closures, alerts "
+                "Include visit_date when known, or season when only a season was requested; never invent a date. "
+                "Returns cited passages and source dates, not live closures, alerts "
                 "or river conditions. Use for weather-related clothing, equipment and seasonal preparation."
             ),
             args_schema=SearchParkGuidanceInput,

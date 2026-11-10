@@ -21,6 +21,110 @@ PROJECTS = [{"id": str(PROJECT), "name": "weather"}]
 PRIVATE = "private visitor text and credential"
 
 
+def test_park_retrieval_root_projects_safe_provider_mode_and_stage_counts(traced: Settings) -> None:
+    """A completed lexical fallback retains its failed semantic stage and truthful operation metadata."""
+    root_metadata = {
+        "retrieval_outcome": "found",
+        "retrieval_mode": "lexical",
+        "retrieval_provider": "qdrant",
+        "retrieval_candidates": 12,
+        "retrieval_selected": 4,
+        "retrieval_season_source": "query",
+        "question": PRIVATE,
+        "chunks": PRIVATE,
+        "api_key": PRIVATE,
+    }
+    view = with_runs(
+        traced,
+        span(name="parks.retrieval", metadata=root_metadata),
+        span(UUID(int=801), name="parks.bm25", metadata={"retrieval_outcome": "ready", "retrieval_candidates": 12}),
+        span(
+            UUID(int=802),
+            name="parks.semantic",
+            status="ERROR",
+            metadata={"retrieval_outcome": "index_mismatch", "retrieval_provider": "qdrant"},
+        ),
+        span(UUID(int=803), name="parks.fusion", metadata={"retrieval_outcome": "found", "retrieval_selected": 4}),
+    )
+    assert view.status == "ready"
+    root, keyword, semantic, fusion = view.rows
+    assert root.label == "Park guidance retrieval"
+    assert root.kind == "Retrieval"
+    assert root.status == "Completed"
+    assert root.outcome == "Passages found"
+    assert root.retrieval_mode == "BM25 only"
+    assert root.retrieval_provider == "Qdrant hosted MiniLM"
+    assert root.retrieval_candidates == keyword.retrieval_candidates == 12
+    assert root.retrieval_selected == fusion.retrieval_selected == 4
+    assert root.retrieval_season_source == "Question"
+    assert semantic.label == "Qdrant park semantic search"
+    assert semantic.status == "Failed"
+    assert semantic.outcome == "Index version mismatch"
+    assert [row.parent_index for row in view.rows] == [None, 0, 0, 0]
+    assert PRIVATE not in str(view)
+
+
+@pytest.mark.parametrize(
+    ("name", "kind"),
+    [
+        ("parks.retrieval", "TOOL"),
+        ("parks.retrieval", "LLM"),
+        ("parks.unknown", "CHAIN"),
+        ("parks.semantic", "CHAIN"),
+    ],
+)
+def test_only_the_exact_park_retrieval_chain_is_a_public_root(traced: Settings, name: str, kind: str) -> None:
+    """Adding a park root does not authorize arbitrary run names or kinds."""
+    view = with_runs(traced, span(name=name, run_type=kind))
+    assert view.status == "unavailable"
+    assert view.issue == TraceIssue.WRONG_ROOT
+
+
+@pytest.mark.parametrize("value", [True, -1, 1001, 1.2, PRIVATE, {}, None])
+def test_park_metadata_disallows_private_labels_and_noninteger_counts(value: object) -> None:
+    """Provider metadata is reduced before any template can see it."""
+    parsed = trace_view._Span.model_validate(
+        span(
+            name="parks.retrieval",
+            metadata={
+                "retrieval_outcome": PRIVATE,
+                "retrieval_mode": PRIVATE,
+                "retrieval_provider": PRIVATE,
+                "retrieval_season_source": PRIVATE,
+                "retrieval_candidates": value,
+                "retrieval_selected": value,
+                "unapproved_field": PRIVATE,
+            },
+        )
+    )
+    assert parsed.metadata.retrieval_outcome == parsed.metadata.retrieval_mode == ""
+    assert parsed.metadata.retrieval_provider == parsed.metadata.retrieval_season_source == ""
+    assert parsed.metadata.retrieval_candidates is parsed.metadata.retrieval_selected is None
+    assert PRIVATE not in str(parsed)
+
+
+def test_unrelated_spans_cannot_display_park_metadata(traced: Settings) -> None:
+    """Recognized cache, model and generic tool spans cannot masquerade as park retrieval stages."""
+    metadata = {
+        "retrieval_outcome": "found",
+        "retrieval_mode": "hybrid",
+        "retrieval_provider": "qdrant",
+        "retrieval_candidates": 12,
+        "retrieval_selected": 4,
+        "retrieval_season_source": "date",
+    }
+    view = with_runs(
+        traced,
+        span(name="nimbus.chat", metadata=metadata),
+        span(UUID(int=804), name="parks.semantic", run_type="TOOL", metadata=metadata),
+        span(UUID(int=805), name="weather_cache.lookup", metadata=metadata),
+    )
+    for row in view.rows:
+        assert row.retrieval_mode == row.retrieval_provider == row.retrieval_season_source == ""
+        assert row.retrieval_candidates is row.retrieval_selected is None
+        assert row.outcome == ""
+
+
 @pytest.mark.parametrize(
     ("operation", "label"),
     [("read", "Mem0 read"), ("save", "Mem0 save"), ("delete", "Mem0 delete")],

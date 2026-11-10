@@ -58,7 +58,7 @@ or unavailable memory service leaves the ordinary chat and planner available.
 signed browser cookie owns the Qdrant partition; it does not enable preference memory. Nimbus checks an exact
 fingerprint first, then asks Qdrant's hosted `sentence-transformers/all-minilm-l6-v2` model for a semantic match.
 The Free model produces 384-dimensional vectors. The REST adapter adds no local Torch installation or new runtime
-package. The SQLite park-retrieval profile remains separate.
+package. Public park retrieval uses a separate collection and never reads weather-answer cache records.
 
 ![Guarded weather answer reuse and the ordinary model fallback](images/semantic-cache-flow.svg)
 
@@ -74,9 +74,12 @@ An accepted hit renders new cards and a fresh answer reference without replaying
 - **Weather and air quality** come from weather tools. The place, forecast dates and available hours constrain
   what the answer can say. A current observation and a forecast cover different times.
 - **Preparation advice** comes from a versioned SQLite collection built from official NPS pages. Each passage
-  retains its source, section and destination. Follow a passage from the original document to its retrieval
-  score. [Source documents](/knowledge/sources) · [Chunks and vectors](/knowledge/chunks) ·
-  [Retrieval Playground](/knowledge/retrieval).
+  retains its source, section and destination. Optional Qdrant-hosted MiniLM ranks public chunk IDs alongside
+  local BM25; reciprocal rank fusion combines their ranks. Text and citations still come from SQLite. Both
+  branches share destination and season restrictions, and a provider outage leaves a visible BM25 fallback.
+  Follow the actual terms, scores and final ranks in [Retrieval Playground](/knowledge/retrieval), then inspect
+  BM25, semantic and fusion timings in the Activity trace. [Source documents](/knowledge/sources) ·
+  [Chunks and vectors](/knowledge/chunks).
 - **Notices and warnings** come from separate live services. A park-wide NPS closure and an NWS warning for a
   particular point can have different geographic and time boundaries. You can also check current NPS notices
   for a park directly. [Park alerts](/parks/alerts).

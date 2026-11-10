@@ -954,6 +954,30 @@ def to_memory_trace_links(
     return tuple(links)
 
 
+def to_retrieval_trace_link(
+    found: Sequence[tuple[Row, ActivityLine]],
+    settings: Settings | None,
+    ref: str,
+    now: datetime,
+    roots: Counter[str],
+) -> str | None:
+    """Link one standalone Playground operation, rejecting reused IDs and binding age to its measured start."""
+    if settings is None or any(row.get("event") in QUESTION_EVENTS for row, _ in found):
+        return None
+    operations = [(row, line) for row, line in found if row.get("event") == "knowledge.call"]
+    if len(operations) != 1:
+        return None
+    row, line = operations[0]
+    root, duration = to_words(row, "traceId"), row.get("ms")
+    if to_words(row, "tool") != "retrieval_playground" or roots[root] != 1:
+        return None
+    if isinstance(duration, bool) or not isinstance(duration, (int, float)):
+        return None
+    if not 0 <= duration <= 60_000 or line.at > now:
+        return None
+    return trace_url(settings, root, line.at - timedelta(milliseconds=duration), ref, now)
+
+
 def to_summary(rows: Sequence[Row], lines: Sequence[ActivityLine]) -> ActivityLine:
     """
     A request's row: a health run, by how it ended and each check that wasn't answering; a question, by how it ended
@@ -1035,6 +1059,7 @@ def to_activity_requests(
             lines.setdefault(to_words(row, "requestId"), []).append((row, line))
     requests = []
     now = datetime.now(UTC)
+    roots = Counter(to_words(row, "traceId") for row in rows if to_words(row, "traceId"))
     for request_id in request_ids:
         found = sorted(lines.get(request_id, []), key=lambda item: item[1].at)
         if not found:
@@ -1045,10 +1070,10 @@ def to_activity_requests(
         ref = to_ref(request_id)
         memory_traces = to_memory_trace_links(found, settings, ref, now)
         is_chat = any(row.get("event") in QUESTION_EVENTS for row in rows_of)
-        # A server-minted root appears only on a traced chat ending. Ambiguous/reused request IDs have no link.
+        # Chat roots belong to one ending; standalone Playground roots belong to one recorded retrieval.
         endings = [(row, line) for row, line in found if row.get("event") in ENDING_EVENTS]
         beginnings = [line.at for row, line in found if row.get("event") == "chat.request"]
-        href = None
+        href = to_retrieval_trace_link(found, settings, ref, now, roots)
         if settings is not None and len(beginnings) == len(endings) == 1:
             ending, _ = endings[0]
             if ending.get("event") in ("chat.done", "chat.failed", "chat.aborted"):

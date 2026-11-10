@@ -63,7 +63,12 @@ weather, preparation and NPS notices. The NWS decision described above belongs t
   using the same browser profile can manage its preferences. New chat does not clear them.
 - **Park knowledge** ships with the application. The offline builder validates the records before writing
   and replacing the SQLite index. Visitors can inspect source dates, sections and vectors directly.
-  [Inspect the collection](/knowledge/sources).
+  Optional hosted retrieval publishes public chunk vectors and filter metadata to a dedicated Qdrant collection.
+  A versioned readiness marker ties search to the local artifact. Both BM25 and semantic search share park,
+  destination and season filters; RRF merges their ranks, and SQLite remains the source of answer text and links.
+  Hosted queries send the search text to Qdrant, without chat history or preferences. Provider failures retain
+  a visible BM25 fallback. [Inspect the collection](/knowledge/sources) ·
+  [Inspect ranking and traces](technical-details.md#reproduce-a-park-retrieval).
 - **Open-Meteo data** uses separate lifetimes in Vercel's Runtime Cache. A place lookup can be reused for 30 days,
   current weather for 10 minutes, and forecasts and air quality for 30 minutes. A cache failure falls through to an
   upstream request. [Weather cache chapter](step-7.md).

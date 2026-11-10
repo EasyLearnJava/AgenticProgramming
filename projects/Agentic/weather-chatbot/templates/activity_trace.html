@@ -101,6 +101,9 @@
             data-call-kind="{{ row.kind }}" data-call-status="{{ row.status }}" data-start="{{ row.start_exact }}"
             data-duration="{{ row.duration_exact }}"
             data-outcome="{{ row.outcome }}" data-cache-reason="{{ row.cache_reason }}"
+            data-retrieval-mode="{{ row.retrieval_mode }}" data-retrieval-provider="{{ row.retrieval_provider }}"
+            data-retrieval-candidates="{{ row.retrieval_candidates }}" data-retrieval-selected="{{ row.retrieval_selected }}"
+            data-retrieval-season-source="{{ row.retrieval_season_source }}"
             data-score="{{ row.similarity_score }}" data-threshold="{{ row.similarity_threshold }}"
             data-error="{{ row.error or '' }}"{% if loop.first %} data-selected="true"{% endif %}>
             <th scope="row" class="trace-call-cell">
@@ -122,6 +125,7 @@
                   {% if row.outcome %}<span class="trace-cache-outcome">{{ row.outcome }}
                     {% if row.similarity_score %} · Score {{ row.similarity_score }}{% endif %}
                     {% if row.similarity_threshold %} · Cutoff {{ row.similarity_threshold }}{% endif %}</span>{% endif %}
+                  {% if row.retrieval_mode %}<span class="trace-call-meta">{{ row.retrieval_mode }}</span>{% endif %}
                 </div>
               </div>
             </th>
@@ -167,15 +171,26 @@
         <div><dt>Duration</dt><dd data-trace-detail-duration>{{ selected.duration_exact }}</dd></div>
         <div><dt>Started at</dt><dd data-trace-detail-start>{{ selected.start_exact }}</dd></div>
         <div data-trace-field="outcome"{% if not selected.outcome %} hidden{% endif %}>
-          <dt>Cache outcome</dt><dd data-trace-detail-outcome>{{ selected.outcome }}</dd></div>
+          <dt>Outcome</dt><dd data-trace-detail-outcome>{{ selected.outcome }}</dd></div>
         <div data-trace-field="cacheReason"{% if not selected.cache_reason %} hidden{% endif %}>
           <dt>Cache decision</dt><dd data-trace-detail-cacheReason>{{ selected.cache_reason }}</dd></div>
         <div data-trace-field="score"{% if not selected.similarity_score %} hidden{% endif %}>
           <dt>Similarity score</dt><dd data-trace-detail-score>{{ selected.similarity_score }}</dd></div>
         <div data-trace-field="threshold"{% if not selected.similarity_threshold %} hidden{% endif %}>
           <dt>Similarity cutoff</dt><dd data-trace-detail-threshold>{{ selected.similarity_threshold }}</dd></div>
+        <div data-trace-field="retrievalMode"{% if not selected.retrieval_mode %} hidden{% endif %}>
+          <dt>Retrieval mode</dt><dd data-trace-detail-retrievalMode>{{ selected.retrieval_mode }}</dd></div>
+        <div data-trace-field="retrievalProvider"{% if not selected.retrieval_provider %} hidden{% endif %}>
+          <dt>Semantic provider</dt><dd data-trace-detail-retrievalProvider>{{ selected.retrieval_provider }}</dd></div>
+        <div data-trace-field="retrievalCandidates"{% if not selected.retrieval_candidates %} hidden{% endif %}>
+          <dt>Candidates</dt><dd data-trace-detail-retrievalCandidates>{{ selected.retrieval_candidates }}</dd></div>
+        <div data-trace-field="retrievalSelected"{% if not selected.retrieval_selected %} hidden{% endif %}>
+          <dt>Selected chunks</dt><dd data-trace-detail-retrievalSelected>{{ selected.retrieval_selected }}</dd></div>
+        <div data-trace-field="retrievalSeasonSource"{% if not selected.retrieval_season_source %} hidden{% endif %}>
+          <dt>Season determined by</dt>
+          <dd data-trace-detail-retrievalSeasonSource>{{ selected.retrieval_season_source }}</dd></div>
         <div><dt>Parent</dt><dd data-trace-detail-parent>
-          {{ 'None (trace root)' if selected.kind_slug in ['agent', 'memory']
+          {{ 'None (trace root)' if selected.kind_slug in ['agent', 'memory', 'retrieval']
             else 'Not available in this view' }}</dd></div>
       </dl>
       <div class="trace-inspector-error" data-trace-detail-error{% if not selected.error %} hidden{% endif %}

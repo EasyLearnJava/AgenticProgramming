@@ -1,0 +1,310 @@
+{
+  "at": "2026-11-10T15:08:42.430873+00:00",
+  "index_version": "d93691d32a848853",
+  "policy": {
+    "model": "sentence-transformers/all-minilm-l6-v2",
+    "embedding_profile": "nimbus-park-minilm-title-section-text-v1",
+    "dense_baseline": "candidate_cutoff_without_keyword_gate",
+    "semantic_candidate_cutoff": 0.3,
+    "semantic_only_admission_cutoff": 0.55,
+    "rrf_k": 60,
+    "keyword_weight": 1.0,
+    "semantic_weight": 0.1
+  },
+  "provider_failures": 0,
+  "quality_regressions": [],
+  "summary": {
+    "lexical": {
+      "passed": 11,
+      "cases": 12,
+      "recall_at_4": 0.8333333333333334,
+      "top_1": 0.6666666666666666,
+      "mrr_at_4": 0.7222222222222222
+    },
+    "semantic": {
+      "passed": 11,
+      "cases": 12,
+      "recall_at_4": 1.0,
+      "top_1": 0.5,
+      "mrr_at_4": 0.75
+    },
+    "hybrid": {
+      "passed": 12,
+      "cases": 12,
+      "recall_at_4": 1.0,
+      "top_1": 0.6666666666666666,
+      "mrr_at_4": 0.8055555555555555
+    }
+  },
+  "cases": [
+    {
+      "id": "regression-narrows-cold-wading",
+      "semantic_status": "ready",
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "regression-narrows-shoes",
+      "semantic_status": "ready",
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        }
+      }
+    },
+    {
+      "id": "regression-narrows-balance",
+      "semantic_status": "ready",
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "regression-narrows-dry-spares",
+      "semantic_status": "ready",
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": false,
+          "misses": [
+            "supporting passage missing"
+          ],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        }
+      }
+    },
+    {
+      "id": "regression-mist-slippery",
+      "semantic_status": "ready",
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "regression-zion-cold-months",
+      "semantic_status": "ready",
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "regression-restaurants",
+      "semantic_status": "ready",
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": false,
+          "misses": [
+            "expected not_found, got found",
+            "unexpected passages"
+          ],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "regression-wireless",
+      "semantic_status": "ready",
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "regression-ev",
+      "semantic_status": "ready",
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "regression-cinema",
+      "semantic_status": "ready",
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "regression-atm",
+      "semantic_status": "ready",
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "regression-shipping",
+      "semantic_status": "ready",
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    }
+  ]
+}

@@ -64,9 +64,11 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
   Preview configuration remains on [Waiting on you](waiting-on-you.md#3-vercels-environment-variables).
 
 - **Park guidance, step 16:** review source changes before publishing a new index and rerun the retrieval benchmark.
-  The hosted profile uses keyword retrieval; optional local CPU MiniLM needs no Google embedding key. Validate the
-  clean Linux/Vercel bundle in a preview before production, verify the `/api/` edge rate limit, and run all 18 live
-  answer goldens (including five park cases) with Gemini configured.
+  Optional Qdrant-hosted MiniLM now combines with BM25 through the shared ranker; local CPU MiniLM remains available.
+  Compare BM25, semantic-only and fused evidence with `tools.eval_park_hybrid`, including ranking quality and
+  abstention. A provider fallback must not pass as a working hybrid setup. Validate the clean Linux/Vercel bundle,
+  `/api/` edge rate limit, Playground trace and live answer goldens on the exact preview build. Hosted settings
+  are on [Waiting on you](waiting-on-you.md#qdrant-hybrid-park-retrieval).
 
 The rebuild is complete (step 13); these could come after it.
 

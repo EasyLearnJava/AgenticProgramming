@@ -18,6 +18,7 @@ from nimbus.chat import render_part
 from nimbus.chips import ToolChip
 from nimbus.config import Settings
 from nimbus.lanes import LANES, Lane
+from nimbus.park_ranking import VisitSeason
 from nimbus.park_tools import (
     KnowledgeCallRecord,
     ResolveDestinationInput,
@@ -129,7 +130,9 @@ class FakeKnowledge:
         """Return a resolved destination without a network call."""
         return {"status": "resolved", "candidates": [{"id": "zion-narrows"}], "index_version": "test-1"}
 
-    async def search(self, destination_id: str, query: str, visit_date: date | None = None) -> dict[str, Any]:
+    async def search(
+        self, destination_id: str, query: str, visit_date: date | None = None, *, season: VisitSeason | None = None
+    ) -> dict[str, Any]:
         """Record the query and return one cited passage, unless told to fail."""
         self.calls.append((destination_id, query, visit_date))
         await asyncio.sleep(self.delay)

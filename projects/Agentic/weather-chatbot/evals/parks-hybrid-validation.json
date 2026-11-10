@@ -1,0 +1,89 @@
+[
+  {
+    "id": "validation-narrows-support",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "Is a walking pole useful for staying upright on slippery rocks?",
+    "document_ids": [
+      "zion-narrows-safety",
+      "zion-narrows-bottom-up"
+    ],
+    "evidence_terms": [
+      "stick|pole"
+    ]
+  },
+  {
+    "id": "validation-narrows-sandals",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "Can I wear sandals when walking in the river?",
+    "document_ids": [
+      "zion-narrows-safety",
+      "zion-narrows-bottom-up"
+    ],
+    "evidence_terms": [
+      "sandals|closed.toe"
+    ]
+  },
+  {
+    "id": "validation-narrows-cool-spring",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What extra layers are needed when the river is chilly in spring?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "neoprene"
+    ],
+    "forbidden_sections": [
+      "Winter"
+    ]
+  },
+  {
+    "id": "validation-narrows-spare-outfit",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "How should I protect my extra outfit if I fall in the water?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "waterproof"
+    ]
+  },
+  {
+    "id": "validation-mist-steps",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "Should I prepare for wet stone steps and spray on this hike in spring?",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "slippery|spray"
+    ]
+  },
+  {
+    "id": "validation-restaurant",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Is there a pizza restaurant by the trail?",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "validation-wireless",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Does the trail have public Wi-Fi?",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "validation-lodging",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Which hotel has the cheapest rooms?",
+    "expected_status": "not_found"
+  }
+]
+

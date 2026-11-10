@@ -219,3 +219,34 @@ def test_qdrant_bypass_reason_is_shown_without_a_cache_call(page: Page, base_url
     expect(page.locator("[data-trace-detail-outcome]")).to_have_text("Bypassed")
     expect(page.locator("[data-trace-detail-cacheReason]")).to_have_text("Conversation could not be verified")
     expect(page.locator("[data-trace-field='score']")).to_be_hidden()
+
+
+@pytest.mark.parametrize("width", [360, 1280])
+def test_park_retrieval_mode_and_failed_semantic_fallback_are_clear(
+    page: Page, base_url: str, width: int, tmp_path: Path
+) -> None:
+    """Park traces show operational evidence while keeping fallback success distinct from a failed stage."""
+    page.set_viewport_size({"width": width, "height": 900})
+    page.goto(f"{base_url}/activity")
+    request = page.locator("details.obs-details").filter(has_text="Ref aaaaaaaa")
+    request.locator("summary").click()
+    request.get_by_role("link", name="View LangSmith trace for request aaaaaaaa").click()
+    expect(page.locator(".trace-row")).to_have_count(4)
+    expect(page.locator(".trace-metric-primary")).to_contain_text("350 ms")
+    expect(page.locator(".trace-metric-primary")).to_contain_text("Completed")
+    expect(page.locator(".trace-metric").filter(has_text="Model calls")).to_contain_text("0")
+    expect(page.locator("[data-trace-detail-retrievalMode]")).to_have_text("BM25 only")
+    expect(page.locator("[data-trace-detail-retrievalProvider]")).to_have_text("Qdrant hosted MiniLM")
+    expect(page.locator("[data-trace-detail-retrievalCandidates]")).to_have_text("12")
+    expect(page.locator("[data-trace-detail-retrievalSelected]")).to_have_text("4")
+    expect(page.locator("[data-trace-detail-retrievalSeasonSource]")).to_have_text("Question")
+    semantic = page.locator(".trace-row").filter(has_text="Qdrant park semantic search")
+    semantic.locator("[data-trace-select]").click()
+    expect(page.locator("[data-trace-detail-outcome]")).to_have_text("Index version mismatch")
+    expect(page.locator("[data-trace-detail-status]")).to_have_text("Failed")
+    expect(page.locator("[data-trace-detail-parent]")).to_have_text("Park guidance retrieval")
+    expect(page.locator("[data-trace-field='retrievalCandidates']")).to_be_hidden()
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    audit = Axe().run(page)
+    assert audit.violations_count == 0, audit.generate_report()
+    page.screenshot(path=str(tmp_path / f"park-trace-{width}.png"), full_page=True)

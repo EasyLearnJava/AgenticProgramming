@@ -110,7 +110,14 @@
 }
 
 .retrieval-table {
-  min-width: 920px;
+  min-width: 1080px;
+}
+
+.retrieval-branch-rank {
+  display: block;
+  margin-top: 4px;
+  color: #52645f;
+  font-size: 0.7rem;
 }
 
 .retrieval-table .retrieval-chunk-cell {

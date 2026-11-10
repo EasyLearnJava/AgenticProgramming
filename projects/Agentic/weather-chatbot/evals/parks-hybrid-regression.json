@@ -1,0 +1,122 @@
+[
+  {
+    "id": "regression-narrows-cold-wading",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "How do I dress for wading in cold water in spring?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "neoprene"
+    ],
+    "forbidden_sections": [
+      "Winter"
+    ]
+  },
+  {
+    "id": "regression-narrows-shoes",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "Would flip-flops give enough support on the riverbed?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "ankle"
+    ]
+  },
+  {
+    "id": "regression-narrows-balance",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What can help me keep my balance crossing the stream?",
+    "document_ids": [
+      "zion-narrows-safety",
+      "zion-narrows-bottom-up"
+    ],
+    "evidence_terms": [
+      "stick|pole"
+    ]
+  },
+  {
+    "id": "regression-narrows-dry-spares",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "How do I stop my backup clothes from getting wet?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "waterproof"
+    ]
+  },
+  {
+    "id": "regression-mist-slippery",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "Can the steps by the waterfall get slick in May?",
+    "visit_date": "2027-05-15",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "slippery|spray"
+    ]
+  },
+  {
+    "id": "regression-zion-cold-months",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "What temperatures and precipitation should I prepare for in winter?",
+    "document_ids": [
+      "zion-seasons"
+    ],
+    "evidence_terms": [
+      "snow|winter"
+    ]
+  },
+  {
+    "id": "regression-restaurants",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Which restaurant serves vegan pizza near Zion?",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "regression-wireless",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Where can I find free Wi-Fi?",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "regression-ev",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Where can I charge my electric vehicle?",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "regression-cinema",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Which cinema is screening a movie tonight?",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "regression-atm",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Where is the closest ATM?",
+    "expected_status": "not_found"
+  },
+  {
+    "id": "regression-shipping",
+    "destination": "Zion",
+    "destination_id": "zion",
+    "query": "Where can I mail a parcel?",
+    "expected_status": "not_found"
+  }
+]
+

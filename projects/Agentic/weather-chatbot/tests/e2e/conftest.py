@@ -8,7 +8,7 @@ import asyncio
 import socket
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -25,12 +25,35 @@ from nimbus.config import Settings
 from nimbus.nps_alerts import NpsAlertsService
 from nimbus.nws_alerts import NwsAlertsService
 from nimbus.observability import get_activity_trace_reader
+from nimbus.park_semantic import PARK_MODEL, SemanticResult
+from nimbus.parks import ParkKnowledge
 from nimbus.trace_view import TraceRow, TraceView
 from tests.fakes import PARIS_STEPS, AxiomRecordings, FakeCacheStore, FakeModel, OpenMeteoRecordings
 from tests.travel_fakes import travel_service
 
 STARTUP_SECONDS = 10
 POLL_SECONDS = 0.05
+
+
+class HostedParkScores:
+    """One deterministic hosted score exercises the actual ranking and UI without contacting Qdrant."""
+
+    provider = "qdrant"
+    model = PARK_MODEL
+    configured = True
+
+    async def search(
+        self,
+        query: str,
+        *,
+        index_version: str,
+        park_id: str,
+        destination_id: str,
+        season: str | None,
+        eligible: Mapping[str, str],
+    ) -> SemanticResult:
+        """Return one eligible public ID, leaving the other candidates' semantic scores genuinely absent."""
+        return SemanticResult("ready", {sorted(eligible)[0]: 0.84} if eligible else {})
 
 
 def trace_recordings(app: FastAPI) -> AxiomRecordings:
@@ -40,6 +63,7 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
     partial = UUID("3edb2101-262d-41ad-ba41-d71c8c9d128e")
     cache = UUID("8edb2101-262d-41ad-ba41-d71c8c9d128e")
     bypass = UUID("9edb2101-262d-41ad-ba41-d71c8c9d128e")
+    park = UUID("aedb2101-262d-41ad-ba41-d71c8c9d128e")
     memory_traces = {
         "memory-read-55555555": (UUID("4edb2101-262d-41ad-ba41-d71c8c9d128e"), "read", "ready"),
         "memory-save-66666666": (UUID("5edb2101-262d-41ad-ba41-d71c8c9d128e"), "save", "ready"),
@@ -53,10 +77,66 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
         "partial-44444444": partial,
         "cache-88888888": cache,
         "bypass-99999999": bypass,
+        "park-aaaaaaaa": park,
     }
     now = datetime.now(UTC).isoformat()
 
     async def fake_reader(_settings: Settings, trace_id: UUID) -> TraceView:
+        if trace_id == park:
+            return TraceView(
+                "ready",
+                (
+                    TraceRow(
+                        "Park guidance retrieval",
+                        "Retrieval",
+                        350,
+                        0,
+                        0,
+                        "Completed",
+                        outcome="Passages found",
+                        retrieval_mode="BM25 only",
+                        retrieval_provider="Qdrant hosted MiniLM",
+                        retrieval_candidates=12,
+                        retrieval_selected=4,
+                        retrieval_season_source="Question",
+                    ),
+                    TraceRow(
+                        "Park BM25 search",
+                        "Step",
+                        2,
+                        1,
+                        1,
+                        "Completed",
+                        parent_index=0,
+                        outcome="Ready",
+                        retrieval_candidates=12,
+                    ),
+                    TraceRow(
+                        "Qdrant park semantic search",
+                        "Step",
+                        330,
+                        3,
+                        1,
+                        "Failed",
+                        parent_index=0,
+                        error="Step reported an error.",
+                        outcome="Index version mismatch",
+                        retrieval_provider="Qdrant hosted MiniLM",
+                    ),
+                    TraceRow(
+                        "Park rank fusion",
+                        "Step",
+                        1,
+                        335,
+                        1,
+                        "Completed",
+                        parent_index=0,
+                        outcome="Passages found",
+                        retrieval_mode="BM25 only",
+                        retrieval_selected=4,
+                    ),
+                ),
+            )
         for identifier, action, outcome in memory_traces.values():
             if trace_id == identifier:
                 label = "delete" if action == "forget" else action
@@ -217,7 +297,19 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
                     "traceId": str(trace_id) if trace_id and event == "chat.done" else None,
                 }
                 for key, trace_id in traces.items()
+                if trace_id != park
                 for event in ("chat.request", "chat.done")
+            ]
+            + [
+                {
+                    "requestId": "park-aaaaaaaa",
+                    "_time": now,
+                    "event": "knowledge.call",
+                    "tool": "retrieval_playground",
+                    "status": "found",
+                    "ms": 350,
+                    "traceId": str(park),
+                }
             ]
             + [
                 {
@@ -315,8 +407,14 @@ def base_url(
         nps_api_key=None,
         flights_enabled=getattr(request, "param", None) in {"travel", "flights-only", "observability"},
         hotels_enabled=getattr(request, "param", None) in {"travel", "observability"},
+        parks_semantic_provider="qdrant" if getattr(request, "param", None) == "park-hybrid" else "local",
+        parks_retrieval_mode="hybrid" if getattr(request, "param", None) == "park-hybrid" else "auto",
     )
     app = create_app(settings)
+    if getattr(request, "param", None) == "park-hybrid":
+        app.state.park_knowledge = ParkKnowledge(
+            settings.parks_index_path, semantic_search=HostedParkScores(), semantic_status="ready"
+        )
     app.state.nws_alerts = NwsAlertsService(
         lambda: httpx2.AsyncClient(
             transport=httpx2.MockTransport(

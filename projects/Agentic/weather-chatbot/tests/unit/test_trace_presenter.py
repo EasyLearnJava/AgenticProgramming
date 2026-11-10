@@ -6,6 +6,41 @@ from nimbus.trace_presenter import duration_label, present_trace
 from nimbus.trace_view import TraceRow, TraceView
 
 
+def test_standalone_park_retrieval_is_not_counted_as_a_model_or_weather_tool() -> None:
+    """A no-model retrieval keeps its root duration, scope and zero result count visible."""
+    view = present_trace(
+        TraceView(
+            "ready",
+            (
+                TraceRow(
+                    "Park guidance retrieval",
+                    "Retrieval",
+                    315,
+                    0,
+                    0,
+                    "Completed",
+                    outcome="No matching passages",
+                    retrieval_mode="Hybrid (BM25 + semantic)",
+                    retrieval_provider="Qdrant hosted MiniLM",
+                    retrieval_candidates=12,
+                    retrieval_selected=0,
+                    retrieval_season_source="Question",
+                ),
+                TraceRow("Park BM25 search", "Step", 2, 1, 1, "Completed", parent_index=0),
+            ),
+        )
+    )
+    assert view.duration_ms == 315
+    assert view.status == "Completed"
+    assert view.model_count == view.tool_count == view.memory_count == 0
+    assert view.rows[0].kind_slug == "retrieval"
+    assert view.rows[0].retrieval_mode == "Hybrid (BM25 + semantic)"
+    assert view.rows[0].retrieval_provider == "Qdrant hosted MiniLM"
+    assert view.rows[0].retrieval_candidates == "12"
+    assert view.rows[0].retrieval_selected == "0"
+    assert view.rows[0].retrieval_season_source == "Question"
+
+
 @pytest.mark.parametrize("status", ["Completed", "Failed", "Running"])
 def test_standalone_memory_trace_summarizes_its_own_operation(status: str) -> None:
     """A preference operation does not invent a model call or lose its root duration and status."""

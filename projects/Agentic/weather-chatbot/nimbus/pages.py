@@ -170,6 +170,7 @@ def _render_doc(request: Request) -> HTMLResponse:
 @router.get("/", response_class=HTMLResponse)
 def chat_page(request: Request) -> HTMLResponse:
     """Render the chat form and welcome message with the capabilities enabled on this deployment."""
+    knowledge = request.app.state.park_knowledge
     context = {
         "question_max_chars": QUESTION_MAX_CHARS,
         "stopped": STOPPED,
@@ -181,6 +182,12 @@ def chat_page(request: Request) -> HTMLResponse:
         "history_max_messages": HISTORY_MAX_MESSAGES,
         "history_max_chars": HISTORY_MAX_CHARS,
         "answer_max_chars": HISTORY_ANSWER_MAX_CHARS,
+        "hosted_park_search": bool(
+            knowledge
+            and knowledge.available
+            and knowledge.semantic_provider == "qdrant"
+            and knowledge.semantic_status == "ready"
+        ),
     }
     return render_page(request, "chat.html", context)
 

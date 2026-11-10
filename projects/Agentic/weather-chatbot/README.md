@@ -269,8 +269,10 @@ agent resolves the destination, retrieves applicable source passages and combine
 tools. Source cards identify the documents and their dates. Stored guides do not establish current closures,
 warnings, river levels or water availability. [Step 16](docs/step-16.md) explains the implementation and its limits.
 
-The bundled `data/parks/index.sqlite` contains public passages and 384-dimensional MiniLM vectors. Vercel's default
-profile uses keyword retrieval without importing or installing the ML stack. Local CPU semantic retrieval is optional:
+The bundled `data/parks/index.sqlite` contains public passages and 384-dimensional local MiniLM vectors. Optional
+Qdrant-hosted MiniLM supplies semantic candidates from a separate public park collection; BM25 runs against the same
+scoped SQLite records. Reciprocal rank fusion combines qualifying ranks, and final text/citations remain local.
+Vercel needs no ML packages for hosted retrieval. Local CPU inference remains optional:
 
 ```bash
 uv sync --locked --group ml
@@ -279,21 +281,30 @@ uv run --group ml python -m tools.eval_parks
 uv run python -m tools.eval_parks --lexical-only
 ```
 
-`PARKS_RETRIEVAL_MODE=auto` uses keywords on Vercel and local semantic retrieval only with installed ML dependencies
-and cached pinned weights. `lexical` forces keywords; `hybrid` explicitly opts into a suitably provisioned host.
+For hosted retrieval, set `PARKS_SEMANTIC_PROVIDER=qdrant`, `PARKS_RETRIEVAL_MODE=hybrid`, `QDRANT_URL` and a private
+Qdrant credential in ignored `.env.local`, then run `uv run python -m tools.setup_park_search`. Setup verifies the
+dedicated `nimbus_park_guidance` collection and publishes the artifact's readiness marker. It cannot share the
+weather-cache collection. Optional `PARKS_QDRANT_API_KEY` provides a separate credential; otherwise `QDRANT_API_KEY`
+is used. Hosted queries send the search text to Qdrant without full history or preferences.
+
+With the default `local` provider, `PARKS_RETRIEVAL_MODE=auto` uses BM25 on Vercel and local semantic retrieval only
+with installed ML dependencies and cached pinned weights. `lexical` forces BM25 without semantic calls.
 `PARKS_ENABLED=false` disables park tools and playground execution. Gemini's key remains necessary for chat answers,
 not indexing or retrieval. Review source changes before publishing an index; source fetching never runs during chat.
 
 **Knowledge** opens source documents, the chunk/vector explorer and the Retrieval Playground. The explorer's PCA
 projection uses stored vectors without loading a model. Playground questions submit in bounded POST bodies to
-`/api/knowledge/retrieval`; they never enter generated URLs. Results explain raw keyword scores, semantic scores,
-combined ranks, selected passages and exclusions. A dedicated worker bounds local inference; unavailable semantic
-capability is distinguished from transient startup/busy conditions. Both profiles inspect the same SQLite artifact.
+`/api/knowledge/retrieval`; they never enter generated URLs. Results explain actual keyword terms, BM25/cosine scores,
+branch ranks, RRF contributions, selected passages and exclusions. Date or season restrictions apply before both
+branches. Missing configuration, an index mismatch or a provider error leaves a visible BM25 fallback. Activity's
+linked trace shows BM25, semantic lookup and fusion outcomes without question or passage text. The vector explorer
+plots the SQLite artifact's local vectors, not the separate hosted vectors.
 
-The 41-case retrieval benchmark includes paraphrases, destination conflicts and dated safety advice, and reports
-recall, top-1 evidence and reciprocal rank. The 18 live-answer goldens include five park scenarios. Offline retrieval
-results do not establish Gemini's citation faithfulness or production readiness. Verify a preview and run the
-live-answer checks before releasing changes.
+The retrieval benchmark includes paraphrases, destination conflicts and dated safety advice. Run
+`uv run python -m tools.eval_park_hybrid` to compare BM25, semantic-only and fused evidence with provider failures
+separated from misses. Inspect recall@4, top-1 and MRR@4; a top-four pass does not establish a ranking improvement.
+The live-answer goldens separately check Gemini's behavior. Local/provider checks do not prove Vercel readiness;
+follow [hosted configuration and verification](docs/waiting-on-you.md#qdrant-hybrid-park-retrieval) before release.
 
 The rebuild is complete: thirteen steps, each live and checked; a fourteenth reads the app's lines back onto its
 Observability pages, and a fifteenth tells each request's story there. What's waiting on you is on

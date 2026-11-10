@@ -10,18 +10,22 @@ import math
 import re
 import sqlite3
 from collections import Counter
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import closing
 from datetime import date, datetime
 from pathlib import Path
-from typing import Annotated, Any, Final, Literal
+from typing import Annotated, Any, Final, Literal, Protocol
 from zoneinfo import ZoneInfo
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator
 
 from nimbus.config import Settings
+from nimbus.model import Tracer
 from nimbus.park_embeddings import EmbeddingBusyError
+from nimbus.park_ranking import RRF_K, SEMANTIC_WEIGHT, VisitSeason, reciprocal_ranks, resolve_season
+from nimbus.park_semantic import QdrantParkSearch, SemanticResult
+from nimbus.park_tracing import ParkTrace, park_retrieval_trace
 from nimbus.utils import checked_source_url
 
 log = structlog.get_logger()
@@ -31,6 +35,8 @@ MAX_PASSAGES: Final = 4
 MAX_CONTEXT_CHARS: Final = 10000
 EMBEDDING_TIMEOUT_SECONDS: Final = 3.0
 MIN_SEMANTIC_SCORE: Final = 0.65
+HOSTED_MIN_SEMANTIC_SCORE: Final = 0.3
+HOSTED_STANDALONE_SEMANTIC_SCORE: Final = 0.55
 GUIDANCE_SCOPE: Final = (
     "Published preparation guidance, not a live status check. Closures, warnings, river levels and drinking-water "
     "availability have not been verified. A reference-point forecast does not cover every part of a trail."
@@ -47,12 +53,17 @@ STOP_WORDS: Final = frozenset(
         "as",
         "at",
         "be",
+        "by",
         "can",
         "do",
         "does",
         "for",
         "from",
         "given",
+        "has",
+        "have",
+        "getting",
+        "find",
         "how",
         "i",
         "in",
@@ -65,6 +76,7 @@ STOP_WORDS: Final = frozenset(
         "or",
         "should",
         "the",
+        "there",
         "this",
         "to",
         "tomorrow",
@@ -95,6 +107,7 @@ QUERY_EXPANSIONS: Final = {
     "prepare": ("preparation", "equipment", "clothing"),
     "preparation": ("equipment", "clothing", "water", "weather"),
     "wear": ("clothing", "footwear", "layers"),
+    "clothe": ("clothing",),
     "rain": ("rain", "rainfall", "precipitation", "waterproof"),
     "hot": ("heat", "summer", "shade"),
     "cold": ("cold", "warm", "winter"),
@@ -232,6 +245,27 @@ def to_season(visit_date: date) -> Season:
     return ("winter", "spring", "summer", "fall")[(visit_date.month % 12) // 3]
 
 
+class SemanticSearch(Protocol):
+    """A hosted retriever returns scores only; local immutable passages remain authoritative."""
+
+    @property
+    def provider(self) -> str: ...
+
+    @property
+    def model(self) -> str: ...
+
+    async def search(
+        self,
+        query: str,
+        *,
+        index_version: str,
+        park_id: str,
+        destination_id: str,
+        season: str | None,
+        eligible: Mapping[str, str],
+    ) -> SemanticResult: ...
+
+
 def to_unit_vector(values: list[float], dimensions: int) -> list[float]:
     """A finite nonzero vector with the index's dimensionality, normalized for cosine similarity."""
     if len(values) != dimensions or not all(math.isfinite(value) for value in values):
@@ -252,6 +286,8 @@ class ParkKnowledge:
         embedding_model: str | None = None,
         *,
         semantic_status: str = "unavailable",
+        semantic_search: SemanticSearch | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Load the deployment's index once, leaving the service unavailable when the artifact is invalid."""
         self.index_version = "unavailable"
@@ -264,6 +300,8 @@ class ParkKnowledge:
         self._embed_query = embed_query
         self._query_model = embedding_model
         self.semantic_status = semantic_status
+        self._semantic_search = semantic_search
+        self.tracer = tracer
         try:
             self._load(index_path)
         except (OSError, sqlite3.Error, ValueError, TypeError, KeyError, ValidationError) as error:
@@ -358,13 +396,18 @@ class ParkKnowledge:
             "scope_note": GUIDANCE_SCOPE,
         }
 
-    def _lexical_scores(self, chunks: list[ParkChunk], query: str, destination: Destination) -> list[float]:
-        """Rank question concepts with length-normalized term frequency and corpus inverse document frequency."""
+    def keyword_terms(self, query: str, destination: Destination) -> set[str]:
+        """The actual expanded ranking terms, excluding destination names already enforced by scope."""
         terms = set(to_terms(query))
         for word in list(terms):
             terms.update(to_terms(" ".join(QUERY_EXPANSIONS.get(word, ()))))
         identity_terms = set(to_terms(" ".join([destination.name, *destination.aliases])))
         terms.difference_update(identity_terms)
+        return terms
+
+    def _lexical_scores(self, chunks: list[ParkChunk], query: str, destination: Destination) -> list[float]:
+        """Rank question concepts with length-normalized term frequency and corpus inverse document frequency."""
+        terms = self.keyword_terms(query, destination)
         documents = [Counter(to_terms(f"{chunk.section} {chunk.section} {chunk.text}")) for chunk in chunks]
         average_length = sum(sum(doc.values()) for doc in documents) / max(len(documents), 1)
         scores = []
@@ -397,24 +440,102 @@ class ParkKnowledge:
             log.warning("park.embedding.unavailable", errorType=type(error).__name__)
             return None, "failed"
 
+    @property
+    def semantic_provider(self) -> str:
+        """The selected embedding backend, independent of the provider used for weather-answer caching."""
+        return self._semantic_search.provider if self._semantic_search else "local"
+
+    @property
+    def semantic_model(self) -> str:
+        """The actual query model; hosted retrieval does not use the index's local embedding revision."""
+        return self._semantic_search.model if self._semantic_search else self.embedding_model
+
+    async def _semantic_scores(
+        self, query: str, destination: Destination, chunks: list[ParkChunk], season: VisitSeason | None
+    ) -> tuple[dict[str, float], str]:
+        """Validate hosted scores against the local candidate set, or compare compatible local vectors."""
+        if not chunks:
+            return {}, "not_needed"
+        if self._semantic_search is not None:
+            try:
+                result = await self._semantic_search.search(
+                    query,
+                    index_version=self.index_version,
+                    park_id=destination.park_id,
+                    destination_id=destination.id,
+                    season=season,
+                    eligible={chunk.id: chunk.content_hash for chunk in chunks},
+                )
+                if result.status != "ready":
+                    return {}, result.status
+                allowed = {chunk.id for chunk in chunks}
+                if any(
+                    identity not in allowed
+                    or isinstance(score, bool)
+                    or not isinstance(score, (float, int))
+                    or not math.isfinite(score)
+                    or not -1 <= score <= 1
+                    for identity, score in result.scores.items()
+                ):
+                    return {}, "invalid_response"
+                return result.scores, "ready"
+            except Exception as error:
+                log.warning("park.semantic.unavailable", errorType=type(error).__name__)
+                return {}, "failed"
+        vector, status = await self._query_vector(query)
+        if vector is None:
+            return {}, status
+        return {
+            chunk.id: max(-1.0, min(1.0, sum(a * b for a, b in zip(vector, self._vectors[chunk.id], strict=True))))
+            for chunk in chunks
+            if chunk.id in self._vectors
+        }, status
+
     async def search(
-        self, destination_id: str, query: str, visit_date: date | None = None, *, explain: bool = False
+        self,
+        destination_id: str,
+        query: str,
+        visit_date: date | None = None,
+        *,
+        explain: bool = False,
+        season: VisitSeason | None = None,
     ) -> dict[str, Any]:
-        """Retrieve scoped passages, optionally explaining the same scores and selections for the playground."""
+        """Use one scoped, traced retrieval path for chat, the planner and Playground."""
+        # Validate before emitting traces; questions and explicit filter values are never trace metadata.
+        selected_season, season_source = resolve_season(query, visit_date, season)
+        with park_retrieval_trace(self.tracer) as trace:
+            result = await self._search(destination_id, query, selected_season, season_source, explain, trace)
+            if trace.trace_id is not None:
+                result["trace_id"] = str(trace.trace_id)
+            return result
+
+    async def _search(
+        self,
+        destination_id: str,
+        query: str,
+        season: VisitSeason | None,
+        season_source: str,
+        explain: bool,
+        trace: ParkTrace,
+    ) -> dict[str, Any]:
+        """Filter before both scorers, fuse ranks, then apply the common passage and context budgets."""
         base: dict[str, Any] = {
             "passages": [],
             "index_version": self.index_version,
             "retrieval_mode": "lexical",
             "semantic_status": self.semantic_status,
+            "semantic_provider": self.semantic_provider,
+            "semantic_model": self.semantic_model,
             "scope_note": GUIDANCE_SCOPE,
         }
         if not self.available:
+            trace.outcome("unavailable")
             return {**base, "status": "unavailable"}
         destination = self._destinations.get(destination_id)
         if destination is None:
+            trace.outcome("unsupported")
             return {**base, "status": "unsupported"}
-        # ① Identity and season constrain the candidate set before either ranking method sees it.
-        season = to_season(visit_date) if visit_date else None
+        # ① Both ranking branches see only the exact trail, park, season and immutable index version.
         chunks = [
             chunk
             for chunk in self._chunks
@@ -423,80 +544,117 @@ class ParkKnowledge:
             and (season is None or "all" in chunk.seasons or season in chunk.seasons)
         ]
         bounded_query = query[:2000]
-        lexical = self._lexical_scores(chunks, bounded_query, destination)
-        vector, semantic_status = await self._query_vector(bounded_query) if chunks else (None, "not_needed")
-        base["semantic_status"] = semantic_status
-        if vector is not None:
-            base["retrieval_mode"] = "hybrid"
+        with trace.step("bm25") as step:
+            lexical = self._lexical_scores(chunks, bounded_query, destination)
+            step.outcome("completed", mode="lexical", candidate_count=len(chunks), season_source=season_source)
+        with trace.step("semantic") as step:
+            semantic, semantic_status = await self._semantic_scores(bounded_query, destination, chunks, season)
+            mode = "hybrid" if semantic_status == "ready" else "lexical"
+            step.outcome(semantic_status, provider=self.semantic_provider, mode=mode, candidate_count=len(semantic))
+        base.update(retrieval_mode=mode, semantic_status=semantic_status)
         diagnostics: dict[str, dict[str, Any]] = {}
-        # ② Semantic similarity augments lexical relevance only when vectors use the same model and dimensions.
-        ranked: list[tuple[float, ParkChunk]] = []
-        for chunk, score in zip(chunks, lexical, strict=True):
-            stored = self._vectors.get(chunk.id)
-            similarity = sum(a * b for a, b in zip(vector, stored, strict=True)) if vector and stored else 0.0
-            rank = score / (1 + score) + (similarity if vector is not None else 0)
-            if explain:
-                diagnostics[chunk.id] = {
-                    "chunk": chunk.model_dump(),
-                    "keyword_score": score,
-                    "keyword_component": score / (1 + score),
-                    "semantic_score": similarity if vector is not None and stored is not None else None,
-                    "final_score": rank,
-                    "rank": None,
-                    "selection": "below_threshold",
-                }
-            if score <= 0 and similarity < MIN_SEMANTIC_SCORE:
-                continue
-            ranked.append((rank, chunk))
-        ranked.sort(key=lambda item: (-item[0], item[1].id))
-        if explain:
-            for position, (_, chunk) in enumerate(ranked, start=1):
-                diagnostics[chunk.id].update(rank=position, selection="result_limit")
-        # ③ Explain why a ranked chunk was included or skipped without changing the chat's selection or payload.
-        passages: list[dict[str, Any]] = []
-        used = 0
-        for _, chunk in ranked:
-            if len(passages) >= MAX_PASSAGES:
-                break
-            if used + len(chunk.text) > MAX_CONTEXT_CHARS:
+        with trace.step("fusion") as step:
+            keyword_ranks = reciprocal_ranks(
+                {chunk.id: score for chunk, score in zip(chunks, lexical, strict=True)}, minimum=0, positive=True
+            )
+            threshold = HOSTED_MIN_SEMANTIC_SCORE if self._semantic_search else MIN_SEMANTIC_SCORE
+            standalone_threshold = HOSTED_STANDALONE_SEMANTIC_SCORE if self._semantic_search else MIN_SEMANTIC_SCORE
+            semantic_ranks = reciprocal_ranks(semantic, minimum=threshold)
+            ranked: list[tuple[float, ParkChunk]] = []
+            for chunk, score in zip(chunks, lexical, strict=True):
+                keyword_rank, semantic_rank = keyword_ranks.get(chunk.id), semantic_ranks.get(chunk.id)
+                keyword_part = 1 / (RRF_K + keyword_rank) if keyword_rank is not None else 0.0
+                semantic_eligible = keyword_rank is not None or semantic.get(chunk.id, -1) >= standalone_threshold
+                semantic_part = (
+                    SEMANTIC_WEIGHT / (RRF_K + semantic_rank)
+                    if semantic_rank is not None and semantic_eligible
+                    else 0.0
+                )
+                rank = keyword_part + semantic_part
                 if explain:
-                    diagnostics[chunk.id]["selection"] = "context_limit"
-                continue
-            passages.append(chunk.model_dump())
-            used += len(chunk.text)
+                    diagnostics[chunk.id] = {
+                        "chunk": chunk.model_dump(),
+                        "keyword_score": score,
+                        "keyword_rank": keyword_rank,
+                        "keyword_component": keyword_part,
+                        "semantic_score": semantic.get(chunk.id),
+                        "semantic_rank": semantic_rank,
+                        "semantic_component": semantic_part,
+                        "final_score": rank,
+                        "rank": None,
+                        "selection": (
+                            "needs_keyword_support"
+                            if semantic_rank is not None and not semantic_eligible
+                            else "below_threshold"
+                        ),
+                    }
+                if rank > 0:
+                    ranked.append((rank, chunk))
+            ranked.sort(key=lambda item: (-item[0], item[1].id))
             if explain:
-                diagnostics[chunk.id]["selection"] = "retrieved"
+                for position, (_, chunk) in enumerate(ranked, start=1):
+                    diagnostics[chunk.id].update(rank=position, selection="result_limit")
+            # ② Retrieve local, approved text; no remote payload can become model context or a citation.
+            passages: list[dict[str, Any]] = []
+            used = 0
+            for _, chunk in ranked:
+                if len(passages) >= MAX_PASSAGES:
+                    break
+                if used + len(chunk.text) > MAX_CONTEXT_CHARS:
+                    if explain:
+                        diagnostics[chunk.id]["selection"] = "context_limit"
+                    continue
+                passages.append(chunk.model_dump())
+                used += len(chunk.text)
+                if explain:
+                    diagnostics[chunk.id]["selection"] = "retrieved"
+            step.outcome("completed", mode=mode, candidate_count=len(ranked), selected_count=len(passages))
         if explain:
             base["diagnostics"] = {
                 "candidate_count": len(chunks),
                 "season": season,
+                "season_source": season_source,
+                "keyword_terms": sorted(self.keyword_terms(bounded_query, destination)),
+                "fusion": "rrf",
+                "rrf_k": RRF_K,
+                "keyword_weight": 1.0,
+                "semantic_weight": SEMANTIC_WEIGHT,
                 "context_chars": used,
                 "max_passages": MAX_PASSAGES,
                 "max_context_chars": MAX_CONTEXT_CHARS,
-                "semantic_threshold": MIN_SEMANTIC_SCORE,
+                "semantic_threshold": threshold,
+                "standalone_semantic_threshold": standalone_threshold,
                 "candidates": sorted(
                     diagnostics.values(),
                     key=lambda item: (item["rank"] is None, -item["final_score"], item["chunk"]["id"]),
                 ),
             }
-        return {
-            **base,
-            "status": "found" if passages else "not_found",
-            "destination": destination.model_dump(),
-            "passages": passages,
-        }
+        status = "found" if passages else "not_found"
+        trace.outcome(
+            status,
+            provider=self.semantic_provider,
+            mode=mode,
+            candidate_count=len(chunks),
+            selected_count=len(passages),
+            season_source=season_source,
+        )
+        return {**base, "status": status, "destination": destination.model_dump(), "passages": passages}
 
 
-def make_park_knowledge(settings: Settings) -> ParkKnowledge | None:
-    """Build the configured service without network work; CPU inference loads pinned, previously cached weights."""
+def make_park_knowledge(settings: Settings, *, tracer: Tracer | None = None) -> ParkKnowledge | None:
+    """Select a configured hosted or local backend without doing network work or loading models at startup."""
     if not settings.parks_enabled:
         return None
     use_semantic = settings.parks_retrieval_mode == "hybrid" or (
         settings.parks_retrieval_mode == "auto" and not settings.is_vercel
     )
     knowledge = ParkKnowledge(
-        settings.parks_index_path, semantic_status="disabled" if not use_semantic else "unavailable"
+        settings.parks_index_path, semantic_status="disabled" if not use_semantic else "unavailable", tracer=tracer
     )
+    if settings.parks_semantic_provider == "qdrant" and settings.parks_retrieval_mode != "lexical":
+        knowledge._semantic_search = QdrantParkSearch(settings, chunk_count=len(knowledge._chunks))
+        knowledge.semantic_status = "ready" if knowledge._semantic_search.configured else "unconfigured"
+        return knowledge
     if use_semantic and knowledge.available and knowledge.embedding_dimensions:
         from nimbus.park_embeddings import cached_encoder
 

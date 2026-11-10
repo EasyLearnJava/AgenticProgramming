@@ -1,4 +1,4 @@
-"""Activity links only recent, traced Nimbus chats to a bounded, same-site trace view."""
+"""Activity links only recent, unambiguous Nimbus operations to a bounded, same-site trace view."""
 
 import re
 from datetime import UTC, datetime, timedelta
@@ -68,6 +68,71 @@ def test_link_ages_out_with_chat_start_even_if_ending_is_still_visible(connected
     beginning: Row = {"requestId": "test", "_time": (now - timedelta(days=7)).isoformat(), "event": "chat.request"}
     end: Row = dict(beginning, event="chat.done", traceId=str(uuid4()), _time=(now - timedelta(days=6)).isoformat())
     [activity] = to_activity_requests(["test"], [beginning, end], connected)
+    assert activity.trace_url is None
+
+
+def playground_row(**changes: object) -> Row:
+    """A synthetic standalone retrieval completion, with the same fields as the real Playground log."""
+    return {
+        "requestId": "retrieval-abcd1234",
+        "_time": datetime.now(UTC).isoformat(),
+        "event": "knowledge.call",
+        "tool": "retrieval_playground",
+        "status": "found",
+        "ms": 350,
+        "traceId": str(uuid4()),
+        **changes,
+    }
+
+
+def test_standalone_playground_trace_is_linked_without_a_chat_ending(connected: Settings) -> None:
+    row = playground_row()
+    [activity] = to_activity_requests(["retrieval-abcd1234"], [row], connected)
+    assert not activity.is_chat
+    assert activity.trace_url is not None
+    handle = activity.trace_url.rsplit("/", 1)[-1]
+    assert resolve_trace_link(connected, handle, datetime.now(UTC)) == (UUID(str(row["traceId"])), "abcd1234")
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"tool": "search_park_guidance"},
+        {"tool": "unapproved"},
+        {"traceId": "../other"},
+        {"traceId": ""},
+        {"ms": True},
+        {"ms": -1},
+        {"ms": 60_001},
+        {"ms": float("nan")},
+        {"ms": "350"},
+        {"ms": None},
+        {"_time": (datetime.now(UTC) + timedelta(hours=1)).isoformat()},
+    ],
+)
+def test_only_valid_bounded_playground_operations_get_links(connected: Settings, changes: dict[str, object]) -> None:
+    [activity] = to_activity_requests(["retrieval-abcd1234"], [playground_row(**changes)], connected)
+    assert activity.trace_url is None
+
+
+@pytest.mark.parametrize("extra", ["duplicate", "other_retrieval", "chat.request", "chat.done", "reused_trace"])
+def test_ambiguous_or_mixed_playground_operations_are_not_linked(connected: Settings, extra: str) -> None:
+    row = playground_row()
+    additional = dict(row)
+    if extra == "other_retrieval":
+        additional["traceId"] = str(uuid4())
+    elif extra in {"chat.request", "chat.done"}:
+        additional["event"] = extra
+        additional["traceId"] = ""
+    elif extra == "reused_trace":
+        additional["requestId"] = "other-request"
+    [activity] = to_activity_requests(["retrieval-abcd1234"], [row, additional], connected)
+    assert activity.trace_url is None
+
+
+def test_playground_trace_ages_out_with_its_start_time(connected: Settings) -> None:
+    row = playground_row(_time=(datetime.now(UTC) - timedelta(days=7) + timedelta(seconds=30)).isoformat(), ms=60_000)
+    [activity] = to_activity_requests(["retrieval-abcd1234"], [row], connected)
     assert activity.trace_url is None
 
 

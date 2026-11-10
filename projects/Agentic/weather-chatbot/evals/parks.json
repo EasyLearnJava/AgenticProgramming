@@ -475,5 +475,93 @@
     "destination": "Grand Canyon North Rim",
     "resolution": "unsupported",
     "query": "What should I pack?"
+  },
+  {
+    "id": "narrows-spring-wear",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What should I wear to hike The Narrows in Zion in spring?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "layers",
+      "neoprene"
+    ],
+    "forbidden_sections": [
+      "Winter"
+    ],
+    "max_evidence_rank": 2
+  },
+  {
+    "id": "narrows-spring-tool-query",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "spring clothing what to wear Narrows",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "layers",
+      "neoprene"
+    ],
+    "forbidden_sections": [
+      "Winter"
+    ],
+    "max_evidence_rank": 2
+  },
+  {
+    "id": "narrows-spring-garments",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What garments help me keep body heat when wading through the canyon in spring?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "layers",
+      "neoprene"
+    ],
+    "forbidden_sections": [
+      "Winter"
+    ]
+  },
+  {
+    "id": "narrows-feet-paraphrase",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "What should cover my feet while I walk over slick river rocks?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "closed.toe",
+      "ankle"
+    ]
+  },
+  {
+    "id": "narrows-spare-garments",
+    "destination": "Zion Narrows",
+    "destination_id": "zion-narrows",
+    "query": "How should I keep spare garments from getting soaked?",
+    "document_ids": [
+      "zion-narrows-safety"
+    ],
+    "evidence_terms": [
+      "waterproof",
+      "bag"
+    ]
+  },
+  {
+    "id": "mist-spring-stairway",
+    "destination": "Yosemite Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "What will help me stay dry on the stairway below Vernal Fall in spring?",
+    "document_ids": [
+      "yosemite-mist-trail"
+    ],
+    "evidence_terms": [
+      "spray"
+    ]
   }
 ]
