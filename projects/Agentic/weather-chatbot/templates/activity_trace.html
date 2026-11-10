@@ -100,6 +100,8 @@
             data-ancestors="{{ row.ancestor_keys|join(',') }}" data-label="{{ row.label }}"
             data-call-kind="{{ row.kind }}" data-call-status="{{ row.status }}" data-start="{{ row.start_exact }}"
             data-duration="{{ row.duration_exact }}"
+            data-outcome="{{ row.outcome }}" data-cache-reason="{{ row.cache_reason }}"
+            data-score="{{ row.similarity_score }}" data-threshold="{{ row.similarity_threshold }}"
             data-error="{{ row.error or '' }}"{% if loop.first %} data-selected="true"{% endif %}>
             <th scope="row" class="trace-call-cell">
               <div class="trace-call-content">
@@ -117,6 +119,9 @@
                     <span class="visually-hidden">, level {{ row.depth + 1 }}</span>
                     {% if row.depth > 1 %}<span class="trace-nested-label">Nested span</span>{% endif %}</span>
                   {% if row.error %}<span class="trace-row-error">{{ row.error }}</span>{% endif %}
+                  {% if row.outcome %}<span class="trace-cache-outcome">{{ row.outcome }}
+                    {% if row.similarity_score %} · Score {{ row.similarity_score }}{% endif %}
+                    {% if row.similarity_threshold %} · Cutoff {{ row.similarity_threshold }}{% endif %}</span>{% endif %}
                 </div>
               </div>
             </th>
@@ -161,6 +166,14 @@
         <div><dt>Type</dt><dd data-trace-detail-kind>{{ selected.kind }}</dd></div>
         <div><dt>Duration</dt><dd data-trace-detail-duration>{{ selected.duration_exact }}</dd></div>
         <div><dt>Started at</dt><dd data-trace-detail-start>{{ selected.start_exact }}</dd></div>
+        <div data-trace-field="outcome"{% if not selected.outcome %} hidden{% endif %}>
+          <dt>Cache outcome</dt><dd data-trace-detail-outcome>{{ selected.outcome }}</dd></div>
+        <div data-trace-field="cacheReason"{% if not selected.cache_reason %} hidden{% endif %}>
+          <dt>Cache decision</dt><dd data-trace-detail-cacheReason>{{ selected.cache_reason }}</dd></div>
+        <div data-trace-field="score"{% if not selected.similarity_score %} hidden{% endif %}>
+          <dt>Similarity score</dt><dd data-trace-detail-score>{{ selected.similarity_score }}</dd></div>
+        <div data-trace-field="threshold"{% if not selected.similarity_threshold %} hidden{% endif %}>
+          <dt>Similarity cutoff</dt><dd data-trace-detail-threshold>{{ selected.similarity_threshold }}</dd></div>
         <div><dt>Parent</dt><dd data-trace-detail-parent>
           {{ 'None (trace root)' if selected.kind_slug in ['agent', 'memory']
             else 'Not available in this view' }}</dd></div>
@@ -177,6 +190,8 @@
       {% elif presentation.memory_count %}<p class="trace-inspector-hint">This chat request read saved preferences
         from Mem0 before its answer began. Only the read's outcome is recorded, never the preferences.</p>{% endif %}
       <p class="trace-inspector-hint">Select a call to inspect its timing and outcome.</p>
+      <p class="trace-inspector-hint" data-trace-score-note hidden>A cosine score measures similarity, not certainty.
+        Location, dates, units, browser context and freshness must also match. No returned candidate means no score.</p>
       <p class="visually-hidden" data-trace-selection-note aria-live="polite"></p>
     </aside>
     {% endif %}

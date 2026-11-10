@@ -100,7 +100,7 @@ async def evaluate(settings: Settings, cases_path: Path) -> dict[str, Any]:
     service = SemanticCacheService(eval_settings)
     outcomes: list[dict[str, Any]] = []
     try:
-        if not await service.store(cases["seed"], entry):
+        if (await service.store(cases["seed"], entry)).status != "saved":
             raise RuntimeError("seed_unavailable")
         # ② No model is called; hits therefore prove reuse, not Gemini answering the question again.
         for index, case in enumerate(cases["cases"]):

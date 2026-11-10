@@ -4,22 +4,50 @@ import asyncio
 import hmac
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, nullcontext
+from typing import Literal
 from uuid import UUID
 
 import httpx2
 import structlog
 
 from nimbus.config import Settings
+from nimbus.request_trace import CacheTraceStep
 from nimbus.retrieval_gate import RetrievalGate
 from nimbus.semantic_cache.identity import signature
-from nimbus.semantic_cache.models import MODEL, TTL_SECONDS, VERSION, CacheEntry, CacheListing, CacheLookup, CachePolicy
+from nimbus.semantic_cache.models import (
+    MODEL,
+    TTL_SECONDS,
+    VERSION,
+    CacheEntry,
+    CacheListing,
+    CacheLookup,
+    CachePolicy,
+    CacheStore,
+)
 from nimbus.semantic_cache.policy import digest, embedding_text, normalized
 
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_POINTS = 2000
 TIMEOUT_SECONDS = 2.0
 log = structlog.get_logger()
+
+
+@contextmanager
+def qdrant_step(
+    trace: CacheTraceStep | None,
+    action: Literal["exact", "similarity", "cleanup", "count", "save"],
+    deadline: asyncio.Timeout,
+) -> Iterator[CacheTraceStep | None]:
+    """Close each provider span and distinguish our timeout from a visitor cancelling the request."""
+    with trace.step(action) if trace is not None else nullcontext(None) as operation:
+        try:
+            yield operation
+        except asyncio.CancelledError:
+            if operation is not None and deadline.expired():
+                operation.outcome("error")
+            raise
 
 
 def make_client() -> httpx2.AsyncClient:
@@ -119,58 +147,84 @@ class SemanticCacheService:
             ms=round((time.perf_counter() - started) * 1000),
         )
 
-    async def lookup(self, question: str, scope: str, context: str, policy: CachePolicy) -> CacheLookup:
+    async def lookup(
+        self,
+        question: str,
+        scope: str,
+        context: str,
+        policy: CachePolicy,
+        *,
+        trace: CacheTraceStep | None = None,
+    ) -> CacheLookup:
         """Try exact reuse without inference, then semantic similarity within identical independent guards."""
         started = time.perf_counter()
         if not self.configured:
             return CacheLookup(status="bypass")
         try:
-            async with self._gate.reserve(scope), asyncio.timeout(TIMEOUT_SECONDS), self._factory() as http:
+            async with self._gate.reserve(scope), asyncio.timeout(TIMEOUT_SECONDS) as deadline, self._factory() as http:
                 filters = self._filter(scope, context, policy)
                 exact = digest(normalized(question))
                 exact_filter = {"must": [filters, {"key": "exact", "match": {"value": exact}}]}
-                response = await self._request(
-                    http,
-                    "POST",
-                    "/points/scroll",
-                    {
-                        "filter": exact_filter,
-                        "limit": 1,
-                        "with_payload": True,
-                        "with_vector": False,
-                    },
-                )
-                candidates = self._entries(response, scope)
-                status = "exact_hit"
-                if not candidates:
+                with qdrant_step(trace, "exact", deadline) as operation:
                     response = await self._request(
                         http,
                         "POST",
-                        "/points/query",
+                        "/points/scroll",
                         {
-                            "query": {"text": embedding_text(question), "model": MODEL},
-                            "filter": filters,
+                            "filter": exact_filter,
                             "limit": 1,
-                            "score_threshold": self._threshold,
                             "with_payload": True,
                             "with_vector": False,
                         },
                     )
                     candidates = self._entries(response, scope)
-                    # Independently reject missing/non-finite/below-threshold provider scores.
-                    result = response.get("result")
-                    points = result.get("points") if isinstance(result, dict) else None
-                    score = (
-                        points[0].get("score")
-                        if isinstance(points, list) and len(points) == 1 and isinstance(points[0], dict)
-                        else None
-                    )
-                    if (
-                        not isinstance(score, (float, int))
-                        or isinstance(score, bool)
-                        or not (self._threshold <= score <= 1.00001)
-                    ):
-                        candidates = ()
+                    if operation is not None:
+                        operation.outcome(
+                            "exact_hit"
+                            if any(e.context == context and e.policy == policy and e.exact == exact for e in candidates)
+                            else "miss"
+                        )
+                status = "exact_hit"
+                if not candidates:
+                    with qdrant_step(trace, "similarity", deadline) as operation:
+                        if operation is not None:
+                            operation.similarity(None, self._threshold)
+                        response = await self._request(
+                            http,
+                            "POST",
+                            "/points/query",
+                            {
+                                "query": {"text": embedding_text(question), "model": MODEL},
+                                "filter": filters,
+                                "limit": 1,
+                                "score_threshold": self._threshold,
+                                "with_payload": True,
+                                "with_vector": False,
+                            },
+                        )
+                        candidates = self._entries(response, scope)
+                        # Independently reject missing/non-finite/below-threshold provider scores.
+                        result = response.get("result")
+                        points = result.get("points") if isinstance(result, dict) else None
+                        score = (
+                            points[0].get("score")
+                            if isinstance(points, list) and len(points) == 1 and isinstance(points[0], dict)
+                            else None
+                        )
+                        if operation is not None:
+                            operation.similarity(score, self._threshold)
+                        if (
+                            not isinstance(score, (float, int))
+                            or isinstance(score, bool)
+                            or not (self._threshold <= score <= 1.00001)
+                        ):
+                            candidates = ()
+                        if operation is not None:
+                            operation.outcome(
+                                "semantic_hit"
+                                if any(e.context == context and e.policy == policy for e in candidates)
+                                else "miss"
+                            )
                     status = "semantic_hit"
                 entry = next(
                     (
@@ -192,34 +246,39 @@ class SemanticCacheService:
             self._log("lookup", "error", started, "unavailable")
             return CacheLookup(status="error")
 
-    async def store(self, question: str, entry: CacheEntry) -> bool:
+    async def store(self, question: str, entry: CacheEntry, *, trace: CacheTraceStep | None = None) -> CacheStore:
         """Keep a fresh verified answer; cleanup is opportunistic and never controls logical expiry."""
         started = time.perf_counter()
-        if not self.configured or entry.expires_at <= self._clock():
-            return False
+        if not self.configured:
+            return CacheStore(status="bypass")
+        if entry.expires_at <= self._clock():
+            return CacheStore(status="not_reusable")
         try:
-            async with asyncio.timeout(TIMEOUT_SECONDS), self._factory() as http:
-                await self._request(
-                    http,
-                    "POST",
-                    "/points/delete?wait=true",
-                    {
-                        "filter": {
-                            "must": [
-                                {"key": "expires_at", "range": {"lte": self._clock()}},
-                            ]
-                        }
-                    },
-                )
-                count = await self._request(http, "POST", "/points/count", {"exact": True})
-                result = count.get("result")
-                if (
-                    not isinstance(result, dict)
-                    or type(result.get("count")) is not int
-                    or result["count"] >= MAX_POINTS
-                ):
+            async with asyncio.timeout(TIMEOUT_SECONDS) as deadline, self._factory() as http:
+                with qdrant_step(trace, "cleanup", deadline):
+                    await self._request(
+                        http,
+                        "POST",
+                        "/points/delete?wait=true",
+                        {
+                            "filter": {
+                                "must": [
+                                    {"key": "expires_at", "range": {"lte": self._clock()}},
+                                ]
+                            }
+                        },
+                    )
+                with qdrant_step(trace, "count", deadline) as operation:
+                    count = await self._request(http, "POST", "/points/count", {"exact": True})
+                    result = count.get("result")
+                    if not isinstance(result, dict) or type(result.get("count")) is not int or result["count"] < 0:
+                        raise ValueError("invalid_cache_count")
+                    full = result["count"] >= MAX_POINTS
+                    if operation is not None and full:
+                        operation.outcome("cache_full")
+                if full:
                     self._log("store", "bypass", started, "capacity")
-                    return False
+                    return CacheStore(status="cache_full")
                 # One record per browser/context/guard prevents paraphrases from accumulating duplicates.
                 identifier = str(UUID(digest([entry.scope, entry.context, entry.policy.model_dump()])[:32]))
                 record = entry.model_dump_json()
@@ -233,25 +292,28 @@ class SemanticCacheService:
                     "record": record,
                     "mac": signature(self._key, "entry", record),
                 }
-                await self._request(
-                    http,
-                    "PUT",
-                    "/points?wait=true",
-                    {
-                        "points": [
-                            {
-                                "id": identifier,
-                                "vector": {"text": embedding_text(question), "model": MODEL},
-                                "payload": payload,
-                            }
-                        ]
-                    },
-                )
+                with qdrant_step(trace, "save", deadline) as operation:
+                    await self._request(
+                        http,
+                        "PUT",
+                        "/points?wait=true",
+                        {
+                            "points": [
+                                {
+                                    "id": identifier,
+                                    "vector": {"text": embedding_text(question), "model": MODEL},
+                                    "payload": payload,
+                                }
+                            ]
+                        },
+                    )
+                    if operation is not None:
+                        operation.outcome("saved")
                 self._log("store", "stored", started)
-                return True
+                return CacheStore(status="saved")
         except Exception:
             self._log("store", "error", started, "unavailable")
-            return False
+            return CacheStore(status="error")
 
     async def list_entries(self, scope: str) -> CacheListing:
         """Return at most fifty still-valid entries belonging only to this browser."""

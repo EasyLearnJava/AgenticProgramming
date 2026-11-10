@@ -146,6 +146,7 @@
 .trace-select:disabled { color: #193d32; opacity: 1; }
 .trace-select:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .trace-call-meta { display: block; color: var(--trace-muted); font-size: 11px; line-height: 1.6; }
+.trace-cache-outcome { display: block; margin-top: 3px; color: var(--trace-teal); font-size: 11px; line-height: 1.5; }
 .trace-nested-label { display: inline-block; margin-left: 4px; color: var(--trace-muted); font-size: 10px; }
 .trace-row-error { display: block; margin-top: 3px; font-size: 10px; color: #9b4238; line-height: 1.4; }
 .trace-duration {

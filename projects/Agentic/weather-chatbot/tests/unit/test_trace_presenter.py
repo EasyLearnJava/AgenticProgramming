@@ -36,6 +36,36 @@ def test_a_chat_requests_mem0_read_is_counted_but_the_trace_is_the_requests() ->
     assert view.duration_ms == 900
 
 
+def test_cache_details_preserve_scores_without_counting_qdrant_as_model_or_weather_tools() -> None:
+    """The inspector shows an actual cosine score and cutoff, not a percentage confidence estimate."""
+    view = present_trace(
+        TraceView(
+            "ready",
+            (
+                TraceRow("Chat request", "Agent", 900, 0, 0, "Completed", outcome="Similarity hit"),
+                TraceRow("Weather answer cache lookup", "Step", 40, 0, 1, "Completed", parent_index=0),
+                TraceRow(
+                    "Qdrant similarity search",
+                    "Step",
+                    35,
+                    5,
+                    2,
+                    "Completed",
+                    parent_index=1,
+                    outcome="Similarity hit",
+                    similarity_score=0.87654,
+                    similarity_threshold=0.8,
+                ),
+            ),
+        )
+    )
+    assert view.model_count == view.tool_count == 0
+    assert view.rows[-1].outcome == "Similarity hit"
+    assert view.rows[-1].similarity_score == "0.877"
+    assert view.rows[-1].similarity_threshold == "0.800"
+    assert view.rows[0].similarity_score == ""
+
+
 def call(
     label: str,
     start: int,

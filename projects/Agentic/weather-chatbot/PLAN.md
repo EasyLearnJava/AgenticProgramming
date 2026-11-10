@@ -80,6 +80,11 @@ regression checks. Hosted settings and exact-build checks are on
 [Waiting on you](docs/waiting-on-you.md#qdrant-weather-answer-cache). No new numbered completion tag is implied by
 this extension or by local provider smoke checks.
 
+Cache tracing records lookup and store outcomes, nested Qdrant operation timings, bounded similarity measurements
+and fixed bypass reasons without private payloads. The same allowed details appear in the Nimbus trace explorer;
+a cache hit keeps its request trace while avoiding a new model run. See
+[Cache trace decisions](docs/technical-details.md#trace-a-cache-decision) and issue 177.
+
 ## 3. A chapter's sections
 
 Each step's chapter (`docs/step-N.md`) has the same sections, in this order: the step in a paragraph and one line; What

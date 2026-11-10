@@ -102,8 +102,45 @@ The browser cookie is separate from Mem0 consent; sharing a browser profile also
 Three deployment modes make rollout explicit: `off` makes no cache network calls; `shadow` records matches while
 the normal agent still answers; `on` allows accepted hits to bypass Gemini and weather tools. A hit has a fresh
 feedback reference and a “Cached answer” badge. Activity records `workflow=cached` and cache operation outcomes,
-with an explicit explanation that no new LangSmith model trace was created. It does not replay previous traces.
+with an explicit explanation that no new model run was needed. With tracing enabled, the request still has its
+own LangSmith root and cache lookup steps; it does not replay the previous answer's model or tool spans.
 Timeouts, malformed records, refusals, quota limits and failed writes leave the normal answer flow available.
+
+### Trace a cache decision
+
+The request's **Weather answer cache lookup** step records `exact_hit`, `semantic_hit`, `miss`, `shadow_hit`,
+`error` or `bypass`. **Weather answer cache store** records `saved`, `not_reusable`, `cache_full`, `error` or
+`bypass`. A step returning an error is marked Failed even when the cache adapter catches the exception so that
+the ordinary answer can continue. A cache failure alone does not mark a successful chat request failed.
+
+Each provider operation nests under the lookup or store that started it: **Qdrant exact match**, **Qdrant
+similarity search**, **Qdrant remove expired**, **Qdrant count** and **Qdrant save**. Only operations that ran
+appear. An exact hit needs no similarity call; a full cache needs no save call. Operation outcomes distinguish
+completed work from a match, a capacity decision or an error. Cancellation closes the active spans, while a
+provider timeout is an error. A failed trace upload cannot change the answer or cache result.
+
+The similarity step records the configured threshold as a finite number from 0 to 1. A returned candidate's
+score is recorded only when it is a finite number from -1 to 1. Qdrant applies the threshold before returning
+candidates, so a miss may have no score; Nimbus never invents a score for it. These numbers help inspect the
+cutoff but do not replace the independent ownership, context, location, units and freshness checks.
+
+When a request skips lookup, the root records `cache_outcome=bypass` and a fixed `cache_bypass_reason`.
+Reasons distinguish `disabled`, `unconfigured`, `ineligible`, `unverified_history`, `incompatible_history`,
+`workflow`, `lane`, `origin`, `memory_unavailable` and `not_evaluated`. These are categories, not captured
+question text or private context. Lookup outcomes are also recorded on the root; store outcomes remain on
+their own step so a later failed write cannot overwrite the original lookup decision.
+
+The Nimbus trace explorer shows the allowed outcome, bypass reason, similarity score and threshold alongside
+timing and status. The reader accepts these fields only for recognized cache spans or the request root and
+discards unrecognized metadata. Cache traces have empty inputs and outputs: no question, answer, vector,
+browser scope, history, guard, preference or key is sent. Raw provider errors are replaced by a fixed message.
+Offline tests use the real LangSmith serializer to check outcomes, parent relationships, bounded measurements,
+error and cancellation handling, and the absence of private values; mutation checks protect these behaviors.
+
+Local validation on 9 November 2026 passed the affected unit checks, five Chrome cases (including desktop/mobile
+layout and accessibility), and all 16 affected mutations. Ruff and strict mypy passed; two independent reviews
+found no blocking issues. No full-suite run, deployment or live LangSmith delivery check was performed for this
+change. Existing traces are not backfilled; the extra detail applies to requests made after deployment.
 
 ### Configure and validate answer reuse
 
@@ -289,14 +326,16 @@ official alerts and travel searches across the configured Axiom dataset, even af
 Each traced chat request has one LangSmith root, `nimbus.chat`, begun before its first step. Its Mem0 read, its
 weather answer cache lookup and store, and the agent with its model and tool calls nest under it, so a cached
 answer, a trip form or a preference preview has a trace too. The root carries only the workflow (agent, cached,
-intake, briefing or memory) and whether it failed. Open **View LangSmith trace** on its Activity row to see those
+intake, briefing or memory), whether it failed, and the fixed cache outcome and bypass reason when applicable.
+Open **View LangSmith trace** on its Activity row to see those
 steps and their parent-child relationships in the trace explorer. Summary cards show the request's elapsed time
 and displayed model/tool span counts. The waterfall uses a common time axis; nested durations overlap and must
 not be added together. Filter by call type or errors, search call labels, collapse a branch, or select a call
 for exact timings and its parent. These controls operate in the browser without another LangSmith request.
 
-Only the existing sanitized operational fields reach this view: no prompts, outputs, credentials, token counts
-or costs are added. Nested tool spans remain separate records; a repeated name is not necessarily another
+Only sanitized operational fields reach this view. Cache steps add allowed outcome labels and bounded numeric
+similarity measurements; the request root can explain a cache bypass. No prompts, outputs, credentials, token
+counts or costs are added. Nested tool spans remain separate records; a repeated name is not necessarily another
 external API request. A partial trace is labeled, and unknown durations remain unknown. Access still uses the
 same privacy settings and signed, bounded read path described below.
 

@@ -32,6 +32,10 @@ class PresentedSpan:
     bar_width: int
     has_children: bool
     error: str | None
+    outcome: str
+    cache_reason: str
+    similarity_score: str
+    similarity_threshold: str
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,10 @@ def present_trace(trace: TraceView) -> TracePresentation:
                 bar_width=width,
                 has_children=bool(children.get(index)),
                 error=row.error,
+                outcome=row.outcome,
+                cache_reason=row.cache_reason,
+                similarity_score="" if row.similarity_score is None else f"{row.similarity_score:.3f}",
+                similarity_threshold="" if row.similarity_threshold is None else f"{row.similarity_threshold:.3f}",
             )
         )
         for child in children.get(index, ()):

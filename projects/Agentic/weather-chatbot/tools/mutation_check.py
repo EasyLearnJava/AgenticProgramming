@@ -2121,7 +2121,7 @@ TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
     ),
 )
 MUTATIONS += TRAVEL_MUTATIONS
-TRACE_MUTATIONS = (
+TRACE_MUTATIONS: tuple[Mutation, ...] = (
     Mutation(
         "nimbus/answer.py",
         'config["run_id"] = stats.trace_id',
@@ -2619,11 +2619,11 @@ MEMORY_MUTATIONS = (
 MUTATIONS += MEMORY_MUTATIONS
 
 # Weather answer reuse: privacy, expiry, independent guards and honest evaluation evidence.
-SEMANTIC_CACHE_MUTATIONS = (
+SEMANTIC_CACHE_MUTATIONS: tuple[Mutation, ...] = (
     Mutation(
         "nimbus/semantic_cache/integration.py",
-        "if entry is not None:\n            await self.service.store(self.question, entry)",
-        'if entry is None:\n            return ""\n        await self.service.store(self.question, entry)',
+        "return CacheCompletion(self.receipt_for(html), stored)",
+        'return CacheCompletion(self.receipt_for(html) if entry is not None else "", stored)',
         "cache receipts survive successful answers that cannot be stored",
     ),
     Mutation(
@@ -2732,18 +2732,118 @@ SEMANTIC_CACHE_MUTATIONS = (
 MUTATIONS += SEMANTIC_CACHE_MUTATIONS
 TESTS_FOR.update(
     {
-        "nimbus/semantic_cache/service.py": ("test_semantic_cache_service.py",),
+        "nimbus/semantic_cache/service.py": ("test_semantic_cache_service.py", "test_semantic_cache_tracing.py"),
         "nimbus/semantic_cache/policy.py": ("test_semantic_cache_policy.py",),
         "nimbus/semantic_cache/identity.py": ("test_semantic_cache_policy.py",),
         "nimbus/semantic_cache/integration.py": (
             "test_semantic_cache_chat.py",
             "test_semantic_cache_receipts.py",
+            "test_cache_request_outcomes.py",
         ),
         "nimbus/semantic_cache/evidence.py": ("test_semantic_cache_chat.py", "test_semantic_cache_evidence.py"),
         "nimbus/semantic_cache/page.py": ("test_semantic_cache_page.py",),
         "tools/eval_semantic_cache.py": ("test_semantic_cache_evals.py",),
     }
 )
+
+# Qdrant tracing (issue 177): explicit outcomes, private metadata and provider calls inside the request's trace.
+CACHE_TRACE_MUTATIONS = (
+    Mutation(
+        "nimbus/request_trace.py",
+        'error="Weather answer cache step failed" if self._status == "error" else None,',
+        "error=None,",
+        "cache traces mark returned provider errors as failed",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        "math.isfinite(number) and lower <= number <= upper",
+        "True",
+        "cache traces keep numeric measurements finite and bounded",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        'self._status = status if isinstance(status, str) and status in _CACHE_OUTCOMES else "error"',
+        "self._status = status",
+        "cache traces reject arbitrary outcome metadata",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        'self._cache_reason = reason if isinstance(reason, str) and reason in _BYPASS_REASONS else ""',
+        "self._cache_reason = reason",
+        "cache traces reject arbitrary bypass metadata",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        "with _cache_step(self.tracer, self.parent, CACHE_OPERATION_NAMES[action]) as child:",
+        "with _cache_step(self.tracer, self._upstream, CACHE_OPERATION_NAMES[action]) as child:",
+        "cache traces nest provider calls under their cache step",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/service.py",
+        "if operation is not None and deadline.expired():",
+        "if False:",
+        "cache traces distinguish provider timeouts from visitor cancellation",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/service.py",
+        "operation.similarity(score, self._threshold)",
+        "operation.similarity(None, self._threshold)",
+        "cache traces retain returned similarity scores",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/service.py",
+        'return CacheStore(status="cache_full")',
+        'return CacheStore(status="saved")',
+        "cache traces never claim a full cache saved an answer",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        "cache_step.outcome(lookup.status)",
+        'cache_step.outcome("completed")',
+        "cache traces propagate the lookup result in chat",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        "cache_step.outcome(completion.store.status)",
+        'cache_step.outcome("saved")',
+        "cache traces propagate the actual storage result in chat",
+    ),
+    Mutation(
+        "nimbus/semantic_cache/integration.py",
+        'trace.cache_outcome("bypass", reason)',
+        'trace.cache_outcome("bypass")',
+        "cache traces explain bypassed requests without provider spans",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        '    "METADATA",',
+        "",
+        "cache traces request only the safe metadata projection",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        "and -1 <= value <= 1",
+        "",
+        "cache traces bound public similarity scores",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        'return value if isinstance(value, str) and value in CACHE_OUTCOMES else ""',
+        'return value if isinstance(value, str) else ""',
+        "cache traces discard unapproved metadata before public projection",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        'similarity = span.name == CACHE_OPERATION_NAMES["similarity"] and cache_step',
+        "similarity = True",
+        "cache traces show similarity metrics only on the proper operation",
+    ),
+)
+MUTATIONS += CACHE_TRACE_MUTATIONS
+TRACE_MUTATIONS += CACHE_TRACE_MUTATIONS
+SEMANTIC_CACHE_MUTATIONS += CACHE_TRACE_MUTATIONS
+TESTS_FOR["nimbus/request_trace.py"] += ("test_request_cache_trace.py",)
+TESTS_FOR["nimbus/chat.py"] += ("test_cache_request_outcomes.py",)
 
 
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:

@@ -11,12 +11,21 @@ from fastapi import Request
 from nimbus.chips import ToolChip
 from nimbus.config import Settings
 from nimbus.memory.context import MemoryContext
+from nimbus.request_trace import CacheBypassReason, CacheTraceStep, RequestTrace
 from nimbus.semantic_cache.evidence import to_entry
 from nimbus.semantic_cache.identity import new_scope, plain_answer, read_scope, receipt, valid_receipt
-from nimbus.semantic_cache.models import CachePolicy
+from nimbus.semantic_cache.models import CachePolicy, CacheStore
 from nimbus.semantic_cache.policy import cache_policy, compatible_history, context_fingerprint
 from nimbus.semantic_cache.service import SemanticCacheService
 from nimbus.utils import is_same_origin
+
+
+@dataclass(frozen=True)
+class CacheCompletion:
+    """History authentication and cache storage are independent outcomes of a completed answer."""
+
+    receipt: str
+    store: CacheStore
 
 
 @dataclass(frozen=True)
@@ -41,13 +50,20 @@ class CacheTurn:
             (*self.history, ("user", self.question), ("assistant", plain_answer(html))),
         )
 
-    async def completed(self, answer: str, chips: Sequence[ToolChip], html: str) -> str:
+    async def completed(
+        self, answer: str, chips: Sequence[ToolChip], html: str, *, trace: CacheTraceStep | None = None
+    ) -> CacheCompletion:
         """Authenticate the completed turn independently of whether its evidence can enter the cache."""
         entry = to_entry(self.question, answer, chips, self.scope, self.context, self.policy, time.time())
         if entry is not None:
-            await self.service.store(self.question, entry)
+            stored = await self.service.store(self.question, entry, trace=trace)
+        else:
+            stored = CacheStore(status="not_reusable")
+            structlog.get_logger().info(
+                "semantic_cache.operation", action="store", status="not_reusable", reason="evidence", ms=0
+            )
         # The receipt proves which conversation Nimbus produced, not that this answer is reusable weather evidence.
-        return self.receipt_for(html)
+        return CacheCompletion(self.receipt_for(html), stored)
 
 
 def prepare(
@@ -60,24 +76,37 @@ def prepare(
     supplied_receipt: str,
     memory: MemoryContext,
     now: datetime,
+    *,
+    trace: RequestTrace | None = None,
 ) -> CacheTurn | None:
     """Protect deterministic workflows and unknown context before performing any embedding request."""
     service: SemanticCacheService = request.app.state.semantic_cache
+
+    def bypass(reason: CacheBypassReason, log_reason: str) -> None:
+        """Explain a decision using fixed operational terms without recording any request content."""
+        if trace is not None:
+            trace.cache_outcome("bypass", reason)
+        structlog.get_logger().info(
+            "semantic_cache.operation", action="lookup", status="bypass", reason=log_reason, ms=0
+        )
+
     if not service.configured:
+        bypass("disabled" if service.mode == "off" else "unconfigured", "disabled")
         return None
     settings: Settings = request.app.state.settings
     origin = request.headers.get("origin", "")
     policy = cache_policy(question, now, locale, time_zone, memory.preferences.unit_system)
-    if (
-        lane != "rest-no-auth"
-        or policy is None
-        or not origin
-        or not is_same_origin(origin, str(request.url))
-        or memory.snapshot.status not in {"ready", "empty"}
-    ):
-        structlog.get_logger().info(
-            "semantic_cache.operation", action="lookup", status="bypass", reason="ineligible", ms=0
-        )
+    if lane != "rest-no-auth":
+        bypass("lane", "ineligible")
+        return None
+    if policy is None:
+        bypass("ineligible", "ineligible")
+        return None
+    if not origin or not is_same_origin(origin, str(request.url)):
+        bypass("origin", "ineligible")
+        return None
+    if memory.snapshot.status not in {"ready", "empty"}:
+        bypass("memory_unavailable", "context")
         return None
     scope, cookie = read_scope(request), ""
     if scope is None:
@@ -91,14 +120,13 @@ def prepare(
     assert settings.qdrant_api_key is not None  # noqa: S101 - configured requires this credential
     secret = settings.qdrant_api_key.get_secret_value()
     if not valid_receipt(secret, scope, context, history, supplied_receipt):
-        structlog.get_logger().info(
-            "semantic_cache.operation", action="lookup", status="bypass", reason="context", ms=0
-        )
+        bypass("unverified_history", "context")
         return None
     # Explicit cities can change; signed history must still preserve time, units and same-city qualifiers.
     for role, text in history:
         if role == "user":
             earlier = cache_policy(text, now, locale, time_zone, memory.preferences.unit_system)
             if not compatible_history(earlier, policy):
+                bypass("incompatible_history", "context")
                 return None
     return CacheTurn(service, policy, scope, context, cookie, question, tuple(history), secret)

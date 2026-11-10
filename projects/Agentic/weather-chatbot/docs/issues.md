@@ -934,4 +934,15 @@ package's code**, **deploying**, or **testing a real API**.
      once, so a full run stopped with an error. **Fix:** the three rules match the current lines, and two new rules
      cover what was added without one: a cancelled lookup stays grey, and saved units win over the browser's,
      each with its test. **Check:** all 444 rules match their text once; the five rules are caught.
+177. **Qdrant traces hid cache decisions and caught provider failures.** *You, 9 November.* Lookup and store
+     spans only timed the wrapper, so a miss, a rejected write or a caught outage could all look Completed.
+     **Fix:** both steps carry fixed outcomes, returned errors mark the step Failed, and provider calls nest
+     beneath them with separate timings. The root records a fixed reason when lookup is bypassed. The similarity
+     span records a bounded threshold and, only when a candidate is returned, its valid numeric score. The Nimbus
+     explorer reads these fields through an allowlist; questions, answers, vectors, scopes, guards, preferences,
+     keys and raw provider errors remain excluded. A cache error still permits the normal answer. **Check:**
+     offline real-SDK tests cover outcomes, nesting, timeouts, cancellation, numeric bounds and private-value
+     exclusion. Focused unit checks and five Chrome cases passed, including mobile layout and accessibility.
+     All 16 affected mutation rules were caught by assertion failures, and both independent reviews found no
+     blocking issues. Validation was local and offline; the full suite and hosted delivery were not run.
 

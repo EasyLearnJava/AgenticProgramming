@@ -337,7 +337,7 @@ def test_store_uses_inference_payload_mac_and_absolute_expiry() -> None:
     success = httpx2.Response(200, json={"status": "ok", "result": {}})
     count = httpx2.Response(200, json={"status": "ok", "result": {"count": 0}})
     qdrant = RecordingQdrant(success, count, success)
-    assert asyncio.run(service(qdrant).store(QUESTION, record))
+    assert asyncio.run(service(qdrant).store(QUESTION, record)).status == "saved"
     assert [r.method for r in qdrant.requests] == ["POST", "POST", "PUT"]
     cleanup = json.loads(qdrant.requests[0].content)
     assert {"key": "expires_at", "range": {"lte": NOW}} in cleanup["filter"]["must"]
@@ -358,14 +358,14 @@ def test_full_collection_does_not_issue_an_upsert() -> None:
         httpx2.Response(200, json={"status": "ok", "result": {}}),
         httpx2.Response(200, json={"status": "ok", "result": {"count": MAX_POINTS}}),
     )
-    assert not asyncio.run(service(qdrant).store(QUESTION, entry()))
+    assert asyncio.run(service(qdrant).store(QUESTION, entry())).status == "cache_full"
     assert len(qdrant.requests) == 2
 
 
 def test_expired_answer_is_not_sent_for_storage() -> None:
     """An answer expiring while Gemini responds cannot gain time from a cache write."""
     qdrant = RecordingQdrant()
-    assert not asyncio.run(service(qdrant).store(QUESTION, entry(expires_at=NOW)))
+    assert asyncio.run(service(qdrant).store(QUESTION, entry(expires_at=NOW))).status == "not_reusable"
     assert not qdrant.requests
 
 
@@ -437,8 +437,9 @@ def test_equivalent_questions_replace_one_record_instead_of_growing_the_collecti
     count = httpx2.Response(200, json={"status": "ok", "result": {"count": 1}})
     qdrant = RecordingQdrant(success, count, success, success, count, success)
     cache = service(qdrant)
-    assert asyncio.run(cache.store(QUESTION, entry()))
-    assert asyncio.run(cache.store("weather in Dallas", entry(exact=digest(normalized("weather in Dallas")))))
+    assert asyncio.run(cache.store(QUESTION, entry())).status == "saved"
+    result = asyncio.run(cache.store("weather in Dallas", entry(exact=digest(normalized("weather in Dallas")))))
+    assert result.status == "saved"
     first = json.loads(qdrant.requests[2].content)["points"][0]
     second = json.loads(qdrant.requests[5].content)["points"][0]
     assert first["id"] == second["id"]
@@ -454,7 +455,7 @@ def test_failure_at_any_store_stage_is_optional_and_stops_further_work(failure_s
     ]
     results[failure_step] = httpx2.Response(503)
     qdrant = RecordingQdrant(*results)
-    assert not asyncio.run(service(qdrant).store(QUESTION, entry()))
+    assert asyncio.run(service(qdrant).store(QUESTION, entry())).status == "error"
     assert len(qdrant.requests) == failure_step + 1
 
 

@@ -61,3 +61,9 @@ class CacheLookup(BaseModel):
 
     status: Literal["exact_hit", "semantic_hit", "miss", "error", "shadow_hit", "bypass"]
     entry: CacheEntry | None = None
+
+
+class CacheStore(BaseModel):
+    """A cache write's actual outcome, separate from whether the weather answer itself succeeded."""
+
+    status: Literal["saved", "not_reusable", "cache_full", "error", "bypass"]

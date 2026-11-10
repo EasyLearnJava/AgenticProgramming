@@ -32,6 +32,12 @@
     setText("[data-trace-detail-kind]", row.dataset.callKind);
     setText("[data-trace-detail-duration]", row.dataset.duration);
     setText("[data-trace-detail-start]", row.dataset.start);
+    for (const field of ["outcome", "cacheReason", "score", "threshold"]) {
+      const value = row.dataset[field] || "";
+      setText(`[data-trace-detail-${field}]`, value);
+      explorer.querySelector(`[data-trace-field="${field}"]`).hidden = !value;
+    }
+    explorer.querySelector("[data-trace-score-note]").hidden = !row.dataset.threshold;
     const parent = byKey.get(row.dataset.parent);
     const parentLabel = parent ? parent.dataset.label :
       (["agent", "memory"].includes(row.dataset.kind) ? "None (trace root)" : "Not available in this view");

@@ -174,3 +174,48 @@ def test_pending_trace_can_be_refreshed_and_legacy_request_has_no_trace_link(pag
     page.get_by_role("link", name="Refresh trace").click()
     expect(page).to_have_url(same_trace)
     expect(page.get_by_role("note")).to_contain_text("no visible calls")
+
+
+@pytest.mark.parametrize("width", [360, 1280])
+def test_qdrant_outcomes_scores_and_failed_save_are_visible(
+    page: Page, base_url: str, width: int, tmp_path: Path
+) -> None:
+    """Cache operations retain their nesting and explain results without inflating model or tool counts."""
+    page.set_viewport_size({"width": width, "height": 900})
+    page.goto(f"{base_url}/activity")
+    request = page.locator("details.obs-details").filter(has_text="Ref 88888888")
+    request.locator("summary").click()
+    request.get_by_role("link", name="View LangSmith trace for request 88888888").click()
+    expect(page.locator(".trace-row")).to_have_count(8)
+    expect(page.locator(".trace-metric").filter(has_text="Model calls")).to_contain_text("0")
+    expect(page.locator(".trace-metric").filter(has_text="Tool spans")).to_contain_text("0")
+    similarity = page.locator(".trace-row").filter(has_text="Qdrant similarity search")
+    expect(similarity).to_contain_text("Miss")
+    expect(similarity).to_contain_text("0.762")
+    similarity.locator("[data-trace-select]").click()
+    expect(page.locator("[data-trace-detail-outcome]")).to_have_text("Miss")
+    expect(page.locator("[data-trace-detail-score]")).to_have_text("0.762")
+    expect(page.locator("[data-trace-detail-threshold]")).to_have_text("0.800")
+    expect(page.locator("[data-trace-detail-parent]")).to_have_text("Weather answer cache lookup")
+    expect(page.locator("[data-trace-score-note]")).to_be_visible()
+    page.screenshot(path=str(tmp_path / f"cache-trace-{width}.png"), full_page=True)
+    page.locator(".trace-row").filter(has_text="Qdrant save").locator("[data-trace-select]").click()
+    expect(page.locator("[data-trace-detail-outcome]")).to_have_text("Error")
+    expect(page.locator("[data-trace-detail-status]")).to_have_text("Failed")
+    expect(page.locator("[data-trace-field='score']")).to_be_hidden()
+    expect(page.locator("[data-trace-score-note]")).to_be_hidden()
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    audit = Axe().run(page)
+    assert audit.violations_count == 0, audit.generate_report()
+
+
+def test_qdrant_bypass_reason_is_shown_without_a_cache_call(page: Page, base_url: str) -> None:
+    page.goto(f"{base_url}/activity")
+    request = page.locator("details.obs-details").filter(has_text="Ref 99999999")
+    request.locator("summary").click()
+    request.get_by_role("link", name="View LangSmith trace for request 99999999").click()
+    expect(page.locator(".trace-row")).to_have_count(1)
+    page.locator("[data-trace-select]").click()
+    expect(page.locator("[data-trace-detail-outcome]")).to_have_text("Bypassed")
+    expect(page.locator("[data-trace-detail-cacheReason]")).to_have_text("Conversation could not be verified")
+    expect(page.locator("[data-trace-field='score']")).to_be_hidden()

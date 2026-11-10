@@ -831,6 +831,9 @@ def to_semantic_cache_line(row: Row, at: datetime, took: str) -> ActivityLine:
         "bypass": ("Skipped", "idle"),
         "error": ("Unavailable; normal answer flow continues", "warn"),
         "stored": ("Answer saved", "ok"),
+        "saved": ("Answer saved", "ok"),
+        "not_reusable": ("Answer not reusable", "idle"),
+        "cache_full": ("Cache capacity reached", "idle"),
         "shadow_hit": ("Match measured; answer not reused", "idle"),
         "ready": ("Inventory read", "ok"),
         "disabled": ("Disabled", "idle"),
@@ -843,6 +846,9 @@ def to_semantic_cache_line(row: Row, at: datetime, took: str) -> ActivityLine:
         "ineligible": "outside cache scope",
         "timeout": "time limit reached",
         "unavailable": "provider unavailable",
+        "evidence": "weather evidence was incomplete or unsuitable for reuse",
+        "capacity": "cache capacity reached",
+        "disabled": "cache is disabled or unconfigured",
     }.get(to_words(row, "reason"), "")
     detail = f"{label}{f' · {reason}' if reason else ''} in {took}"
     return ActivityLine(at, f"Weather answer cache{suffix}", detail, tone)

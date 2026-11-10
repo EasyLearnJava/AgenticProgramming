@@ -38,6 +38,8 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
     ready = UUID("1cd9a312-dd4d-4696-ac81-9e3521b2d07a")
     pending = UUID("2edb2101-262d-41ad-ba41-d71c8c9d128e")
     partial = UUID("3edb2101-262d-41ad-ba41-d71c8c9d128e")
+    cache = UUID("8edb2101-262d-41ad-ba41-d71c8c9d128e")
+    bypass = UUID("9edb2101-262d-41ad-ba41-d71c8c9d128e")
     memory_traces = {
         "memory-read-55555555": (UUID("4edb2101-262d-41ad-ba41-d71c8c9d128e"), "read", "ready"),
         "memory-save-66666666": (UUID("5edb2101-262d-41ad-ba41-d71c8c9d128e"), "save", "ready"),
@@ -49,6 +51,8 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
         "pending-22222222": pending,
         "legacy-33333333": None,
         "partial-44444444": partial,
+        "cache-88888888": cache,
+        "bypass-99999999": bypass,
     }
     now = datetime.now(UTC).isoformat()
 
@@ -72,6 +76,94 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
                 )
         if trace_id == pending:
             return TraceView(status="pending")
+        if trace_id == bypass:
+            return TraceView(
+                "ready",
+                (
+                    TraceRow(
+                        "Nimbus chat",
+                        "Agent",
+                        80,
+                        0,
+                        0,
+                        "Completed",
+                        outcome="Bypassed",
+                        cache_reason="Conversation could not be verified",
+                    ),
+                ),
+            )
+        if trace_id == cache:
+            return TraceView(
+                "ready",
+                (
+                    TraceRow("Nimbus chat", "Agent", 400, 0, 0, "Completed", outcome="Miss"),
+                    TraceRow(
+                        "Weather answer cache lookup",
+                        "Step",
+                        70,
+                        10,
+                        1,
+                        "Completed",
+                        parent_index=0,
+                        outcome="Miss",
+                    ),
+                    TraceRow(
+                        "Qdrant exact match",
+                        "Step",
+                        20,
+                        10,
+                        2,
+                        "Completed",
+                        parent_index=1,
+                        outcome="Miss",
+                    ),
+                    TraceRow(
+                        "Qdrant similarity search",
+                        "Step",
+                        50,
+                        30,
+                        2,
+                        "Completed",
+                        parent_index=1,
+                        outcome="Miss",
+                        similarity_score=0.762,
+                        similarity_threshold=0.8,
+                    ),
+                    TraceRow(
+                        "Weather answer cache store",
+                        "Step",
+                        140,
+                        200,
+                        1,
+                        "Failed",
+                        error="Step reported an error.",
+                        parent_index=0,
+                        outcome="Error",
+                    ),
+                    TraceRow(
+                        "Qdrant remove expired",
+                        "Step",
+                        20,
+                        200,
+                        2,
+                        "Completed",
+                        parent_index=4,
+                        outcome="Completed",
+                    ),
+                    TraceRow("Qdrant count", "Step", 20, 220, 2, "Completed", parent_index=4, outcome="Completed"),
+                    TraceRow(
+                        "Qdrant save",
+                        "Step",
+                        100,
+                        240,
+                        2,
+                        "Failed",
+                        error="Step reported an error.",
+                        parent_index=4,
+                        outcome="Error",
+                    ),
+                ),
+            )
         if trace_id == partial:
             return TraceView(
                 "ready",

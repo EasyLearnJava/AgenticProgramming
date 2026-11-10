@@ -80,7 +80,7 @@ from nimbus.nps_alerts import AlertsCallRecord
 from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
-from nimbus.request_trace import RequestTrace
+from nimbus.request_trace import CacheTraceStep, RequestTrace
 from nimbus.semantic_cache.evidence import cached_cards
 from nimbus.semantic_cache.identity import set_scope
 from nimbus.semantic_cache.integration import CacheTurn
@@ -370,13 +370,16 @@ async def stream_turn(
             "memory_note": memory_note,
         }
         if cache_turn is not None:
-            storing: AbstractContextManager[None] = (
+            storing: AbstractContextManager[CacheTraceStep | None] = (
                 request_trace.step("store") if request_trace is not None else nullcontext()
             )
-            with storing:
-                done["cache_receipt"] = await cache_turn.completed(
-                    "".join(pieces), list(chips.values()), str(done["answer"])
+            with storing as cache_step:
+                completion = await cache_turn.completed(
+                    "".join(pieces), list(chips.values()), str(done["answer"]), trace=cache_step
                 )
+                done["cache_receipt"] = completion.receipt
+                if cache_step is not None:
+                    cache_step.outcome(completion.store.status)
         yield to_sse_message(render_part("chat_end.html", done))
         log.info("chat.done", **ending())
     except (asyncio.CancelledError, GeneratorExit):
@@ -491,6 +494,7 @@ async def answer_question(
     memory_command = memory_intent(chat_request.question, PreferenceProfile())
     memory = await load_memory(request, include_paused=memory_command is not None, trace=request_trace.parent)
     if memory_command is not None:
+        request_trace.cache_outcome("bypass", "workflow")
         request_trace.workflow = "memory"
         saved = memory.snapshot.preferences if memory.snapshot.status == "ready" else PreferenceProfile()
         command = memory_intent(chat_request.question, saved)
@@ -575,6 +579,7 @@ async def answer_question(
             intake_reply = forecast_limit_reply(chat_request.question, now, chat_request.time_zone)
             reply_kind = "forecastHorizon"
     if intent or intake_reply:
+        request_trace.cache_outcome("bypass", "workflow")
         turn_id = new_turn_id()
 
         async def intake_events() -> AsyncGenerator[str]:
@@ -646,12 +651,15 @@ async def answer_question(
         chat_request.cache_receipt,
         memory,
         now,
+        trace=request_trace,
     )
     if cache_turn is not None:
-        with request_trace.step("lookup"):
+        with request_trace.step("lookup") as cache_step:
             lookup = await cache_turn.service.lookup(
-                chat_request.question, cache_turn.scope, cache_turn.context, cache_turn.policy
+                chat_request.question, cache_turn.scope, cache_turn.context, cache_turn.policy, trace=cache_step
             )
+            cache_step.outcome(lookup.status)
+            request_trace.cache_outcome(lookup.status)
         if lookup.entry is not None and lookup.entry.expires_at > time.time():
             entry = lookup.entry
             request_trace.workflow = "cached"

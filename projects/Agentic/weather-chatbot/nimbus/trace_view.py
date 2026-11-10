@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,13 +14,13 @@ from uuid import UUID
 import httpx2
 import structlog
 from langsmith import utils as smith
-from pydantic import AwareDatetime, BaseModel, TypeAdapter, field_validator
+from pydantic import AwareDatetime, BaseModel, Field, TypeAdapter, field_validator
 
 from nimbus.config import Settings
 from nimbus.constants import AGENT_NAME, OBSERVABILITY_DAYS
 from nimbus.memory.tracing import MEMORY_TRACE_NAMES
 from nimbus.model import is_tracing_allowed
-from nimbus.request_trace import CACHE_STEP_NAMES, REQUEST_TRACE_NAME
+from nimbus.request_trace import CACHE_OPERATION_NAMES, CACHE_STEP_NAMES, REQUEST_TRACE_NAME
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.utils import to_iso, to_ms
 
@@ -42,9 +43,51 @@ MEMORY_LABELS = {
 CACHE_LABELS = {
     CACHE_STEP_NAMES["lookup"]: "Weather answer cache lookup",
     CACHE_STEP_NAMES["store"]: "Weather answer cache store",
+    CACHE_OPERATION_NAMES["exact"]: "Qdrant exact match",
+    CACHE_OPERATION_NAMES["similarity"]: "Qdrant similarity search",
+    CACHE_OPERATION_NAMES["cleanup"]: "Qdrant remove expired",
+    CACHE_OPERATION_NAMES["count"]: "Qdrant count",
+    CACHE_OPERATION_NAMES["save"]: "Qdrant save",
 }
-# Ask only for identifiers, nesting, names, status and timestamps. Even error text can contain the question.
-SELECTS = ("ID", "PROJECT_ID", "TRACE_ID", "PARENT_RUN_IDS", "NAME", "RUN_TYPE", "START_TIME", "END_TIME", "STATUS")
+CACHE_OUTCOMES = {
+    "completed": "Completed",
+    "exact_hit": "Exact hit",
+    "semantic_hit": "Similarity hit",
+    "miss": "Miss",
+    "shadow_hit": "Shadow hit",
+    "error": "Error",
+    "bypass": "Bypassed",
+    "saved": "Saved",
+    "not_reusable": "Not reusable",
+    "cache_full": "Cache full",
+    "cancelled": "Cancelled",
+}
+CACHE_REASONS = {
+    "disabled": "Caching is disabled",
+    "unconfigured": "Caching is not configured",
+    "ineligible": "Question is outside the cache rules",
+    "unverified_history": "Conversation could not be verified",
+    "incompatible_history": "Conversation constraints differ",
+    "workflow": "This workflow does not use the weather cache",
+    "lane": "This weather lane does not use the answer cache",
+    "origin": "Request origin was not accepted",
+    "memory_unavailable": "Preference context was unavailable",
+    "not_evaluated": "Cache eligibility was not evaluated",
+}
+# METADATA is supported by LangSmith's v2 trace API. Keep only our fixed operational fields at validation.
+# Never request inputs, outputs, error text or EXTRA; any of those can contain private visitor content.
+SELECTS = (
+    "ID",
+    "PROJECT_ID",
+    "TRACE_ID",
+    "PARENT_RUN_IDS",
+    "NAME",
+    "RUN_TYPE",
+    "START_TIME",
+    "END_TIME",
+    "STATUS",
+    "METADATA",
+)
 
 type _Stage = Literal["project", "runs"]
 
@@ -84,6 +127,10 @@ class TraceRow:
     status: str
     error: str | None = None
     parent_index: int | None = None
+    outcome: str = ""
+    cache_reason: str = ""
+    similarity_score: float | None = None
+    similarity_threshold: float | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +160,54 @@ class _Project(BaseModel):
     tenant_id: UUID | None = None
 
 
+class _CacheMetadata(BaseModel):
+    """Discard unrelated metadata and invalid values before constructing any public trace rows."""
+
+    outcome: str = ""
+    cache_outcome: str = ""
+    cache_bypass_reason: str = ""
+    similarity_score: float | None = None
+    similarity_threshold: float | None = None
+
+    @field_validator("outcome", "cache_outcome", mode="before")
+    @classmethod
+    def checked_outcome(cls, value: object) -> str:
+        """Unknown provider strings are never displayed, even when they look like errors."""
+        return value if isinstance(value, str) and value in CACHE_OUTCOMES else ""
+
+    @field_validator("cache_bypass_reason", mode="before")
+    @classmethod
+    def checked_reason(cls, value: object) -> str:
+        """Accept only fixed reasons issued by the request trace."""
+        return value if isinstance(value, str) and value in CACHE_REASONS else ""
+
+    @field_validator("similarity_score", mode="before")
+    @classmethod
+    def checked_score(cls, value: object) -> float | None:
+        """Cosine scores must be finite numbers in [-1, 1], never booleans or numeric strings."""
+        return (
+            float(value)
+            if isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and -1 <= value <= 1
+            and math.isfinite(value)
+            else None
+        )
+
+    @field_validator("similarity_threshold", mode="before")
+    @classmethod
+    def checked_threshold(cls, value: object) -> float | None:
+        """The configured cutoff is a finite number in [0, 1]."""
+        return (
+            float(value)
+            if isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and 0 <= value <= 1
+            and math.isfinite(value)
+            else None
+        )
+
+
 class _Span(BaseModel):
     id: UUID
     trace_id: UUID
@@ -123,6 +218,13 @@ class _Span(BaseModel):
     start_time: AwareDatetime
     end_time: AwareDatetime | None = None
     status: str | None = None
+    metadata: _CacheMetadata = Field(default_factory=_CacheMetadata)
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def checked_metadata(cls, value: object) -> object:
+        """Missing or malformed optional metadata cannot hide an otherwise readable trace."""
+        return value if isinstance(value, dict) else {}
 
     @field_validator("run_type", "status")
     @classmethod
@@ -182,6 +284,11 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
     for index, span in enumerate(retained):
         kind, label = labels[span.id]
         elapsed = (span.end_time - span.start_time).total_seconds() if span.end_time else None
+        cache_step = span.name in CACHE_LABELS and span.run_type == "CHAIN"
+        chat_root = span.id == trace_id and is_request
+        outcome = span.metadata.outcome if cache_step else span.metadata.cache_outcome if chat_root else ""
+        reason = span.metadata.cache_bypass_reason if chat_root and outcome == "bypass" else ""
+        similarity = span.name == CACHE_OPERATION_NAMES["similarity"] and cache_step
         rows.append(
             TraceRow(
                 label=label,
@@ -192,6 +299,10 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
                 status=STATUSES.get(span.status or "", "Unknown"),
                 error=f"{kind} reported an error." if span.status == "ERROR" else None,
                 parent_index=parents[index],
+                outcome=CACHE_OUTCOMES.get(outcome, ""),
+                cache_reason=CACHE_REASONS.get(reason, ""),
+                similarity_score=span.metadata.similarity_score if similarity else None,
+                similarity_threshold=span.metadata.similarity_threshold if similarity else None,
             )
         )
     return TraceView("ready", tuple(rows), truncated=len(visible) > TRACE_MAX_ROWS)

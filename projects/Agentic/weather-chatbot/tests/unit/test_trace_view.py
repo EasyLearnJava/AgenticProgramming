@@ -102,6 +102,105 @@ def test_a_chat_request_root_requires_its_exact_run_type(traced: Settings, kind:
     assert result.issue == TraceIssue.WRONG_ROOT
 
 
+@pytest.mark.parametrize(
+    ("name", "label"),
+    [
+        ("qdrant.exact_match", "Qdrant exact match"),
+        ("qdrant.similarity_search", "Qdrant similarity search"),
+        ("qdrant.remove_expired", "Qdrant remove expired"),
+        ("qdrant.count", "Qdrant count"),
+        ("qdrant.save", "Qdrant save"),
+    ],
+)
+@pytest.mark.parametrize("status", ["SUCCESS", "ERROR"])
+def test_qdrant_steps_keep_real_parents_safe_outcomes_and_errors(
+    traced: Settings, name: str, label: str, status: str
+) -> None:
+    """Each provider operation stays below its cache step, without becoming a model or weather-tool call."""
+    parent, child = UUID(int=740), UUID(int=741)
+    view = with_runs(
+        traced,
+        span(name="nimbus.chat", metadata={"cache_outcome": "miss", "private": PRIVATE}),
+        span(parent, name="weather_cache.lookup", start_time="2026-11-05T12:00:00.010Z"),
+        span(
+            child,
+            name=name,
+            parent_run_ids=[str(TRACE), str(parent)],
+            start_time="2026-11-05T12:00:00.020Z",
+            status=status,
+            error=PRIVATE,
+            metadata={"outcome": "error" if status == "ERROR" else "completed", "private": PRIVATE},
+        ),
+    )
+    assert view.status == "ready"
+    row = view.rows[-1]
+    assert (row.kind, row.label, row.parent_index, row.depth) == ("Step", label, 1, 2)
+    assert row.status == ("Failed" if status == "ERROR" else "Completed")
+    assert row.outcome == ("Error" if status == "ERROR" else "Completed")
+    assert bool(row.error) is (status == "ERROR")
+    assert view.rows[0].outcome == "Miss"
+    assert PRIVATE not in str(view)
+
+
+def test_similarity_metrics_are_numeric_only_and_only_for_the_similarity_step(traced: Settings) -> None:
+    """Unrelated runs cannot present arbitrary metadata as a cache decision or score."""
+    metadata = {"outcome": "semantic_hit", "similarity_score": 0.87, "similarity_threshold": 0.8, "secret": PRIVATE}
+    view = with_runs(
+        traced,
+        span(name="nimbus.chat", metadata={"cache_outcome": "semantic_hit"}),
+        span(UUID(int=742), name="qdrant.similarity_search", metadata=metadata),
+        span(UUID(int=743), name="qdrant.count", metadata=metadata),
+        span(UUID(int=744), name="get_forecast", run_type="TOOL", metadata=metadata),
+    )
+    similarity, count, tool = view.rows[1:]
+    assert (similarity.outcome, similarity.similarity_score, similarity.similarity_threshold) == (
+        "Similarity hit",
+        0.87,
+        0.8,
+    )
+    assert count.similarity_score is count.similarity_threshold is None
+    assert tool.outcome == ""
+    assert tool.similarity_score is tool.similarity_threshold is None
+    assert PRIVATE not in str(view)
+
+
+@pytest.mark.parametrize("value", [True, "0.90", float("nan"), float("inf"), -1.1, 1.1, 10**400, {}, [0.9]])
+def test_invalid_similarity_values_are_discarded_without_exposing_metadata(value: object) -> None:
+    """Malformed, non-finite and excessively large values remain unavailable, never coerced into scores."""
+    parsed = trace_view._Span.model_validate(
+        span(
+            UUID(int=745),
+            name="qdrant.similarity_search",
+            metadata={
+                "outcome": PRIVATE,
+                "similarity_score": value,
+                "similarity_threshold": value,
+                "browser_scope": PRIVATE,
+            },
+        )
+    )
+    assert parsed.metadata.outcome == ""
+    assert parsed.metadata.similarity_score is parsed.metadata.similarity_threshold is None
+    assert PRIVATE not in str(parsed)
+
+
+def test_only_a_chat_root_can_display_allowlisted_cache_bypass_reasons(traced: Settings) -> None:
+    """A request may explain a skipped cache check using a fixed reason, never a question or provider message."""
+    metadata = {"cache_outcome": "bypass", "cache_bypass_reason": "unverified_history", "question": PRIVATE}
+    view = with_runs(
+        traced,
+        span(name="nimbus.chat", metadata=metadata),
+        span(UUID(int=746), name="weather_cache.lookup", metadata=metadata),
+    )
+    assert view.rows[0].outcome == "Bypassed"
+    assert view.rows[0].cache_reason == "Conversation could not be verified"
+    assert view.rows[1].cache_reason == ""
+    assert PRIVATE not in str(view)
+    unknown = with_runs(traced, span(name="nimbus.chat", metadata={**metadata, "cache_bypass_reason": PRIVATE}))
+    assert unknown.rows[0].cache_reason == ""
+    assert PRIVATE not in str(unknown)
+
+
 @pytest.fixture
 def traced(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setattr(smith, "get_api_url", lambda _: "https://eu.api.smith.langchain.com/api/v1")
@@ -197,6 +296,7 @@ def test_one_trace_in_one_project_selects_only_operational_fields(traced: Settin
         "STATUS",
         "START_TIME",
         "END_TIME",
+        "METADATA",
     }
     assert result == TraceView(
         "ready",
