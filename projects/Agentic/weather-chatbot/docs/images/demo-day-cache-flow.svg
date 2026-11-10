@@ -1,0 +1,271 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1120" viewBox="0 0 960 1120" role="img"
+  aria-labelledby="title desc">
+  <title id="title">DemoDay part 1: how Nimbus answers a weather question, or reuses a saved answer</title>
+  <desc id="desc">A swimlane flowchart in four columns: your browser; Nimbus, the FastAPI app on Vercel; Gemini and
+    Open-Meteo; and stored data in Mem0 and Qdrant Cloud. If this browser turned memory on, Nimbus reads its saved
+    preferences from Mem0. It checks the cache rules, then asks Qdrant for an exact match and, if there is none, a
+    similar question scoring at least 0.80, among this browser's unexpired answers with the same place, units, timing,
+    locale and context. Every prompt starts at step 1 and leaves at the first path it takes. A hit returns the cached answer
+    without calling Gemini or the weather tools: prompt 2 by exact match, prompts 3 and 5 by similarity. A miss,
+    prompts 1 and 4, goes to the LangGraph agent, where Gemini calls the weather tools on Open-Meteo, whose replies
+    Vercel's Runtime Cache keeps. The answer streams to the browser first; then its evidence is checked and, if
+    every check passes, it is saved in Qdrant, reusable for two minutes at most, or less if its weather data or the
+    day runs out. A failed check is named in Activity. Every step is logged to Axiom for the Activity page and traced
+    in LangSmith for the trace view; the Weather cache page lists this browser's entries.</desc>
+  <defs>
+    <marker id="grey" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#5f8279"/>
+    </marker>
+    <marker id="green" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#17845a"/>
+    </marker>
+    <marker id="blue" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2c64a8"/>
+    </marker>
+    <marker id="amber" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#b45309"/>
+    </marker>
+  </defs>
+  <rect width="960" height="1120" rx="24" fill="#f3fbf8"/>
+  <g font-family="Segoe UI,system-ui,Arial,sans-serif" fill="#123f35">
+    <!-- Heading -->
+    <text x="28" y="48" font-size="25" font-weight="700">One weather question, two ways to answer it</text>
+    <text x="28" y="78" font-size="15" fill="#47645c">Green paths reuse a saved answer without Gemini. Blue paths
+      write a fresh answer, then save it.</text>
+
+    <!-- Lanes -->
+    <g fill="#ffffff" fill-opacity="0.65" stroke="#cfe5dc" stroke-width="1.5">
+      <rect x="16" y="100" width="170" height="820" rx="14"/>
+      <rect x="198" y="100" width="350" height="820" rx="14"/>
+      <rect x="560" y="100" width="200" height="820" rx="14"/>
+      <rect x="772" y="100" width="172" height="820" rx="14"/>
+    </g>
+    <g stroke="#cfe5dc" stroke-width="1.5">
+      <path d="M16 136 H186 M198 136 H548 M560 136 H760 M772 136 H944"/>
+    </g>
+    <g font-size="12.5" font-weight="700" fill="#47645c" letter-spacing="1" text-anchor="middle">
+      <text x="101" y="123">YOUR BROWSER</text>
+      <text x="373" y="123">NIMBUS · FASTAPI ON VERCEL</text>
+      <text x="660" y="123">MODEL AND WEATHER</text>
+      <text x="858" y="123">STORED DATA</text>
+    </g>
+
+    <!-- Boxes -->
+    <g fill="#ffffff" stroke="#bdd8cf" stroke-width="2">
+      <rect x="28" y="156" width="140" height="58" rx="12"/>
+      <rect x="258" y="156" width="278" height="58" rx="12"/>
+      <rect x="258" y="234" width="278" height="74" rx="12"/>
+      <rect x="258" y="336" width="278" height="58" rx="12"/>
+      <rect x="258" y="424" width="278" height="58" rx="12"/>
+      <rect x="258" y="520" width="278" height="110" rx="12"/>
+      <rect x="258" y="658" width="278" height="58" rx="12"/>
+      <rect x="258" y="744" width="278" height="74" rx="12"/>
+      <rect x="258" y="846" width="278" height="58" rx="12"/>
+      <rect x="572" y="520" width="176" height="66" rx="12"/>
+      <rect x="572" y="600" width="176" height="86" rx="12"/>
+      <rect x="784" y="156" width="148" height="58" rx="12"/>
+    </g>
+    <rect x="28" y="336" width="140" height="146" rx="12" fill="#e0f5ec" stroke="#17845a" stroke-width="2"/>
+    <rect x="28" y="658" width="140" height="58" rx="12" fill="#e9f1fb" stroke="#2c64a8" stroke-width="2"/>
+    <rect x="572" y="240" width="176" height="62" rx="12" fill="#ffffff" stroke="#8fb0a6" stroke-width="1.5"
+      stroke-dasharray="6 5"/>
+    <rect x="572" y="744" width="176" height="74" rx="12" fill="#fff4e5" stroke="#b45309" stroke-width="2"/>
+
+    <!-- Qdrant Cloud, the answer store -->
+    <path d="M784 336 V892 A74 12 0 0 0 932 892 V336" fill="#ffffff" stroke="#bdd8cf" stroke-width="2"/>
+    <ellipse cx="858" cy="336" rx="74" ry="12" fill="#e7f4ef" stroke="#bdd8cf" stroke-width="2"/>
+
+    <!-- Step numbers -->
+    <g fill="#0f766e">
+      <circle cx="281" cy="180" r="13"/>
+      <circle cx="281" cy="258" r="13"/>
+      <circle cx="281" cy="360" r="13"/>
+      <circle cx="281" cy="448" r="13"/>
+      <circle cx="281" cy="544" r="13"/>
+      <circle cx="281" cy="682" r="13"/>
+      <circle cx="281" cy="768" r="13"/>
+      <circle cx="281" cy="870" r="13"/>
+    </g>
+    <g font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">
+      <text x="281" y="185">1</text>
+      <text x="281" y="263">2</text>
+      <text x="281" y="365">3</text>
+      <text x="281" y="453">4</text>
+      <text x="281" y="549">5</text>
+      <text x="281" y="687">6</text>
+      <text x="281" y="773">7</text>
+      <text x="281" y="875">8</text>
+    </g>
+
+    <!-- Box titles -->
+    <g font-size="15" font-weight="700">
+      <text x="40" y="180">Chat page</text>
+      <text x="304" y="185">Read saved preferences</text>
+      <text x="304" y="263">Check the cache rules</text>
+      <text x="304" y="365">Exact match</text>
+      <text x="304" y="453">Similar question</text>
+      <text x="304" y="549">Fresh answer from the agent</text>
+      <text x="304" y="687">Stream the answer to you</text>
+      <text x="304" y="773">Check the evidence</text>
+      <text x="304" y="875">Save for 2 minutes at most</text>
+      <text x="40" y="386" fill="#0f5c40">Cached answer</text>
+      <text x="40" y="682" fill="#1f4f86">Fresh answer</text>
+      <text x="584" y="545">Gemini</text>
+      <text x="584" y="625">Open-Meteo</text>
+      <text x="796" y="180">Mem0</text>
+      <text x="584" y="768" fill="#8a3f06">A check fails?</text>
+      <text x="858" y="384" text-anchor="middle">Qdrant Cloud</text>
+    </g>
+
+    <!-- Box details -->
+    <g font-size="13" fill="#47645c">
+      <text x="40" y="200">you ask</text>
+      <text x="304" y="204">if this browser turned memory on</text>
+      <text x="304" y="282">one place, plain weather words</text>
+      <text x="304" y="299">same origin, verified history</text>
+      <text x="304" y="384">same browser, same words</text>
+      <text x="304" y="472">same meaning, score ≥ 0.80</text>
+      <text x="304" y="568">LangGraph agent and Gemini</text>
+      <text x="304" y="586">weather tools: geocode,</text>
+      <text x="304" y="604">current weather, forecast</text>
+      <text x="304" y="706">before anything is saved</text>
+      <text x="304" y="792">one place, your units,</text>
+      <text x="304" y="809">full forecast, fresh data</text>
+      <text x="304" y="894">less if data or the day expires</text>
+      <text x="40" y="408">badge says Gemini</text>
+      <text x="40" y="426">was not called;</text>
+      <text x="40" y="444">no weather calls</text>
+      <text x="40" y="702">streams as written</text>
+      <text x="584" y="563">chooses the tools</text>
+      <text x="584" y="579">and writes the answer</text>
+      <text x="584" y="643">geocoding, weather;</text>
+      <text x="584" y="660">replies kept in Vercel</text>
+      <text x="584" y="677">Runtime Cache</text>
+      <text x="796" y="200">saved preferences</text>
+      <text x="584" y="264" font-weight="700" fill="#123f35">Not eligible?</text>
+      <text x="584" y="281">skips the cache, gets</text>
+      <text x="584" y="298">a normal answer</text>
+      <text x="584" y="788" fill="#8a3f06">Not saved; Activity</text>
+      <text x="584" y="805" fill="#8a3f06">names the check</text>
+    </g>
+    <g font-size="13" fill="#47645c" text-anchor="middle">
+      <text x="858" y="404">weather answers</text>
+      <text x="858" y="444" font-weight="700" fill="#123f35">Searches only</text>
+      <text x="858" y="463">this browser's</text>
+      <text x="858" y="481">unexpired answers</text>
+      <text x="858" y="499">with the same place,</text>
+      <text x="858" y="517">units, timing, locale</text>
+      <text x="858" y="535">and context</text>
+      <text x="858" y="611" font-weight="700" fill="#123f35">Vectors</text>
+      <text x="858" y="630">MiniLM, made by</text>
+      <text x="858" y="648">Qdrant Cloud</text>
+      <text x="858" y="666">inference</text>
+      <text x="858" y="822" font-weight="700" fill="#123f35">Reuses each answer</text>
+      <text x="858" y="841">2 minutes at most</text>
+    </g>
+
+    <!-- Plain flow -->
+    <g stroke="#5f8279" stroke-width="2.5" fill="none" marker-end="url(#grey)">
+      <path d="M168 185 H252"/>
+            <path d="M397 214 V228"/>
+      <path d="M397 308 V330"/>
+      <path d="M397 394 V418"/>
+    </g>
+    <g stroke="#5f8279" stroke-width="2.5" fill="none" marker-start="url(#grey)" marker-end="url(#grey)">
+      <path d="M542 358 H778"/>
+      <path d="M542 446 H778"/>
+      <path d="M540 548 H568"/>
+      <path d="M540 614 H568"/>
+    </g>
+    <path d="M536 271 H566" stroke="#8fb0a6" stroke-width="2" stroke-dasharray="5 4" fill="none"
+      marker-end="url(#grey)"/>
+    <path d="M784 185 H542" stroke="#5f8279" stroke-width="2.5" stroke-dasharray="7 5" fill="none"
+      marker-end="url(#grey)"/>
+
+    <!-- Reuse: green -->
+    <g stroke="#17845a" stroke-width="3" fill="none" marker-end="url(#green)">
+      <path d="M258 375 H174"/>
+      <path d="M258 463 H174"/>
+    </g>
+    <!-- Fresh answer: blue -->
+    <g stroke="#2c64a8" stroke-width="3" fill="none" marker-end="url(#blue)">
+      <path d="M397 482 V514"/>
+      <path d="M397 630 V652"/>
+      <path d="M258 694 H174"/>
+      <path d="M397 716 V738"/>
+      <path d="M397 818 V840"/>
+      <path d="M536 882 H778"/>
+    </g>
+    <!-- Kept out: amber -->
+    <path d="M536 781 H566" stroke="#b45309" stroke-width="3" fill="none" marker-end="url(#amber)"/>
+
+    <!-- Flow labels -->
+    <g font-size="12.5" fill="#47645c">
+      <text x="213" y="177" text-anchor="middle">question</text>
+      <text x="660" y="177" text-anchor="middle">preferences, if any</text>
+      <text x="405" y="325">eligible</text>
+      <text x="405" y="413">no exact match</text>
+      <text x="660" y="350" text-anchor="middle">exact lookup</text>
+      <text x="660" y="438" text-anchor="middle">similarity search</text>
+      <text x="405" y="835">every check passes</text>
+      <text x="660" y="874" text-anchor="middle">save</text>
+    </g>
+
+    <!-- Which demo prompts take each path -->
+    <g font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+      <rect x="179" y="344" width="68" height="22" rx="11" fill="#17845a"/>
+      <text x="213" y="359">Prompt 2</text>
+      <rect x="173" y="432" width="80" height="22" rx="11" fill="#17845a"/>
+      <text x="213" y="447">Prompts 3, 5</text>
+      <rect x="410" y="487" width="84" height="22" rx="11" fill="#2c64a8"/>
+      <text x="452" y="502">Prompts 1, 4</text>
+    </g>
+
+    <!-- Where each step shows up -->
+    <text x="28" y="958" font-size="16" font-weight="700">Where each step shows up</text>
+    <g fill="#ffffff" stroke="#bdd8cf" stroke-width="1.5">
+      <rect x="28" y="972" width="176" height="28" rx="14"/>
+      <rect x="28" y="1008" width="176" height="28" rx="14"/>
+      <rect x="28" y="1044" width="176" height="28" rx="14"/>
+    </g>
+    <g fill="#e7f4ef" stroke="#0f766e" stroke-width="1.5">
+      <rect x="244" y="972" width="196" height="28" rx="14"/>
+      <rect x="244" y="1008" width="196" height="28" rx="14"/>
+      <rect x="244" y="1044" width="196" height="28" rx="14"/>
+    </g>
+    <g stroke="#5f8279" stroke-width="2" fill="none" marker-end="url(#grey)">
+      <path d="M204 986 H238"/>
+      <path d="M204 1022 H238"/>
+      <path d="M204 1058 H238"/>
+    </g>
+    <g font-size="13" text-anchor="middle">
+      <text x="116" y="991">Axiom log lines</text>
+      <text x="116" y="1027">LangSmith spans</text>
+      <text x="116" y="1063">Qdrant entries</text>
+      <text x="342" y="991" font-weight="700">Activity</text>
+      <text x="342" y="1027" font-weight="700">View LangSmith trace</text>
+      <text x="342" y="1063" font-weight="700">Weather cache</text>
+    </g>
+    <g font-size="13" fill="#47645c">
+      <text x="456" y="991">a row per request, with each step's outcome and time</text>
+      <text x="456" y="1027">nested timings, Exact or Similarity hit, and the score</text>
+      <text x="456" y="1063">this browser's entries: place, units and time left</text>
+    </g>
+
+    <!-- Legend -->
+    <g stroke-width="3" fill="none">
+      <path d="M28 1098 H58" stroke="#17845a"/>
+      <path d="M262 1098 H292" stroke="#2c64a8"/>
+      <path d="M440 1098 H470" stroke="#b45309"/>
+      <path d="M646 1098 H676" stroke="#8fb0a6" stroke-width="2" stroke-dasharray="5 4"/>
+      <path d="M808 1098 H838" stroke="#5f8279"/>
+    </g>
+    <g font-size="13" fill="#47645c">
+      <text x="66" y="1103">Reused answer, no Gemini</text>
+      <text x="300" y="1103">Fresh answer</text>
+      <text x="478" y="1103">Kept out of the cache</text>
+      <text x="684" y="1103">Skips the cache</text>
+      <text x="846" y="1103">Shared steps</text>
+    </g>
+  </g>
+</svg>

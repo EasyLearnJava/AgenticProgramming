@@ -599,6 +599,81 @@ body {
   color: var(--muted);
 }
 
+/* DemoDay: wider, for its diagram; each part a banner, each step set apart, and each prompt to type drawn as a
+ * question in the chat. Only this page: its <main> says data-doc="demo-day" (templates/doc.html). */
+.doc[data-doc="demo-day"] {
+  max-width: 1000px;
+}
+
+.doc[data-doc="demo-day"] h2 {
+  margin: 28px -12px 12px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: var(--bg-mid);
+}
+
+.doc[data-doc="demo-day"] h3 {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--bot-text);
+}
+
+.doc[data-doc="demo-day"] img {
+  display: block;
+  margin: 20px auto 8px;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgb(5 59 48 / 10%);
+}
+
+/* The line under the diagram, as its caption. */
+.doc[data-doc="demo-day"] p:has(> a > img) + p {
+  margin-top: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.doc[data-doc="demo-day"] tbody tr:nth-child(even) {
+  background: var(--code-bg);
+}
+
+.doc[data-doc="demo-day"] blockquote {
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 0 14px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 6px 18px 18px;
+  background: var(--bg-mid);
+}
+
+.doc[data-doc="demo-day"] blockquote::before {
+  content: "Type";
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.doc[data-doc="demo-day"] blockquote p {
+  margin: 0;
+}
+
+.doc[data-doc="demo-day"] blockquote code {
+  padding: 0;
+  background: none;
+  color: var(--bot-text);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.doc[data-doc="demo-day"] li > strong:first-child {
+  color: var(--bot-text);
+}
+
 @media (max-width: 720px) {
   .shell {
     grid-template-columns: 1fr;

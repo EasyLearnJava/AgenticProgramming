@@ -115,6 +115,13 @@ MUTATIONS: tuple[Mutation, ...] = (
         "a page is found by its own address",
     ),
     Mutation("nimbus/docs.py", 'return f"/docs/{src}" if', "return src if", "a picture's address is the app's"),
+    Mutation(
+        "nimbus/docs.py",
+        "if href.startswith(IMAGES_PREFIX):",
+        "if False:",
+        "a link to a picture opens it at the app's address",
+    ),
+    Mutation("templates/doc.html", ' data-doc="{{ slug }}"', "", "a doc page names itself for its own look"),
     Mutation("nimbus/docs.py", 'del tokens[idx].attrs["style"]', "pass", "an aligned column has no inline style"),
     Mutation("nimbus/pages.py", 'if href != "/" and path.startswith', "if path.startswith", "Chat isn't a section"),
     Mutation(
@@ -2307,6 +2314,7 @@ TESTS_FOR["nimbus/request_trace.py"] = ("test_request_trace.py", "test_privacy.p
 TESTS_FOR["nimbus/answer.py"] += ("test_privacy.py",)
 TESTS_FOR["nimbus/trace_links.py"] = ("test_activity_traces.py",)
 TESTS_FOR["nimbus/trace_view.py"] = ("test_trace_view.py",)
+TESTS_FOR["templates/doc.html"] = ("test_docs.py",)
 TESTS_FOR["nimbus/trace_presenter.py"] = ("test_trace_presenter.py",)
 TESTS_FOR["nimbus/memory/tracing.py"] = ("test_memory_tracing.py", "test_memory_trace_routes.py")
 TESTS_FOR["nimbus/observability.py"] += ("test_memory_observability.py",)

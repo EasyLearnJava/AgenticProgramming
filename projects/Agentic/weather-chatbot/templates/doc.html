@@ -4,7 +4,7 @@
 {% extends "base.html" %}
 {% block title %}{{ title }} · Nimbus{% endblock %}
 {% block content %}
-<main class="doc">
+<main class="doc" data-doc="{{ slug }}">
   <article class="markdown">{{ html }}</article>
 </main>
 {% endblock %}

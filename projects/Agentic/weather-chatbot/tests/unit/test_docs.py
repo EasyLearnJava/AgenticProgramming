@@ -6,6 +6,7 @@ text and links only, and GitHub-style links and pictures become the app's own ad
 import re
 
 import pytest
+from fastapi.testclient import TestClient
 
 from nimbus.constants import DOCS_DIR, DOCS_IMAGES_DIR
 from nimbus.docs import (
@@ -52,6 +53,7 @@ def test_no_document_links_to_a_retired_app_page(slug: str) -> None:
         ("https://example.com/step-1.md", "https://example.com/step-1.md"),
         ("#top", "#top"),
         ("../README.md", "../README.md"),
+        ("images/demo-day-cache-flow.svg", "/docs/images/demo-day-cache-flow.svg"),
     ],
 )
 def test_a_github_link_becomes_the_apps_own_address(href: str, expected: str) -> None:
@@ -90,6 +92,16 @@ def test_the_system_design_shows_its_own_diagram() -> None:
     html = render_markdown(read_markdown("system-design"))
     assert 'src="/docs/images/system-design.svg"' in html
     assert (DOCS_IMAGES_DIR / "system-design.svg").is_file()
+
+
+def test_demo_day_shows_its_diagram_and_opens_it_full_size(client: TestClient) -> None:
+    # The page's <main> names it, so only DemoDay gets its own look; the diagram links to itself, full size.
+    html = client.get("/demo-day").text
+    assert '<main class="doc" data-doc="demo-day">' in html
+    assert '<a href="/docs/images/demo-day-cache-flow.svg"><img src="/docs/images/demo-day-cache-flow.svg"' in html
+    assert (DOCS_IMAGES_DIR / "demo-day-cache-flow.svg").is_file()
+    assert client.get("/docs/images/demo-day-cache-flow.svg").status_code == 200
+    assert '<main class="doc" data-doc="architecture">' in client.get("/architecture").text
 
 
 def test_finds_a_page_only_by_its_own_address() -> None:

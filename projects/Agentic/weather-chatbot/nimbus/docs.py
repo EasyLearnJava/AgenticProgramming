@@ -221,8 +221,11 @@ DOC_BY_PATH: dict[str, DocPage] = {doc.path: doc for doc in ALL_DOCS.values()}
 def to_app_url(href: str) -> str:
     """
     A link written for GitHub, "step-2.md" or "issues.md#step-1", as the app's own address: "/docs/step-2",
-    "/issues#step-1". Any other link stays as it is.
+    "/issues#step-1"; a link to a picture beside the docs, "images/x.svg", as the picture's own address, so a
+    diagram can open full size. Any other link stays as it is.
     """
+    if href.startswith(IMAGES_PREFIX):
+        return to_image_url(href)
     match = DOC_LINK.fullmatch(href)
     doc = None if match is None else ALL_DOCS.get(match["slug"])
     if match is None or doc is None:

@@ -161,7 +161,8 @@ def _render_doc(request: Request) -> HTMLResponse:
     if doc is None:
         raise HTTPException(status_code=HTTP_NOT_FOUND)
     markdown = read_markdown(doc.slug)
-    context = {"title": title_of(markdown), "html": render_markdown(markdown)}
+    # The slug lets one page have its own look (app.css), such as DemoDay's prompts and wide diagram.
+    context = {"title": title_of(markdown), "html": render_markdown(markdown), "slug": doc.slug}
     return render_page(request, "doc.html", context)
 
 
