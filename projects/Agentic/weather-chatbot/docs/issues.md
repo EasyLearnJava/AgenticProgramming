@@ -1079,3 +1079,13 @@ package's code**, **deploying**, or **testing a real API**.
      format failures. Extra model calls consume quota, and four-second checks can still time out. This is bounded
      scope enforcement with measured limits, not a guarantee against every injection or full live-chat evidence.
      [Behavior and evidence](technical-details.md#enforce-the-supported-task).
+
+187. **Activity didn't say whether the rules or Gemini decided a scope check.** *You, 10 November.* The
+     translate test reached Gemini, but its Activity line looked like a rule's, and the Gemini call's tokens
+     showed nowhere. **Fix:** each decision carries its method (rule or model) and the model's token counts;
+     `guardrail.check` logs `method`, `scopeTokensIn` and `scopeTokensOut`, and Activity reads, for example,
+     "Blocked · Outside Nimbus's supported tasks · Gemini check (412 tokens in, 9 out)". The trace step gets
+     `scope_method`; no question or answer text is logged. The biryani demo reply now matches without regard
+     to capitals or a closing "?". DemoDay part 2 gains Act 6, five scope scenarios. **Check:** ruff and mypy
+     on the changed modules; at your request no tests were run, so tests asserting the old log fields or
+     decision equality may need updating.

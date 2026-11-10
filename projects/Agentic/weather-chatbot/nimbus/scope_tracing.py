@@ -11,7 +11,7 @@ from typing import Final, Literal
 import structlog
 
 from nimbus.request_trace import RequestTrace, TraceParent
-from nimbus.scope_guard import SCOPE_REASONS, SCOPE_STATUSES
+from nimbus.scope_guard import SCOPE_REASONS, SCOPE_STATUSES, ScopeDecision
 from nimbus.utils import to_ms
 
 SCOPE_TRACE_NAMES: Final = {"input": "scope.input", "output": "scope.output"}
@@ -51,6 +51,9 @@ class ScopeTrace:
     parent: TraceParent | None = None
     status: str = "error"
     reason: str = ""
+    method: str = ""
+    tokens_in: int = 0
+    tokens_out: int = 0
     started: float = field(default_factory=time.perf_counter)
     closed: bool = False
 
@@ -80,10 +83,25 @@ class ScopeTrace:
         else:
             self.parent = TraceParent(upstream.trace_id, run, order)
 
-    def outcome(self, status: str, reason: str = "") -> None:
+    def outcome(
+        self, status: str, reason: str = "", *, method: str = "", tokens_in: int = 0, tokens_out: int = 0
+    ) -> None:
         """Accept only operational vocabulary; never stringify an untrusted classifier response."""
         self.status = status if isinstance(status, str) and status in SCOPE_TRACE_STATUSES else "error"
         self.reason = reason if isinstance(reason, str) and reason in SCOPE_REASONS else ""
+        self.method = method if method in ("rule", "model") else ""
+        self.tokens_in = tokens_in if isinstance(tokens_in, int) and tokens_in > 0 else 0
+        self.tokens_out = tokens_out if isinstance(tokens_out, int) and tokens_out > 0 else 0
+
+    def decided(self, decision: ScopeDecision) -> None:
+        """Record a guard decision: its outcome, who made it (rules or Gemini) and the model's token counts."""
+        self.outcome(
+            decision.status,
+            decision.reason,
+            method=decision.method,
+            tokens_in=decision.tokens_in,
+            tokens_out=decision.tokens_out,
+        )
 
     def close(self) -> None:
         """Record a deliberate block as a completed decision and a failed checker as an error."""
@@ -97,6 +115,9 @@ class ScopeTrace:
             action=self.stage,
             status=self.status,
             reason=self.reason,
+            method=self.method,
+            scopeTokensIn=self.tokens_in,
+            scopeTokensOut=self.tokens_out,
             ms=to_ms(time.perf_counter() - self.started),
             **self.request.fields(),
         )
@@ -113,7 +134,13 @@ class ScopeTrace:
                 inputs={},
                 outputs={},
                 error="Scope check failed" if self.status in SCOPE_FAILURES else None,
-                extra={"metadata": {"scope_outcome": self.status, "scope_reason": self.reason}},
+                extra={
+                    "metadata": {
+                        "scope_outcome": self.status,
+                        "scope_reason": self.reason,
+                        "scope_method": self.method,
+                    }
+                },
             )
         except Exception:
             structlog.get_logger().warning("trace.scope_write_failed", stage="finish")

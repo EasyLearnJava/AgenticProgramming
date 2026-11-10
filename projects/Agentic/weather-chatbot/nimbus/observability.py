@@ -178,6 +178,9 @@ TIMELINE_FIELDS: Final = (
     "section",
     "action",
     "memoryIntake",
+    "method",
+    "scopeTokensIn",
+    "scopeTokensOut",
 )
 
 
@@ -823,7 +826,11 @@ def to_activity_line(row: Row) -> ActivityLine | None:
     if event == "guardrail.check":
         status, reason, action = (to_words(row, key) for key in ("status", "reason", "action"))
         label = {"input": "Request scope check", "output": "Answer scope check"}.get(action, "Scope check")
-        details = [SCOPE_OUTCOMES.get(status, "Unknown outcome"), SCOPE_REASON_LABELS.get(reason, "")]
+        method = {"rule": "Rule", "model": "Gemini check"}.get(to_words(row, "method"), "")
+        tokens_in, tokens_out = (round(to_number(row, name)) for name in ("scopeTokensIn", "scopeTokensOut"))
+        if method == "Gemini check" and tokens_in + tokens_out > 0:
+            method = f"{method} ({tokens_in:,} tokens in, {tokens_out:,} out)"
+        details = [SCOPE_OUTCOMES.get(status, "Unknown outcome"), SCOPE_REASON_LABELS.get(reason, ""), method]
         detail = " · ".join(item for item in details if item)
         tone = (
             "bad"

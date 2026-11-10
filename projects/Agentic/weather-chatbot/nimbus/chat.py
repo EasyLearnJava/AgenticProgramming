@@ -382,7 +382,7 @@ async def stream_turn(
             raise stats.lane_error
         with scope_trace(request_trace, "output") as check:
             decision = await scope_guard.assess_output(question, "".join(pieces), deadline=scope_deadline)
-            check.outcome(decision.status, decision.reason)
+            check.decided(decision)
         approved = decision.status == "allowed"
         if not approved:
             pieces = [SCOPE_UNAVAILABLE if decision.status == "unavailable" else SCOPE_REDIRECT]
@@ -587,7 +587,8 @@ async def answer_question(
     log = structlog.get_logger()
     settings: Settings = request.app.state.settings
     # One exact, application-written exception for demonstrating the existing feedback form.
-    if chat_request.question == "can i cook biryani in zion":
+    # Matched without regard to capitals, extra spaces or a closing "?", "!" or ".".
+    if " ".join(chat_request.question.casefold().split()).rstrip("?!. ") == "can i cook biryani in zion":
         return await scope_reply(
             chat_request,
             ScopeDecision("allowed", "clarification", "supported_task"),
@@ -602,7 +603,7 @@ async def answer_question(
     previous_question = next((message.text for message in reversed(chat_request.history) if message.role == "user"), "")
     with scope_trace(request_trace, "input") as check:
         scope = await scope_guard.assess_input(chat_request.question, previous_question=previous_question)
-        check.outcome(scope.status, scope.reason)
+        check.decided(scope)
     if scope.status != "allowed":
         if scope.reason == "unconfigured":
             request_trace.failed = True

@@ -4,11 +4,11 @@ import asyncio
 import json
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final, Literal, get_args
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langsmith import tracing_context
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
@@ -97,9 +97,15 @@ class ScopeDecision:
     status: ScopeStatus
     task: ScopeTask
     reason: ScopeReason
+    # Who decided: the fixed rules, or the bounded model check; with the model's token counts, for Activity.
+    method: Literal["rule", "model"] = "rule"
+    tokens_in: int = 0
+    tokens_out: int = 0
 
     def __post_init__(self) -> None:
         if self.status not in SCOPE_STATUSES or self.task not in SCOPE_TASKS or self.reason not in SCOPE_REASONS:
+            raise ValueError("Invalid scope decision")
+        if self.method not in ("rule", "model") or min(self.tokens_in, self.tokens_out) < 0:
             raise ValueError("Invalid scope decision")
 
 
@@ -287,15 +293,31 @@ class ScopeGuard:
             SystemMessage(f"Nimbus scope policy: {stage}\n{_POLICY}\n{instruction}"),
             HumanMessage(json.dumps(data, ensure_ascii=False)),
         ]
+        tokens = [0, 0]
+        decision = await self._ask(self.model, stage, messages, until, tokens)
+        return replace(decision, method="model", tokens_in=tokens[0], tokens_out=tokens[1])
+
+    @staticmethod
+    async def _ask(
+        model: BaseChatModel,
+        stage: Literal["input", "output"],
+        messages: list[BaseMessage],
+        until: float,
+        tokens: list[int],
+    ) -> ScopeDecision:
+        """One bounded, untraced model call; its token counts are kept even when its reply is rejected."""
         try:
             async with asyncio.timeout_at(until):
                 with tracing_context(enabled=False):
-                    response = await self.model.ainvoke(
+                    response = await model.ainvoke(
                         messages,
                         config={"callbacks": [], "tags": [], "metadata": {}, "run_name": "nimbus.scope_policy"},
                     )
             if not isinstance(response, AIMessage):
                 return ScopeDecision("unavailable", "unknown", "invalid_response")
+            usage = response.usage_metadata
+            if usage is not None:
+                tokens[:] = [max(0, usage["input_tokens"]), max(0, usage["output_tokens"])]
             verdict = _Verdict.model_validate(json.loads(_verdict_text(response), object_pairs_hook=_unique_object))
             if verdict.decision == "redirect":
                 return ScopeDecision(
