@@ -164,6 +164,23 @@ def test_activity_shows_cache_and_reason_without_changing_guidance_tones() -> No
     assert guide.tone == "ok"
 
 
+def test_cancelled_guidance_lookup_is_neutral_in_activity() -> None:
+    """Stopping a lookup is neither a successful result nor an error on the request timeline."""
+    line = to_activity_line(
+        {
+            "_time": "2026-11-03T00:00:00Z",
+            "event": "knowledge.call",
+            "tool": "search_park_guidance",
+            "status": "cancelled",
+            "ms": 15,
+        }
+    )
+    assert line is not None
+    assert line.what == "search_park_guidance"
+    assert line.tone == "idle"
+    assert line.detail == "cancelled in 15 ms"
+
+
 def test_notice_canonicalization_matches_markdown_citation_destinations() -> None:
     raw = "HTTPS://WWW.NPS.GOV:443/zion/café closure.htm#more info"
     report = asyncio.run(

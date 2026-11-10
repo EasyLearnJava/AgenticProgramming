@@ -417,11 +417,21 @@ def test_planner_get_disabled_queries_and_throttling(client: TestClient) -> None
     assert "Trip planning is busy" in limited.text
 
 
-@pytest.mark.parametrize(("language", "units"), [("en-GB,en;q=0.9", "metric"), ("en-US", "imperial"), ("", "imperial")])
-def test_the_plan_s_forecast_uses_the_browser_s_units(
-    monkeypatch: pytest.MonkeyPatch, language: str, units: str
+@pytest.mark.parametrize(
+    ("language", "preferred", "units"),
+    [
+        ("en-GB,en;q=0.9", "", "metric"),
+        ("en-US", "", "imperial"),
+        ("", "", "imperial"),
+        ("en-US", "metric", "metric"),
+        ("en-GB", "imperial", "imperial"),
+    ],
+    ids=["browser-metric", "browser-imperial", "default", "saved-metric", "saved-imperial"],
+)
+def test_the_plan_s_forecast_uses_saved_units_before_browser_units(
+    monkeypatch: pytest.MonkeyPatch, language: str, preferred: str, units: str
 ) -> None:
-    # An en-GB visitor's plan is in °C, as the chat's answers are; no language takes the chat's default.
+    """Capture the real forecast tool arguments: saved units override locale, which supplies the fallback."""
     asked: list[dict[str, Any]] = []
 
     class Tool:
@@ -438,6 +448,8 @@ def test_the_plan_s_forecast_uses_the_browser_s_units(
     monkeypatch.setattr(planner_page, "open_lane_tools", tools)
     headers = [(b"accept-language", language.encode())] if language else []
     request = Request({"type": "http", "method": "POST", "path": PATH, "headers": headers})
+    if preferred:
+        request.state.unit_system = preferred
     zion = cast(Destination, SimpleNamespace(latitude=37.2, longitude=-112.99))
     with pytest.raises(RuntimeError, match="recorded"):
         asyncio.run(planner_page._forecast(request, zion, 3, cast(Lane, None), 0.0))

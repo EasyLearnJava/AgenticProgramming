@@ -927,4 +927,11 @@ package's code**, **deploying**, or **testing a real API**.
      the graph, the read and the cache steps are children of the root in its dotted order. The root is sent
      exactly twice (start, end), and a trip form, a reused answer and an answer each flush once on Vercel. Eleven
      mutation rules are caught, and the activity-trace and preferences browser tests pass.
+176. **Three mutation rules no longer matched their code.** *The check for issue 175.* The rules for an
+     Open-Meteo cache hit, a guidance lookup's Activity tone and the trip plan's forecast units each replaced
+     text that later commits rewrote: freshness timestamps in the cache's return, a grey tone for a cancelled
+     lookup, a saved unit preference before the browser's. The check refuses a rule whose text isn't there exactly
+     once, so a full run stopped with an error. **Fix:** the three rules match the current lines, and two new rules
+     cover what was added without one: a cancelled lookup stays grey, and saved units win over the browser's,
+     each with its test. **Check:** all 444 rules match their text once; the five rules are caught.
 

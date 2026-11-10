@@ -666,8 +666,8 @@ MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/open_meteo.py",
-        "return kept, True",
-        "return kept, False",
+        "return answer, True, fetched_at, expires_at",
+        "return answer, False, fetched_at, expires_at",
         "an answer from the cache says so",
     ),
     Mutation(
@@ -1850,9 +1850,15 @@ MUTATIONS += (
     ),
     Mutation(
         "nimbus/observability.py",
-        'detail, "bad" if status in {"failed", "unavailable"} else "ok")',
-        'detail, "bad" if status in {"failed", "unavailable"} else "warn")',
+        'tone = "bad" if status in {"failed", "unavailable"} else "idle" if status == "cancelled" else "ok"',
+        'tone = "bad" if status in {"failed", "unavailable"} else "idle" if status == "cancelled" else "warn"',
         "nps review guidance lookup tones stay unchanged",
+    ),
+    Mutation(
+        "nimbus/observability.py",
+        'tone = "bad" if status in {"failed", "unavailable"} else "idle" if status == "cancelled" else "ok"',
+        'tone = "bad" if status in {"failed", "unavailable"} else "ok" if status == "cancelled" else "ok"',
+        "nps review cancelled guidance lookups remain idle",
     ),
 )
 
@@ -2364,9 +2370,15 @@ REVIEW_TRAVEL_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/travel/park_forecast.py",
-        "units=to_unit_system(locale),",
-        'units="imperial",',
+        "units=unit_system or to_unit_system(locale),",
+        'units=unit_system or "imperial",',
         "the plan's forecast uses the browser's units",
+    ),
+    Mutation(
+        "nimbus/travel/park_forecast.py",
+        "units=unit_system or to_unit_system(locale),",
+        "units=to_unit_system(locale),",
+        "the plan's forecast prioritizes saved unit preferences",
     ),
     Mutation("nimbus/utils.py", '{"GB": "GBP", "CA": "CAD"}', "{}", "travel prices follow the locale's currency"),
     Mutation(
