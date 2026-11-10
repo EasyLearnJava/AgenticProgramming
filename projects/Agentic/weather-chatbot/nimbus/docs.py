@@ -204,6 +204,7 @@ CHAPTERS += (
     ),
 )
 PAGES: tuple[DocPage, ...] = (
+    DocPage(slug="demo-day", path="/demo-day", label="DemoDay"),
     DocPage(slug="architecture", path="/architecture", label="Architecture and design"),
     DocPage(slug="system-design", path="/system-design", label="System design"),
     DocPage(slug="technical-details", path="/technical-details", label="Technical details"),

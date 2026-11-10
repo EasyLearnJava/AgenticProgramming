@@ -192,7 +192,7 @@ def test_the_menu_lists_its_groups_each_with_its_links() -> None:
         ("App", ["/", "/parks/alerts"]),
         ("Knowledge", ["/knowledge/sources", "/knowledge/chunks", "/knowledge/retrieval"]),
         ("Observability", ["/activity", "/weather-cache", "/performance", "/evaluations", "/health"]),
-        ("Learn", ["/docs", "/architecture", "/system-design", "/technical-details"]),
+        ("Learn", ["/demo-day", "/docs", "/architecture", "/system-design", "/technical-details"]),
         ("Project", ["/issues", "/todo", "/waiting-on-you", SOURCE_URL, "/api/health", "/health#mcp-server"]),
     ]
 

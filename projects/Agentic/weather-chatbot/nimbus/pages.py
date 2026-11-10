@@ -87,6 +87,7 @@ MENU_GROUPS: tuple[MenuGroup, ...] = (
     MenuGroup(
         "Learn",
         (
+            DOC_ITEMS["demo-day"],
             MenuItem("/docs", "Documentation"),
             *(DOC_ITEMS[slug] for slug in ("architecture", "system-design", "technical-details")),
         ),
@@ -190,6 +191,12 @@ def docs_index(request: Request) -> HTMLResponse:
 
 
 # ④ Resolve published documentation by its registered address.
+@router.get("/demo-day", response_class=HTMLResponse)
+def demo_day_page(request: Request) -> HTMLResponse:
+    """A short, ordered weather-cache demo with Activity and trace checkpoints."""
+    return _render_doc(request)
+
+
 @router.get("/docs/{slug}", response_class=HTMLResponse)
 def chapter_page(request: Request, slug: str) -> HTMLResponse:
     """A step's chapter."""
