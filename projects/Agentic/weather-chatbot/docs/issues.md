@@ -954,4 +954,13 @@ package's code**, **deploying**, or **testing a real API**.
      saved", in the trace and in Activity, not an error; a cut-off read is still an error. **Check:** a unit test
      that the save starts only after every event is sent; the receipt's mutation rule now targets the chat line
      that makes it. No tests were run for this change.
+179. **General weather answers were rarely kept for reuse.** *You, 9 November.* "Dallas weather" and "weather in
+     Vizag" were answered, but none was saved: Activity said "Answer not reusable · weather evidence was incomplete".
+     **Why:** a question that names no time is an overview, and the cache keeps an overview answer only with a
+     forecast in its evidence (nimbus/semantic_cache/evidence.py); Gemini sometimes answered from current
+     conditions alone. **Fix:** the system prompt's rule 6 says that a general question about a place's weather
+     that names no time gets both get_current_weather and get_forecast. Answers are more complete and consistent,
+     for one more tool call. The replay's Paris recording hashes every model input, the prompt included, so its
+     three digests were recomputed. **Check:** none run; ask "Dallas weather" live and look for three tool calls
+     and "Answer saved" on Activity.
 

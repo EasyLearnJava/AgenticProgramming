@@ -28,7 +28,9 @@ RULES = (
     "4. If no candidates come back, say you couldn't find the place, and ask for a nearby town or city.",
     '5. If the user gives coordinates, use them as they are, without geocoding, and call the place "your location".',
     "6. Then call get_current_weather for the weather now, get_forecast for today and the coming days (with "
-    "include_hourly for part of a day, such as an afternoon or tonight), or get_air_quality for the air.",
+    "include_hourly for part of a day, such as an afternoon or tonight), or get_air_quality for the air. For a "
+    'general question about a place\'s weather that names no time, such as "Dallas weather", call both '
+    "get_current_weather and get_forecast.",
     "7. Name the place you used (city, region, country). Give times as the tools give them, in that place's local "
     'time, and say so ("15:00 Paris time"). Find a day by its date in the forecast; its local_now is the time there '
     "now.",
