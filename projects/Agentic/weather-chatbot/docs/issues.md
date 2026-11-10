@@ -963,4 +963,19 @@ package's code**, **deploying**, or **testing a real API**.
      for one more tool call. The replay's Paris recording hashes every model input, the prompt included, so its
      three digests were recomputed. **Check:** none run; ask "Dallas weather" live and look for three tool calls
      and "Answer saved" on Activity.
+180. **"Vizag weather" was answered but never kept, and Activity couldn't say why.** *You, 10 November.* Dallas was
+     saved and reused; Vizag, asked twice, was "Answer not reusable · weather evidence was incomplete" both times,
+     so the second ask found nothing to reuse. **Why:** every one of the cache's evidence checks reported the same
+     reason, so Activity and the trace couldn't tell which failed. A replay against live Open-Meteo showed the place
+     checks pass ("Vizag" and "Visakhapatnam" are one city) and that the answer saves with °F weather; with °C it's
+     refused, since an en-US browser's answer must be in °F. Gemini most likely fetched an Indian city in °C (or,
+     less likely, typed its own coordinates); the trace holds no tool inputs, so which one isn't recorded.
+     **Fix:** each evidence check returns its own fixed word (units, point, place, forecast_missing, and so on);
+     Activity shows it after "Answer not reusable", and the store step's trace says "Not reusable:" with the same
+     words, through an allowlist. Rows logged earlier keep the general wording. Rule 13 now says to use the
+     visitor's units for every place in any country and names the tools' word for them ("imperial" or "metric").
+     The replay's Paris recording digests were recomputed for the new prompt. **Check:** all 2195 unit tests, mypy,
+     ruff and the offline replay passed; 5 new and 1 retargeted mutation rules were caught, and all 464 rules match
+     their code once. The browser (e2e) tests weren't run. Live: ask "Vizag weather" from an en-US browser and look
+     for "Answer saved", or the named reason if it's still refused.
 

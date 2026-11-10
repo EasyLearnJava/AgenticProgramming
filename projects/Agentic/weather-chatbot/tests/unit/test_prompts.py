@@ -77,6 +77,13 @@ def test_the_units_follow_the_locale_s_region(locale: str, units: str) -> None:
     assert units in to_system_prompt(NOW, locale, "UTC")
 
 
+@pytest.mark.parametrize(("locale", "system"), [("en-US", "imperial"), ("en-GB", "metric")])
+def test_rule_13_names_the_tools_units_for_a_place_in_any_country(locale: str, system: str) -> None:
+    # A place in a metric country, such as Vizag, still gets the visitor's units, so its answer can be kept for reuse.
+    prompt = to_system_prompt(NOW, locale, "UTC")
+    assert f'for every place, in any country: pass units "{system}" to each weather tool' in prompt
+
+
 def test_today_and_tomorrow_are_the_visitor_s_own() -> None:
     # 03:30 in UTC on Saturday is still Friday evening in Chicago.
     prompt = to_system_prompt(NOW, "en-US", "America/Chicago")

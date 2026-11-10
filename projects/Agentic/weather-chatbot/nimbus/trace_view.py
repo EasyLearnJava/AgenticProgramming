@@ -75,6 +75,21 @@ CACHE_REASONS = {
     "memory_unavailable": "Preference context was unavailable",
     "not_evaluated": "Cache eligibility was not evaluated",
 }
+# Why a finished answer wasn't kept, one per evidence check; Activity shows the same words after "Answer not reusable".
+REJECTION_LABELS: Final[dict[str, str]] = {
+    "answer": "the answer was empty or too long",
+    "tools": "the tool calls weren't one place lookup and the weather calls, all successful",
+    "forecast_missing": "a general weather question needs the forecast too",
+    "place": "the place found was ambiguous or not the place asked about",
+    "point": "the weather was for other coordinates than the place found",
+    "time_zone": "the weather's time zone differs from the place's",
+    "units": "the weather was fetched in other units than yours",
+    "current": "current conditions had no temperature",
+    "forecast_day": "the forecast didn't start on the right day",
+    "forecast_incomplete": "the forecast missed a requested day, hour or temperature",
+    "freshness": "the weather data's age or expiry was unknown or already past",
+    "malformed": "a tool result couldn't be read",
+}
 # METADATA is supported by LangSmith's v2 trace API. Keep only our fixed operational fields at validation.
 # Never request inputs, outputs, error text or EXTRA; any of those can contain private visitor content.
 SELECTS = (
@@ -167,6 +182,7 @@ class _CacheMetadata(BaseModel):
     outcome: str = ""
     cache_outcome: str = ""
     cache_bypass_reason: str = ""
+    rejection: str = ""
     similarity_score: float | None = None
     similarity_threshold: float | None = None
 
@@ -181,6 +197,12 @@ class _CacheMetadata(BaseModel):
     def checked_reason(cls, value: object) -> str:
         """Accept only fixed reasons issued by the request trace."""
         return value if isinstance(value, str) and value in CACHE_REASONS else ""
+
+    @field_validator("rejection", mode="before")
+    @classmethod
+    def checked_rejection(cls, value: object) -> str:
+        """Accept only the fixed evidence checks a store step records."""
+        return value if isinstance(value, str) and value in REJECTION_LABELS else ""
 
     @field_validator("similarity_score", mode="before")
     @classmethod
@@ -289,6 +311,10 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
         chat_root = span.id == trace_id and is_request
         outcome = span.metadata.outcome if cache_step else span.metadata.cache_outcome if chat_root else ""
         reason = span.metadata.cache_bypass_reason if chat_root and outcome == "bypass" else ""
+        decision = CACHE_REASONS.get(reason, "")
+        rejection = span.metadata.rejection if cache_step and outcome == "not_reusable" else ""
+        if rejection:
+            decision = f"Not reusable: {REJECTION_LABELS[rejection]}"
         similarity = span.name == CACHE_OPERATION_NAMES["similarity"] and cache_step
         rows.append(
             TraceRow(
@@ -301,7 +327,7 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
                 error=f"{kind} reported an error." if span.status == "ERROR" else None,
                 parent_index=parents[index],
                 outcome=CACHE_OUTCOMES.get(outcome, ""),
-                cache_reason=CACHE_REASONS.get(reason, ""),
+                cache_reason=decision,
                 similarity_score=span.metadata.similarity_score if similarity else None,
                 similarity_threshold=span.metadata.similarity_threshold if similarity else None,
             )

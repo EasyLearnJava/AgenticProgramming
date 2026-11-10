@@ -57,9 +57,13 @@ def finished(recorded: KeepingClient) -> dict[str, dict[str, Any]]:
     return result
 
 
-@pytest.mark.parametrize("missing", ["forecast_coverage", "weather_tools"])
+@pytest.mark.parametrize(
+    ("missing", "rejection"), [("forecast_coverage", "forecast_incomplete"), ("weather_tools", "tools")]
+)
 def test_store_explains_unreusable_answer_without_claiming_a_qdrant_write(
-    traced_cache: tuple[TestClient, FakeModel, CacheProvider, DallasWeather, KeepingClient], missing: str
+    traced_cache: tuple[TestClient, FakeModel, CacheProvider, DallasWeather, KeepingClient],
+    missing: str,
+    rejection: str,
 ) -> None:
     """A complete response can retain its history receipt while its store span reports no reusable evidence."""
     client, model, provider, weather, recorded = traced_cache
@@ -73,6 +77,7 @@ def test_store_explains_unreusable_answer_without_claiming_a_qdrant_write(
     assert provider.points == {}
     assert runs["weather_cache.lookup"]["extra"]["metadata"]["outcome"] == "miss"
     assert runs["weather_cache.store"]["extra"]["metadata"]["outcome"] == "not_reusable"
+    assert runs["weather_cache.store"]["extra"]["metadata"]["rejection"] == rejection
     assert not runs["weather_cache.store"].get("error")
     assert not any(name in runs for name in ("qdrant.remove_expired", "qdrant.count", "qdrant.save"))
     assert not runs["nimbus.chat"].get("error")

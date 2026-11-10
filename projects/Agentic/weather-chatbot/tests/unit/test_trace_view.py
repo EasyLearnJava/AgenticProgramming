@@ -201,6 +201,23 @@ def test_only_a_chat_root_can_display_allowlisted_cache_bypass_reasons(traced: S
     assert PRIVATE not in str(unknown)
 
 
+def test_a_store_step_names_the_evidence_check_that_kept_its_answer_out(traced: Settings) -> None:
+    """Only a not-reusable store step shows its check, and only a fixed one, never a provider or visitor string."""
+    view = with_runs(
+        traced,
+        span(name="nimbus.chat"),
+        span(UUID(int=747), name="weather_cache.store", metadata={"outcome": "not_reusable", "rejection": "units"}),
+        span(UUID(int=748), name="weather_cache.lookup", metadata={"outcome": "miss", "rejection": "units"}),
+        span(UUID(int=749), name="weather_cache.store", metadata={"outcome": "not_reusable", "rejection": PRIVATE}),
+    )
+    assert [row.cache_reason for row in view.rows if row.outcome == "Not reusable"] == [
+        "Not reusable: the weather was fetched in other units than yours",
+        "",
+    ]
+    assert next(row for row in view.rows if row.outcome == "Miss").cache_reason == ""
+    assert PRIVATE not in str(view)
+
+
 @pytest.fixture
 def traced(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setattr(smith, "get_api_url", lambda _: "https://eu.api.smith.langchain.com/api/v1")

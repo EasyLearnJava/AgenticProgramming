@@ -225,10 +225,23 @@ def test_expired_store_is_not_reusable_without_provider_requests() -> None:
     trace = RequestTrace.begin(tracing)
     with trace.step("store") as step:
         result = asyncio.run(service(provider).store(QUESTION, entry(expires_at=NOW), trace=step))
-        step.outcome(result.status)
+        step.outcome(result.status, result.reason)
     trace.end()
     assert result.status == "not_reusable"
+    assert result.reason == "freshness"
     assert not provider.requests
     end = end_named(client.kept_runs, "weather_cache.store")
     assert end["extra"]["metadata"]["outcome"] == "not_reusable"
+    assert end["extra"]["metadata"]["rejection"] == "freshness"
     assert not end.get("error")
+
+
+@pytest.mark.parametrize(("status", "rejection"), [("saved", "units"), ("not_reusable", "private visitor text")])
+def test_a_store_step_records_only_a_fixed_rejection_on_a_not_reusable_outcome(status: str, rejection: str) -> None:
+    """A rejection word cannot ride along on another outcome, and an unknown one is never written to LangSmith."""
+    tracing, client = tracer()
+    trace = RequestTrace.begin(tracing)
+    with trace.step("store") as step:
+        step.outcome(status, rejection)  # type: ignore[arg-type]
+    trace.end()
+    assert "rejection" not in end_named(client.kept_runs, "weather_cache.store")["extra"]["metadata"]

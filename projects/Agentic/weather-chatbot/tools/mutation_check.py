@@ -2804,8 +2804,8 @@ CACHE_TRACE_MUTATIONS = (
     ),
     Mutation(
         "nimbus/chat.py",
-        "cache_step.outcome(completion.store.status)",
-        'cache_step.outcome("saved")',
+        "cache_step.outcome(completion.store.status, completion.store.reason)",
+        'cache_step.outcome("saved", completion.store.reason)',
         "cache traces propagate the actual storage result in chat",
     ),
     Mutation(
@@ -2844,6 +2844,43 @@ TRACE_MUTATIONS += CACHE_TRACE_MUTATIONS
 SEMANTIC_CACHE_MUTATIONS += CACHE_TRACE_MUTATIONS
 TESTS_FOR["nimbus/request_trace.py"] += ("test_request_cache_trace.py",)
 TESTS_FOR["nimbus/chat.py"] += ("test_cache_request_outcomes.py",)
+
+# An answer kept out of the cache names its failed check (issue 180), and rule 13 names the tools' units.
+CACHE_REJECTION_MUTATIONS = (
+    Mutation(
+        "nimbus/semantic_cache/evidence.py",
+        "if result.temperature_unit != units:",
+        "if False:",
+        "cache admission requires weather in the visitor's units",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        'metadata["rejection"] = self._rejection',
+        "pass",
+        "cache store steps record the check that kept an answer out",
+    ),
+    Mutation(
+        "nimbus/request_trace.py",
+        "isinstance(rejection, str) and rejection in CACHE_REJECTIONS",
+        "isinstance(rejection, str)",
+        "cache store steps record only fixed rejection words",
+    ),
+    Mutation(
+        "nimbus/trace_view.py",
+        'return value if isinstance(value, str) and value in REJECTION_LABELS else ""',
+        'return value if isinstance(value, str) else ""',
+        "cache traces show only fixed rejection words",
+    ),
+    Mutation(
+        "nimbus/prompts.py",
+        'system = "imperial" if units == IMPERIAL else "metric"',
+        'system = "metric"',
+        "rule 13 names the visitor's units for the tools",
+    ),
+)
+MUTATIONS += CACHE_REJECTION_MUTATIONS
+SEMANTIC_CACHE_MUTATIONS += CACHE_REJECTION_MUTATIONS
+TESTS_FOR["nimbus/request_trace.py"] += ("test_semantic_cache_tracing.py",)
 
 
 def _fails(copy: Path, test_files: tuple[str, ...]) -> bool:

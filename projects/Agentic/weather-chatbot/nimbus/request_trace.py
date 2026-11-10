@@ -57,8 +57,24 @@ type CacheBypassReason = Literal[
     "memory_unavailable",
     "not_evaluated",
 ]
+# Which evidence check kept a finished answer out of the cache: a fixed word, never a place, a value or the question.
+type CacheRejection = Literal[
+    "answer",
+    "tools",
+    "forecast_missing",
+    "place",
+    "point",
+    "time_zone",
+    "units",
+    "current",
+    "forecast_day",
+    "forecast_incomplete",
+    "freshness",
+    "malformed",
+]
 _CACHE_OUTCOMES: Final = frozenset(get_args(CacheOutcome.__value__))
 _BYPASS_REASONS: Final = frozenset(get_args(CacheBypassReason.__value__))
+CACHE_REJECTIONS: Final = frozenset(get_args(CacheRejection.__value__))
 
 
 def _number(value: object, lower: float, upper: float) -> float | None:
@@ -100,6 +116,7 @@ class CacheTraceStep:
     _upstream: TraceParent | None = field(repr=False)
     parent: TraceParent | None = None
     _status: str = "completed"
+    _rejection: str = ""
     _measurements: dict[str, float] = field(default_factory=dict, repr=False)
     _closed: bool = False
 
@@ -130,9 +147,15 @@ class CacheTraceStep:
         else:
             self.parent = TraceParent(self._upstream.trace_id, run_id, order)
 
-    def outcome(self, status: CacheOutcome) -> None:
-        """Record a fixed operational status even when the service returns an error instead of raising it."""
+    def outcome(self, status: CacheOutcome, rejection: CacheRejection | None = None) -> None:
+        """
+        Record a fixed operational status even when the service returns an error instead of raising it, and, for an
+        answer kept out of the cache, the check that kept it out.
+        """
         self._status = status if isinstance(status, str) and status in _CACHE_OUTCOMES else "error"
+        self._rejection = ""
+        if self._status == "not_reusable" and isinstance(rejection, str) and rejection in CACHE_REJECTIONS:
+            self._rejection = rejection
 
     def similarity(self, score: object, threshold: object) -> None:
         """Capture only bounded cosine score and threshold on the similarity operation, never its query or vector."""
@@ -160,6 +183,8 @@ class CacheTraceStep:
         if self.tracer is None or self.parent is None or self._upstream is None:
             return
         metadata: dict[str, str | float] = {"outcome": self._status, **self._measurements}
+        if self._rejection:
+            metadata["rejection"] = self._rejection
         try:
             self.tracer.client.update_run(
                 self.parent.run_id,

@@ -53,7 +53,7 @@ from nimbus.retrieval_gate import RetrievalGate
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.trace_links import resolve_trace_link, trace_url
 from nimbus.trace_presenter import present_trace
-from nimbus.trace_view import TRACE_TOOL_NAMES, TraceView, read_trace
+from nimbus.trace_view import REJECTION_LABELS, TRACE_TOOL_NAMES, TraceView, read_trace
 from nimbus.utils import to_ms, to_ref
 
 router = APIRouter()
@@ -847,9 +847,11 @@ def to_semantic_cache_line(row: Row, at: datetime, took: str) -> ActivityLine:
         "ineligible": "outside cache scope",
         "timeout": "time limit reached",
         "unavailable": "provider unavailable",
+        # Rows logged before each evidence check had its own reason.
         "evidence": "weather evidence was incomplete or unsuitable for reuse",
         "capacity": "cache capacity reached",
         "disabled": "cache is disabled or unconfigured",
+        **REJECTION_LABELS,
     }.get(to_words(row, "reason"), "")
     detail = f"{label}{f' · {reason}' if reason else ''} in {took}"
     return ActivityLine(at, f"Weather answer cache{suffix}", detail, tone)

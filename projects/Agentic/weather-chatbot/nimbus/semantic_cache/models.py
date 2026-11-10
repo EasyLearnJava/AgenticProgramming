@@ -4,6 +4,7 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from nimbus.request_trace import CacheRejection
 from nimbus.tools import CurrentWeatherOutput, ForecastOutput, GeocodeOutput
 
 MODEL = "sentence-transformers/all-minilm-l6-v2"
@@ -68,3 +69,5 @@ class CacheStore(BaseModel):
 
     # timed_out: the save was sent, then our deadline passed; Qdrant may still have applied it.
     status: Literal["saved", "not_reusable", "cache_full", "error", "bypass", "timed_out"]
+    # not_reusable only: the evidence check that kept the answer out.
+    reason: CacheRejection | None = None

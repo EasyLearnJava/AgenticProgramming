@@ -388,7 +388,7 @@ async def stream_turn(
                     "".join(pieces), list(chips.values()), str(done["answer"]), trace=cache_step
                 )
                 if cache_step is not None:
-                    cache_step.outcome(completion.store.status)
+                    cache_step.outcome(completion.store.status, completion.store.reason)
     except (asyncio.CancelledError, GeneratorExit):
         # ④ Stop, or the page went away: nothing more can be sent. An answer already delivered has its ending.
         if not answered:

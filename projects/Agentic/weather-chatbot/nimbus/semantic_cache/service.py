@@ -260,7 +260,8 @@ class SemanticCacheService:
         if not self.configured:
             return CacheStore(status="bypass")
         if entry.expires_at <= self._clock():
-            return CacheStore(status="not_reusable")
+            self._log("store", "not_reusable", started, "freshness")
+            return CacheStore(status="not_reusable", reason="freshness")
         saving = False
         try:
             async with asyncio.timeout(STORE_TIMEOUT_SECONDS) as deadline, self._factory() as http:

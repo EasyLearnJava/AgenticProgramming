@@ -7,6 +7,7 @@ import pytest
 
 from nimbus.chips import ToolChip
 from nimbus.open_meteo import WireRequest
+from nimbus.request_trace import CacheRejection
 from nimbus.semantic_cache.evidence import cached_cards, complete_hours, to_entry
 from nimbus.semantic_cache.models import CacheEntry
 from nimbus.semantic_cache.policy import cache_policy
@@ -67,7 +68,9 @@ def admitted(
     destination_zone: str = "America/Chicago",
     forecast_day_offset: int = 0,
     timing: str = "",
-) -> CacheEntry | None:
+    current_unit: str = "°F",
+    current_shift: float = 0.0,
+) -> CacheEntry | CacheRejection:
     """Build complete evidence whose provider-cache lifetime is nearly over."""
     evidence = sample_entry().evidence
     place = evidence.places.candidates[0]
@@ -77,7 +80,9 @@ def admitted(
     place.time_zone = destination_zone
     local = datetime.fromtimestamp(now, ZoneInfo(destination_zone)) + timedelta(days=forecast_day_offset)
     evidence.current.latitude, evidence.current.longitude = place.latitude, place.longitude
+    evidence.current.latitude += current_shift
     evidence.current.time_zone = destination_zone
+    evidence.current.temperature_unit = current_unit
     evidence.current.observed_at = datetime.fromtimestamp(now, ZoneInfo(destination_zone)).isoformat(timespec="minutes")
     forecast = hourly_forecast(48).model_copy(
         update={
@@ -155,7 +160,7 @@ def test_forecast_uses_destination_day_when_browser_date_differs(
     """Both a destination ahead and behind the browser can store its complete local forecast."""
     now = datetime.fromisoformat(timestamp).timestamp()
     saved = admitted(now, 600, browser_zone=browser_zone, destination_zone=destination_zone)
-    assert saved is not None
+    assert isinstance(saved, CacheEntry)
     assert saved.evidence.forecast is not None
     assert saved.policy.day != saved.evidence.forecast.days[0].date
     assert saved.expires_at == now + 120
@@ -165,7 +170,7 @@ def test_forecast_uses_destination_day_when_browser_date_differs(
 def test_forecast_must_start_on_current_destination_day(offset: int) -> None:
     """A stale or future local forecast cannot pass merely because it contains the browser date."""
     now = datetime(2026, 11, 9, 20, tzinfo=UTC).timestamp()
-    assert admitted(now, 600, destination_zone="Asia/Kolkata", forecast_day_offset=offset) is None
+    assert admitted(now, 600, destination_zone="Asia/Kolkata", forecast_day_offset=offset) == "forecast_day"
 
 
 @pytest.mark.parametrize(
@@ -181,7 +186,7 @@ def test_explicit_today_still_requires_browser_date_coverage(
     """Explicit today follows the prompt's visitor date, even when the destination date differs."""
     now = datetime.fromisoformat(timestamp).timestamp()
     saved = admitted(now, 600, browser_zone=browser_zone, destination_zone=destination_zone, timing=" today")
-    assert (saved is not None) is eligible
+    assert isinstance(saved, CacheEntry) if eligible else saved == "forecast_day"
 
 
 @pytest.mark.parametrize("timestamp", ["2026-11-09T18:29:59+00:00", "2026-11-10T05:59:59+00:00"])
@@ -189,7 +194,7 @@ def test_cross_zone_answers_expire_at_either_calendar_midnight(timestamp: str) -
     """Reusing across time zones never extends a result beyond the destination or browser day."""
     now = datetime.fromisoformat(timestamp).timestamp()
     saved = admitted(now, 600, destination_zone="Asia/Kolkata")
-    assert saved is not None
+    assert isinstance(saved, CacheEntry)
     assert saved.expires_at == now + 1
 
 
@@ -197,17 +202,17 @@ def test_answer_never_gains_extra_time_when_weather_cache_has_one_second_left() 
     """Ten-minute-old provider data must not acquire a new two-minute answer-cache lifetime."""
     now = datetime(2026, 11, 9, 18, tzinfo=UTC).timestamp()
     saved = admitted(now, 1)
-    assert saved is not None
+    assert isinstance(saved, CacheEntry)
     assert saved.expires_at == now + 1
     assert saved.evidence_fetched_at == now - 599  # Not the one-day-old geocoding timestamp.
-    assert admitted(now, 0) is None
+    assert admitted(now, 0) == "freshness"
 
 
 def test_answer_expires_at_the_destination_midnight_even_with_fresh_provider_data() -> None:
     """Today/Tomorrow cannot silently change meaning while an answer stays cached."""
     now = datetime(2026, 11, 10, 5, 59, 59, tzinfo=UTC).timestamp()
     saved = admitted(now, 600)
-    assert saved is not None
+    assert isinstance(saved, CacheEntry)
     assert saved.expires_at == now + 1
 
 
@@ -215,7 +220,15 @@ def test_cached_forecast_preserves_check_time_but_filters_hours_using_current_ti
     """A cache hit is not a new forecast check, and an hour already past is not upcoming."""
     now = datetime(2026, 11, 9, 18, tzinfo=UTC).timestamp()
     saved = admitted(now, 600)
-    assert saved is not None
+    assert isinstance(saved, CacheEntry)
     card = cached_cards(saved, now + 3600)[0]
     assert "12:00 PM" in card.forecast_label
     assert card.hours[0].label == "1 PM"
+
+
+@pytest.mark.parametrize(("unit", "shift", "rejection"), [("°C", 0.0, "units"), ("°F", 0.01, "point")])
+def test_a_rejected_answer_names_the_check_that_failed(unit: str, shift: float, rejection: str) -> None:
+    """°C weather for a °F visitor, or weather 1 km from the place found, is never kept, and says which it was."""
+    now = datetime(2026, 11, 9, 20, tzinfo=UTC).timestamp()
+    assert isinstance(admitted(now, 600, destination_zone="Asia/Kolkata"), CacheEntry)
+    assert admitted(now, 600, destination_zone="Asia/Kolkata", current_unit=unit, current_shift=shift) == rejection

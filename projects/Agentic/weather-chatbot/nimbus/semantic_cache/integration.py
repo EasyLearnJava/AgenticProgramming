@@ -14,7 +14,7 @@ from nimbus.memory.context import MemoryContext
 from nimbus.request_trace import CacheBypassReason, CacheTraceStep, RequestTrace
 from nimbus.semantic_cache.evidence import to_entry
 from nimbus.semantic_cache.identity import new_scope, plain_answer, read_scope, receipt, valid_receipt
-from nimbus.semantic_cache.models import CachePolicy, CacheStore
+from nimbus.semantic_cache.models import CacheEntry, CachePolicy, CacheStore
 from nimbus.semantic_cache.policy import cache_policy, compatible_history, context_fingerprint
 from nimbus.semantic_cache.service import SemanticCacheService
 from nimbus.utils import is_same_origin
@@ -55,12 +55,13 @@ class CacheTurn:
     ) -> CacheCompletion:
         """Authenticate the completed turn independently of whether its evidence can enter the cache."""
         entry = to_entry(self.question, answer, chips, self.scope, self.context, self.policy, time.time())
-        if entry is not None:
+        if isinstance(entry, CacheEntry):
             stored = await self.service.store(self.question, entry, trace=trace)
         else:
-            stored = CacheStore(status="not_reusable")
+            # The reason is the evidence check that failed, a fixed word, so Activity can name it.
+            stored = CacheStore(status="not_reusable", reason=entry)
             structlog.get_logger().info(
-                "semantic_cache.operation", action="store", status="not_reusable", reason="evidence", ms=0
+                "semantic_cache.operation", action="store", status="not_reusable", reason=entry, ms=0
             )
         # The receipt proves which conversation Nimbus produced, not that this answer is reusable weather evidence.
         return CacheCompletion(self.receipt_for(html), stored)

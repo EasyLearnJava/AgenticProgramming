@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from nimbus.chips import ToolChip
 from nimbus.constants import MAX_HOURLY_DAYS
 from nimbus.open_meteo import WireRequest
+from nimbus.request_trace import CacheRejection
 from nimbus.semantic_cache.models import TTL_SECONDS, CacheEntry, CachePolicy, WeatherEvidence
 from nimbus.semantic_cache.policy import canonical_city, digest, normalized
 from nimbus.tools import CurrentWeatherOutput, ForecastInput, ForecastOutput, GeocodeOutput, ToolCallRecord, round_point
@@ -31,19 +32,24 @@ def complete_hours(forecast: ForecastOutput, asked: ForecastInput) -> bool:
 
 def to_entry(
     question: str, answer: str, chips: Sequence[ToolChip], scope: str, context: str, policy: CachePolicy, now: float
-) -> CacheEntry | None:
-    """Reject partial, ambiguous, inconsistent or stale evidence rather than caching a plausible-looking answer."""
+) -> CacheEntry | CacheRejection:
+    """
+    Reject partial, ambiguous, inconsistent or stale evidence rather than caching a plausible-looking answer: the
+    entry to save, or the first check that failed, so Activity and the trace can say which one.
+    """
     # ① An eligible answer may contain only successful ordinary weather calls, each exactly once.
-    if not answer.strip() or len(answer) > 12000 or not chips or len({c.name for c in chips}) != len(chips):
-        return None
+    if not answer.strip() or len(answer) > 12000:
+        return "answer"
+    if not chips or len({c.name for c in chips}) != len(chips):
+        return "tools"
     allowed = {"geocode_location", "get_current_weather", "get_forecast"}
     if any(c.name not in allowed or c.status != "done" or not c.output or not c.weather_record for c in chips):
-        return None
+        return "tools"
     by_name = {c.name: c for c in chips}
     if not {"geocode_location", "get_current_weather"} <= by_name.keys():
-        return None
+        return "tools"
     if policy.intent != "current" and "get_forecast" not in by_name:
-        return None
+        return "forecast_missing"
     try:
         places = GeocodeOutput.model_validate_json(by_name["geocode_location"].output or "")
         current = CurrentWeatherOutput.model_validate_json(by_name["get_current_weather"].output or "")
@@ -53,12 +59,12 @@ def to_entry(
             else None
         )
         if places.is_ambiguous or not places.candidates:
-            return None
+            return "place"
         place = places.candidates[0]
         parts = [part.strip() for part in policy.place.split(",")]
         qualifiers = {normalized(v) for v in (place.region, place.country, place.country_code) if v}
         if canonical_city(place.name) != parts[0] or any(part not in qualifiers for part in parts[1:]):
-            return None
+            return "place"
         units = "°F" if policy.units == "imperial" else "°C"
         weather_results: list[CurrentWeatherOutput | ForecastOutput] = [current]
         if forecast:
@@ -69,41 +75,43 @@ def to_entry(
                 or not -180 <= result.longitude <= 180
                 or (round_point(result.latitude), round_point(result.longitude))
                 != (round_point(place.latitude), round_point(place.longitude))
-                or result.time_zone != place.time_zone
-                or result.temperature_unit != units
             ):
-                return None
+                return "point"
+            if result.time_zone != place.time_zone:
+                return "time_zone"
+            if result.temperature_unit != units:
+                return "units"
         if current.temperature is None or not math.isfinite(current.temperature):
-            return None
+            return "current"
         if forecast:
             asked = ForecastInput.model_validate(by_name["get_forecast"].args)
             first_day = datetime.fromisoformat(forecast.local_now).date()
             # Forecast dates belong to the destination, which can be a day ahead of or behind the browser.
             destination_day = datetime.fromtimestamp(now, ZoneInfo(current.time_zone)).date()
             if first_day != destination_day:
-                return None
+                return "forecast_day"
             # The system prompt defines an explicit "today" as the visitor's calendar date.
             if policy.intent == "today" and policy.day not in {day.date for day in forecast.days}:
-                return None
+                return "forecast_day"
             expected_dates = {(first_day + timedelta(days=index)).isoformat() for index in range(asked.days)}
             if not expected_dates <= {day.date for day in forecast.days}:
-                return None
+                return "forecast_incomplete"
             if not complete_hours(forecast, asked):
-                return None
+                return "forecast_incomplete"
             if any(
                 value is None or not math.isfinite(value)
                 for day in forecast.days
                 for value in (day.temperature_min, day.temperature_max)
             ):
-                return None
+                return "forecast_incomplete"
         # ② Unknown freshness is never renewed. Every provider result retains its absolute expiry.
         records = [c.weather_record for c in chips]
         if any(r is None or r.lane != "rest-no-auth" or r.fetched_at is None or r.expires_at is None for r in records):
-            return None
+            return "freshness"
         fetched = [r.fetched_at for r in records if r and r.fetched_at is not None]
         expiries = [r.expires_at for r in records if r and r.expires_at is not None]
         if any(not math.isfinite(v) for v in [*fetched, *expiries]) or max(fetched) > now:
-            return None
+            return "freshness"
         # Both the visitor and destination day are part of the answer's meaning.
         for zone_name in {policy.time_zone, current.time_zone}:
             local = datetime.fromtimestamp(now, ZoneInfo(zone_name))
@@ -111,7 +119,7 @@ def to_entry(
             expiries.append(midnight.timestamp())
         expires = min(now + TTL_SECONDS, *expiries)
         if expires <= now:
-            return None
+            return "freshness"
         return CacheEntry(
             scope=scope,
             context=context,
@@ -129,7 +137,7 @@ def to_entry(
             ),
         )
     except (ValueError, KeyError):
-        return None
+        return "malformed"
 
 
 def cached_cards(entry: CacheEntry, now: float) -> tuple[WeatherCard, ...]:

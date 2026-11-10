@@ -55,6 +55,22 @@ def test_cache_timeline_distinguishes_hit_miss_shadow_and_failure(status: str, e
     assert line.tone == tone
 
 
+@pytest.mark.parametrize(
+    ("reason", "words"),
+    [
+        ("units", "the weather was fetched in other units than yours"),
+        ("point", "the weather was for other coordinates than the place found"),
+        ("forecast_missing", "a general weather question needs the forecast too"),
+        ("evidence", "weather evidence was incomplete or unsuitable for reuse"),
+    ],
+)
+def test_an_answer_kept_out_of_the_cache_names_the_check_that_failed(reason: str, words: str) -> None:
+    """Each evidence check has its own words; rows logged before that keep their one general reason."""
+    line = to_activity_line(event(action="store", status="not_reusable", reason=reason, ms=0))
+    assert line is not None
+    assert line.detail == f"Answer not reusable · {words} in 0 ms"
+
+
 def test_cache_timeline_rejects_unknown_metadata_and_private_values() -> None:
     """Even a contaminated provider event cannot disclose questions, values, scopes or keys on public Activity."""
     private = "private-question-answer-key-scope"
