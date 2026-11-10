@@ -16,6 +16,7 @@ from nimbus.travel.conditions import (
     GENERAL_GUIDANCE as GENERAL_GUIDANCE,
 )
 from nimbus.travel.conditions import (
+    Conditions,
     Forecast,
     Section,
     TripWeather,
@@ -155,8 +156,9 @@ async def make_plan(
     hotel_query: HotelSearch | None,
     now: datetime,
     deadline: float,
+    checked_conditions: Conditions | None = None,
 ) -> ParkPlan:
-    """Run the eligible checks concurrently, producing a usable report even if a provider fails."""
+    """Run eligible searches, reusing this request's completed conditions when supplied by the briefing."""
 
     # ① Each service keeps its own cutoff (including provider setup) inside the whole plan's deadline.
     async def flights() -> Section[TravelReport]:
@@ -179,17 +181,28 @@ async def make_plan(
             return Section(message="Hotel search is disabled for this plan.")
         return _travel_section(await travel.search_hotels(hotel_query))
 
+    async def weather() -> Section[TripWeather]:
+        if checked_conditions is not None:
+            return checked_conditions.weather
+        return await visit_weather(destination, park_start, trip.departure, forecast, now)
+
+    async def guidance() -> Section[tuple[ParkChunk, ...]]:
+        if checked_conditions is not None:
+            return checked_conditions.guidance
+        return await preparation(knowledge, trip.park, trip.park, trip.activity, park_start)
+
+    async def notices() -> Section[AlertsReport]:
+        if checked_conditions is not None:
+            return checked_conditions.alerts
+        return await park_notices(trip.park, alerts)
+
     # ② Parallel calls finish independently. The outer task group also closes on visitor cancellation.
     async with asyncio.TaskGroup() as group:
         air = group.create_task(checked(flights(), deadline, "flight"))
         stay = group.create_task(checked(hotels(), deadline, "hotel"))
-        sky = group.create_task(
-            checked(visit_weather(destination, park_start, trip.departure, forecast, now), deadline, "weather")
-        )
-        advice = group.create_task(
-            checked(preparation(knowledge, trip.park, trip.park, trip.activity, park_start), deadline, "park guidance")
-        )
-        nps = group.create_task(checked(park_notices(trip.park, alerts), deadline, "NPS notices"))
+        sky = group.create_task(checked(weather(), deadline, "weather"))
+        advice = group.create_task(checked(guidance(), deadline, "park guidance"))
+        nps = group.create_task(checked(notices(), deadline, "NPS notices"))
     plan = ParkPlan(
         air.result(),
         stay.result(),

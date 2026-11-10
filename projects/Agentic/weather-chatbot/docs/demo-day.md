@@ -370,3 +370,142 @@ one decided and what it cost."
 - **Busy or too slow:** inspect Activity and the trace before assigning a cause. A model quota, model timeout or
   retrieval-provider failure is not the same as a wrong retrieved passage. Wait before retrying; a retry is not a pass.
 - **Missing evidence:** acknowledge the gap. Saved guidance never proves that a trail is open or safe today.
+
+## Part 3 · Plan a park trip
+
+Show one request turning into a checked plan: Nimbus reads the trip from your words, checks the park's conditions
+first, and searches flights and hotels only when that is safe and the details are complete. Nimbus's own code reads
+the request and writes the briefing; Gemini writes none of it.
+
+[![One trip request, checked before any search: the steps each DemoDay check passes through](images/demo-day-trip-flow.svg)](images/demo-day-trip-flow.svg)
+
+*A chat request starts at step 1; the Plan a park trip form starts at step 7. The pills show which checks take
+which path. Select the diagram to open it full size.*
+
+### Before the trip demo
+
+- **Settings:** **Plan a park trip** in the menu means flights and hotels are on. [Health](/health) should show the
+  Kiwi and Trivago checks as ok.
+- **Live results:** flights and hotels come from the providers at that moment, so prices and offers change. Each
+  search uses provider quota: rehearse once, then keep repeats few.
+- **Dates:** "this week end" means the coming Friday to Sunday in the departure airport's time zone. On
+  November 10, 2026 that was Friday the 13th to Sunday the 15th. The briefing shows the dates it chose.
+- **Choose New chat** for each check, so an earlier trip's details don't carry over.
+
+### Act 1 · From a sentence to a plan
+
+#### 18 · Ask only for what's missing
+
+> `Plan a trip to Zion this week end from DFW`
+
+Look for the briefing with the weekend's dates and the conditions decision, then a short question for the airport
+you're flying into. The dates and DFW are kept; nothing is searched yet.
+
+#### 19 · A complete request searches
+
+> `Plan a trip to Zion this week end from DFW to LAS`
+
+Look for the conditions first, then **Flights** and **Hotels near the park** in the same reply. Both searches run at
+once and reuse the conditions already checked. Offer links open the provider's own page.
+
+### Act 2 · Conditions come first
+
+Point to the briefing's decision. Four checks run at the same time (forecast, stored park guidance, NPS notices and
+NWS alerts), and their results decide what happens next:
+
+| Decision | When | What happens |
+|---|---|---|
+| Proceed | Nothing major found | Searches when the details are complete |
+| Adapt | A notice, alert or forecast affects some activities | Searches, with advice to plan around it |
+| Review | A check is partial, or a notice or alert can't be verified | No automatic search; a tentative plan stays optional |
+| Pause | A park-wide closure or a severe warning overlaps the visit | No search; change the dates |
+
+In [Activity](/activity), open the **Park trip briefing** row: it shows the decision and any failed or missing
+section. A pause can't be arranged on demand, so Part 4 shows the recorded case `late-friday-zion-severe-warning`.
+
+- **Say:** "Nimbus won't sell you a trip into a closed park or a severe storm. The checks run before any search."
+
+### Act 3 · Memory with consent
+
+#### 20 · A saved airport fills in, your words win
+
+In [My preferences](/preferences), turn memory on and save DFW as your home airport. Then, in a new chat:
+
+> `Plan a trip to Zion this week end`
+
+Look for **Flying from** already set to DFW, and Nimbus asking only for the arrival airport. Then ask
+`Plan a trip to Zion this week end from AUS to LAS`: AUS wins over the saved DFW. Saved preferences fill gaps; they
+never start a search on their own.
+
+### Act 4 · The planner form
+
+#### 21 · Every part at once
+
+Open [Plan a park trip](/parks/trip). Choose Zion, the weekend's dates, **Round-trip flights** from DFW into LAS,
+and two adults. Look for the forecast, park guidance, notices, flights and hotels together. The form searches
+directly and runs its own forecast, guidance and notice checks beside the searches.
+
+**When a provider fails:** the briefing names the missing part and keeps the rest; Activity's **Errors** tab shows
+the failed section. A failure can't be forced live, so Part 4 replays the hostile cases offline.
+
+**The point to land:** "One request, many sources, checked in the right order. Conditions decide whether we search,
+any part can fail without hiding the rest, and saved preferences only fill gaps."
+
+### If a trip step differs
+
+- **Wrong dates:** give them exactly, for example `from Nov 13 to Nov 15`.
+- **No flights or hotels:** read the decision first. Review and Pause stop the search on purpose.
+- **Slow:** a briefing makes several provider calls. Wait for it to finish before asking again.
+
+## Part 4 · How we know it works
+
+Close on quality: what runs on every push, what runs before a release, and how a visitor's report becomes a
+permanent test.
+
+### Act 1 · The scorecards
+
+Open [Evaluations](/evaluations). Show **Harness scorecards**, then **The golden questions** and their last run.
+Point to **How answers ended**, **Why questions were refused** and **Why answers failed**: the same outcomes
+Activity shows, counted.
+
+### Act 2 · Replay on every push
+
+Every push runs the offline harness in GitHub Actions, with no keys and no model calls:
+
+```powershell
+uv run python -m tools.harness run --mode replay
+```
+
+It replays recorded model and provider replies through the real code: golden answers, the 47 park retrieval cases,
+provider replies (Kiwi and Trivago price bases, the late Friday Zion severe warning), the scope cases, visitor
+regressions and the weekend trip matrix. Each recorded model input is hashed, so a changed prompt makes its
+recording fail as out of date instead of passing silently.
+
+- **Show the red team:** an instruction hidden in a Trivago result, a wrong hotel inventory, a forged trip
+  approval in the chat history and a fan-out of tool calls are all rejected.
+
+### Act 3 · Live checks before a release
+
+The live harness asks a real preview deployment the golden, travel and scope questions three times each and reports
+first-try passes, all-three passes and p50/p95 latency. The release gate then checks that replay and live evidence
+exist for that exact commit and deployment:
+
+```powershell
+uv run python -m tools.harness gate --replay harness-output/replay.json --live harness-output/live.json --commit <sha> --deployment <deployment>
+```
+
+- **Say:** "The gate proves the evidence exists. A person still approves the release."
+
+### Act 4 · Tests that test the tests
+
+`tools/mutation_check.py` breaks one safety or correctness line at a time, such as a season filter, a citation
+allowlist or a cache rule, and proves that some test fails. A rule no test catches is a gap in the tests.
+
+### Act 5 · From feedback to a regression
+
+Use check 17's feedback. A reviewer finds the report on Activity's [Feedback](/activity?show=feedback) tab, writes a
+synthetic case with no visitor words in it, and promotes it with `tools/harness_review.py` into
+`evals/harness/regressions/`. From then on it runs on every push. `zion-sunday-deadline` was the first.
+
+**The point to land:** "Every answer path has a test that runs without keys on each push, a live check before
+release, and a way back from a visitor's report to a permanent case."

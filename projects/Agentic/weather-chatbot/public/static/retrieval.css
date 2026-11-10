@@ -145,11 +145,25 @@
   line-height: 1.6;
 }
 
-.retrieval-table .retrieval-score {
+.retrieval-table th.retrieval-score,
+.retrieval-table td.retrieval-score {
   min-width: 80px;
   text-align: right;
+  line-height: 1.6;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.retrieval-table thead th {
+  vertical-align: bottom;
+}
+
+.retrieval-table th.retrieval-score {
+  white-space: normal;
+}
+
+.retrieval-table tr > :first-child {
+  text-align: center;
 }
 
 .retrieval-decision {

@@ -1,7 +1,9 @@
 """Conditions-first chat checks with a fixed Thursday in Dallas, recorded public alerts and no travel traffic."""
 
 import json
+import re
 from datetime import UTC, date, datetime
+from html import unescape
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import AsyncMock
@@ -120,7 +122,9 @@ def test_choosing_a_weekend_preserves_a_return_day_without_a_deadline(client: Te
         },
     )
     assert "Mon, Nov 09, 2026" in response.text
-    assert 'name="return_window">' in response.text
+    carried = re.search(r'name="prefs" value="([^"]+)"', response.text)
+    assert carried is not None
+    assert json.loads(unescape(carried[1])).get("return_window", "") == ""
     assert "in the evening on Monday" not in response.text
 
 

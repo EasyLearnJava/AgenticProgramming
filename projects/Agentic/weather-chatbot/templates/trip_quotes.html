@@ -1,0 +1,6 @@
+{# Provider-validated offers shared by automatic briefings and manually edited plans. #}
+{% from "travel_parts.html" import travel_results %}
+{% for heading, section in [('Flights', plan.flights), ('Hotels near the park', plan.hotels)] %}
+<section class="knowledge-panel"><h3>{{ heading }}</h3>
+  {% if section.data %}{{ travel_results(section.data) }}{% else %}<p>{{ section.message }}</p>{% endif %}
+</section>{% endfor %}

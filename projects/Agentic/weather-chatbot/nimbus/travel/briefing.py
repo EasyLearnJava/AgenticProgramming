@@ -1,4 +1,4 @@
-"""Render a dated park briefing before any travel search. The browser carries editable details in POST bodies."""
+"""Check dated park conditions, then search complete trips or request only missing travel details."""
 
 import asyncio
 from collections.abc import Callable
@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import structlog
 from fastapi import HTTPException, Request
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.lanes import Lane, LaneId, get_lane, is_open
@@ -21,6 +21,7 @@ from nimbus.travel.airports import AIRPORT_ZONES, normalize_origin
 from nimbus.travel.conditions import check_conditions, verified_reference
 from nimbus.travel.models import MAX_DAYS_AHEAD, MAX_STAY_NIGHTS, FlightWindow, ReturnWindow
 from nimbus.travel.park_forecast import park_forecast
+from nimbus.travel.planner import ParkTrip, make_plan
 from nimbus.travel.planner_intake import TripIntent
 from nimbus.travel.weekend_dates import visit_dates
 from nimbus.utils import is_usable_locale, new_turn_id, to_currency
@@ -87,7 +88,7 @@ async def briefing_context(
     now: datetime,
     turn_id: str = "",
 ) -> dict[str, Any]:
-    """Check only the supported public place. Dates and fares never leave Nimbus for the warning checks."""
+    """Check conditions first; complete trips can then search within the same gate and deadline."""
     state = request.app.state
     if airport_zone := AIRPORT_ZONES.get(normalize_origin(prefs.origin)):
         prefs = prefs.model_copy(update={"time_zone": airport_zone})
@@ -187,6 +188,45 @@ async def briefing_context(
                 status=conditions.decision,
                 failedSections=sum(section.failed for section in sections),
                 missingSections=sum(missing),
+            )
+            flights = state.settings.flights_enabled and not prefs.skip_flights and prefs.transport != "drive"
+            hotels = state.settings.hotels_enabled and not prefs.skip_hotels and park_start < departure
+            if conditions.decision == "pause" or not (flights or hotels):
+                return ctx
+            required = tuple(name for name in ("origin", "gateway") if flights and not getattr(prefs, name).strip())
+            ctx["missing_trip_fields"] = required
+            # Unknown conditions still require review. A complete trip does not silently override that warning.
+            if required or conditions.decision == "review":
+                return ctx
+            details = {key: value for key, value in prefs.model_dump().items() if key in ParkTrip.model_fields}
+            details.update(
+                park=park,
+                arrival=arrival,
+                departure=departure,
+                transport="fly" if flights else "drive" if prefs.transport == "drive" else "skip",
+                skip_flights=not flights,
+                skip_hotels=not hotels,
+            )
+            try:
+                trip = ParkTrip.model_validate(details)
+                flight_query = trip.flight() if flights else None
+                hotel_query = trip.hotel(point, check_in=park_start) if hotels else None
+            except ValidationError:
+                ctx["quote_error"] = "Please check the airports, rooms and traveler counts before searching."
+                return ctx
+            ctx["quote_plan"] = await make_plan(
+                trip,
+                point,
+                state.park_knowledge,
+                state.nps_alerts,
+                state.travel_service.new_turn(deadline, today=today, currency=prefs.currency),
+                forecast,
+                park_start=park_start,
+                flight_query=flight_query,
+                hotel_query=hotel_query,
+                now=now,
+                deadline=deadline,
+                checked_conditions=conditions,
             )
     except HTTPException as error:
         if error.status_code != 429:

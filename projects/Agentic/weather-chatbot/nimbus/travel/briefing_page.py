@@ -1,4 +1,4 @@
-"""Short in-chat follow-ups for date and park selection. This endpoint cannot request fares or rooms."""
+"""In-chat trip details: check conditions, then search when the requested travel details are complete."""
 
 from datetime import date
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.post("/api/parks/briefing", response_class=HTMLResponse)
 async def update_briefing(request: Request) -> HTMLResponse:
-    """Only allow structured actions and verified destinations, with the same limits as a paid-search-free chat turn."""
+    """Allow bounded same-origin trip edits, sharing chat's conditions-first search gate and deadline."""
     if not request.app.state.settings.parks_enabled:
         raise HTTPException(404)
     try:

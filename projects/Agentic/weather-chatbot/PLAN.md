@@ -82,7 +82,8 @@ verified MiniLM vectors and generates only ColBERT, while repeat publication reu
 
 The current preference-memory extension adds explicit preview, save, edit, pause and verified deletion of an airport,
 weather units, price currency, preparation interest and departure window. Current requests and explicit trip choices
-remain authoritative; saved defaults never authorize a search or booking. It uses the existing chat, planner and
+remain authoritative. A current trip request can use saved defaults to complete an automatic search after conditions
+checks; saved preferences alone never start a search or booking. It uses the existing chat, planner and
 observability paths. Configuration and hosted validation remain separate release work on
 [Waiting on you](docs/waiting-on-you.md#mem0-travel-preferences); checks must record the actual tested build.
 

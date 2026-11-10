@@ -301,6 +301,33 @@ def test_flying_origin_controls_the_calendar_and_weekend_cutoff(index: ParkKnowl
     assert revised.weekend_options == (("2026-11-07", "2026-11-08"), ("2026-11-13", "2026-11-15"))
 
 
+@pytest.mark.parametrize(
+    ("now", "browser_zone", "defaults"),
+    [
+        ("2026-11-10T12:00:00-06:00", "America/Chicago", {}),
+        ("2026-11-10T23:30:00-06:00", "Europe/London", {"origin": "DFW"}),
+        ("2026-11-11T05:30:00+00:00", "Europe/London", {"origin": "DFW"}),
+    ],
+)
+def test_november_10_week_end_request_uses_friday_through_sunday(
+    index: ParkKnowledge, now: str, browser_zone: str, defaults: dict[str, str]
+) -> None:
+    # The last two timestamps are the same instant, still Tuesday evening in Dallas.
+    intent = analyze_trip(
+        "Plan a trip to Zion this week end",
+        index,
+        "",
+        datetime.fromisoformat(now),
+        browser_zone,
+        defaults=defaults,
+    )
+    assert intent is not None
+    assert intent.kind == "briefing"
+    assert intent.fields["arrival"] == "2026-11-13"
+    assert intent.fields["departure"] == "2026-11-15"
+    assert intent.origin_zone == "America/Chicago"
+
+
 def test_explicit_dates_preserve_requested_flight_windows(index: ParkKnowledge) -> None:
     intent = analyze_trip(
         "Plan a trip to Zion from DFW. 2026-11-13 Friday night to 2026-11-15 Sunday morning.",

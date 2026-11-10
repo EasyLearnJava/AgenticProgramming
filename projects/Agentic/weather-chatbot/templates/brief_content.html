@@ -21,16 +21,16 @@
   {% set labels = {'origin':'departure airport', 'unit_system':'weather units', 'currency':'currency',
     'activity':'preparation interests', 'depart_window':'departure window'} %}
   {% for key in memory_used %}{{ labels.get(key, key) }}{% if not loop.last %}, {% endif %}{% endfor %}.
-  You can edit the trip details before searching.
+  Your current instructions take priority. You can edit the trip details below.
   <a href="/preferences">Manage preferences</a>
 </p>
 {% endif %}
 {% macro action_fields() %}
   <input type="hidden" name="prefs" value="{{ preference_json }}">
 {% endmacro %}
-{% macro post_attrs() -%}
+{% macro post_attrs(form_class='brief-action') -%}
 method="post" action="/api/parks/briefing" hx-post="/api/parks/briefing" hx-target="closest .trip-card"
-hx-swap="innerHTML" hx-sync="closest .trip-card:drop" hx-disable="find button" class="brief-action"
+hx-swap="innerHTML" hx-sync="closest .trip-card:drop" hx-disable="find button" class="{{ form_class }}"
 {%- endmacro %}
 {% macro date_editor(label) %}
 <details class="brief-edit"><summary>{{ label }}</summary>
@@ -137,6 +137,17 @@ hx-swap="innerHTML" hx-sync="closest .trip-card:drop" hx-disable="find button" c
 </div>
 {% if conditions.decision != 'pause' and ((flights_enabled and not prefs.skip_flights and prefs.transport != 'drive')
   or (hotels_enabled and not prefs.skip_hotels and hotel_arrival < departure)) %}
+{% if quote_plan %}
+<section class="brief-body" aria-label="Travel options">
+  <h3>Travel options</h3>
+  <p>Searched after checking conditions · {{ prefs.adults }} adult{{ 's' if prefs.adults != 1 else '' }}
+    {% if prefs.children_ages %} · Children’s ages: {{ prefs.children_ages }}{% endif %}
+    {% if hotels_enabled and not prefs.skip_hotels %} · {{ prefs.rooms }} room{{ 's' if prefs.rooms != 1 else '' }}{% endif %}
+    · {{ prefs.currency }}{% if quote_plan.flights.data %} · {{ prefs.origin }} → {{ prefs.gateway }}{% endif %}</p>
+  {% with plan=quote_plan %}{% include "trip_quotes.html" %}{% endwith %}
+</section>
+{% endif %}
+{% if quote_error %}<p role="alert" class="brief-body">{{ quote_error }}</p>{% endif %}
 {% include "brief_quotes.html" %}
 {% endif %}
 {% endif %}

@@ -1,0 +1,277 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1238" viewBox="0 0 960 1238" role="img"
+  aria-labelledby="title desc">
+  <title id="title">DemoDay part 3: how Nimbus turns a trip request into a checked plan</title>
+  <desc id="desc">A swimlane flowchart in four columns: your browser; Nimbus, the FastAPI app on Vercel; rules and
+    branches; and outside services. A chat trip request is first checked for scope: the word "trip" passes by rule,
+    and an off-task request gets a fixed reply. If this browser turned memory on, Nimbus reads its saved airport,
+    units and currency from Mem0. Rules, not a model, read the park, dates, airports, travelers and rooms; a weekend
+    is counted in the origin's time zone, so "this week end" on November 10 means Friday the 13th to Sunday the 15th,
+    and "from DFW to LAS" gives both airports. Nimbus then runs four checks at the same time: the Open-Meteo
+    forecast, stored park guidance in Qdrant, NPS notices and NWS alerts. A park-wide closure or a severe warning
+    pauses the plan, and a partial or unverified check asks for review: both show the conditions with no flight or hotel search.
+    Otherwise, a flight needs both airports; if one is missing, Nimbus asks only for it, keeping the dates and
+    choices (checks 18 and 20). A complete request searches Kiwi flights and Trivago hotels at once within one
+    deadline, reusing the conditions already checked (check 19). The Plan a park trip form starts at that search
+    and runs its own forecast, guidance and notice checks beside it (check 21). The briefing shows conditions,
+    guidance, notices, flights and hotels, and names any provider that failed. Gemini writes none of it. Activity,
+    My preferences and Performance show each part.</desc>
+  <defs>
+    <marker id="grey" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#5f8279"/>
+    </marker>
+    <marker id="green" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#17845a"/>
+    </marker>
+    <marker id="blue" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2c64a8"/>
+    </marker>
+    <marker id="amber" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#b45309"/>
+    </marker>
+  </defs>
+  <rect width="960" height="1238" rx="24" fill="#f3fbf8"/>
+  <g font-family="Segoe UI,system-ui,Arial,sans-serif" fill="#123f35">
+    <!-- Heading -->
+    <text x="28" y="48" font-size="25" font-weight="700">One trip request, checked before any search</text>
+    <text x="28" y="78" font-size="15" fill="#47645c">Conditions come first; flights and hotels are searched only
+      when it's safe and complete. Gemini writes none of it.</text>
+
+    <!-- Lanes -->
+    <g fill="#ffffff" fill-opacity="0.65" stroke="#cfe5dc" stroke-width="1.5">
+      <rect x="16" y="100" width="170" height="936" rx="14"/>
+      <rect x="198" y="100" width="350" height="936" rx="14"/>
+      <rect x="560" y="100" width="200" height="936" rx="14"/>
+      <rect x="772" y="100" width="172" height="936" rx="14"/>
+    </g>
+    <g stroke="#cfe5dc" stroke-width="1.5">
+      <path d="M16 136 H186 M198 136 H548 M560 136 H760 M772 136 H944"/>
+    </g>
+    <g font-size="12.5" font-weight="700" fill="#47645c" letter-spacing="1" text-anchor="middle">
+      <text x="101" y="123">YOUR BROWSER</text>
+      <text x="373" y="123">NIMBUS · FASTAPI ON VERCEL</text>
+      <text x="660" y="123">RULES AND BRANCHES</text>
+      <text x="858" y="123">OUTSIDE SERVICES</text>
+    </g>
+
+    <!-- Boxes -->
+    <g fill="#ffffff" stroke="#bdd8cf" stroke-width="2">
+      <rect x="28" y="156" width="140" height="58" rx="12"/>
+      <rect x="28" y="712" width="140" height="70" rx="12"/>
+      <rect x="28" y="804" width="140" height="74" rx="12"/>
+      <rect x="258" y="156" width="278" height="74" rx="12"/>
+      <rect x="258" y="258" width="278" height="58" rx="12"/>
+      <rect x="258" y="336" width="278" height="104" rx="12"/>
+      <rect x="258" y="468" width="278" height="90" rx="12"/>
+      <rect x="258" y="586" width="278" height="104" rx="12"/>
+      <rect x="258" y="718" width="278" height="58" rx="12"/>
+      <rect x="258" y="804" width="278" height="90" rx="12"/>
+      <rect x="258" y="922" width="278" height="90" rx="12"/>
+      <rect x="572" y="336" width="176" height="104" rx="12"/>
+      <rect x="784" y="258" width="148" height="58" rx="12"/>
+      <rect x="784" y="468" width="148" height="90" rx="12"/>
+      <rect x="784" y="804" width="148" height="74" rx="12"/>
+    </g>
+    <rect x="28" y="586" width="140" height="104" rx="12" fill="#fff4e5" stroke="#b45309" stroke-width="2"/>
+    <rect x="28" y="922" width="140" height="90" rx="12" fill="#e9f1fb" stroke="#2c64a8" stroke-width="2"/>
+    <rect x="572" y="162" width="176" height="62" rx="12" fill="#ffffff" stroke="#8fb0a6" stroke-width="1.5"
+      stroke-dasharray="6 5"/>
+    <rect x="572" y="586" width="176" height="104" rx="12" fill="#fff4e5" stroke="#b45309" stroke-width="2"/>
+
+    <!-- Step numbers -->
+    <g fill="#0f766e">
+      <circle cx="281" cy="180" r="13"/>
+      <circle cx="281" cy="282" r="13"/>
+      <circle cx="281" cy="360" r="13"/>
+      <circle cx="281" cy="492" r="13"/>
+      <circle cx="281" cy="610" r="13"/>
+      <circle cx="281" cy="742" r="13"/>
+      <circle cx="281" cy="828" r="13"/>
+      <circle cx="281" cy="946" r="13"/>
+    </g>
+    <g font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">
+      <text x="281" y="185">1</text>
+      <text x="281" y="287">2</text>
+      <text x="281" y="365">3</text>
+      <text x="281" y="497">4</text>
+      <text x="281" y="615">5</text>
+      <text x="281" y="747">6</text>
+      <text x="281" y="833">7</text>
+      <text x="281" y="951">8</text>
+    </g>
+
+    <!-- Box titles -->
+    <g font-size="15" font-weight="700">
+      <text x="40" y="180">Chat page</text>
+      <text x="40" y="610" fill="#8a3f06">Conditions only</text>
+      <text x="40" y="736">One question</text>
+      <text x="40" y="828">Planner form</text>
+      <text x="40" y="946" fill="#1f4f86">Trip briefing</text>
+      <text x="304" y="185">Check the question's scope</text>
+      <text x="304" y="287">Read saved preferences</text>
+      <text x="304" y="365">Read the trip request</text>
+      <text x="304" y="497">Check the park's conditions</text>
+      <text x="304" y="615">Weigh what they found</text>
+      <text x="304" y="747">Check the trip details</text>
+      <text x="304" y="833">Search flights and hotels</text>
+      <text x="304" y="951">Show the trip briefing</text>
+      <text x="584" y="360">From your words</text>
+      <text x="584" y="610" fill="#8a3f06">Pause or review?</text>
+      <text x="796" y="282">Mem0</text>
+      <text x="796" y="492">Park sources</text>
+      <text x="796" y="828">Travel providers</text>
+    </g>
+
+    <!-- Box details -->
+    <g font-size="13" fill="#47645c">
+      <text x="40" y="200">you ask</text>
+      <text x="40" y="630" fill="#8a3f06">the briefing,</text>
+      <text x="40" y="647" fill="#8a3f06">with no flight or</text>
+      <text x="40" y="664" fill="#8a3f06">hotel search</text>
+      <text x="40" y="755">asks only for the</text>
+      <text x="40" y="772">missing airport</text>
+      <text x="40" y="848">Plan a park trip</text>
+      <text x="40" y="865">page</text>
+      <text x="40" y="966">conditions, flights</text>
+      <text x="40" y="983">and hotels; links</text>
+      <text x="40" y="1000">go to providers</text>
+      <text x="304" y="204">“trip” passes by rule; other</text>
+      <text x="304" y="221">wording may ask Gemini</text>
+      <text x="304" y="306">if this browser turned memory on</text>
+      <text x="304" y="384">rules, no model: park, dates,</text>
+      <text x="304" y="401">airports, travelers and rooms;</text>
+      <text x="304" y="418">a weekend in the origin's zone</text>
+      <text x="304" y="516">four checks at the same time:</text>
+      <text x="304" y="533">forecast, park guidance,</text>
+      <text x="304" y="550">NPS notices and NWS alerts</text>
+      <text x="304" y="634">proceed, adapt, review or</text>
+      <text x="304" y="651">pause; closures and severe</text>
+      <text x="304" y="668">warnings decide first</text>
+      <text x="304" y="766">flying needs both airports</text>
+      <text x="304" y="852">both at once, one deadline;</text>
+      <text x="304" y="869">chat reuses step 4's checks,</text>
+      <text x="304" y="886">the form runs its own</text>
+      <text x="304" y="970">conditions, guidance, notices,</text>
+      <text x="304" y="987">flights and hotels; a failed</text>
+      <text x="304" y="1004">provider is named, not hidden</text>
+      <text x="584" y="186" font-weight="700" fill="#123f35">Off task?</text>
+      <text x="584" y="203">a fixed reply; nothing</text>
+      <text x="584" y="220">is checked or searched</text>
+      <text x="584" y="380">“this week end”, Nov 10</text>
+      <text x="584" y="397">→ Fri 13 to Sun 15</text>
+      <text x="584" y="414">“from DFW to LAS”</text>
+      <text x="584" y="431">→ both airports</text>
+      <text x="584" y="630" fill="#8a3f06">Pause: a closure or</text>
+      <text x="584" y="647" fill="#8a3f06">a severe warning</text>
+      <text x="584" y="664" fill="#8a3f06">Review: something is</text>
+      <text x="584" y="681" fill="#8a3f06">unverified; no search</text>
+      <text x="796" y="302">saved airport, units</text>
+      <text x="796" y="512">Open-Meteo</text>
+      <text x="796" y="529">Qdrant guidance</text>
+      <text x="796" y="546">NPS, NWS alerts</text>
+      <text x="796" y="848">Kiwi flights</text>
+      <text x="796" y="865">Trivago hotels</text>
+    </g>
+
+    <!-- Plain flow -->
+    <g stroke="#5f8279" stroke-width="2.5" fill="none" marker-end="url(#grey)">
+      <path d="M168 185 H252"/>
+      <path d="M397 230 V252"/>
+      <path d="M397 316 V330"/>
+      <path d="M397 440 V462"/>
+      <path d="M397 558 V580"/>
+    </g>
+    <g stroke="#5f8279" stroke-width="2.5" fill="none" marker-start="url(#grey)" marker-end="url(#grey)">
+      <path d="M542 513 H778"/>
+      <path d="M542 841 H778"/>
+    </g>
+    <path d="M536 388 H572" stroke="#8fb0a6" stroke-width="1.5" fill="none"/>
+    <g stroke="#8fb0a6" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#grey)">
+      <path d="M536 193 H566"/>
+      <path d="M258 747 H174"/>
+    </g>
+    <path d="M784 287 H542" stroke="#5f8279" stroke-width="2.5" stroke-dasharray="7 5" fill="none"
+      marker-end="url(#grey)"/>
+
+    <!-- Stopped before searching: amber -->
+    <g stroke="#b45309" stroke-width="3" fill="none" marker-end="url(#amber)">
+      <path d="M536 638 H566"/>
+      <path d="M258 638 H174"/>
+    </g>
+    <!-- Searched trip: blue -->
+    <g stroke="#2c64a8" stroke-width="3" fill="none" marker-end="url(#blue)">
+      <path d="M397 690 V712"/>
+      <path d="M397 776 V798"/>
+      <path d="M397 894 V916"/>
+      <path d="M258 967 H174"/>
+    </g>
+    <!-- Planner form: green -->
+    <path d="M168 849 H252" stroke="#17845a" stroke-width="3" fill="none" marker-end="url(#green)"/>
+
+    <!-- Flow labels -->
+    <g font-size="12.5" fill="#47645c">
+      <text x="213" y="177" text-anchor="middle">question</text>
+      <text x="405" y="247">on task</text>
+      <text x="660" y="279" text-anchor="middle">preferences, if any</text>
+      <text x="660" y="505" text-anchor="middle">four at once</text>
+      <text x="405" y="707">proceed or adapt</text>
+      <text x="660" y="833" text-anchor="middle">searches</text>
+    </g>
+
+    <!-- Which demo checks take each path -->
+    <g font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+      <rect x="171" y="716" width="84" height="22" rx="11" fill="#5f8279"/>
+      <text x="213" y="731">Checks 18, 20</text>
+      <rect x="410" y="779" width="66" height="22" rx="11" fill="#2c64a8"/>
+      <text x="443" y="794">Check 19</text>
+      <rect x="180" y="818" width="66" height="22" rx="11" fill="#17845a"/>
+      <text x="213" y="833">Check 21</text>
+    </g>
+
+    <!-- Where each step shows up -->
+    <text x="28" y="1076" font-size="16" font-weight="700">Where each step shows up</text>
+    <g fill="#ffffff" stroke="#bdd8cf" stroke-width="1.5">
+      <rect x="28" y="1090" width="176" height="28" rx="14"/>
+      <rect x="28" y="1126" width="176" height="28" rx="14"/>
+      <rect x="28" y="1162" width="176" height="28" rx="14"/>
+    </g>
+    <g fill="#e7f4ef" stroke="#0f766e" stroke-width="1.5">
+      <rect x="244" y="1090" width="196" height="28" rx="14"/>
+      <rect x="244" y="1126" width="196" height="28" rx="14"/>
+      <rect x="244" y="1162" width="196" height="28" rx="14"/>
+    </g>
+    <g stroke="#5f8279" stroke-width="2" fill="none" marker-end="url(#grey)">
+      <path d="M204 1104 H238"/>
+      <path d="M204 1140 H238"/>
+      <path d="M204 1176 H238"/>
+    </g>
+    <g font-size="13" text-anchor="middle">
+      <text x="116" y="1109">Axiom log lines</text>
+      <text x="116" y="1145">Mem0 profile</text>
+      <text x="116" y="1181">Provider timings</text>
+      <text x="342" y="1109" font-weight="700">Activity</text>
+      <text x="342" y="1145" font-weight="700">My preferences</text>
+      <text x="342" y="1181" font-weight="700">Performance</text>
+    </g>
+    <g font-size="13" fill="#47645c">
+      <text x="456" y="1109">Park trip briefing, its decision, failed or missing sections</text>
+      <text x="456" y="1145">what's saved; preview, edit, pause or delete it</text>
+      <text x="456" y="1181">travel searches and service checks, with their timings</text>
+    </g>
+
+    <!-- Legend -->
+    <g stroke-width="3" fill="none">
+      <path d="M28 1216 H58" stroke="#2c64a8"/>
+      <path d="M190 1216 H220" stroke="#b45309"/>
+      <path d="M410 1216 H440" stroke="#8fb0a6" stroke-width="2" stroke-dasharray="5 4"/>
+      <path d="M590 1216 H620" stroke="#17845a"/>
+      <path d="M760 1216 H790" stroke="#5f8279"/>
+    </g>
+    <g font-size="13" fill="#47645c">
+      <text x="66" y="1221">Searched trip</text>
+      <text x="228" y="1221">Stopped before searching</text>
+      <text x="448" y="1221">Asks or redirects</text>
+      <text x="628" y="1221">Planner form</text>
+      <text x="798" y="1221">Shared steps</text>
+    </g>
+  </g>
+</svg>

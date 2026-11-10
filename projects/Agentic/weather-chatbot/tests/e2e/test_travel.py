@@ -3,7 +3,7 @@
 import json
 import re
 from datetime import UTC, datetime, timedelta
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from axe_playwright_python.sync_playwright import Axe
@@ -12,11 +12,49 @@ from playwright.sync_api import Locator, Page, expect
 from nimbus.nws_alerts import NwsAlertsService, NwsReport, WeatherWarning
 from nimbus.parks import Destination
 from nimbus.travel import briefing
+from nimbus.travel.conditions import Conditions, Section
 from nimbus.travel.service import TravelService
 
 # Start a fresh server for each travel case so other visitors in the suite cannot exhaust its rate limit.
 INTAKE = 'form.trip-form[action="/api/parks/briefing"]'
 QUOTES = 'form[action="/api/parks/trip"]'
+
+
+@pytest.mark.parametrize("base_url", ["travel"], indirect=True, scope="function")
+@pytest.mark.parametrize("missing_gateway", [False, True])
+def test_complete_trip_automatically_shows_quotes_in_chat(
+    page: Page, base_url: str, monkeypatch: pytest.MonkeyPatch, missing_gateway: bool
+) -> None:
+    now = datetime(2026, 11, 10, 23, 26, tzinfo=UTC)
+    monkeypatch.setattr(briefing, "utc_now", lambda: now)
+    monkeypatch.setattr(
+        briefing,
+        "check_conditions",
+        AsyncMock(
+            return_value=Conditions(Section(), Section(), Section(), Section(), "proceed", "Recorded check", now)
+        ),
+    )
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(base_url)
+    box = page.get_by_label("Your question")
+    box.fill("Plan a trip to Zion this week end from DFW" + ("" if missing_gateway else " to LAS"))
+    box.press("Enter")
+    turn = page.locator("li.trip-message")
+    expect(turn.locator(".brief-dates")).to_contain_text("Fri, Nov 13, 2026")
+    expect(turn.locator(".brief-dates")).to_contain_text("Sun, Nov 15, 2026")
+    if missing_gateway:
+        missing = turn.locator(INTAKE)
+        expect(missing.get_by_label("Flying into")).to_be_visible()
+        expect(missing.get_by_label("Flying from")).to_have_count(0)
+        missing.get_by_label("Flying into").select_option("LAS")
+        missing.get_by_role("button", name="Complete trip and search").click()
+    expect(turn.get_by_text("Synthetic round trip", exact=True)).to_be_visible()
+    expect(turn.get_by_role("heading", name="Hotels near the park", exact=True)).to_be_visible()
+    expect(page).to_have_url(f"{base_url}/")
+    assert page.context.pages == [page]
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    audit = Axe().run(page)
+    assert audit.violations_count == 0, audit.generate_report()
 
 
 @pytest.mark.parametrize("base_url", ["travel", "weather-only"], indirect=True, scope="function")

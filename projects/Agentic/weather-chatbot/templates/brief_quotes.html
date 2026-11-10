@@ -3,8 +3,40 @@
 {% from "trip_options.html" import trip_options %}
 {% set stay = hotels_enabled and not prefs.skip_hotels and hotel_arrival < departure %}
 {% set start_with_hotels = stay and not (prefs.transport == 'fly' or prefs.origin or prefs.gateway) %}
+{% if missing_trip_fields %}
+<section class="brief-body">
+  <h3>Complete your travel details</h3>
+  <p>Dates: {{ arrival }} – {{ departure }} · {{ prefs.adults }} adult{{ 's' if prefs.adults != 1 else '' }}
+    · {{ prefs.rooms }} room{{ 's' if prefs.rooms != 1 else '' }} · {{ prefs.currency }}
+    {% if prefs.origin %} · From {{ prefs.origin }}{% endif %}{% if prefs.gateway %} · To {{ prefs.gateway }}{% endif %}.
+    Add the missing airport details to check conditions and search.</p>
+  <form {{ post_attrs('trip-form brief-action') }}>
+    {{ action_fields() }}
+    <input type="hidden" name="park" value="{{ fields.park }}">
+    <input type="hidden" name="arrival" value="{{ arrival }}">
+    <input type="hidden" name="departure" value="{{ departure }}">
+    {% if 'origin' in missing_trip_fields %}
+    <label class="trip-field">Flying from
+      <input name="origin" maxlength="100" required placeholder="City or airport, e.g. DFW"></label>
+    {% endif %}
+    {% if 'gateway' in missing_trip_fields %}
+    <label class="trip-field">Flying into
+      {% if fields.park == 'zion' %}
+      <select name="gateway" required><option value="">Choose an airport</option>
+        <option value="SGU">St. George (SGU)</option><option value="LAS">Las Vegas (LAS)</option>
+      </select>
+      {% else %}<input name="gateway" maxlength="100" required placeholder="Arrival city or airport">{% endif %}
+    </label>
+    {% endif %}
+    <p class="trip-hint">Flight searches share your route, dates, time windows, passenger counts and currency with Kiwi.
+      {% if stay %}Hotel searches share the park location, dates, rooms, party and currency with trivago.{% endif %}</p>
+    <button class="trip-submit" type="submit">Complete trip and search</button><span role="status"></span>
+  </form>
+</section>
+{% endif %}
 <details class="trip-editor">
-  <summary>{% if conditions.decision == 'review' %}Continue to travel options{% else %}Compare travel options{% endif %}</summary>
+  <summary>{% if quote_plan or missing_trip_fields %}Change travel options
+    {% elif conditions.decision == 'review' %}Continue to travel options{% else %}Compare travel options{% endif %}</summary>
   <form action="/api/parks/trip" method="post" class="trip-form" hx-post="/api/parks/trip"
     hx-target="#trip-result-{{ turn_id }}" hx-swap="innerHTML" hx-sync="this:drop" hx-disable="find button[type='submit']">
     <input type="hidden" name="arrival" value="{{ hotel_arrival if (not fly or start_with_hotels) else arrival }}"

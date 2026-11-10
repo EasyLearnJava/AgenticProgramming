@@ -167,9 +167,13 @@ Compare keyword and semantic matches, see how ColBERT reorders the shortlist, an
       <caption class="visually-hidden">Final order, branch scores, RRF ranking and ColBERT reranking for
         eligible chunks</caption>
       <thead><tr><th scope="col">Final rank</th><th scope="col">Chunk / source</th>
-        <th scope="col">Keyword score</th><th scope="col">Keyword contribution</th>
-        <th scope="col">Semantic score</th><th scope="col">Semantic contribution</th>
-        <th scope="col">RRF score</th><th scope="col">ColBERT score</th><th scope="col">Decision</th></tr></thead>
+        <th scope="col" class="retrieval-score">Keyword score</th>
+        <th scope="col" class="retrieval-score">Keyword contribution</th>
+        <th scope="col" class="retrieval-score">Semantic score</th>
+        <th scope="col" class="retrieval-score">Semantic contribution</th>
+        <th scope="col" class="retrieval-score">RRF score</th>
+        <th scope="col" class="retrieval-score">ColBERT score</th>
+        <th scope="col">Decision</th></tr></thead>
       <tbody>{% for item in diagnostics.candidates %}
       <tr data-chunk="{{ item.chunk.id }}" data-selection="{{ item.selection }}"
         {% if item.selection == 'retrieved' %} class="knowledge-row-selected"{% endif %}>

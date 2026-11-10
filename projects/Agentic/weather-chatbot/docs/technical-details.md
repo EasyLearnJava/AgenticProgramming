@@ -250,6 +250,13 @@ applies to both. A `TravelTurn` shares identical lookups within a request and ca
 per provider. The adapters return up to five validated offers. The browser gets eligible provider links,
 while Gemini receives bounded offer facts with those URLs removed. [Travel tool contracts](step-18.md).
 
+A dated park request now searches automatically when its enabled travel services have complete details and the
+conditions decision is `proceed` or `adapt`. Forecast, guidance and notices are reused from that same request;
+quotes share its deadline and rate gate. Missing origin or arrival airport gets a compact follow-up with known
+dates and preferences preserved. A `pause` blocks searching; `review` keeps manual continuation. Provider failures
+remain visible alongside successful results. Weekend dates use the departure timezone: on November 10, 2026,
+“this week end” means Friday November 13 through Sunday November 15; explicit dates still take precedence.
+
 ## Follow an approved preference
 
 Mem0 is an optional preference store. It does not replace the park index, forecast cache or LangGraph agent.
