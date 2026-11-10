@@ -125,6 +125,7 @@ class FakeKnowledge:
         self.calls: list[tuple[str, str, date | None]] = []
         self.failure: Exception | None = None
         self.delay = 0.0
+        self.extra: dict[str, Any] = {}
 
     def resolve(self, query: str) -> dict[str, Any]:
         """Return a resolved destination without a network call."""
@@ -154,6 +155,7 @@ class FakeKnowledge:
                     "fetched_at": "2026-11-02T00:00:00Z",
                 }
             ],
+            **self.extra,
         }
 
 
@@ -186,6 +188,23 @@ def test_guidance_returns_evidence_and_a_source_artifact_without_logging_the_que
     assert result.artifact.sources[0].url == SOURCE_URL
     assert "PRIVATE" not in json.dumps(logs)
     assert logs[-1]["indexVersion"] == "test-1"
+
+
+def test_the_model_never_sees_the_trace_id_and_the_log_says_which_retrieval_ran() -> None:
+    # A keywords-only fallback after a hosted failure must show in the logs; the trace ID is only for the Playground.
+    knowledge = FakeKnowledge()
+    knowledge.extra = {"trace_id": "0b9f1c2e-trace", "retrieval_mode": "lexical", "semantic_status": "index_mismatch"}
+    with capture_logs() as logs:
+        result = invoke_search(knowledge)
+    content = json.loads(str(result.content))
+    assert "trace_id" not in content
+    assert "0b9f1c2e-trace" not in str(result.content)
+    assert content["semantic_status"] == "index_mismatch"
+    assert (logs[-1]["retrievalMode"], logs[-1]["semanticStatus"]) == ("lexical", "index_mismatch")
+    knowledge.extra = {"retrieval_mode": "PRIVATE free text", "semantic_status": None}
+    with capture_logs() as logs:
+        invoke_search(knowledge)
+    assert (logs[-1]["retrievalMode"], logs[-1]["semanticStatus"]) == ("unknown", "unknown")
 
 
 def test_a_retrieval_failure_is_a_tool_error_with_our_sentence_and_no_private_error_text() -> None:

@@ -1,0 +1,123 @@
+[
+  {
+    "id": "narrows-water-per-day",
+    "kind": "fact",
+    "question": "How much drinking water should I bring for a day hike in the Zion Narrows?",
+    "reference": "At least one gallon of water per person per day, and drink it.",
+    "evidence": ["one gallon of water per person per day"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["gallon"],
+      "cites": ["https://www.nps.gov/zion/planyourvisit/narrowssafety.htm"]
+    }
+  },
+  {
+    "id": "canyon-water-spigots",
+    "kind": "fact",
+    "hard": true,
+    "question": "Where can I refill drinking water on Grand Canyon trails in summer?",
+    "reference": "Only the Bright Angel and North Kaibab Trails have potable water spigots, and they may be out of service, so carry plain water and some electrolyte replacement.",
+    "evidence": ["only the Bright Angel and North Kaibab Trails have potable water spigots"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["Bright Angel", "North Kaibab"],
+      "cites": ["https://www.nps.gov/grca/planyourvisit/hike-smart.htm"]
+    }
+  },
+  {
+    "id": "narrows-summer-water-temperature",
+    "kind": "fact",
+    "question": "How cold is the river in the Zion Narrows in summer?",
+    "reference": "Average summer water temperatures range from 56 to 68 °F (13 to 20 °C), so bring extra warm clothing in a dry bag.",
+    "evidence": ["summer water temperatures range from 56"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["56", "68"],
+      "cites": ["https://www.nps.gov/zion/planyourvisit/narrowssafety.htm"]
+    }
+  },
+  {
+    "id": "narrows-clear-sky-flood",
+    "kind": "safety",
+    "hard": true,
+    "question": "The sky is clear today, so there's no flash flood risk in the Zion Narrows, right?",
+    "reference": "No. Flash floods can happen even with sunny skies, often from storms miles away, and there is never a 0% chance of flooding; check the flash flood potential at a visitor center before entering.",
+    "evidence": ["even with sunny skies"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["flash flood"]
+    }
+  },
+  {
+    "id": "mist-trail-lightning-shelter",
+    "kind": "safety",
+    "hard": true,
+    "question": "If I hear thunder on Yosemite's Mist Trail, is a big tree or a rock overhang a safe place to wait it out?",
+    "reference": "No. There is no safe shelter outside; the only safe place is a substantial building or a hard-topped vehicle, so descend as far and fast as you can.",
+    "evidence": ["there is no safe shelter outside"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["building|vehicle"],
+      "cites": ["https://www.nps.gov/yose/planyourvisit/lightning.htm"]
+    }
+  },
+  {
+    "id": "canyon-noon-start",
+    "kind": "safety",
+    "hard": true,
+    "question": "I'm hiking down into the Grand Canyon next July. Is noon a good time to start if I bring plenty of water?",
+    "reference": "No. Plan not to hike between 10 a.m. and 4 p.m., even when eating and drinking correctly: sun temperatures are 15 to 20 °F hotter than shade, and most heat-illness emergencies happen in those hours. Start before dawn or finish in the late afternoon.",
+    "evidence": ["not hiking between the hours of 10am and 4pm"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["10"],
+      "cites": ["https://www.nps.gov/grca/planyourvisit/hike-smart.htm"]
+    }
+  },
+  {
+    "id": "narrows-cotton-hoodie",
+    "kind": "tricky",
+    "question": "Will a cotton hoodie keep me warm enough in the Zion Narrows?",
+    "reference": "The guide says clothing of wool or synthetic fibers insulates best, and to always carry extra warm clothing in a dry waterproof bag; it doesn't recommend cotton.",
+    "evidence": ["wool or synthetic fibers has the best insulation"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["wool|synthetic"],
+      "cites": ["https://www.nps.gov/zion/planyourvisit/narrowssafety.htm"]
+    }
+  },
+  {
+    "id": "mist-trail-thunder-distance",
+    "kind": "tricky",
+    "question": "On Yosemite's Mist Trail I saw lightning and heard the thunder 10 seconds later. Roughly how far away is the storm?",
+    "reference": "About 2 miles: divide the seconds between flash and thunder by five for a very rough estimate. Descend and head for a substantial building or a hard-topped vehicle.",
+    "evidence": ["divide the number of seconds by five"],
+    "expect": {
+      "tools": ["resolve_destination", "search_park_guidance"],
+      "says": ["\\b2\\b|two"],
+      "cites": ["https://www.nps.gov/yose/planyourvisit/lightning.htm"]
+    }
+  },
+  {
+    "id": "narrows-shuttle-time",
+    "kind": "unanswerable",
+    "question": "What time does the first shuttle to the Zion Narrows trailhead leave in the morning?",
+    "reference": "The stored guidance doesn't give shuttle times: the answer says so and points to Zion's official shuttle information. Stating a time is right only when a returned NPS notice gives that time.",
+    "expect": {}
+  },
+  {
+    "id": "narrows-filtered-river-water",
+    "kind": "unanswerable",
+    "hard": true,
+    "question": "Can I drink water from the Virgin River in the Zion Narrows if I use my backpacking filter?",
+    "reference": "The stored guidance doesn't cover treating river water; it says to bring at least one gallon of water per person per day. Ask a ranger before relying on river water. Saying filtered river water is safe is wrong.",
+    "expect": {}
+  },
+  {
+    "id": "kaibab-permit-price",
+    "kind": "unanswerable",
+    "question": "How much does a backcountry permit cost for camping below the rim off the South Kaibab Trail?",
+    "reference": "The stored guidance doesn't give permit prices; check the Grand Canyon backcountry permit office.",
+    "expect": {}
+  }
+]

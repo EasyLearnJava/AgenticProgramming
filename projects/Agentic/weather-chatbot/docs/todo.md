@@ -70,6 +70,15 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
   `/api/` edge rate limit, Playground trace and live answer goldens on the exact preview build. Hosted settings
   are on [Waiting on you](waiting-on-you.md#qdrant-hybrid-park-retrieval).
 
+- **Hybrid park search, the review's leftovers (issue 182):** keep one Qdrant connection and remember an index's
+  readiness for a while, instead of a new connection and a readiness call on every search; give the planner's
+  searches a place in their own request's trace; make the hybrid comparison fail on any single case that got worse,
+  not only on totals; and measure the local MiniLM profile, whose scoring changed without a run of its own.
+
+- **Park answers, after the first judged run (issue 183):** grow the 11 cases toward 30 to 50 per guide, in the words
+  visitors use; record how often the judge agreed with your own reading; and recheck the reference answers when a
+  stored page changes.
+
 The rebuild is complete (step 13); these could come after it.
 
 - **The cache's own errors as our warning (issues 60 and 72):** on Vercel, the runtime gives each request its cache,

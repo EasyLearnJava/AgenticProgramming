@@ -10,6 +10,10 @@ RRF_K = 60
 SEMANTIC_WEIGHT = 0.1
 SEASONS: tuple[VisitSeason, ...] = ("winter", "spring", "summer", "fall")
 _SEASON = r"(spring|summer|fall|autumn|winter)"
+_MONTH = r"(?:january|february|march|april|june|july|august|september|october|november|december)"
+# "May" is the month only beside a word such as "in" or a day ("in May", "May 12"); "layers I may need" is the verb.
+_MAY = r"\b(?:in|during|this|next|early|late|mid|of)\s+may\b|\bmay\s+\d"
+_SEASON_WORDS = r"\b(?:in|during|for|this|next|early|late)\s+(?:the\s+)?"
 
 
 def resolve_season(
@@ -27,10 +31,20 @@ def resolve_season(
         return explicit, "explicit"
     # Place names and fall-protection equipment are not seasonal instructions.
     text = re.sub(r"\b(?:big spring|nevada fall|vernal fall|fall[- ]protection)\b", "", query.casefold())
-    words = {"fall" if word == "autumn" else word for word in re.findall(rf"\b{_SEASON}\b", text)}
+    # A month says when the visit is, so a season word beside it ("winter gear for July") is not a filter.
+    if re.search(rf"\b{_MONTH}\b|{_MAY}", text):
+        return None, "none"
+    # "Fall" is surely the season only after a word such as "in" or "late"; anywhere else it may be the verb or a
+    # waterfall ("a fall hiking", "Yosemite Fall", "summer and fall"), so the question gets no season from its words:
+    # dropping passages on a guess is the harm to avoid.
+    for found in re.finditer(r"\bfall\b(?!-\w)", text):
+        if not re.search(rf"{_SEASON_WORDS}$", text[: found.start()]):
+            return None, "none"
+    # A season joined to a word ("spring-fed") is no season, so it never cancels one ("spring-fed pools in summer").
+    words = {"fall" if word == "autumn" else word for word in re.findall(rf"\b{_SEASON}\b(?!-\w)", text)}
     contextual = re.search(
-        rf"\b(?:in|during|for|this|next|early|late)\s+(?:the\s+)?{_SEASON}\b|"
-        rf"\b{_SEASON}\s+(?:clothing|weather|hiking|hike|gear|equipment|preparation|packing|trip|visit)\b",
+        rf"{_SEASON_WORDS}{_SEASON}(?![-\w])|"
+        rf"\b{_SEASON}(?![-\w])\s+(?:clothing|weather|hiking|hike|gear|equipment|preparation|packing|trip|visit)\b",
         text,
     )
     if len(words) == 1 and contextual:

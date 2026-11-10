@@ -22,6 +22,7 @@ from nimbus.park_ranking import VisitSeason, resolve_season
 from nimbus.utils import checked_source_url, to_ms
 
 PARK_TOOL_SECONDS = 6.0
+STATUS_WORD = re.compile(r"[a-z_]{1,32}")
 PARK_GUIDANCE_UNAVAILABLE = "The park guidance is unavailable right now. I can still check the weather."
 _PARK_NAME = "(?:" + "|".join(re.escape(item[0]) for item in PARKS.values()) + ")(?: National Park)?"
 _ALTERNATIVES = re.compile(
@@ -232,6 +233,15 @@ async def _run_knowledge(name: str, run: Callable[[], Awaitable[dict[str, Any]]]
     summary = f"{count} guidance passages" if name == "search_park_guidance" else f"Destination: {status}"
     if status in {"unavailable", "not_found", "unsupported", "ambiguous"}:
         summary = f"Park guidance: {status.replace('_', ' ')}"
+    # A search says which retrieval ran, so keywords-only after a hosted failure shows in the logs, not only in traces.
+    retrieval = (
+        {
+            "retrievalMode": to_status_word(output.get("retrieval_mode")),
+            "semanticStatus": to_status_word(output.get("semantic_status")),
+        }
+        if name == "search_park_guidance"
+        else {}
+    )
     log.info(
         "knowledge.call",
         tool=name,
@@ -239,9 +249,17 @@ async def _run_knowledge(name: str, run: Callable[[], Awaitable[dict[str, Any]]]
         ms=ms,
         indexVersion=version,
         sourceCount=len(sources),
+        **retrieval,
     )
     record = KnowledgeCallRecord(ms, summary, version, sources, str(output.get("retrieval_mode", "registry")))
-    return json.dumps(output, ensure_ascii=False), record
+    # The trace ID links the Playground to its trace; the model needs none, and could repeat it in an answer.
+    content = {key: value for key, value in output.items() if key != "trace_id"}
+    return json.dumps(content, ensure_ascii=False), record
+
+
+def to_status_word(value: object) -> str:
+    """A fixed status word as the retrieval code wrote it ("hybrid", "index_mismatch"); anything else, "unknown"."""
+    return value if isinstance(value, str) and STATUS_WORD.fullmatch(value) else "unknown"
 
 
 async def resolve_park(knowledge: KnowledgeService, query: str) -> tuple[str, KnowledgeCallRecord]:

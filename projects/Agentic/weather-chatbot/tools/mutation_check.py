@@ -3040,6 +3040,106 @@ PARK_HYBRID_TESTS: Final[dict[str, tuple[str, ...]]] = {
 for _module, _tests in PARK_HYBRID_TESTS.items():
     TESTS_FOR[_module] = tuple(dict.fromkeys((*TESTS_FOR.get(_module, ()), *_tests)))
 
+# The hybrid review's fixes (issue 182) and the answer-level park cases with their LLM judge (issue 183).
+PARK_ANSWER_MUTATIONS = (
+    Mutation(
+        "nimbus/park_ranking.py",
+        r'if re.search(rf"\b{_MONTH}\b|{_MAY}", text):',
+        "if False:",
+        "park seasons: a month beside a season word names no filter season",
+    ),
+    Mutation(
+        "nimbus/park_ranking.py",
+        r'_MAY = r"\b(?:in|during|this|next|early|late|mid|of)\s+may\b|\bmay\s+\d"',
+        r'_MAY = r"\bmay\b"',
+        "park seasons: the verb may is no month",
+    ),
+    Mutation(
+        "nimbus/park_ranking.py",
+        'if not re.search(rf"{_SEASON_WORDS}$", text[: found.start()]):',
+        "if False:",
+        "park seasons: a fall that may be the verb or a waterfall names no season",
+    ),
+    Mutation(
+        "nimbus/park_tools.py",
+        'content = {key: value for key, value in output.items() if key != "trace_id"}',
+        "content = output",
+        "park guidance never shows the model its trace ID",
+    ),
+    Mutation(
+        "nimbus/park_tools.py",
+        "**retrieval,",
+        "",
+        "park guidance logs which retrieval ran",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        "if hit is False:",
+        "if False:",
+        "park answers: a retrieval miss is named before the answer is",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        "if not (verdict.abstained or verdict.correct):",
+        "if False:",
+        "park answers: an unanswerable question must be declined",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        'if search != "done":',
+        "if False:",
+        "park answers: a search never called or failed is named before retrieval",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        'isinstance(output, dict) and output.get("status") not in UNSEARCHED',
+        "isinstance(output, dict)",
+        "park answers: a search with no index to search is a failed search",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        "cited = [url for url in answer.citations if not is_weather_authority(url)]",
+        "cited = list(answer.citations)",
+        "park answers: a weather authority link is no foreign citation",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        "    if hard_failures(graded):\n        return 1",
+        "    if False:\n        return 1",
+        "park answers: a hard failure has its own exit code",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        'return [item for item in graded if item.case.hard and item.pattern != "pass"]',
+        "return []",
+        "park answers: a failed safety case is a hard failure",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        'return [f"cites {url}, which no tool returned" for url in cited if url not in returned]',
+        "return []",
+        "park answers: citing a source no tool returned is a miss",
+    ),
+    Mutation(
+        "tools/eval_park_answers.py",
+        'if self.kind == "safety" and not self.hard:',
+        "if False:",
+        "park answers: every safety case is hard",
+    ),
+    Mutation(
+        "tools/answer_judge.py",
+        "HumanMessage(json.dumps(data, ensure_ascii=False))",
+        "HumanMessage(str(data))",
+        "park answers: the judge reads the case as JSON data",
+    ),
+)
+MUTATIONS += PARK_ANSWER_MUTATIONS
+PARK_HYBRID_MUTATIONS += PARK_ANSWER_MUTATIONS
+TESTS_FOR["tools/eval_park_answers.py"] = TESTS_FOR["tools/answer_judge.py"] = ("test_park_answers.py",)
+# --park-hybrid runs only the files PARK_HYBRID_TESTS names, so these rules' modules need a place in it too.
+PARK_HYBRID_TESTS["nimbus/park_tools.py"] = ("test_park_integration.py",)
+PARK_HYBRID_TESTS["tools/eval_park_answers.py"] = PARK_HYBRID_TESTS["tools/answer_judge.py"] = ("test_park_answers.py",)
+
 
 def _fails(copy: Path, test_files: tuple[str, ...], *, strict: bool = False, explain_failure: bool = False) -> bool:
     """

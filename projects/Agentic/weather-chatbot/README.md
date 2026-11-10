@@ -285,7 +285,8 @@ For hosted retrieval, set `PARKS_SEMANTIC_PROVIDER=qdrant`, `PARKS_RETRIEVAL_MOD
 Qdrant credential in ignored `.env.local`, then run `uv run python -m tools.setup_park_search`. Setup verifies the
 dedicated `nimbus_park_guidance` collection and publishes the artifact's readiness marker. It cannot share the
 weather-cache collection. Optional `PARKS_QDRANT_API_KEY` provides a separate credential; otherwise `QDRANT_API_KEY`
-is used. Hosted queries send the search text to Qdrant without full history or preferences.
+is used. Hosted queries send Qdrant only the search text Gemini wrote for the tool; the adapter attaches no history
+or preferences, though Gemini may word the search from them.
 
 With the default `local` provider, `PARKS_RETRIEVAL_MODE=auto` uses BM25 on Vercel and local semantic retrieval only
 with installed ML dependencies and cached pinned weights. `lexical` forces BM25 without semantic calls.
@@ -303,7 +304,10 @@ plots the SQLite artifact's local vectors, not the separate hosted vectors.
 The retrieval benchmark includes paraphrases, destination conflicts and dated safety advice. Run
 `uv run python -m tools.eval_park_hybrid` to compare BM25, semantic-only and fused evidence with provider failures
 separated from misses. Inspect recall@4, top-1 and MRR@4; a top-four pass does not establish a ranking improvement.
-The live-answer goldens separately check Gemini's behavior. Local/provider checks do not prove Vercel readiness;
+The live-answer goldens separately check Gemini's behavior, and `uv run python -m tools.eval_park_answers <address>`
+grades whole park answers with an LLM judge: correct, grounded, and declining what the guides don't cover, with
+safety questions as hard failures ([how it grades](docs/technical-details.md#grade-park-answers-end-to-end)).
+Local/provider checks do not prove Vercel readiness;
 follow [hosted configuration and verification](docs/waiting-on-you.md#qdrant-hybrid-park-retrieval) before release.
 
 The rebuild is complete: thirteen steps, each live and checked; a fourteenth reads the app's lines back onto its

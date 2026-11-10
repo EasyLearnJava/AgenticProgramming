@@ -219,3 +219,16 @@ tests and live provider checks do not establish that Vercel configuration or tra
 Hosted queries send the search text to Qdrant for embedding; this adapter sends neither full history nor preferences.
 Public park records have no weather-cache TTL. The existing Qdrant Free MiniLM model requires no additional embedding
 API key or local ML package. [Implementation and privacy](technical-details.md#publish-and-validate-hosted-park-search).
+
+## Park answer judge
+
+The answer-level park cases (issue 183) need Gemini's key for their judge, in your own environment or ignored
+`.env.local`, never in chat or git. From the project's folder, once the deployment you want to grade is live:
+
+1. Run `uv run python -m tools.eval_park_answers https://weather-chatbot-hazel.vercel.app --review`. It asks 11
+   questions about 12 s apart, so it takes a few minutes: usually about 44 Gemini calls, more if any are retried.
+2. Read each printed answer, its evidence and the judge's verdict, and note where you disagree with the judge. Trust
+   it only when it agrees with you on about ten verdicts; if it doesn't, try `--judge-model` with a stronger model.
+3. When you trust it, run again with `--save` and commit `evals/park-answers-last-run.json`. A "HARD FAIL" line is
+   a hard case, a safety answer, that was wrong or couldn't be graded: read it and fix it, or rerun it with `--only`,
+   before a park demo or release.

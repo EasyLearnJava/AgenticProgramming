@@ -991,4 +991,43 @@ package's code**, **deploying**, or **testing a real API**.
      BM25 81.6% and 0.897. The additional set passed 12/12 versus BM25 11/12; both runs had zero provider failures.
      These questions informed tuning and are regression evidence, not an independent generalization claim or a
      production check. [Calibration details](technical-details.md#hosted-ranking-calibration-on-10-november-2026).
+182. **Park search guessed a season from ordinary words, and dropped the passages that fit.** *Two independent
+     reviews of the hybrid change, 10 November.* With no date, "How do I avoid a fall hiking South Kaibab in the July
+     heat?", "Lower Yosemite Fall hike" and "Bridalveil Fall trip" were read as fall, and "What winter gear do I need
+     for my July trip?" as winter. Passages of other seasons, the summer heat ones included, were dropped before
+     ranking, on every search, keywords-only production too. The reviews also found that Gemini's copy of a search
+     result held the LangSmith trace ID, that a keywords-only fallback after a Qdrant failure left no log, and that
+     the docs overstated the `0.30` floor and hid a change to the local MiniLM scoring. **Fix:** a question that names
+     a month gets no season from its words ("May" only as "in May" or "May 12", never the verb). "Fall" is surely the
+     season only after "in", "this", "late" and the like; any other "fall" (the verb, a waterfall, "summer and fall")
+     gives the question no season, since dropping passages on a guess is the harm to avoid. A season joined to a word
+     is ignored ("the spring-fed pools in summer" is summer). Dates and the tool's season argument are unchanged, and
+     none of the 67 evaluation questions gets a different season. Gemini's
+     copy of a search result drops the trace ID, and `knowledge.call` logs the retrieval mode and semantic status as
+     fixed words. step-16.md and technical-details.md say exactly what `0.30` and `0.55` do and that the local
+     profile now uses rank fusion; the README says Gemini may word the search text from preferences. **Check:** the
+     reviewers' examples are season tests, and 5 new mutation rules were caught. Left for To do: a new Qdrant
+     connection and readiness call on every search, planner searches in traces of their own, the hybrid comparison's
+     regression check by totals only, and measuring the local profile.
+183. **Park answers were never graded, only their retrieval.** *You, 10 November.* `tools/eval_parks.py` checks what
+     the search returns, and five golden questions check words and citations. Nothing checked whether an answer said
+     what the guide says, stayed within it, or declined a question the guides don't cover. **Fix:**
+     `evals/park_answers.json` holds 11 reviewed cases: 3 facts, 3 safety questions, 2 tricky ones that tempt
+     general knowledge, and 3 the guides don't cover. One of those is filtered river water, which our stored Narrows
+     page never addresses (the live page's cyanobacteria section was never ingested). `tools/eval_park_answers.py`
+     asks each of a running Nimbus and reads the passages and notices from the finished turn's chips. It grades four
+     ways: whether the search ran, the retrieval hit, the golden rules (plus no link to a source no tool returned,
+     weather authorities apart), and an LLM judge (`tools/answer_judge.py`, Gemini at temperature 0, reason before
+     verdicts) for correct, grounded and abstained. The first failed check names where to look. A hard case (the
+     three safety questions, the water spigots and the river water) that doesn't pass, wrong or ungraded, is listed
+     first and exits 1; other failures exit 3. Two independent reviews of this work found that a correct answer
+     linking to weather.gov, as rule 9 asks, would have failed as a foreign citation, and that a search never
+     called would have been blamed on retrieval; both are fixed, with the judge told which statements the prompt
+     requires; a search that finds no index counts as a failed search. A re-check by one reviewer found that "summer
+     and fall hiking gear" still filtered to summer; fixed above. **Check:** 34 unit tests, and 10 new mutation rules
+     caught; every evidence phrase is in a stored NPS
+     page. A keyword search with the raw questions finds the evidence in the top four for 7 of the 8 answerable
+     cases. The cotton-hoodie question misses, the users'-wording gap the case is there to catch. Not yet run
+     against a deployment: it needs Gemini's key, and its judge checked by hand first
+     ([Waiting on you](waiting-on-you.md#park-answer-judge)).
 

@@ -26,6 +26,25 @@ from tests.unit.test_parks import chunk, write_index
         ("fall protection equipment", (None, "none")),
         ("What gear do I need for fall protection on Angels Landing?", (None, "none")),
         ("fall-protection equipment in spring", ("spring", "query")),
+        ("What do I wear in the fall?", ("fall", "query")),
+        # The verb, a waterfall, a month beside a season, and a season joined to a word name no visit season.
+        ("How do I avoid a fall hiking South Kaibab in the July heat?", (None, "none")),
+        ("What if I fall hiking the Narrows in the heat?", (None, "none")),
+        ("Lower Yosemite Fall hike", (None, "none")),
+        ("Bridalveil Fall trip", (None, "none")),
+        ("What winter gear do I need for my July trip to the Narrows?", (None, "none")),
+        ("Are there swimming spots in the spring-fed pools?", (None, "none")),
+        # A joined season never cancels a named one, nor does the verb "may"...
+        ("Are the spring-fed pools cold in summer?", ("summer", "query")),
+        ("What layers may I need in winter?", ("winter", "query")),
+        ("Clothing for late fall", ("fall", "query")),
+        # ...but a "fall" that may be the verb, a waterfall or a second season leaves every season in.
+        ("summer and fall hiking gear", (None, "none")),
+        ("clothing for summer and fall", (None, "none")),
+        ("How do I avoid a fall on icy trails in winter?", (None, "none")),
+        ("Lower Yosemite Fall in winter", (None, "none")),
+        ("What should I pack for a trip in May?", (None, "none")),
+        ("Narrows hike on May 12", (None, "none")),
     ],
 )
 def test_season_words_only_filter_when_they_describe_one_visit_season(

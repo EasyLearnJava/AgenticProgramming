@@ -90,11 +90,19 @@ reciprocal rank fusion (RRF) before selecting at most four passages within 10,00
 words, small concept expansions, section weighting, term rarity and passage length. RRF combines qualifying ranks
 instead of adding incompatible raw scores. Ties use chunk ID; final context and citations come from local SQLite.
 The formula is `1 / (60 + BM25_rank) + 0.1 / (60 + semantic_rank)`; missing/ineligible contributions are zero.
-Hosted dense ranks start at cosine `0.30`. Their contribution requires a positive BM25 match or, for a semantic-only
-candidate, cosine of at least `0.55`. The optional local-vector profile keeps its `0.65` cutoff. These admission
-rules and conservative semantic weight were calibrated on labeled examples; they are not confidence guarantees.
+Hosted dense ranks start at cosine `0.30`: a passage with a positive BM25 match and a cosine of at least `0.30` gets
+the semantic bonus, which ranks only order, so even a weak match ranked first earns the full `0.1 / 61`. That bonus
+can lift a BM25 rank 7 passage above a rank 1 passage without one. Only `0.55` decides admission: a passage with no
+BM25 match enters only
+at that cosine or above. The optional local-vector profile now uses the same fusion with a `0.65` cutoff, where it
+used to add every chunk's raw cosine to its BM25 score; that change hasn't been measured on its own. These rules
+and the conservative semantic weight were calibrated on labeled examples; they are not confidence guarantees.
 An actual date determines the season. Without a date, an explicit season or one unambiguous seasonal phrase can
-filter the candidates; proper names such as Nevada Fall do not. Conflicting explicit date/season inputs are rejected.
+filter the candidates ("in spring", "winter gear"). "Fall" is surely the season only after a word such as "in",
+"this" or "late"; any other "fall" may be the verb, a waterfall or a second season ("a fall hiking", "Yosemite Fall",
+"summer and fall"), so the question gets no season from its words. A season joined to a word ("spring-fed") is
+ignored. A question that names a month ("May" only as "in May" or "May 12") gets no season from its words, and
+proper names such as Nevada Fall do not count. Conflicting explicit date/season inputs are rejected.
 
 `search(..., explain=True)` adds the same raw scores, ranks and exclusion decisions used by normal search.
 A missing semantic score is distinct from zero similarity. The corpus and per-request diagnostics do not store

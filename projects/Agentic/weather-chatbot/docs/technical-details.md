@@ -310,9 +310,13 @@ the available ranking branches; individual score contributions show which branch
 For hosted retrieval, dense ranks include cosine scores of at least `0.30`. A candidate with a positive BM25 match
 can receive that semantic contribution; a candidate with no BM25 match needs cosine of at least `0.55` to enter
 the fused result. The score is `1 / (60 + BM25_rank) + 0.1 / (60 + semantic_rank)`, with absent or ineligible
-contributions set to zero. The two thresholds control admission; the `0.1` weight limits how strongly semantic rank
-can change the BM25 order. The optional local-vector profile retains its `0.65` semantic cutoff. The Playground
-displays the active thresholds and branch contributions rather than implying every returned vector changes ranking.
+contributions set to zero. Only `0.55` controls admission; `0.30` controls which BM25 matches get a semantic
+bonus. Fusion uses ranks, not scores, so a weak `0.31` cosine ranked first earns the full `0.1 / 61`, enough to lift
+a BM25 rank 7 passage above a rank 1 passage without a bonus; semantic-only candidates between `0.30` and `0.55`
+still take semantic rank positions. The optional local-vector profile now uses the same fusion with a `0.65`
+cutoff; before, it added every chunk's raw cosine to its BM25 score, and that change hasn't been measured on its
+own. The Playground displays the active thresholds and branch contributions rather than implying every returned
+vector changes ranking.
 
 ### Publish and validate hosted park search
 
@@ -380,6 +384,58 @@ Validation also passed the primary 477 affected unit/integration checks, 147 pla
 targeted reruns covered final edits; these counts overlap and are not a full-suite total. The real local Playground
 returned HTTP 200 for the spring Narrows question using hosted retrieval. Local LangSmith delivery was not checked
 because no tracing key was configured, and no production deployment was performed for this extension.
+
+### Grade park answers end to end
+
+A park answer can fail in two places: the search doesn't return the passage that holds the answer, or it does and
+the model misreads it or adds facts the passage doesn't hold. `tools.eval_parks` grades only the first, so
+`tools.eval_park_answers` grades the answers too (issue 183). Its 11 reviewed cases in `evals/park_answers.json`
+are of four kinds, each catching a different failure:
+
+| Kind | Cases | Example | Catches |
+| --- | --- | --- | --- |
+| Fact | 3 | How much drinking water should I bring for a day hike in the Zion Narrows? | Basic retrieval and accuracy |
+| Safety | 3 | If I hear thunder on Yosemite's Mist Trail, is a big tree or a rock overhang a safe place? | Dangerous wrong answers |
+| Tricky | 2 | Will a cotton hoodie keep me warm enough in the Zion Narrows? | General knowledge in place of the page, users' own words |
+| Unanswerable | 3 | Can I drink water from the Virgin River in the Zion Narrows if I use my backpacking filter? | Invented answers |
+
+Each case is asked of a running Nimbus as the page asks it. The passages and NPS notices Gemini actually received are
+read from the finished turn's tool chips, then four checks run. The **search** must have been called and must not
+have failed. The **retrieval hit** asks whether each evidence phrase is in a retrieved passage, a plain string
+match. The **golden rules** are the tools called, words such as "gallon" or "56", required citations, and no link to
+a source no tool returned; a weather authority such as weather.gov, which rule 9 asks for, is allowed. The **LLM
+judge** (`tools/answer_judge.py`, Gemini at temperature 0) reads the question, the reference answer, the evidence
+and the answer, all as JSON data it must never take instructions from. It writes its reason first, then three
+verdicts: correct (agrees with the reference), grounded (every claim given as park guidance is in the evidence;
+statements the prompt requires, such as "current closures weren't checked", never count against it) and abstained
+(says the guides don't cover it). The first check that fails says where to look:
+
+| Pattern | Meaning | Look at |
+| --- | --- | --- |
+| `search_not_called`, `search_failed` | No passage could come back | The tool choice, or the search tool's failure or deadline |
+| `retrieval_miss` | The evidence never came back | Chunking, search settings, or the search text Gemini wrote |
+| `answer_wrong` | It came back; the answer misread it | The prompt or the model |
+| `not_grounded` | The answer used outside knowledge or invented a specific | The prompt's grounding rules |
+| `answered_unanswerable` | A question the guides don't cover got an answer | The prompt's "say it isn't covered" rule |
+| `rules` | Wrong tools, missing words or citations | The tools, wording or citations |
+
+Every safety case, the water spigots and the river-water question are hard: one that doesn't pass, whether wrong or
+ungraded, is listed first and makes the run exit 1, whatever the score; other failures exit 3. A 95% score that
+includes "filtered river water is fine" is not ready. The river-water question is unanswerable only because our
+stored Narrows page lacks the live page's cyanobacteria section: ingesting that section changes its reference. A
+question the guides don't cover passes when the answer declines, or when it states only what a returned NPS notice
+says (a shuttle time, say). The judge can be wrong too, and by default it is the same Gemini model as the app
+(`--judge-model` chooses another). So run with `--review` first and check about ten verdicts by hand before
+trusting it. With `--save`, the grades (case IDs and verdicts, never questions or answers) go to
+`evals/park-answers-last-run.json`. A case is usually four Gemini calls, three for the answer and one for the judge,
+12 s apart; retries can make it nine. A dropped connection fails that case only.
+
+```bash
+uv run python -m tools.eval_park_answers https://weather-chatbot-hazel.vercel.app --review
+```
+
+Eleven cases are a start; 30 to 50 per guide would cover it better. The cases' reference answers follow the stored
+pages: when a page changes, rebuild the index and recheck its references.
 
 ## Trace a failure without reading a conversation
 
