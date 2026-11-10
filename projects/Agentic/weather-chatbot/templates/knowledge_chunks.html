@@ -2,16 +2,16 @@
 {% extends "knowledge_layout.html" %}
 {% block knowledge_title %}Chunks &amp; vectors{% endblock %}
 {% block knowledge_heading %}Chunks &amp; vectors{% endblock %}
-{% block knowledge_intro %}Explore the passages stored in the knowledge index, inspect their embeddings, and trace
+{% block knowledge_intro %}Explore the passages stored in Qdrant, inspect their embeddings, and trace
   every chunk back to its source.{% endblock %}
 {% block knowledge_action %}<a class="knowledge-button knowledge-secondary" href="/knowledge/sources">Browse sources
   →</a>{% endblock %}
 {% block knowledge_body %}
 {% set show_documents = true %}{% include "knowledge_filters.html" %}
-<div class="knowledge-model"><p>Stored embeddings ·
+<div class="knowledge-model"><p>Qdrant hosted embeddings ·
   <strong>{{ catalog.embedding_model.split('@')[0].split('/')[-1] or 'No embedding model' }}</strong>
   · {{ catalog.dimensions }} dimensions</p>
-  <details><summary>Model revision</summary><code>{{ catalog.embedding_model }}</code></details>
+  <details><summary>Hosted model</summary><code>{{ catalog.embedding_model }}</code></details>
 </div>
 {% if chunks %}
 <div class="knowledge-explorer">
@@ -23,7 +23,7 @@
     <svg id="embedding-map" class="knowledge-map" viewBox="0 0 800 400" role="group" aria-labelledby="map-title
       map-description">
       <title>Stored chunk embeddings projected into two dimensions</title>
-      <desc id="map-description">A PCA projection of the actual stored embeddings. Each point links to its chunk
+      <desc id="map-description">A PCA projection of the actual Qdrant embeddings. Each point links to its chunk
         details.</desc>
       <rect x="60" y="30" width="680" height="320" class="knowledge-plot-background"/>
       <g class="knowledge-plot-grid"><path d="M60 110H740M60 190H740M60 270H740M230 30V350M400 30V350M570 30V350"/></g>
@@ -47,7 +47,8 @@
       knowledge-point-zion"></span>Zion</li>
       <li><span class="knowledge-dot knowledge-point-canyon"></span>Grand Canyon</li>
       <li><span class="knowledge-dot knowledge-point-yosemite"></span>Yosemite</li></ul>
-    <p class="knowledge-map-note">PCA reduces the full vector to two dimensions. Distances here are approximate;
+    <p class="knowledge-map-note">These are the same hosted vectors used by semantic search.
+      PCA reduces each vector to two dimensions. Distances here are approximate;
       retrieval uses all {{ catalog.dimensions }} dimensions. Filters keep the same projection.</p>
   </section>
   <section class="knowledge-panel knowledge-detail" id="chunk-detail" aria-labelledby="chunk-title">
@@ -60,7 +61,7 @@
       <div><dt>Season</dt><dd>{{ selected.seasons|join(', ') }}</dd></div>
       <div><dt>Source updated</dt><dd>{{ selected.source_updated_at or 'Not provided' }}</dd></div>
       <div><dt>Retrieved</dt><dd>{{ selected.fetched_at[:10] }}</dd></div>
-      <div><dt>Vector</dt><dd>{{ selected.embedding|length }} components · normalized</dd></div></dl>
+      <div><dt>Vector</dt><dd>{{ selected.embedding|length }} components · Qdrant cosine vector</dd></div></dl>
     <a href="{{ selected.source_url }}" target="_blank" rel="noopener noreferrer">Read the official source ↗<span
       class="visually-hidden"> (opens in a new tab)</span></a>
     <details class="knowledge-vector"><summary>Vector components ({{ selected.embedding|length }})</summary>

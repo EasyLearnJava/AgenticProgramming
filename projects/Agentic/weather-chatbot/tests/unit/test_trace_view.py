@@ -37,7 +37,12 @@ def test_park_retrieval_root_projects_safe_provider_mode_and_stage_counts(traced
     view = with_runs(
         traced,
         span(name="parks.retrieval", metadata=root_metadata),
-        span(UUID(int=801), name="parks.bm25", metadata={"retrieval_outcome": "ready", "retrieval_candidates": 12}),
+        span(UUID(int=800), name="parks.catalog", metadata={"retrieval_outcome": "ready"}),
+        span(
+            UUID(int=801),
+            name="parks.bm25",
+            metadata={"retrieval_outcome": "ready", "retrieval_candidates": 12, "retrieval_provider": "qdrant"},
+        ),
         span(
             UUID(int=802),
             name="parks.semantic",
@@ -47,20 +52,23 @@ def test_park_retrieval_root_projects_safe_provider_mode_and_stage_counts(traced
         span(UUID(int=803), name="parks.fusion", metadata={"retrieval_outcome": "found", "retrieval_selected": 4}),
     )
     assert view.status == "ready"
-    root, keyword, semantic, fusion = view.rows
+    root, catalog, keyword, semantic, fusion = view.rows
     assert root.label == "Park guidance retrieval"
     assert root.kind == "Retrieval"
     assert root.status == "Completed"
     assert root.outcome == "Passages found"
     assert root.retrieval_mode == "BM25 only"
-    assert root.retrieval_provider == "Qdrant hosted MiniLM"
+    assert root.retrieval_provider == "Qdrant Cloud"
+    assert catalog.label == "Qdrant park collection read"
+    assert keyword.label == "Qdrant park BM25 search"
+    assert keyword.retrieval_provider == "Qdrant Cloud"
     assert root.retrieval_candidates == keyword.retrieval_candidates == 12
     assert root.retrieval_selected == fusion.retrieval_selected == 4
     assert root.retrieval_season_source == "Question"
     assert semantic.label == "Qdrant park semantic search"
     assert semantic.status == "Failed"
     assert semantic.outcome == "Index version mismatch"
-    assert [row.parent_index for row in view.rows] == [None, 0, 0, 0]
+    assert [row.parent_index for row in view.rows] == [None, 0, 0, 0, 0]
     assert PRIVATE not in str(view)
 
 

@@ -1,9 +1,9 @@
 {
-  "at": "2026-11-10T15:08:40.625198+00:00",
-  "index_version": "d93691d32a848853",
+  "at": "2026-11-10T20:29:39.360785+00:00",
+  "index_version": "5b2eddcd5a2f6a24",
   "policy": {
     "model": "sentence-transformers/all-minilm-l6-v2",
-    "embedding_profile": "nimbus-park-minilm-title-section-text-v1",
+    "embedding_profile": "nimbus-park-hybrid-text-v2",
     "dense_baseline": "candidate_cutoff_without_keyword_gate",
     "semantic_candidate_cutoff": 0.3,
     "semantic_only_admission_cutoff": 0.55,
@@ -18,8 +18,8 @@
       "passed": 41,
       "cases": 41,
       "recall_at_4": 1.0,
-      "top_1": 0.8157894736842105,
-      "mrr_at_4": 0.8969298245614036
+      "top_1": 0.7368421052631579,
+      "mrr_at_4": 0.8574561403508772
     },
     "semantic": {
       "passed": 39,
@@ -32,14 +32,15 @@
       "passed": 41,
       "cases": 41,
       "recall_at_4": 1.0,
-      "top_1": 0.868421052631579,
-      "mrr_at_4": 0.9298245614035089
+      "top_1": 0.7894736842105263,
+      "mrr_at_4": 0.8903508771929826
     }
   },
   "cases": [
     {
       "id": "narrows-warm-layers",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -62,6 +63,7 @@
     {
       "id": "narrows-summer-clothing",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -84,6 +86,7 @@
     {
       "id": "narrows-winter-suit",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -106,12 +109,13 @@
     {
       "id": "narrows-footwear",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 2
         },
         "semantic": {
           "passed": true,
@@ -121,13 +125,14 @@
         "hybrid": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 2
         }
       }
     },
     {
       "id": "narrows-dry-bags",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -150,6 +155,7 @@
     {
       "id": "narrows-hiking-poles",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -172,6 +178,7 @@
     {
       "id": "narrows-flash-floods",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -194,6 +201,7 @@
     {
       "id": "narrows-headlamp",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -216,6 +224,7 @@
     {
       "id": "zion-flood-preparation",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -238,6 +247,7 @@
     {
       "id": "zion-winter-weather",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -260,6 +270,7 @@
     {
       "id": "canyon-summer-shade",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -282,12 +293,13 @@
     {
       "id": "canyon-hottest-hours",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 2
+          "evidence_rank": 1
         },
         "semantic": {
           "passed": true,
@@ -297,13 +309,14 @@
         "hybrid": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 2
+          "evidence_rank": 1
         }
       }
     },
     {
       "id": "canyon-hiking-food",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -326,6 +339,7 @@
     {
       "id": "canyon-sun-protection",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -348,6 +362,7 @@
     {
       "id": "canyon-winter-traction",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -370,6 +385,7 @@
     {
       "id": "south-kaibab-water",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -392,12 +408,13 @@
     {
       "id": "south-kaibab-heat",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 4
+          "evidence_rank": 3
         },
         "semantic": {
           "passed": true,
@@ -414,6 +431,7 @@
     {
       "id": "yosemite-lightning",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -436,6 +454,7 @@
     {
       "id": "yosemite-lightning-shelter",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -458,6 +477,7 @@
     {
       "id": "yosemite-winter-snow",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -480,6 +500,7 @@
     {
       "id": "yosemite-water",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -502,6 +523,7 @@
     {
       "id": "mist-trail-spray",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -524,12 +546,13 @@
     {
       "id": "mist-trail-rainwear",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 3
+          "evidence_rank": 2
         },
         "semantic": {
           "passed": true,
@@ -546,6 +569,7 @@
     {
       "id": "mist-trail-lightning",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -568,6 +592,7 @@
     {
       "id": "narrows-no-account-help",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": false,
       "profiles": {
         "lexical": {
@@ -590,6 +615,7 @@
     {
       "id": "canyon-no-recipe",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": false,
       "profiles": {
         "lexical": {
@@ -612,6 +638,7 @@
     {
       "id": "yosemite-no-stock-analysis",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": false,
       "profiles": {
         "lexical": {
@@ -634,6 +661,7 @@
     {
       "id": "narrows-dry-bags-paraphrase",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -656,6 +684,7 @@
     {
       "id": "narrows-footwear-paraphrase",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -678,6 +707,7 @@
     {
       "id": "canyon-food-paraphrase",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -700,6 +730,7 @@
     {
       "id": "yosemite-lightning-paraphrase",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -722,6 +753,7 @@
     {
       "id": "mist-spray-paraphrase",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -744,6 +776,7 @@
     {
       "id": "zion-winter-paraphrase",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -766,6 +799,7 @@
     {
       "id": "mist-spray-spring",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -788,6 +822,7 @@
     {
       "id": "mist-spray-summer",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -810,12 +845,13 @@
     {
       "id": "narrows-spring-wear",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 2
         },
         "semantic": {
           "passed": false,
@@ -827,19 +863,20 @@
         "hybrid": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 2
         }
       }
     },
     {
       "id": "narrows-spring-tool-query",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 2
         },
         "semantic": {
           "passed": false,
@@ -851,19 +888,20 @@
         "hybrid": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 2
         }
       }
     },
     {
       "id": "narrows-spring-garments",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 4
         },
         "semantic": {
           "passed": true,
@@ -873,13 +911,14 @@
         "hybrid": {
           "passed": true,
           "misses": [],
-          "evidence_rank": 1
+          "evidence_rank": 2
         }
       }
     },
     {
       "id": "narrows-feet-paraphrase",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -902,6 +941,7 @@
     {
       "id": "narrows-spare-garments",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {
@@ -924,6 +964,7 @@
     {
       "id": "mist-spring-stairway",
       "semantic_status": "ready",
+      "provider_failure": null,
       "grades_evidence": true,
       "profiles": {
         "lexical": {

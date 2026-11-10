@@ -1,7 +1,8 @@
 """The knowledge browser exposes the actual public corpus, keeps filters scoped, and projects genuine vectors."""
 
-from pathlib import Path
+import asyncio
 from typing import cast
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -9,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from nimbus.knowledge import project_vectors
 from nimbus.parks import ParkKnowledge
+from tests.park_fakes import FakeParkStore
 
 
 def test_sources_show_real_counts_links_and_the_knowledge_menu(client: TestClient) -> None:
@@ -48,8 +50,24 @@ def test_chunk_page_shows_vectors_pca_and_source_provenance(client: TestClient) 
     assert "approximate" in page.text
     assert "Vector components" in page.text
     assert 'id="chunk-detail"' in page.text
-    assert "all-MiniLM-L6-v2" in page.text
+    assert "all-minilm-l6-v2" in page.text.lower()
+    assert "Qdrant hosted embeddings" in page.text
+    assert "same hosted vectors used by semantic search" in page.text
     assert page.headers["cache-control"] == "no-store"
+
+
+def test_only_the_vector_browser_requests_hosted_vector_components(client: TestClient) -> None:
+    """Source and Playground pages inspect text without transferring every dense vector."""
+    service = cast(ParkKnowledge, cast(FastAPI, client.app).state.park_knowledge)
+    store = cast(FakeParkStore, service.store)
+    store.calls.clear()
+    sources = client.get("/knowledge/sources")
+    assert "Stored vectors" not in sources.text
+    assert "<dt>Vectors</dt>" not in sources.text
+    client.get("/knowledge/retrieval")
+    chunks = client.get("/knowledge/chunks")
+    assert "Stored vectors" in chunks.text
+    assert [call["with_vectors"] for call in store.calls if call["method"] == "catalog"] == [False, False, True]
 
 
 def test_chunk_filters_do_not_show_other_parks_and_selection_is_checked(client: TestClient) -> None:
@@ -66,34 +84,67 @@ def test_knowledge_filters_are_validated_at_the_edge(client: TestClient, params:
     assert client.get("/knowledge/sources", params=params).status_code == 400
 
 
-def test_no_results_and_missing_index_have_explicit_empty_states(client: TestClient, tmp_path: Path) -> None:
+def test_no_results_and_missing_collection_have_explicit_empty_states(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     assert "No documents match" in client.get("/knowledge/sources?q=zzzzunmatched").text
     assert "No chunks match" in client.get("/knowledge/chunks?q=zzzzunmatched").text
-    cast(FastAPI, client.app).state.knowledge_catalog = ParkKnowledge(tmp_path / "missing.sqlite").inspection()
+    service = cast(ParkKnowledge, cast(FastAPI, client.app).state.park_knowledge)
+    unavailable = asyncio.run(service.inspection())
+    unavailable.update(available=False, status="unavailable", chunks=[])
+    monkeypatch.setattr(service, "inspection", AsyncMock(return_value=unavailable))
     page = client.get("/knowledge/chunks")
     assert page.status_code == 200
     assert "Knowledge index unavailable" in page.text
     assert 'id="embedding-map"' not in page.text
+    assert "No local copy is substituted" in page.text
+    filtered = client.get("/knowledge/chunks", params={"document": "zion-narrows-safety"})
+    assert filtered.status_code == 200
+    assert "Knowledge index unavailable" in filtered.text
+    assert 'id="embedding-map"' not in filtered.text
+    assert client.get("/knowledge/sources/zion-narrows-safety").status_code == 503
 
 
-def test_inspection_is_a_copy_and_never_modifies_the_live_index(client: TestClient) -> None:
-    settings = cast(FastAPI, client.app).state.settings
-    service = ParkKnowledge(settings.parks_index_path)
-    original = settings.parks_index_path.read_bytes()
-    snapshot = service.inspection()
-    snapshot["chunks"][0]["text"] = "changed"
-    assert service.inspection()["chunks"][0]["text"] != "changed"
-    assert settings.parks_index_path.read_bytes() == original
-
-
-def test_chunk_text_is_escaped_in_the_browser(client: TestClient) -> None:
+def test_browser_rereads_service_instead_of_an_indefinite_app_snapshot(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A later publication/failure is visible instead of reusing the first successful app-wide snapshot forever."""
     app = cast(FastAPI, client.app)
-    catalog = ParkKnowledge(app.state.settings.parks_index_path).inspection()
+    service = cast(ParkKnowledge, app.state.park_knowledge)
+    initial = asyncio.run(service.inspection())
+    changed = {**initial, "available": False, "status": "index_mismatch", "chunks": []}
+    app.state.knowledge_catalog = initial
+    inspection = AsyncMock(side_effect=[initial, changed])
+    monkeypatch.setattr(service, "inspection", inspection)
+    assert "Knowledge index unavailable" not in client.get("/knowledge/sources").text
+    assert "approved index version" in client.get("/knowledge/sources").text
+    assert inspection.await_count == 2
+
+
+def test_chunk_text_is_escaped_in_the_browser(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    app = cast(FastAPI, client.app)
+    catalog = asyncio.run(app.state.park_knowledge.inspection())
     catalog["chunks"][0]["text"] = "<script>alert('unsafe')</script>"
-    app.state.knowledge_catalog = catalog
+    monkeypatch.setattr(app.state.park_knowledge, "inspection", AsyncMock(return_value=catalog))
     page = client.get("/knowledge/chunks")
     assert "<script>" not in page.text
     assert "&lt;script&gt;" in page.text
+
+
+@pytest.mark.parametrize("status", ["unconfigured", "timeout", "index_mismatch"])
+def test_catalog_failure_is_explained_without_vector_or_source_claims(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    """Connection and publication failures never appear as an empty but successfully indexed collection."""
+    service = cast(ParkKnowledge, cast(FastAPI, client.app).state.park_knowledge)
+    catalog = asyncio.run(service.inspection())
+    catalog.update(available=False, status=status, chunks=[])
+    monkeypatch.setattr(service, "inspection", AsyncMock(return_value=catalog))
+    page = client.get("/knowledge/sources")
+    assert page.status_code == 200
+    assert "Qdrant" in page.text
+    assert "knowledge-stats" not in page.text
+    assert "No documents match" not in page.text
 
 
 def test_projection_is_deterministic_and_handles_missing_or_degenerate_vectors() -> None:

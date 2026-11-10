@@ -23,7 +23,7 @@ def metadata(run: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in run["extra"]["metadata"].items() if key != "revision_id"}
 
 
-def test_standalone_retrieval_has_three_nested_stages_and_flushes_once(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_standalone_retrieval_has_four_nested_stages_and_flushes_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """The Playground receives its own root with real stage timings and no external content."""
     tracing, client = tracer()
     flush = Mock()
@@ -32,8 +32,10 @@ def test_standalone_retrieval_has_three_nested_stages_and_flushes_once(monkeypat
         tracing_context(metadata={"question": PRIVATE}, tags=[PRIVATE]),
         park_retrieval_trace(tracing) as retrieval,
     ):
+        with retrieval.step("catalog") as catalog:
+            catalog.outcome("ready", provider="qdrant", candidate_count=12)
         with retrieval.step("bm25") as keyword:
-            keyword.outcome("ready", candidate_count=12)
+            keyword.outcome("ready", provider="qdrant", candidate_count=12)
         with retrieval.step("semantic") as semantic:
             semantic.outcome("ready", provider="qdrant", candidate_count=8)
         with retrieval.step("fusion") as fusion:
@@ -44,7 +46,7 @@ def test_standalone_retrieval_has_three_nested_stages_and_flushes_once(monkeypat
     root, *children = started(client.kept_runs)
     assert root["name"] == PARK_RETRIEVAL_NAME
     assert root["trace_id"] == root["id"] == str(retrieval.trace_id)
-    assert [child["name"] for child in children] == ["parks.bm25", "parks.semantic", "parks.fusion"]
+    assert [child["name"] for child in children] == ["parks.catalog", "parks.bm25", "parks.semantic", "parks.fusion"]
     for child in children:
         assert child["parent_run_id"] == root["id"]
         assert child["trace_id"] == root["id"]
@@ -120,6 +122,22 @@ def test_expected_semantic_skips_do_not_claim_a_provider_failure(status: str) ->
     finish = ended(client.kept_runs, child["id"])[0]
     assert not finish.get("error")
     assert metadata(finish)["retrieval_outcome"] == status
+
+
+@pytest.mark.parametrize("action", ["catalog", "bm25"])
+def test_required_qdrant_stage_failure_and_root_are_failed(action: Any) -> None:
+    """Losing the collection or keyword branch cannot masquerade as a successful local fallback."""
+    tracing, client = tracer()
+    with park_retrieval_trace(tracing) as retrieval:
+        with retrieval.step(action) as stage:
+            stage.outcome("unavailable", provider="qdrant")
+        retrieval.outcome("unavailable", provider="qdrant", mode="none", selected_count=0)
+    root, child = started(client.kept_runs)
+    for run in (root, child):
+        finish = ended(client.kept_runs, run["id"])[0]
+        assert finish.get("error") == "hidden"
+        assert metadata(finish)["retrieval_outcome"] == "unavailable"
+        assert metadata(finish)["retrieval_provider"] == "qdrant"
 
 
 @pytest.mark.parametrize("value", [True, -1, 1001, 1.5, PRIVATE, {"key": PRIVATE}])

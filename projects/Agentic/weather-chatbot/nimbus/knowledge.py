@@ -64,15 +64,22 @@ def read_filters(request: Request) -> KnowledgeFilters:
         raise HTTPException(400, "Invalid knowledge filters") from None
 
 
-def read_catalog(request: Request) -> dict[str, Any]:
-    """Reuse a public index snapshot per app instance, independent of the chat's feature flag or credentials."""
-    if not hasattr(request.app.state, "knowledge_catalog"):
-        service = request.app.state.park_knowledge
-        if not isinstance(service, ParkKnowledge):
-            service = ParkKnowledge(request.app.state.settings.parks_index_path)
-        request.app.state.knowledge_catalog = service.inspection()
-    catalog: dict[str, Any] = request.app.state.knowledge_catalog
-    return catalog
+async def read_catalog(request: Request, *, with_vectors: bool = False) -> dict[str, Any]:
+    """Read the verified Qdrant collection; never substitute a bundled or indefinitely cached source snapshot."""
+    service = request.app.state.park_knowledge
+    if isinstance(service, ParkKnowledge):
+        return {**await service.inspection(with_vectors=with_vectors), "vectors_loaded": with_vectors}
+    return {
+        "available": False,
+        "status": "disabled" if not request.app.state.settings.parks_enabled else "unconfigured",
+        "provider": "qdrant",
+        "index_version": "unavailable",
+        "embedding_model": "",
+        "dimensions": 0,
+        "vectors_loaded": False,
+        "destinations": [],
+        "chunks": [],
+    }
 
 
 def to_documents(catalog: dict[str, Any]) -> list[dict[str, Any]]:
@@ -94,7 +101,7 @@ def to_documents(catalog: dict[str, Any]) -> list[dict[str, Any]]:
                 "retrieved": max(item["fetched_at"] for item in chunks)[:10],
                 "chunks": chunks,
                 "count": len(chunks),
-                "vectors": sum(bool(item["embedding"]) for item in chunks),
+                "vectors": sum(bool(item["embedding"]) for item in chunks) if catalog["vectors_loaded"] else None,
                 "words": sum(len(item["text"].split()) for item in chunks),
             }
         )
@@ -111,7 +118,9 @@ def base_context(catalog: dict[str, Any], filters: KnowledgeFilters) -> dict[str
         "documents": documents,
         "source_count": len(documents),
         "chunk_count": len(catalog["chunks"]),
-        "vector_count": sum(bool(item["embedding"]) for item in catalog["chunks"]),
+        "vector_count": (
+            sum(bool(item["embedding"]) for item in catalog["chunks"]) if catalog["vectors_loaded"] else None
+        ),
     }
 
 
@@ -159,9 +168,10 @@ def project_vectors(vectors: tuple[tuple[str, tuple[float, ...]], ...]) -> dict[
 
 
 @router.get("/knowledge/sources", response_class=HTMLResponse)
-def source_documents(request: Request) -> HTMLResponse:
+async def source_documents(request: Request) -> HTMLResponse:
     """Browse official documents represented in the actual index, with text and park filters."""
-    catalog, filters = read_catalog(request), read_filters(request)
+    filters = read_filters(request)
+    catalog = await read_catalog(request)
     context = base_context(catalog, filters)
     query = filters.q.casefold()
     context["visible_documents"] = [
@@ -176,23 +186,32 @@ def source_documents(request: Request) -> HTMLResponse:
 
 
 @router.get("/knowledge/sources/{document_id}", response_class=HTMLResponse)
-def source_document(request: Request, document_id: str) -> HTMLResponse:
+async def source_document(request: Request, document_id: str) -> HTMLResponse:
     """Read the indexed passages from one source with a link to its full official document."""
-    catalog = read_catalog(request)
+    catalog = await read_catalog(request)
+    if not catalog["available"]:
+        raise HTTPException(503, "The Qdrant park collection is unavailable")
     context = base_context(catalog, KnowledgeFilters())
     document = next((item for item in context["documents"] if item["id"] == document_id), None)
     if document is None:
         raise HTTPException(404, "Source document not found")
     context["document"] = document
-    return render_page(request, "knowledge_document.html", context)
+    response = render_page(request, "knowledge_document.html", context)
+    response.headers["cache-control"] = "no-store"
+    return response
 
 
 @router.get("/knowledge/chunks", response_class=HTMLResponse)
-def stored_chunks(request: Request) -> HTMLResponse:
+async def stored_chunks(request: Request) -> HTMLResponse:
     """Inspect source passages, vector components and a PCA map without running a model or modifying the index."""
-    catalog, filters = read_catalog(request), read_filters(request)
+    filters = read_filters(request)
+    catalog = await read_catalog(request, with_vectors=True)
     context = base_context(catalog, filters)
-    if filters.document and not any(item["id"] == filters.document for item in context["documents"]):
+    if (
+        catalog["available"]
+        and filters.document
+        and not any(item["id"] == filters.document for item in context["documents"])
+    ):
         raise HTTPException(404, "Source document not found")
     query = filters.q.casefold()
     chunks = [
@@ -203,7 +222,7 @@ def stored_chunks(request: Request) -> HTMLResponse:
         and (not query or query in f"{item['text']} {item['title']} {item['section']} {item['id']}".casefold())
     ]
     selected = next((item for item in chunks if item["id"] == filters.chunk), None)
-    if filters.chunk and selected is None:
+    if catalog["available"] and filters.chunk and selected is None:
         raise HTTPException(404, "Chunk not found in the current view")
     selected = selected or (chunks[0] if chunks else None)
     vectors = tuple((item["id"], tuple(item["embedding"])) for item in catalog["chunks"] if item["embedding"])
@@ -263,7 +282,7 @@ async def run_retrieval(request: Request) -> HTMLResponse:
 async def render_retrieval(request: Request, filters: RetrievalFilters) -> HTMLResponse:
     """Render the actual chat scores and selections without Gemini, weather calls, or index writes."""
     # ① Scope only to an explicit supported destination; a missing index has its existing unavailable state.
-    catalog = read_catalog(request)
+    catalog = await read_catalog(request)
     if (
         catalog["available"]
         and filters.destination
@@ -285,6 +304,7 @@ async def render_retrieval(request: Request, filters: RetrievalFilters) -> HTMLR
     service = request.app.state.park_knowledge
     enabled = request.app.state.settings.parks_enabled and isinstance(service, ParkKnowledge)
     context["retrieval_enabled"] = enabled
+    context["show_retrieval_form"] = enabled
     # ② Reuse the shared service and its existing embedding deadline, scope rules, fusion and context limits.
     if filters.q and enabled:
         started = perf_counter()

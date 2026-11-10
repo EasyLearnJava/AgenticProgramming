@@ -128,9 +128,34 @@ def test_reviewed_cases_cover_each_park_and_have_evidence_labels() -> None:
     )
 
 
-def test_bundled_corpus_returns_labeled_evidence_without_crossing_destinations() -> None:
-    results = asyncio.run(run_cases(ParkKnowledge(INDEX_PATH), read_cases()))
-    assert all(result.passed for result in results), "\n".join(to_report(results))
+def test_reviewed_cases_resolve_against_the_metadata_catalog_without_provider_work() -> None:
+    """Offline checks cover routing; real Qdrant retrieval quality is graded by the explicit live command."""
+    knowledge = ParkKnowledge(INDEX_PATH)
+    for case in read_cases():
+        result = knowledge.resolve(case.destination)
+        assert result["status"] == case.resolution, case.id
+        if case.destination_id:
+            assert result["destination"]["id"] == case.destination_id, case.id
+
+
+def test_provider_outage_cannot_pass_an_expected_no_evidence_case() -> None:
+    """An unavailable search is not evidence that the corpus has no answer."""
+
+    class FailedKnowledge:
+        """A deterministic failed provider result for the grader, with no live requests."""
+
+        def resolve(self, query: str) -> dict[str, Any]:
+            """Resolve the fixture without contacting a provider."""
+            return {"status": "resolved", "destination": {"id": "zion-narrows"}}
+
+        async def search(self, destination_id: str, query: str, visit_date: date | None = None) -> dict[str, Any]:
+            """Return an outage that must not be graded as evidence of absence."""
+            return {"status": "not_found", "passages": [], "keyword_status": "timeout"}
+
+    (result,) = asyncio.run(run_cases(FailedKnowledge(), [example(expected_status="not_found")]))
+    assert not result.passed
+    assert result.provider_failure == "timeout"
+    assert "provider timeout" in result.misses
 
 
 def test_rank_sensitive_cases_fail_even_when_evidence_is_somewhere_in_the_top_four() -> None:

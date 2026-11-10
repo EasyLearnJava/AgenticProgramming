@@ -65,8 +65,8 @@ class IntakeCase(BaseModel):
 
 @cache
 def park_index() -> ParkKnowledge:
-    """Use the same read-only SQLite artifact as the app, with no embedding model or configuration access."""
-    return ParkKnowledge(ROOT / "data" / "parks" / "index.sqlite")
+    """Load only the app's compact destination catalog; replay does not contact Qdrant or a model."""
+    return ParkKnowledge(ROOT / "data" / "parks" / "catalog.json")
 
 
 def run_intake_case(case: IntakeCase, *, suite: str = "regressions") -> dict[str, Any]:

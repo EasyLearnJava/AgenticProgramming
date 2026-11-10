@@ -25,21 +25,14 @@ dependencies = [
 
 # Only on your computer and in CI: the checks, the tests, and the server to run the app with.
 [dependency-groups]
-# Optional local CPU inference and offline indexing. Vercel installs only production dependencies.
-ml = [
-    "sentence-transformers==6.1.0",
-    "torch==2.14.1",
-    "truststore==0.10.5",
-    "transformers==5.20.1",
-    "filelock==4.2.1",
-    "setuptools==84.1.0",
-]
+# Preparation counts tokens only; Qdrant generates document and query embeddings.
 dev = [
     "axe-playwright-python==0.1.8",
     "mypy==2.4.0",
     "pytest==9.1.1",
     "pytest-playwright==0.10.0",
     "ruff==0.17.1",
+    "tokenizers==0.23.3",
     "uvicorn==0.54.0",
 ]
 
@@ -52,7 +45,6 @@ exclude-newer = "2026-10-17T00:00:00Z"
 [tool.uv.exclude-newer-package]
 certifi = "2026-10-19T00:00:00Z"
 filelock = "2026-10-18T00:00:00Z"
-setuptools = "2026-10-20T00:00:00Z"
 
 [tool.ruff]
 line-length = 120
@@ -84,18 +76,3 @@ pythonpath = ["."]
 addopts = "-ra --strict-markers"
 # A warning fails the test that caused it, so a deprecation is fixed when it appears (issue 1).
 filterwarnings = ["error"]
-
-# CPU wheels avoid downloading CUDA runtimes on Windows and Linux.
-[tool.uv.sources]
-torch = [{ index = "pytorch-cpu", marker = "sys_platform != 'darwin'" }]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-# The adapter is typed and tested here; avoid traversing the third-party ML implementation during app checks.
-[[tool.mypy.overrides]]
-module = ["sentence_transformers", "sentence_transformers.*", "huggingface_hub", "huggingface_hub.*"]
-follow_imports = "skip"
-ignore_missing_imports = true

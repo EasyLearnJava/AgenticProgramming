@@ -133,8 +133,7 @@ def test_the_chat_page_says_where_questions_go(client: TestClient) -> None:
     [
         ({}, True),
         ({"parks_retrieval_mode": "auto"}, True),
-        ({"parks_retrieval_mode": "lexical"}, False),
-        ({"parks_semantic_provider": "local", "parks_retrieval_mode": "lexical"}, False),
+        ({"parks_retrieval_mode": "lexical"}, True),
         ({"parks_enabled": False}, False),
         ({"qdrant_api_key": None}, False),
         ({"qdrant_api_key": None, "parks_qdrant_api_key": SecretStr("private-park-key")}, True),
@@ -164,7 +163,7 @@ def test_chat_discloses_hosted_park_queries_independently_of_weather_caching(
     with TestClient(create_app(configured)) as client:
         page = client.get("/")
     assert page.status_code == 200
-    assert ("Park guidance search terms go to Qdrant for semantic retrieval." in page.text) is disclosed
+    assert ("Park guidance search terms go to Qdrant for hosted retrieval." in page.text) is disclosed
     assert ("Eligible weather questions go to Qdrant" in page.text) is bool(
         cache_mode != "off" and configured.qdrant_url and configured.qdrant_api_key
     )

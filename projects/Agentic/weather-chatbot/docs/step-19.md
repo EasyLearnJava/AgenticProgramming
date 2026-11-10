@@ -19,7 +19,8 @@ whether evidence applies to the exact build under review.
 
 ## Before you start
 
-From the weather-chatbot directory run `uv sync --locked`. Replay uses the bundled SQLite index, fixed clocks,
+From the weather-chatbot directory run `uv sync --locked`. Replay uses version-bound recorded Qdrant scores,
+approved public text, fixed clocks,
 synthetic questions and provider fixtures. The local demonstration works without provider credentials.
 For network-backed chat trials, configure a dedicated preview using [Waiting on you](waiting-on-you.md).
 

@@ -2,14 +2,11 @@
 
 import asyncio
 import json
-import sys
-import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any, cast
+from typing import cast
 
 import pytest
 from fastapi import FastAPI, HTTPException
@@ -23,12 +20,12 @@ from nimbus.chat import stream_turn
 from nimbus.config import Settings
 from nimbus.errors import McpLaneError
 from nimbus.lanes import MCP_NO_AUTH
-from nimbus.park_embeddings import EmbeddingBusyError, MiniLMEmbeddings
 from nimbus.park_ingest import PageSection, ParsedPage, SourceSpec, chunk_page
 from nimbus.parks import ParkKnowledge, make_park_knowledge
 from nimbus.prompts import to_system_prompt
 from nimbus.retrieval_gate import RetrievalGate
 from tests.fakes import FakeModel
+from tests.park_fakes import fixture_knowledge
 from tests.unit.test_park_integration import FakeKnowledge
 from tests.unit.test_parks import chunk, write_index
 
@@ -54,14 +51,14 @@ def test_a_waterfalls_name_never_infers_a_season() -> None:
     "query", ["Grand Canyon of the Yellowstone", "Kanarra Creek narrows", "Grand Canyon North Rim"]
 )
 def test_unrecognized_place_qualifiers_do_not_resolve_to_another_place(query: str) -> None:
-    knowledge = ParkKnowledge(Path("data/parks/index.sqlite"))
+    knowledge = fixture_knowledge()
     assert knowledge.resolve(query)["status"] == "unsupported"
 
 
 @pytest.mark.parametrize("month", [4, 7])
 def test_published_mist_trail_spray_advice_remains_available_in_spring_and_summer(month: int) -> None:
     result = asyncio.run(
-        ParkKnowledge(Path("data/parks/index.sqlite")).search(
+        fixture_knowledge().search(
             "yosemite-mist-trail", "waterfall spray slippery steps rain gear", date(2027, month, 1)
         )
     )
@@ -136,12 +133,13 @@ def test_message_and_tool_injection_rules_hold_in_both_prompt_modes(enabled: boo
 
 
 def test_hosted_default_never_attempts_local_embeddings(tmp_path: Path) -> None:
-    path = write_index(tmp_path / "index.sqlite", [chunk("item", "Clothing", ["zion"])], [[1.0, 0.0]])
+    path = write_index(tmp_path / "catalog.json", [chunk("item", "Clothing", ["zion"])])
     knowledge = make_park_knowledge(Settings(_env_file=None, is_vercel=True, parks_index_path=path))
     assert knowledge is not None
     result = asyncio.run(knowledge.search("zion", "clothing"))
-    assert result["retrieval_mode"] == "lexical"
-    assert result["semantic_status"] == "disabled"
+    assert result["retrieval_mode"] == "none"
+    assert result["semantic_status"] == "unconfigured"
+    assert not hasattr(knowledge, "_embed_query")
 
 
 def test_playground_posts_questions_in_the_body_and_never_runs_from_a_get(client: TestClient) -> None:
@@ -186,64 +184,11 @@ def test_playground_rejects_oversized_duplicate_foreign_and_excess_requests(clie
 
 
 def test_index_health_is_separate_from_working_weather_lanes(client: TestClient, tmp_path: Path) -> None:
-    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(tmp_path / "missing.sqlite")
+    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(tmp_path / "missing.json")
     response = client.get("/api/health")
     assert response.status_code == 503
     assert response.json()["checks"]["park-index"]["status"] == "down"
     assert response.json()["lanes"]["rest-no-auth"] == "ok"
-
-
-def test_missing_weights_do_not_import_or_attempt_to_load_the_model(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def forbidden_load(_self: MiniLMEmbeddings) -> None:
-        """Any attempt to load native ML code makes this test fail."""
-        pytest.fail("Missing cached weights must not load the model")
-
-    monkeypatch.setattr(MiniLMEmbeddings, "_load", forbidden_load)
-    monkeypatch.setattr("nimbus.park_embeddings.importlib.util.find_spec", lambda _name: object())
-    knowledge = make_park_knowledge(Settings(_env_file=None, is_vercel=False, parks_model_cache=tmp_path))
-    assert knowledge is not None
-    result = asyncio.run(knowledge.search("zion", "clothing"))
-    assert result["semantic_status"] == "missing_weights"
-
-
-def test_timed_out_inference_has_one_dedicated_worker_and_no_queued_requests(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    encoder = MiniLMEmbeddings(tmp_path, "a" * 40)
-    started, release = threading.Event(), threading.Event()
-    calls: list[str] = []
-
-    def slow_encode(_texts: list[str]) -> list[list[float]]:
-        """Hold one native operation until the test releases it."""
-        calls.append(threading.current_thread().name)
-        started.set()
-        release.wait(timeout=5)
-        return [[1.0, 0.0]]
-
-    monkeypatch.setattr(encoder, "encode", slow_encode)
-
-    async def run() -> None:
-        """Cancel the await while work runs, then ensure later requests cannot enqueue inference."""
-        task = asyncio.create_task(encoder.embed_query("private text"))
-        assert await asyncio.to_thread(started.wait, 2)
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
-        for _ in range(8):
-            with pytest.raises(EmbeddingBusyError):
-                await encoder.embed_query("another private text")
-        assert await asyncio.to_thread(lambda: 42) == 42
-        assert len(calls) == 1
-        assert calls[0].startswith("nimbus-embedding")
-
-    try:
-        asyncio.run(run())
-    finally:
-        release.set()
-        encoder._executor.shutdown(wait=True)
-    assert encoder._pending is None
 
 
 def test_retrieval_gate_expires_callers_and_releases_cancelled_capacity() -> None:
@@ -287,74 +232,3 @@ def test_new_operational_events_are_visible_to_activity() -> None:
         )
         assert line is not None
         assert line.tone == "bad"
-
-
-def test_indexing_deadline_kills_and_reaps_its_worker(monkeypatch: pytest.MonkeyPatch) -> None:
-    from tools import build_park_index
-
-    class Worker:
-        """A stand-in child process that runs until the parent kills it."""
-
-        returncode: int | None = None
-        waits = 0
-        killed = False
-
-        async def wait(self) -> int:
-            """Block once, then return the reaped child's exit code."""
-            self.waits += 1
-            if self.returncode is None:
-                await asyncio.sleep(10)
-            return self.returncode or 0
-
-        def kill(self) -> None:
-            """Record termination and release the next wait."""
-            self.killed = True
-            self.returncode = -9
-
-    worker = Worker()
-
-    async def start(*_args: object, **_kwargs: object) -> Worker:
-        """Replace child creation so no actual process can outlive the test."""
-        return worker
-
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", start)
-    with pytest.raises(TimeoutError):
-        asyncio.run(build_park_index.bounded_command(["fake-worker"], 0.001))
-    assert worker.killed
-    assert worker.waits == 2
-
-
-def test_builder_provisions_only_pinned_encoder_files_then_loads_offline(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from nimbus.parks import ParkChunk
-    from tools.build_park_index import prepare_embeddings
-
-    calls: list[dict[str, Any]] = []
-
-    def download(**kwargs: Any) -> str:
-        """Record a provisioning request without downloading or touching the real cache."""
-        calls.append(kwargs)
-        return str(tmp_path)
-
-    def encode(self: MiniLMEmbeddings, texts: list[str]) -> list[list[float]]:
-        """Model loading after provisioning must remain offline."""
-        assert self.allow_download is False
-        return [[1.0] + [0.0] * 383 for _ in texts]
-
-    monkeypatch.setitem(sys.modules, "huggingface_hub", SimpleNamespace(snapshot_download=download))
-    monkeypatch.setitem(sys.modules, "truststore", SimpleNamespace(inject_into_ssl=lambda: None))
-    monkeypatch.setattr(MiniLMEmbeddings, "availability", lambda _self: "missing_weights")
-    monkeypatch.setattr(MiniLMEmbeddings, "token_count", lambda _self, _text: 10)
-    monkeypatch.setattr(MiniLMEmbeddings, "encode", encode)
-    settings = Settings(_env_file=None, parks_model_cache=tmp_path)
-    prepared, vectors, _model = prepare_embeddings(
-        [ParkChunk.model_validate(chunk("guide", "Clothing", ["zion"]))], settings, tmp_path / "old.sqlite"
-    )
-    assert len(prepared) == 1
-    assert len(vectors[0]) == 384
-    assert len(calls) == 1
-    assert calls[0]["revision"] == settings.parks_model_revision
-    assert calls[0]["max_workers"] == 1
-    assert "model.safetensors" in calls[0]["allow_patterns"]
-    assert "README.md" not in calls[0]["allow_patterns"]

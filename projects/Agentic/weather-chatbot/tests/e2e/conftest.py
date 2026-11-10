@@ -10,6 +10,7 @@ import threading
 import time
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
+from typing import Literal, cast
 from uuid import UUID
 
 import httpx2
@@ -25,22 +26,18 @@ from nimbus.config import Settings
 from nimbus.nps_alerts import NpsAlertsService
 from nimbus.nws_alerts import NwsAlertsService
 from nimbus.observability import get_activity_trace_reader
-from nimbus.park_semantic import PARK_MODEL, SemanticResult
-from nimbus.parks import ParkKnowledge
+from nimbus.park_semantic import SemanticResult
 from nimbus.trace_view import TraceRow, TraceView
 from tests.fakes import PARIS_STEPS, AxiomRecordings, FakeCacheStore, FakeModel, OpenMeteoRecordings
+from tests.park_fakes import FakeParkStore, fixture_knowledge
 from tests.travel_fakes import travel_service
 
 STARTUP_SECONDS = 10
 POLL_SECONDS = 0.05
 
 
-class HostedParkScores:
+class HostedParkScores(FakeParkStore):
     """One deterministic hosted score exercises the actual ranking and UI without contacting Qdrant."""
-
-    provider = "qdrant"
-    model = PARK_MODEL
-    configured = True
 
     async def search(
         self,
@@ -51,8 +48,19 @@ class HostedParkScores:
         destination_id: str,
         season: str | None,
         eligible: Mapping[str, str],
+        method: Literal["semantic", "bm25"] = "semantic",
     ) -> SemanticResult:
         """Return one eligible public ID, leaving the other candidates' semantic scores genuinely absent."""
+        if method == "bm25":
+            return await super().search(
+                query,
+                index_version=index_version,
+                park_id=park_id,
+                destination_id=destination_id,
+                season=season,
+                eligible=eligible,
+                method=method,
+            )
         return SemanticResult("ready", {sorted(eligible)[0]: 0.84} if eligible else {})
 
 
@@ -95,33 +103,46 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
                         "Completed",
                         outcome="Passages found",
                         retrieval_mode="BM25 only",
-                        retrieval_provider="Qdrant hosted MiniLM",
+                        retrieval_provider="Qdrant Cloud",
                         retrieval_candidates=12,
                         retrieval_selected=4,
                         retrieval_season_source="Question",
                     ),
                     TraceRow(
-                        "Park BM25 search",
+                        "Qdrant park collection read",
                         "Step",
-                        2,
+                        20,
                         1,
                         1,
                         "Completed",
                         parent_index=0,
                         outcome="Ready",
+                        retrieval_provider="Qdrant Cloud",
+                        retrieval_candidates=40,
+                    ),
+                    TraceRow(
+                        "Qdrant park BM25 search",
+                        "Step",
+                        2,
+                        21,
+                        1,
+                        "Completed",
+                        parent_index=0,
+                        outcome="Ready",
+                        retrieval_provider="Qdrant Cloud",
                         retrieval_candidates=12,
                     ),
                     TraceRow(
                         "Qdrant park semantic search",
                         "Step",
-                        330,
-                        3,
+                        300,
+                        23,
                         1,
                         "Failed",
                         parent_index=0,
                         error="Step reported an error.",
                         outcome="Index version mismatch",
-                        retrieval_provider="Qdrant hosted MiniLM",
+                        retrieval_provider="Qdrant Cloud",
                     ),
                     TraceRow(
                         "Park rank fusion",
@@ -407,14 +428,13 @@ def base_url(
         nps_api_key=None,
         flights_enabled=getattr(request, "param", None) in {"travel", "flights-only", "observability"},
         hotels_enabled=getattr(request, "param", None) in {"travel", "observability"},
-        parks_semantic_provider="qdrant" if getattr(request, "param", None) == "park-hybrid" else "local",
-        parks_retrieval_mode="hybrid" if getattr(request, "param", None) == "park-hybrid" else "auto",
+        parks_retrieval_mode="hybrid" if getattr(request, "param", None) == "park-hybrid" else "lexical",
     )
     app = create_app(settings)
+    app.state.park_knowledge = fixture_knowledge(settings.parks_index_path, mode=settings.parks_retrieval_mode)
     if getattr(request, "param", None) == "park-hybrid":
-        app.state.park_knowledge = ParkKnowledge(
-            settings.parks_index_path, semantic_search=HostedParkScores(), semantic_status="ready"
-        )
+        store = cast(FakeParkStore, app.state.park_knowledge.store)
+        app.state.park_knowledge.store = HostedParkScores(store.chunks)
     app.state.nws_alerts = NwsAlertsService(
         lambda: httpx2.AsyncClient(
             transport=httpx2.MockTransport(

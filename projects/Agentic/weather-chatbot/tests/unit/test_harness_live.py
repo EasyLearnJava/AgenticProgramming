@@ -148,10 +148,34 @@ def test_live_travel_retains_grading_and_observed_provider_state() -> None:
     assert "Springdale" not in json.dumps(rows)
 
 
-def test_park_suite_grades_every_case_once_using_bundled_index() -> None:
+def test_park_suite_grades_controlled_provider_results_and_keeps_failure_reasons(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This verifies the harness adapter, not production retrieval quality."""
+    from tests.unit.test_park_evals import example, passage
+
+    cases = [example(id="known"), example(id="outage", query="Synthetic provider failure")]
+
+    class RecordedKnowledge:
+        """Controlled evidence and provider failure at the hosted search boundary."""
+
+        def resolve(self, query: str) -> dict[str, object]:
+            """Resolve the controlled case to its expected destination."""
+            return {"status": "resolved", "destination": {"id": "zion-narrows"}}
+
+        async def search(self, destination: str, query: str, visit_date: object = None) -> dict[str, object]:
+            """Supply one valid result and one explicit provider timeout."""
+            if query == cases[1].query:
+                return {"status": "unavailable", "passages": [], "keyword_status": "timeout"}
+            return {"status": "found", "passages": [passage()], "keyword_status": "ready", "semantic_status": "ready"}
+
+    monkeypatch.setattr(harness_live, "Settings", lambda **kwargs: Settings(_env_file=None, **kwargs))
+    monkeypatch.setattr(harness_live, "make_park_knowledge", lambda _settings: RecordedKnowledge())
+    monkeypatch.setattr(eval_parks, "read_cases", lambda: cases)
     rows = asyncio.run(harness_live.park_cases())
-    assert {row["case_id"] for row in rows} == {case.id for case in eval_parks.read_cases()}
-    assert {row["outcome"] for row in rows} == {"pass"}
+    assert {row["case_id"] for row in rows} == {"known", "outage"}
+    assert [row["outcome"] for row in rows] == ["pass", "provider_timeout"]
+    assert rows[1]["checks"] == ["qdrant_timeout"]
     assert {(row["attempt"], row["suite"]) for row in rows} == {(1, "parks")}
 
 

@@ -1031,3 +1031,19 @@ package's code**, **deploying**, or **testing a real API**.
      against a deployment: it needs Gemini's key, and its judge checked by hand first
      ([Waiting on you](waiting-on-you.md#park-answer-judge)).
 
+184. **Park guidance had two stores and two embedding builds.** *Requested migration, 10 November.* SQLite kept
+     source text and local vectors while Qdrant kept hosted vectors; Knowledge therefore plotted a different set
+     from semantic retrieval. **Fix:** Qdrant now owns approved text, provenance, native BM25 and hosted MiniLM
+     vectors in one dedicated versioned collection. Preparation only chunks text with the pinned tokenizer;
+     publication creates dense vectors once per generation and verifies/reuses them on repeat runs. Runtime ships
+     a metadata/hash catalog, without source text or vectors. Knowledge pages read actual hosted data, Playground
+     uses both Qdrant branches, and traces distinguish collection reads, BM25, semantic search and local fusion.
+     Full Qdrant failure is unavailable; only a dense-only failure can retain successful BM25. Review found and
+     fixed filtered source URLs showing 404 during outages, missing lexical-mode provider disclosure and a
+     cumulative timeout that could discard BM25 evidence. **Check:** all 40 approved passages were preserved;
+     live publication verified 40 dense vectors, and repeat publication generated zero vectors and wrote no points.
+     All 41 main BM25 and hybrid cases passed, with zero provider failures; semantic-only still missed two spring
+     clothing cases, so it is not the configured answer path. All 47 recorded public cases and all 461 offline
+     harness scenarios passed. New retrieval, integrity, publication, privacy and cancellation regression tests
+     accompany the migration. Production configuration and exact-build verification remain on
+     [Waiting on you](waiting-on-you.md#qdrant-hybrid-park-retrieval).

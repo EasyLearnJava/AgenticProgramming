@@ -3,15 +3,15 @@
 import asyncio
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import pytest
 
 from nimbus.config import Settings
 from nimbus.park_ranking import reciprocal_ranks, resolve_season
-from nimbus.park_semantic import SemanticResult
-from nimbus.parks import ParkKnowledge, make_park_knowledge
-from tests.unit.test_parks import chunk, write_index
+from nimbus.parks import make_park_knowledge
+from tests.park_fakes import FakeParkStore, fixture_knowledge, knowledge_for
+from tests.unit.test_parks import chunk
 
 
 @pytest.mark.parametrize(
@@ -69,38 +69,20 @@ def test_rank_fusion_rewards_agreement_without_raw_score_scale_bias() -> None:
     assert reciprocal_ranks({"b": 2, "a": 2}, minimum=0) == {"a": 1, "b": 2}
 
 
-class DenseProvider:
-    """A remote provider stand-in; it records the exact candidate restrictions supplied by core retrieval."""
-
-    provider = "qdrant"
-    model = "synthetic-model"
-    configured = True
-
-    def __init__(self, scores: dict[str, float], status: str = "ready") -> None:
-        self.scores = scores
-        self.status = status
-        self.calls: list[dict[str, Any]] = []
-
-    async def search(self, query: str, **scope: Any) -> SemanticResult:
-        self.calls.append(scope)
-        return SemanticResult(self.status, self.scores)  # type: ignore[arg-type]
-
-
 def test_hosted_semantics_and_bm25_share_exact_scope_and_preserve_public_text(tmp_path: Path) -> None:
     data = [
         chunk("keyword", "Clothing for the river.", ["zion-narrows"]),
         chunk("meaning", "Neoprene insulation.", ["zion-narrows"], seasons=["spring"]),
         chunk("winter", "Clothing for the river.", ["zion-narrows"], seasons=["winter"]),
-        chunk("other", "Clothing.", ["yosemite"], park_id="yosemite"),
+        chunk("other", "Clothing.", ["yosemite"], park_id="yosemite", document_id="yosemite-guide"),
     ]
-    dense = DenseProvider({"meaning": 0.95, "keyword": 0.7})
-    service = ParkKnowledge(write_index(tmp_path / "index.sqlite", data), semantic_search=dense)
+    service = knowledge_for(tmp_path, data, semantic_scores={"meaning": 0.95, "keyword": 0.7})
     result = asyncio.run(service.search("zion-narrows", "clothing in spring", explain=True))
     assert result["retrieval_mode"] == "hybrid"
     assert result["semantic_provider"] == "qdrant"
-    assert set(dense.calls[0]["eligible"]) == {"keyword", "meaning"}
-    assert dense.calls[0]["season"] == "spring"
-    assert dense.calls[0]["index_version"] == "fixture-v1"
+    calls = cast(FakeParkStore, service.store).calls
+    assert all(set(call["eligible"]) == {"keyword", "meaning"} for call in calls if "eligible" in call)
+    assert all(call["season"] == "spring" for call in calls if "eligible" in call)
     assert {p["id"] for p in result["passages"]} == {"keyword", "meaning"}
     assert result["diagnostics"]["fusion"] == "rrf"
     assert result["diagnostics"]["season_source"] == "query"
@@ -113,10 +95,10 @@ def test_hosted_semantics_and_bm25_share_exact_scope_and_preserve_public_text(tm
 
 
 def test_provider_outage_leaves_keyword_answer_and_reports_actual_mode(tmp_path: Path) -> None:
-    dense = DenseProvider({}, "timeout")
-    service = ParkKnowledge(
-        write_index(tmp_path / "index.sqlite", [chunk("right", "Warm clothing", ["zion-narrows"])]),
-        semantic_search=dense,
+    service = knowledge_for(
+        tmp_path,
+        [chunk("right", "Warm clothing", ["zion-narrows"])],
+        semantic_status="timeout",
     )
     result = asyncio.run(service.search("zion-narrows", "clothing", explain=True))
     assert result["semantic_status"] == "timeout"
@@ -126,7 +108,7 @@ def test_provider_outage_leaves_keyword_answer_and_reports_actual_mode(tmp_path:
 
 
 def test_spring_wear_regression_retrieves_seasonal_evidence_and_excludes_winter() -> None:
-    service = ParkKnowledge(Path("data/parks/index.sqlite"))
+    service = fixture_knowledge()
     result = asyncio.run(service.search("zion-narrows", "spring clothing what to wear Narrows", explain=True))
     assert result["passages"][0]["section"] == "Spring and Fall"
     assert all("all" in p["seasons"] or "spring" in p["seasons"] for p in result["passages"])
@@ -138,10 +120,10 @@ def test_hosted_factory_never_attaches_local_inference_on_vercel() -> None:
     settings = Settings(_env_file=None, is_vercel=True, parks_semantic_provider="qdrant", parks_retrieval_mode="auto")
     service = make_park_knowledge(settings)
     assert service is not None
-    assert service._embed_query is None
+    assert not hasattr(service, "_embed_query")
     assert service.semantic_provider == "qdrant"
     result = asyncio.run(service.search("zion-narrows", "clothing"))
-    assert result["retrieval_mode"] == "lexical"
+    assert result["retrieval_mode"] == "none"
     assert result["semantic_status"] == "unconfigured"
 
 
@@ -151,9 +133,10 @@ def test_hosted_factory_never_attaches_local_inference_on_vercel() -> None:
 def test_weak_dense_matches_need_keyword_support(tmp_path: Path, score: float, keyword: bool, included: bool) -> None:
     """Low-confidence dense evidence can rerank keyword matches but cannot invent an unrelated answer."""
     text = "Clothing protects you." if keyword else "Unrelated document."
-    service = ParkKnowledge(
-        write_index(tmp_path / "gated.sqlite", [chunk("candidate", text, ["zion-narrows"])]),
-        semantic_search=DenseProvider({"candidate": score}),
+    service = knowledge_for(
+        tmp_path,
+        [chunk("candidate", text, ["zion-narrows"])],
+        semantic_scores={"candidate": score},
     )
     result = asyncio.run(service.search("zion-narrows", "clothing", explain=True))
     row = result["diagnostics"]["candidates"][0]
@@ -171,7 +154,7 @@ def test_weak_dense_matches_need_keyword_support(tmp_path: Path, score: float, k
 )
 def test_generic_search_words_do_not_create_wifi_evidence(question: str) -> None:
     """A query's generic search verb is not evidence about its unsupported subject."""
-    service = ParkKnowledge(Path("data/parks/index.sqlite"))
+    service = fixture_knowledge()
     result = asyncio.run(service.search("zion", question))
     assert result["status"] == "not_found"
     assert service.keyword_terms("backup clothes", service._destinations["zion"]) == {"backup", "clothe", "clothing"}

@@ -17,11 +17,12 @@ from nimbus.request_trace import TraceParent, to_dotted_order
 
 PARK_RETRIEVAL_NAME: Final = "parks.retrieval"
 PARK_TRACE_NAMES: Final = {
+    "catalog": "parks.catalog",
     "bm25": "parks.bm25",
     "semantic": "parks.semantic",
     "fusion": "parks.fusion",
 }
-type ParkTraceAction = Literal["bm25", "semantic", "fusion"]
+type ParkTraceAction = Literal["catalog", "bm25", "semantic", "fusion"]
 type RetrievalStatus = Literal[
     "completed",
     "ready",

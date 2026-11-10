@@ -13,22 +13,42 @@
   </header>
   {% if not catalog.available %}
   <section class="knowledge-empty" aria-labelledby="unavailable-title">
+    {% if catalog.status == 'disabled' %}
+    <h2 id="unavailable-title">Retrieval is disabled</h2>
+    <p>The park knowledge service is disabled on this server.</p>
+    {% elif catalog.status == 'unconfigured' %}
+    <h2 id="unavailable-title">Qdrant knowledge is not configured</h2>
+    <p>The park collection connection has not been configured. No source passages or vectors were read.</p>
+    {% else %}
     <h2 id="unavailable-title">Knowledge index unavailable</h2>
-    <p>The published park collection could not be loaded. Check the index configuration before browsing again.</p>
+    <p>The Qdrant park collection could not be verified or read. No local copy is substituted.</p>
+    {% if catalog.status in ('index_mismatch', 'index_not_ready') %}
+    <p>The published collection does not match this deployment's approved index version.</p>
+    {% elif catalog.status == 'timeout' %}
+    <p>The collection read exceeded its time limit.</p>
+    {% endif %}
+    {% endif %}
   </section>
   {% else %}
-  <ul class="knowledge-stats" aria-label="{{ source_count }} documents, {{ chunk_count }} chunks, {{ vector_count }}
-    vectors">
+  <ul class="knowledge-stats" aria-label="{{ source_count }} documents, {{ chunk_count }} chunks stored in Qdrant">
     <li><strong>{{ source_count }}</strong><span>Source documents</span></li>
     <li><strong>{{ chunk_count }}</strong><span>Indexed chunks</span></li>
+    {% if vector_count is not none %}
     <li><strong>{{ vector_count }}</strong><span>Stored vectors</span></li>
-    <li><strong>{{ catalog.dimensions }}</strong><span>Vector dimensions</span></li>
+    {% else %}
+    <li><strong>Qdrant</strong><span>Storage</span></li>
+    {% endif %}
+    <li><strong>{{ catalog.dimensions }}</strong><span>Semantic dimensions</span></li>
   </ul>
+  {% endif %}
+  {% if catalog.available or show_retrieval_form|default(false) %}
   {% block knowledge_body %}{% endblock %}
+  {% if catalog.available %}
   <footer class="knowledge-footer">
-    Public National Park Service guidance · Index <code>{{ catalog.index_version }}</code>
+    Public National Park Service guidance · Stored in Qdrant · Index <code>{{ catalog.index_version }}</code>
     <p>Published preparation guidance does not establish current closures, warnings, or river conditions.</p>
   </footer>
+  {% endif %}
   {% endif %}
 </main>
 {% endblock %}

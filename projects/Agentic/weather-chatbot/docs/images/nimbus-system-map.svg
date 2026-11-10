@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1770" viewBox="0 0 1440 1770" role="img" aria-labelledby="title desc" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" fill="#153e35">
   <title id="title">Nimbus: from question to evidence</title>
-  <desc id="desc">A browser sends bounded conversation history to FastAPI on Vercel. Requests use either Gemini with a LangGraph tool loop or deterministic trip intake and park briefings. Shared adapters retrieve weather, versioned NPS guidance, official notices and optional travel offers. Park retrieval defaults to keywords on Vercel; local hybrid retrieval is optional and falls back to keywords. NWS alerts belong to park briefings. HTML and server-sent events return answers and source evidence to the browser. Optional observability stores operational metadata. Category-only feedback informs human-written synthetic park-intake regressions. Replay and repeated live trials produce scorecards, and an exact-build evidence gate supports a human release decision.</desc>
+  <desc id="desc">A browser sends bounded conversation history to FastAPI on Vercel. Requests use either Gemini with a LangGraph tool loop or deterministic trip intake and park briefings. Shared adapters retrieve weather, versioned NPS guidance, official notices and optional travel offers. Park retrieval uses native BM25 and hosted MiniLM in one Qdrant collection. A dense-only failure can retain BM25; a full provider outage makes guidance unavailable. NWS alerts belong to park briefings. HTML and server-sent events return answers and source evidence to the browser. Optional observability stores operational metadata. Category-only feedback informs human-written synthetic park-intake regressions. Replay and repeated live trials produce scorecards, and an exact-build evidence gate supports a human release decision.</desc>
   <defs>
     <marker id="teal-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M1 1 L9 5 L1 9 Z" fill="#287d6b"/>
@@ -99,10 +99,10 @@
   </g>
   <g>
     <circle cx="423" cy="812" r="5" fill="#287d6b"/>
-    <text x="437" y="820" font-size="24" font-weight="700">Park RAG · SQLite</text>
+    <text x="437" y="820" font-size="24" font-weight="700">Park RAG · Qdrant</text>
     <text x="419" y="852" font-size="20" fill="#547167">Offline NPS · scoped retrieval</text>
-    <text x="419" y="879" font-size="20" fill="#547167">Vercel uses keyword retrieval</text>
-    <text x="419" y="906" font-size="20" fill="#547167">Local hybrid is optional</text>
+    <text x="419" y="879" font-size="20" fill="#547167">Native BM25 + MiniLM</text>
+    <text x="419" y="906" font-size="20" fill="#547167">Verified text + dense vectors</text>
   </g>
   <g>
     <circle cx="748" cy="812" r="5" fill="#287d6b"/>

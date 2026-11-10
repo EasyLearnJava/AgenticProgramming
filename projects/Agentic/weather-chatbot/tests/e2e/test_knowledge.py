@@ -23,6 +23,7 @@ def test_sources_can_be_filtered_and_opened_from_the_sidebar(page: Page) -> None
 
 def test_clicking_a_real_vector_selects_its_chunk_and_exposes_components(page: Page) -> None:
     page.goto("/knowledge/chunks")
+    expect(page.locator(".knowledge-model")).to_contain_text("Qdrant hosted embeddings")
     points = page.locator("#embedding-map a")
     expect(points).to_have_count(40)
     href = points.nth(2).get_attribute("href")

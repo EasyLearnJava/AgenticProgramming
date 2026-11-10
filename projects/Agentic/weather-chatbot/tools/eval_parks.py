@@ -1,5 +1,5 @@
 """
-tools/eval_parks.py: the reviewed park questions, graded against the bundled index without asking a language model.
+tools/eval_parks.py: reviewed park questions, graded against Qdrant without asking a generative language model.
 Each expected source must contain the labeled evidence, every passage must apply to the requested destination,
 and unsupported places and questions must abstain. Reports contain case IDs and grades, never question text.
 Run from the project directory: uv run python -m tools.eval_parks.
@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CASES_PATH = PROJECT_ROOT / "evals" / "parks.json"
-INDEX_PATH = PROJECT_ROOT / "data" / "parks" / "index.sqlite"
+INDEX_PATH = PROJECT_ROOT / "data" / "parks" / "catalog.json"
 
 
 class ParkCase(BaseModel):
@@ -47,10 +47,11 @@ class ParkResult(BaseModel):
     retrieval_mode: str = "none"
     evidence_rank: int | None = None
     grades_evidence: bool = False
+    provider_failure: str | None = None
 
 
 class KnowledgeSearch(Protocol):
-    """The destination and retrieval operations exercised by the offline evaluations."""
+    """The destination and retrieval operations exercised by provider evaluations and offline grading tests."""
 
     def resolve(self, query: str) -> dict[str, Any]:
         """Resolve a name to candidates and an explicit status."""
@@ -128,6 +129,9 @@ async def run_cases(knowledge: KnowledgeSearch, cases: Sequence[ParkCase]) -> li
             continue
         # ② Query only the resolved ID, then grade returned evidence rather than model wording.
         result = await knowledge.search(str(destination["id"]), case.query, case.visit_date)
+        failure = provider_failure(result)
+        if failure:
+            misses.append(f"provider {failure}")
         misses.extend(grade_retrieval(case, result))
         results.append(
             ParkResult(
@@ -138,6 +142,7 @@ async def run_cases(knowledge: KnowledgeSearch, cases: Sequence[ParkCase]) -> li
                 retrieval_mode=str(result.get("retrieval_mode", "none")),
                 evidence_rank=evidence_rank(case, result) if case.expected_status == "found" else None,
                 grades_evidence=case.expected_status == "found",
+                provider_failure=failure,
             )
         )
     return results
@@ -162,37 +167,37 @@ def to_report(results: Sequence[ParkResult]) -> list[str]:
     return lines
 
 
-def main() -> int:
-    """Grade the bundled index, optionally at another path, returning a failure status for any missed case."""
-    from nimbus.config import Settings
-    from nimbus.park_embeddings import cached_encoder
-    from nimbus.parks import ParkKnowledge, make_park_knowledge
+def provider_failure(result: dict[str, Any]) -> str | None:
+    """Keep unavailable provider work separate from empty evidence, using only fixed public reason codes."""
+    failures = {"unconfigured", "index_mismatch", "unavailable", "invalid_response", "timeout"}
+    for value in (result.get("keyword_status", "ready"), result.get("semantic_status", "disabled")):
+        if not isinstance(value, str) or value not in {"ready", "disabled", "not_needed"}:
+            return value if isinstance(value, str) and value in failures else "invalid_response"
+    return "unavailable" if result.get("status") == "unavailable" else None
 
-    parser = argparse.ArgumentParser(description="Evaluate park retrieval without paid model calls.")
-    parser.add_argument("--index", type=Path, default=INDEX_PATH)
+
+def main() -> int:
+    """Grade explicitly configured hosted retrieval; any provider failure or missed case exits unsuccessfully."""
+    from nimbus.config import Settings
+    from nimbus.parks import make_park_knowledge
+
+    parser = argparse.ArgumentParser(description="Evaluate Qdrant park retrieval without Gemini calls.")
+    parser.add_argument("--index", type=Path, default=INDEX_PATH, help="Compact runtime identity catalog")
     parser.add_argument("--cases", type=Path, default=CASES_PATH)
-    parser.add_argument(
-        "--lexical-only", action="store_true", help="Evaluate the keyword fallback without CPU embeddings"
-    )
+    parser.add_argument("--lexical-only", action="store_true", help="Evaluate Qdrant BM25 without dense inference")
     args = parser.parse_args()
-    settings = Settings(parks_enabled=True, parks_index_path=args.index)
-    knowledge = ParkKnowledge(args.index) if args.lexical_only else make_park_knowledge(settings)
+    settings = Settings(
+        parks_enabled=True,
+        parks_index_path=args.index,
+        parks_retrieval_mode="lexical" if args.lexical_only else "hybrid",
+    )
+    knowledge = make_park_knowledge(settings)
     if knowledge is None:
         raise ValueError("Park knowledge is disabled")
-    if not args.lexical_only and knowledge.semantic_provider == "local" and knowledge.semantic_status == "ready":
-        # The CLI can warm up outside a chat deadline, so this evaluation measures semantic retrieval from case one.
-        encoder = cached_encoder(settings.parks_model_cache, settings.parks_model_revision)
-        try:
-            encoder.encode(["Park preparation"])
-        except (OSError, ValueError):
-            print("Cached MiniLM weights unavailable; evaluating keyword fallback.")
-    elif not args.lexical_only and knowledge.semantic_provider == "qdrant":
-        print("Evaluating hosted park retrieval; per-case modes identify any keyword fallback.")
-    elif not args.lexical_only:
-        print("Semantic retrieval is not configured; evaluating the keyword profile.")
+    print("Evaluating Qdrant BM25." if args.lexical_only else "Evaluating Qdrant BM25 + hosted semantic retrieval.")
     results = asyncio.run(run_cases(knowledge, read_cases(args.cases)))
     print("\n".join(to_report(results)))
-    return int(any(not result.passed for result in results))
+    return int(not results or any(not result.passed for result in results))
 
 
 if __name__ == "__main__":

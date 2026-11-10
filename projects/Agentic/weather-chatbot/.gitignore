@@ -11,6 +11,6 @@
 /harness-output/
 /playwright-report/
 
-# Downloaded, revision-pinned MiniLM weights; rebuild with tools.build_park_index on each host.
+# Legacy local model downloads stay ignored; current park preparation uses only a bundled tokenizer.
 /data/parks/model/
 /data/parks/raw/

@@ -1,6 +1,7 @@
 """Hosted park retrieval verifies scope, publication, bounds and privacy without contacting Qdrant."""
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Callable
 from typing import Any
@@ -12,6 +13,8 @@ from structlog.testing import capture_logs
 
 from nimbus.config import Settings
 from nimbus.park_semantic import (
+    BM25_FIELD,
+    PARK_DIMENSIONS,
     PARK_MODEL,
     PARK_PROFILE,
     QdrantParkSearch,
@@ -21,17 +24,27 @@ from nimbus.park_semantic import (
     manifest_payload,
     point_id,
 )
+from nimbus.park_text import record_hash, to_embedding_text
 
 KEY = "private-park-provider-key"
 QUESTION = "private-preparation-question"
 VERSION = "ab" * 8
 CHUNK = {
     "id": "zion-narrows-spring-1",
-    "content_hash": "a" * 64,
+    "document_id": "narrows-guide",
     "park_id": "zion",
     "destination_ids": ["zion-narrows"],
     "seasons": ["spring", "fall"],
+    "title": "Public Narrows safety",
+    "section": "Spring and Fall",
+    "text": "Wear suitable layers for cold river water.",
+    "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+    "source_updated_at": "2026-09-17",
+    "fetched_at": "2026-11-02T12:00:00Z",
 }
+CHUNK["content_hash"] = hashlib.sha256(
+    to_embedding_text(str(CHUNK["title"]), str(CHUNK["section"]), str(CHUNK["text"])).encode()
+).hexdigest()
 
 
 def settings(**overrides: Any) -> Settings:
@@ -60,7 +73,7 @@ def ready(**overrides: object) -> httpx2.Response:
 
 
 def point(**overrides: object) -> dict[str, object]:
-    """One valid dense result whose text stays in SQLite rather than the provider payload."""
+    """One valid hosted result with full public text and protected provenance in its payload."""
     return {
         "id": point_id(VERSION, str(CHUNK["id"])),
         "score": 0.89,
@@ -87,7 +100,7 @@ class Provider:
 
 
 def search(provider: Callable[..., Any], **configuration: Any) -> SemanticResult:
-    """Run the real adapter with a synthetic client and one known eligible local chunk."""
+    """Run the real adapter with a synthetic client and one approved chunk identity."""
     service = QdrantParkSearch(
         settings(**configuration),
         lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(provider)),
@@ -190,6 +203,25 @@ def test_remote_candidates_cannot_override_local_scope(payload: dict[str, object
     assert search(Provider(ready(), answer({"points": [candidate]}))).status == "invalid_response"
 
 
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"text": "Different internally valid public passage."},
+        {"park_id": "yosemite"},
+        {"destination_ids": ["zion"]},
+        {"seasons": ["winter"]},
+    ],
+)
+def test_self_consistent_candidates_must_still_match_the_requested_scope(changes: dict[str, Any]) -> None:
+    """A provider can return valid records from another scope; integrity alone does not authorize retrieval."""
+    changed = {**CHUNK, **changes}
+    changed["content_hash"] = hashlib.sha256(
+        to_embedding_text(str(changed["title"]), str(changed["section"]), str(changed["text"])).encode()
+    ).hexdigest()
+    candidate = point(payload=chunk_payload(changed, VERSION))
+    assert search(Provider(ready(), answer({"points": [candidate]}))).status == "invalid_response"
+
+
 @pytest.mark.parametrize("score", [True, "0.99", None, float("inf"), float("nan"), -1.1, 1.1, 10**400])
 def test_remote_scores_must_be_finite_bounded_numbers(score: object) -> None:
     assert search(Provider(ready(), answer({"points": [point(score=score)]}))).status == "invalid_response"
@@ -245,3 +277,141 @@ def test_timeout_and_cancellation_remain_distinct(monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(asyncio.CancelledError):
         search(cancel)
+
+
+def test_bm25_runs_native_text_scoring_without_embedding_model() -> None:
+    """Lexical search shares the exact semantic scope but uses Qdrant's scored payload index."""
+    provider = Provider(ready(), answer({"points": [point(score=8.5)]}))
+    service = QdrantParkSearch(
+        settings(), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(provider)), chunk_count=4
+    )
+    result = asyncio.run(
+        service.search(
+            "warm layer",
+            index_version=VERSION,
+            park_id="zion",
+            destination_id="zion-narrows",
+            season="spring",
+            eligible={str(CHUNK["id"]): str(CHUNK["content_hash"])},
+            method="bm25",
+        )
+    )
+    assert result.scores == {CHUNK["id"]: 8.5}
+    body = json.loads(provider.requests[-1].content)
+    assert body["query"] == {"text": "warm layer"}
+    assert body["using"] == BM25_FIELD
+    assert "model" not in body["query"]
+    assert {"key": "seasons", "match": {"any": ["spring", "all"]}} in body["filter"]["must"]
+
+
+def catalog(provider: Provider, *, vectors: bool = False) -> Any:
+    """Read a one-record catalog through the real boundary using its separately approved metadata."""
+    service = QdrantParkSearch(
+        settings(), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(provider)), chunk_count=1
+    )
+    approved = {key: value for key, value in CHUNK.items() if key != "text"}
+    approved["record_hash"] = record_hash(CHUNK)
+    return asyncio.run(service.catalog(VERSION, {str(CHUNK["id"]): approved}, with_vectors=vectors))
+
+
+def catalog_ready() -> httpx2.Response:
+    """The one-chunk publication marker used by catalog reads."""
+    return answer({"id": manifest_id(VERSION), "payload": manifest_payload(VERSION, 1)})
+
+
+def test_catalog_reads_the_hosted_text_and_optionally_the_actual_hosted_vector() -> None:
+    """Knowledge displays the actual Qdrant record; no legacy embedding is manufactured or loaded."""
+    provider = Provider(
+        catalog_ready(),
+        answer({"points": [point(vector=[0.5] * PARK_DIMENSIONS)], "next_page_offset": None}),
+    )
+    result = catalog(provider, vectors=True)
+    assert result.status == "ready"
+    assert result.chunks == [{**CHUNK, "embedding": [0.5] * PARK_DIMENSIONS}]
+    body = json.loads(provider.requests[-1].content)
+    assert body["with_vector"] is True
+    assert body["filter"]["must"] == [
+        {"key": "kind", "match": {"value": "chunk"}},
+        {"key": "index_version", "match": {"value": VERSION}},
+        {"key": "profile", "match": {"value": PARK_PROFILE}},
+    ]
+    without = catalog(Provider(catalog_ready(), answer({"points": [point()], "next_page_offset": None})))
+    assert without.status == "ready"
+    assert without.chunks[0]["embedding"] == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [("text", "Unapproved treatment advice"), ("source_url", "https://example.com")]
+)
+def test_changed_source_text_or_citation_cannot_reach_the_knowledge_pages(field: str, value: str) -> None:
+    """Remote source content must match the reviewed record, not merely its displayed chunk ID."""
+    candidate = point(payload={**chunk_payload(CHUNK, VERSION), field: value})
+    result = catalog(Provider(catalog_ready(), answer({"points": [candidate], "next_page_offset": None})))
+    assert result.status == "invalid_response"
+    assert result.chunks == []
+
+
+def test_valid_but_unapproved_metadata_also_fails_closed() -> None:
+    """An internally consistent changed source record still cannot override release-approved provenance."""
+    changed = {**CHUNK, "source_updated_at": "2026-10-01"}
+    candidate = point(payload=chunk_payload(changed, VERSION))
+    assert catalog(Provider(catalog_ready(), answer({"points": [candidate]}))).status == "invalid_response"
+
+
+@pytest.mark.parametrize(("field", "value"), [("bm25_text", "invented indexed keywords"), ("record_hash", "a" * 64)])
+def test_search_rejects_changed_derived_fields_even_when_source_text_is_unchanged(field: str, value: str) -> None:
+    """A valid passage cannot carry a forged keyword representation or full-record integrity marker."""
+    candidate = point(payload={**chunk_payload(CHUNK, VERSION), field: value})
+    result = search(Provider(ready(), answer({"points": [candidate]})))
+    assert result.status == "invalid_response"
+    assert result.scores == {}
+
+
+@pytest.mark.parametrize("vector", [[1.0], [0.0] * PARK_DIMENSIONS, [float("nan")] * PARK_DIMENSIONS])
+def test_knowledge_vector_preview_rejects_invalid_remote_vectors(vector: object) -> None:
+    result = catalog(Provider(catalog_ready(), answer({"points": [point(vector=vector)]})), vectors=True)
+    assert result.status == "invalid_response"
+    assert result.chunks == []
+
+
+@pytest.mark.parametrize(
+    ("page", "status"),
+    [
+        ({"points": [], "next_page_offset": None}, "index_mismatch"),
+        ({"points": [], "next_page_offset": "next"}, "invalid_response"),
+        ({"points": [point(), point()]}, "invalid_response"),
+        ({"points": [point()], "next_page_offset": "next"}, "invalid_response"),
+    ],
+)
+def test_incomplete_duplicate_and_overlong_catalogs_are_never_returned(page: dict[str, Any], status: str) -> None:
+    result = catalog(Provider(catalog_ready(), answer(page)))
+    assert result.status == status
+    assert result.chunks == []
+
+
+def test_catalog_deadline_discards_partial_work(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Catalog reads have a whole-operation bound, independent of per-request timeouts."""
+    monkeypatch.setattr("nimbus.park_semantic.PARK_CATALOG_SECONDS", 0.01)
+
+    async def slow(_request: httpx2.Request) -> httpx2.Response:
+        await asyncio.sleep(1)
+        return catalog_ready()
+
+    service = QdrantParkSearch(
+        settings(), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(slow)), chunk_count=1
+    )
+    approved = {key: value for key, value in CHUNK.items() if key != "text"}
+    approved["record_hash"] = record_hash(CHUNK)
+    result = asyncio.run(service.catalog(VERSION, {str(CHUNK["id"]): approved}))
+    assert result.status == "timeout"
+    assert result.chunks == []
+
+
+def test_health_checks_publication_without_embedding_or_reading_text() -> None:
+    provider = Provider(ready())
+    service = QdrantParkSearch(
+        settings(), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(provider)), chunk_count=4
+    )
+    assert asyncio.run(service.health(VERSION)) == "ready"
+    assert len(provider.requests) == 1
+    assert provider.requests[0].method == "GET"

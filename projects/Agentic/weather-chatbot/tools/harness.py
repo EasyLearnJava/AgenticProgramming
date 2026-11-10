@@ -22,8 +22,9 @@ if __name__ == "__main__" and not __package__:
 
 from nimbus.constants import PROJECT_ROOT
 from nimbus.harness_scorecard import Attempt, Build, Scorecard, load_report, release_errors, report_path
-from tools.harness_live import live_cases, live_catalog, park_cases
+from tools.harness_live import live_cases, live_catalog
 from tools.harness_replay import replay_cases
+from tools.park_replay import replay_park_cases
 
 LIVE_SUITES = ("golden", "travel")
 
@@ -113,7 +114,7 @@ def report(card: Scorecard) -> str:
 async def replay_attempts() -> list[Attempt]:
     # Replay uses synchronous test doubles and may run their own event loops.
     rows = await asyncio.to_thread(replay_cases)
-    return [Attempt.model_validate(row) for row in [*rows, *await park_cases()]]
+    return [Attempt.model_validate(row) for row in [*rows, *await replay_park_cases()]]
 
 
 async def run(args: argparse.Namespace) -> int:

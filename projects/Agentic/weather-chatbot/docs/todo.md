@@ -64,7 +64,7 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
   Preview configuration remains on [Waiting on you](waiting-on-you.md#3-vercels-environment-variables).
 
 - **Park guidance, step 16:** review source changes before publishing a new index and rerun the retrieval benchmark.
-  Optional Qdrant-hosted MiniLM now combines with BM25 through the shared ranker; local CPU MiniLM remains available.
+  Qdrant native BM25 and hosted MiniLM now share one text/vector collection and the same ranker.
   Compare BM25, semantic-only and fused evidence with `tools.eval_park_hybrid`, including ranking quality and
   abstention. A provider fallback must not pass as a working hybrid setup. Validate the clean Linux/Vercel bundle,
   `/api/` edge rate limit, Playground trace and live answer goldens on the exact preview build. Hosted settings
@@ -73,7 +73,7 @@ Everything only you can do, in your own accounts, has its own page: [Waiting on 
 - **Hybrid park search, the review's leftovers (issue 182):** keep one Qdrant connection and remember an index's
   readiness for a while, instead of a new connection and a readiness call on every search; give the planner's
   searches a place in their own request's trace; make the hybrid comparison fail on any single case that got worse,
-  not only on totals; and measure the local MiniLM profile, whose scoring changed without a run of its own.
+  not only on totals. Local MiniLM inference was removed by the Qdrant-only migration.
 
 - **Park answers, after the first judged run (issue 183):** grow the 11 cases toward 30 to 50 per guide, in the words
   visitors use; record how often the judge agreed with your own reading; and recheck the reference answers when a

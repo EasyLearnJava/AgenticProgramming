@@ -11,7 +11,7 @@ from tests.fakes import FakeModel
 
 @pytest.fixture
 def park_answer(chat_model: FakeModel) -> Iterator[None]:
-    """Make the model retrieve the bundled Narrows guidance, restoring the shared model after the test."""
+    """Make the model retrieve recorded remote Narrows guidance, restoring the shared model after the test."""
     previous_steps, previous_answer = chat_model.tool_steps, chat_model.answer
     chat_model.tool_steps = [
         [{"name": "resolve_destination", "args": {"query": "Zion Narrows"}}],

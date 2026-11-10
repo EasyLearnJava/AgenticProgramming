@@ -9,25 +9,24 @@ See [step 17](step-17.md) for separate official notice checks; this index remain
 
 ## What you'll build
 
-- A versioned read-only SQLite collection with attributed source passages and optional stored embeddings.
-- Destination and seasonal constraints, BM25 plus optional Qdrant-hosted or local CPU MiniLM retrieval.
+- A versioned Qdrant collection containing public passage text, provenance, native BM25 and dense vectors.
+- Destination and seasonal constraints, with hosted MiniLM and BM25 combined through rank fusion.
 - Shared park tools, source cards, source/vector browsers and a protected Retrieval Playground.
 - Failure visibility, citation restrictions, health coverage and independently graded retrieval and answer checks.
 
 ## What you'll learn
 
 - Why applicability metadata must be reviewed separately from relevance scores and document names.
-- How deployment profiles, native inference and missing weights affect a local-versus-hosted design.
+- How to prepare text without generating vectors, then publish one verified hosted embedding per chunk.
 - How to inspect actual ranking decisions and test failures without depending on a language model.
 - Why citation presence, evidence retrieval and answer faithfulness are different measurements.
 
 ## Before you start
 
-Use Python 3.13 and the committed lockfile. `uv sync --locked` installs the normal development environment; add
-`--group ml` for local semantic inference or offline embedding generation. Production installation uses
-`uv sync --locked --no-dev` and excludes the optional ML group. Hosted retrieval uses a Qdrant endpoint and key;
-local embeddings need no external embedding credential. Chat answers still need Gemini's configured key. Download
-model weights through the offline builder before enabling local inference.
+Use Python 3.13 and the committed lockfile. `uv sync --locked` installs the development tokenizer; production uses
+`uv sync --locked --no-dev`. There are no local model weights or ML dependency group. Qdrant credentials are required
+for both BM25 and semantic retrieval. Gemini's configured key is required only for chat answers. The credential-free
+harness uses recorded provider scores and does not require a live Qdrant connection.
 
 ## The design
 
@@ -35,32 +34,37 @@ model weights through the offline builder before enabling local inference.
 
 | Decision | Why |
 |---|---|
-| Reviewed sources, exact destination IDs and explicit section-season metadata | A similarly named place or waterfall must not inherit another place's forecast or a seasonal restriction |
-| Optional hosted MiniLM in a dedicated Qdrant collection | Hybrid retrieval can run on Vercel without the large local ML stack; BM25 remains available on provider failure |
-| Local SQLite as source authority | Remote IDs and scores must match the version, hashes and scope before local text becomes answer context |
-| Optional local CPU MiniLM with pinned weights | Local semantic retrieval preserves the requested model and verifies model/dimension compatibility |
-| One inference worker with no queued requests | Timed-out native work cannot consume the shared DNS executor or accumulate model-lock waiters |
-| Bounded offline subprocess | The embedding/download deadline terminates and reaps the operation rather than only stopping its await |
-| Questions in bounded POST bodies under `/api/` | Questions stay out of generated URLs and the planned edge rule covers execution |
-| Shared retrieval with optional diagnostics | Playground scores and selected context cannot drift from chat search |
-| Generated park links restricted to retrieved URLs | Source cards and answer links follow the same evidence boundary |
-| Weather failures retain their class | Partial guidance remains visible while Activity and failure links still report the outage |
+| Reviewed destination and season metadata | Similar names and waterfalls must not inherit unrelated advice |
+| One Qdrant park collection | Public text, native BM25 and dense vectors share a single store |
+| Compact release catalog with record hashes | Remote evidence must match approved text, metadata and scope |
+| Tokenizer-only preparation | Keep safety qualifiers within the model budget without local vectors |
+| Explicit, idempotent publication | Reuse verified points; embed each missing chunk once per generation |
+| Separate provider outcomes | Distinguish dense fallback, database failure and genuine no-match results |
+| Bounded POST bodies under `/api/` | Questions stay out of generated URLs and inside the edge rule's scope |
+| Shared retrieval diagnostics | Playground scores and selected context cannot drift from chat search |
+| Links restricted to retrieved URLs | Source cards and answer links follow the same evidence boundary |
+| Weather failures retain their class | Guidance can survive while Activity still reports the outage |
 
 ## Files
 
 | File | What it does |
 |---|---|
-| `nimbus/parks.py` | Corpus validation, conservative destination resolution, scoped scoring and context selection |
-| `nimbus/park_ranking.py`, `nimbus/park_semantic.py` | Season interpretation, rank fusion and bounded hosted semantic candidates |
-| `tools/setup_park_search.py`, `nimbus/park_tracing.py` | Explicit hosted publication and private operational retrieval spans |
-| `nimbus/park_ingest.py`, `data/parks/manifest.json` | Explicit source/section review and season metadata |
-| `nimbus/park_embeddings.py`, `tools/build_park_index.py` | Optional CPU inference, bounded indexing and publication |
-| `nimbus/park_tools.py`, `nimbus/answer.py`, `nimbus/chat.py` | Agent composition, source artifacts, failure state and citation rendering |
-| `nimbus/knowledge.py`, `nimbus/retrieval_gate.py` | Browsing, body-only retrieval requests and resource limits |
-| `templates/knowledge_*.html`, `public/static/knowledge.css`, `public/static/retrieval.css` | Escaped, accessible server-rendered views |
-| `nimbus/config.py`, `nimbus/app.py`, `pyproject.toml`, `uv.lock` | Hosted/local profiles and optional dependencies |
-| `nimbus/health.py`, `nimbus/observability.py` | Index health, knowledge calls and weather setup failures |
-| `tools/eval_parks.py`, `tools/eval_park_hybrid.py`, `evals/parks.json`, `evals/golden.json` | Retrieval comparisons and separate live-answer requirements |
+| `nimbus/parks.py` | Destination resolution, scope, verified evidence and context selection |
+| `nimbus/park_ranking.py` | Season interpretation and rank fusion |
+| `nimbus/park_semantic.py` | Bounded Qdrant records, native BM25 and hosted dense retrieval |
+| `tools/setup_park_search.py` | Explicit, verified hosted publication |
+| `nimbus/park_tracing.py` | Private operational retrieval spans |
+| `nimbus/park_ingest.py`, `data/parks/manifest.json` | Reviewed source sections and season metadata |
+| `nimbus/park_text.py`, `tools/build_park_index.py` | Record hashing and tokenizer-only preparation |
+| `nimbus/park_tools.py`, `nimbus/answer.py`, `nimbus/chat.py` | Agent, failures and validated citations |
+| `nimbus/knowledge.py`, `nimbus/retrieval_gate.py` | Browsing, body-only requests and resource limits |
+| `templates/knowledge_*.html`, `public/static/knowledge.css` | Escaped, accessible Knowledge views |
+| `public/static/retrieval.css` | Responsive retrieval score display |
+| `nimbus/config.py`, `nimbus/app.py`, `pyproject.toml`, `uv.lock` | Configuration and dependency boundary |
+| `nimbus/health.py`, `nimbus/observability.py` | Published index health and operational outcomes |
+| `tools/eval_parks.py`, `tools/eval_park_hybrid.py` | Real-provider retrieval comparisons |
+| `tools/park_replay.py`, `evals/park-retrieval-recording.json` | Version-bound recorded retrieval |
+| `evals/parks.json`, `evals/golden.json` | Labeled retrieval evidence and separate live-answer requirements |
 
 ## How it works
 
@@ -69,15 +73,16 @@ model weights through the offline builder before enabling local inference.
 ① Missing reviewed headings stop publication. ② Complete paragraphs and their qualifiers remain together.
 `SourceSpec.section_seasons` explicitly marks seasonal sections; other sections inherit the source's reviewed
 applicability. No season is inferred from a substring such as “Nevada Fall.” Publication validates all records and
-atomically replaces the index. Source publication dates and fetch timestamps remain distinct.
+writes prepared text and a matching compact catalog, each replaced atomically. Their versions must agree before
+publication. Source publication dates and fetch timestamps remain distinct.
 
 ### `tools/build_park_index.py`
 
 The default build reads reviewed snapshots. `--refresh` downloads allowlisted NPS pages with a 15-second source
-limit and requires review before publication. Embedding preparation reserves title/heading tokens and fits the
-actual MiniLM tokenizer budget. A subprocess owns downloading, tokenizing and embedding, with a 60-second overall
-limit; timeout or cancellation kills and reaps it. Unchanged content vectors can be reused. Failure leaves the
-published index intact. `--lexical-only` builds without ML dependencies.
+limit and requires review before publication. A pinned tokenizer reserves title/heading tokens and splits text to
+fit the 256-token MiniLM budget. It loads no model weights and produces no vectors. `prepared.json` carries the
+public chunks; `catalog.json` carries only destination and integrity metadata. All 40 original passages are preserved.
+Default preparation makes no network calls. Hosting the app never runs preparation or publication.
 
 ### `nimbus/parks.py`
 
@@ -85,18 +90,17 @@ Resolution matches reviewed aliases and rejects unknown geographic qualifiers. F
 Canyon and Kanarra Creek narrows do not resolve to the covered Grand Canyon or Zion destinations. The resolver is
 conservative and is not a global geographic search service; the agent should pass the complete place name.
 
-Retrieval ① filters by park, destination and season, ② ranks BM25 and optional semantic candidates, and ③ applies
-reciprocal rank fusion (RRF) before selecting at most four passages within 10,000 text characters. BM25 uses stop
-words, small concept expansions, section weighting, term rarity and passage length. RRF combines qualifying ranks
-instead of adding incompatible raw scores. Ties use chunk ID; final context and citations come from local SQLite.
-The formula is `1 / (60 + BM25_rank) + 0.1 / (60 + semantic_rank)`; missing/ineligible contributions are zero.
-Hosted dense ranks start at cosine `0.30`: a passage with a positive BM25 match and a cosine of at least `0.30` gets
-the semantic bonus, which ranks only order, so even a weak match ranked first earns the full `0.1 / 61`. That bonus
-can lift a BM25 rank 7 passage above a rank 1 passage without one. Only `0.55` decides admission: a passage with no
-BM25 match enters only
-at that cosine or above. The optional local-vector profile now uses the same fusion with a `0.65` cutoff, where it
-used to add every chunk's raw cosine to its BM25 score; that change hasn't been measured on its own. These rules
-and the conservative semantic weight were calibrated on labeled examples; they are not confidence guarantees.
+Retrieval ① reads and verifies Qdrant text against the compact catalog, ② constrains both hosted ranking branches
+by park, destination, generation and season, and ③ applies reciprocal rank fusion (RRF). Nimbus removes generic
+query terms and expands reviewed concepts. Qdrant's native BM25 scores the prepared text field, which repeats section
+headings for weighting. Hosted MiniLM supplies cosine scores; no second embedding is generated for BM25.
+
+RRF combines ranks instead of incompatible raw scores: `1 / (60 + BM25_rank) + 0.1 / (60 + semantic_rank)`.
+Missing/ineligible contributions are zero. Dense ranks start at cosine `0.30`; a candidate without a BM25 match
+must reach `0.55` to enter. Ranking uses order, so first-ranked weak and strong dense matches receive the same bonus.
+These calibrated heuristics are not confidence guarantees. Ties use chunk ID. At most four passages fit within
+10,000 text characters; their text and citations come from verified Qdrant records.
+
 An actual date determines the season. Without a date, an explicit season or one unambiguous seasonal phrase can
 filter the candidates ("in spring", "winter gear"). "Fall" is surely the season only after a word such as "in",
 "this" or "late"; any other "fall" may be the verb, a waterfall or a second season ("a fall hiking", "Yosemite Fall",
@@ -110,43 +114,35 @@ visitor conversations or query history.
 
 ### `nimbus/park_semantic.py` and `tools/setup_park_search.py`
 
-Setup ① verifies ownership of the dedicated collection, ② embeds approved title/section/text with Qdrant's hosted
-`sentence-transformers/all-minilm-l6-v2`, and ③ verifies every batch and count before publishing a readiness marker.
-The collection uses 384-dimensional cosine vectors and must differ from the private weather-answer cache. Setup
-requires the existing tokenizer-prepared MiniLM artifact, regenerates its vectors remotely and never runs at startup.
+Setup ① verifies dedicated collection ownership and native scored-text support, ② embeds approved title/section/text
+with hosted `sentence-transformers/all-minilm-l6-v2`, and ③ verifies payloads, vectors, counts and BM25 queryability
+before publishing a readiness marker. It stores one 384-dimensional cosine vector per chunk. It reuses existing
+verified points; repeated setup generates zero new embeddings. A partially uploaded generation can resume safely.
+The park collection must differ from the private weather-answer cache, and publication never runs at startup.
 
-Runtime ① requires a matching model/profile/index-version marker, ② filters Qdrant candidates to the local eligible
-IDs, park, destination and season, and ③ checks each returned ID, hash and bounded finite score. The three-second
-operation deadline covers readiness and search. Timeout, invalid metadata or provider failure produces an explicit
-BM25 fallback; cancellation propagates. No remote passage text becomes model context.
+Runtime requires the matching model/profile/generation marker and validates full records against complete-record
+hashes and metadata from the compact catalog. Candidate scores must be finite, in range and within the same scope.
+Provider calls have bounded responses and deadlines. A failed dense branch can retain successful BM25 guidance.
+A failed catalog or BM25 request returns unavailable; there is no SQLite fallback. Cancellation propagates.
 
-Hosted retrieval sends the search question to Qdrant for embedding, and setup sends public source text. The adapter
-does not send full chat history or preferences. Logs and traces exclude questions, source bodies, vectors and keys.
-The optional local backend remains available when external query embeddings are not desired.
+Search text is sent to Qdrant, and publication sends public source text. The adapter does not attach full chat
+history or preferences. Logs and traces exclude questions, source bodies, vectors and keys.
 
 ### `nimbus/park_tracing.py`
 
-A park retrieval span contains BM25, semantic lookup and rank-fusion children. Chat retrieval nests inside its tool
-trace; a Playground run can have its own trace linked from Activity. Approved metadata records outcome, provider,
+A park retrieval span contains catalog, BM25, semantic lookup and rank-fusion children. Chat retrieval nests inside
+its tool trace; a Playground run can have its own trace linked from Activity. Approved metadata records outcome,
+provider,
 mode, counts and whether the season came from a date, an explicit selection or the question. A semantic failure is
 marked failed even when BM25 supplies usable guidance. No query or passage content is serialized.
 
-### `nimbus/park_embeddings.py`
+### `nimbus/park_text.py` and configuration
 
-`SentenceTransformer("all-MiniLM-L6-v2", device="cpu")` uses pinned weights and normalized 384-dimensional vectors.
-Capability checks inspect dependencies and cached files without importing native ML. Runtime never downloads.
-① A dedicated single-worker executor accepts no queued requests; a timed-out operation may finish, but subsequent
-requests fall back immediately while it is busy. Completed query state is released. This bounds native work and
-keeps it out of the default executor used by DNS. It does not claim to interrupt arbitrary native inference.
-
-### `nimbus/config.py` and `pyproject.toml`
-
-`PARKS_SEMANTIC_PROVIDER=qdrant` selects hosted inference in `auto` or `hybrid` mode. The default `local` provider
-uses keywords on Vercel in `auto` mode; local inference requires compatible dependencies, weights and dimensions.
-`PARKS_RETRIEVAL_MODE=lexical` forces BM25 without a semantic request. `PARKS_ENABLED=false` disables park tools and
-playground execution. Torch, Transformers,
-SentenceTransformers and their supporting pins live in the optional `ml` group, not direct production dependencies.
-`truststore` remains a legitimate transitive HTTP/TLS dependency.
+Shared helpers produce the dense input and canonical complete-record hash. The tokenizer is development-only;
+the runtime has no SentenceTransformer, Torch, local weights or SQLite connection. `PARKS_SEMANTIC_PROVIDER=qdrant`
+is the sole provider, with `hybrid` the default mode. `lexical` uses only Qdrant BM25; `auto` also uses the hosted
+hybrid path. `PARKS_ENABLED=false` disables park tools and Playground execution. The default collection is
+`nimbus_park_guidance_v2`; it cannot share the weather-answer cache collection.
 
 ### `nimbus/app.py`
 
@@ -177,8 +173,8 @@ The fixed park prompt extensions preserve instruction-injection rules and city-w
 
 ### `nimbus/knowledge.py` and `nimbus/retrieval_gate.py`
 
-`/knowledge/sources` and `/knowledge/chunks` inspect the public corpus without model inference. The PCA map uses
-actual stored vectors, keeps its projection stable across filters and is not the retrieval algorithm.
+`/knowledge/sources` and `/knowledge/chunks` read verified Qdrant records without generating embeddings. The PCA
+map uses actual stored Qdrant vectors, keeps its projection stable across filters and is not the retrieval algorithm.
 `GET /knowledge/retrieval` displays an empty form; query-string submissions do not run retrieval.
 
 ① `POST /api/knowledge/retrieval` reads at most 16 KiB, rejects duplicate/unknown fields and foreign browser origins,
@@ -188,14 +184,15 @@ permits twelve requests per minute per caller and two in flight per app instance
 The existing planned `/api/` edge rule additionally limits requests across serverless instances; verify it before
 release. In-process limits alone are not a distributed firewall. Inputs/results are not persisted or cached.
 
-Templates escape source and question text. Native forms and links need no JavaScript or inline styles. Semantic
-capability failures are shown separately from transient startup/busy conditions; permanently missing weights do
-not prompt a futile retry. The score table scrolls within its region on a phone.
+Templates escape source and question text. Native forms and links need no JavaScript or inline styles. Missing
+configuration, version mismatch and provider failure have explicit states; failed branches are not displayed as
+zero similarity. The score table scrolls within its region on a phone.
 
 ### `nimbus/health.py` and `nimbus/observability.py`
 
 Health includes a `park-index` check when parks are enabled. An invalid index makes overall health fail while
-working weather lanes retain their own statuses. The check loads no model and makes no extra network request.
+working weather lanes retain their own statuses. The check verifies the published Qdrant generation with a bounded
+network request; it generates no embeddings and changes no stored records.
 Activity includes `knowledge.call` and `lane.open.failed`, and tool filters accept knowledge operations. MCP setup
 failures appear through the existing Errors and `?failed=McpLaneError` views. Questions and evidence remain absent
 from operational logs.
@@ -212,8 +209,9 @@ provider failures separately and exits unsuccessfully if hosted requests fail or
 Inspect top-1 and MRR as well as recall@4; a top-four pass alone does not prove better ranking. Its JSON contains
 case IDs, grades and ranks, without question or passage text.
 The semantic-only baseline independently uses the `0.30` hosted cutoff without the hybrid BM25 admission guard.
-See [the calibration record](technical-details.md#hosted-ranking-calibration-on-10-november-2026) for observed gains,
-the initial regression and the limits of reusing tuning questions as evidence.
+See [current validation](technical-details.md#qdrant-only-migration-validation) and the clearly labeled historical
+calibration record for measured results and the limits of reusing tuning questions as evidence. Offline harness
+checks use recorded Qdrant scores with the real fusion/scoping code; they do not measure current provider quality.
 
 The original thirteen weather goldens remain, plus five park-answer scenarios. Three require official citations;
 two check an unsupported geographic name and ambiguity. The answer evaluator preserves actual citation targets
@@ -222,9 +220,10 @@ and can require or restrict them. Live runs still need Gemini and a deployment/l
 ## Run it
 
 ```bash
-uv sync --locked --group ml
-uv run --group ml python -m tools.build_park_index
-uv run --group ml uvicorn main:app --host 127.0.0.1 --port 8000 --no-access-log
+uv sync --locked
+uv run python -m tools.build_park_index
+uv run python -m tools.setup_park_search
+uv run uvicorn main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
 Open `/knowledge/retrieval`, choose a destination and optionally a date, then submit a question. Results include
@@ -233,9 +232,10 @@ without putting the question in the address. Source refreshes and index writes r
 
 For hosted retrieval, set `PARKS_SEMANTIC_PROVIDER=qdrant`, `PARKS_RETRIEVAL_MODE=hybrid`, `QDRANT_URL` and a private
 credential in ignored `.env.local`, then run `uv run python -m tools.setup_park_search`. The optional
-`PARKS_QDRANT_COLLECTION` defaults to `nimbus_park_guidance`; `PARKS_QDRANT_API_KEY` can supply a separate credential.
+`PARKS_QDRANT_COLLECTION` defaults to `nimbus_park_guidance_v2`; `PARKS_QDRANT_API_KEY` can supply a separate
+credential.
 Serving needs read access; setup additionally needs collection/index/point write permission. The existing bundled
-artifact can be published without installing the ML group. Local settings do not enable the feature on Vercel.
+prepared text can be published without local inference. Local settings do not enable the feature on Vercel.
 [Hosted configuration and validation](waiting-on-you.md#qdrant-hybrid-park-retrieval).
 
 ## Test it
@@ -248,30 +248,30 @@ uv run pytest
 uv run pytest tests/e2e --browser-channel msedge
 uv run python tools/mutation_check.py --hardening
 uv run python -m tools.eval_parks --lexical-only
-uv run --group ml python -m tools.eval_parks
+uv run python -m tools.eval_parks
 uv run python -m tools.eval_park_hybrid
 ```
 
-Original step-16 local validation: 853 unit tests pass both with and without the optional ML group; 227 Edge tests
-(including accessibility and phone layout) pass; all 270 mutations are caught, including 18 new hardening rules.
-Ruff, formatting and strict mypy pass. The CPU index rebuild reproduces version `d93691d32a848853` with 40 chunks,
-and genuine POST hybrid retrieval was checked for the Narrows, summer Mist Trail and Grand Canyon.
+Current Qdrant-only provider validation uses generation `5b2eddcd5a2f6a24`: all 40 original public chunks are present.
+BM25 and hybrid passed all 41 resolved cases, with no provider failures or hybrid evidence regressions. Semantic-only
+passed 39/41; the two spring Narrows clothing cases still missed required supporting evidence. Hybrid top-1 was 78.9%
+and MRR@4 was 0.890, versus BM25's 73.7% and 0.857. See `evals/park-hybrid-last-run.json` for individual case grades.
 
-A clean production-only installation has no Torch, Transformers or SentenceTransformers and serves all Knowledge
-pages and POST retrieval. Its Windows package directory measured 136.0 MB; this is not a Linux/Vercel function-bundle
-measurement. `truststore` remains transitively required by the HTTP clients. Desktop, phone and diagram views were
-inspected. Question-bearing GET submissions are rejected, and model/corpus data remain outside request URLs.
+The full 47-case live retrieval run, including unsupported and ambiguous destinations, passed and supplied
+`evals/park-retrieval-recording.json`. Credential-free replay then passed 461/461 harness scenarios, including those
+47 recorded park cases. Recording binds method, scope, corpus and eval definitions; unknown requests fail closed.
+Focused tests verify tokenizer-only preparation, unchanged source records, identity checks, replay privacy and
+provider-failure grading. Replay does not recheck Qdrant availability, and retrieval checks do not grade Gemini.
 
-Both retrieval profiles pass 41 cases with recall@4 of 100% and top-1 evidence of 81.2%; MRR@4 is 0.893 for keywords
-and 0.906 for local hybrid search. This small benchmark does not establish a broad semantic-search advantage.
-The initial local validation did not run the eighteen live-answer goldens. The production run on 4 November 2026
-is recorded below, including failures and separate timeout rechecks; the preceding thirteen-case result has been
-replaced by that actual eighteen-case run in `evals/last-run.json`.
+**Historical local evidence:** the original SQLite/CPU implementation passed 853 unit tests, 227 Edge tests and
+270 mutations. Its index was `d93691d32a848853`. Those counts and the production check below describe that older
+build, not the current migration. They are retained as history, not substituted for current release validation.
 
 ## Deploy it
 
-The evidence below predates the hosted hybrid extension and does not validate its production configuration.
-Use [the current release checklist](waiting-on-you.md#qdrant-hybrid-park-retrieval) for that extension.
+The evidence below predates hosted hybrid retrieval and the Qdrant-only migration. It validates neither current
+production configuration nor a current tag. Use [the release checklist](waiting-on-you.md#qdrant-hybrid-park-retrieval)
+for this migration; preserve the exact commit/deployment association in the historical evidence.
 
 Production validation was performed on **4 November 2026**, starting at 13:33 UTC. The exact source was
 `5de2c5c06300b4afc52c3ba0e4bec85f060d96f3`, with Vercel deployment `dpl_HXVLKC8omqqMG4giJheCaFCosfcE`.
@@ -283,7 +283,7 @@ Vercel reported a ready FastAPI function of 63.72 MB; production used the expect
 |---|---|
 | Production health | All four weather lanes and the park index passed |
 | Source documents and vectors | 13 documents and 40 stored vectors visible |
-| POST Retrieval Playground | Four scoped Narrows passages returned with official source links, using keyword retrieval |
+| POST Retrieval Playground | Four scoped Narrows passages and official links returned using keyword retrieval |
 | Existing eighteen chat goldens, initial batch | 14 passed, two model timeouts and two completed expectation failures |
 | Timeout-only rechecks | Both timed-out existing cases passed once rechecked; original failures remain recorded |
 | Park guidance chat | Yosemite and Grand Canyon cases passed initially; Narrows passed on its timeout-only recheck |
@@ -300,10 +300,9 @@ was changed during this validation. Machine-readable evidence and the predefined
 The recorded deployment can be inspected at
 [Vercel](https://vercel.com/silverado/weather-chatbot/HXVLKC8omqqMG4giJheCaFCosfcE). Preserve the index for rollback.
 
-Vercel's standard Python function limit is 500 MB uncompressed. Eligible Fluid Compute projects can use the Large
-Functions public beta up to 5 GB; do not assume that setting is enabled. The default hosted profile avoids the ML
-stack either way. A host explicitly opting into hybrid retrieval must provision the pinned model cache and measure
-its package size, memory and cold start. A local Windows install is not proof of a Linux/Vercel bundle size.
+The current hosted architecture excludes source-preparation tooling and local model dependencies from production.
+Deployment still needs the configured Qdrant endpoint, read credential and matching published generation. A successful
+local run or an older tagged deployment is not proof that the intended Vercel build uses those settings.
 
 ## Things to take care of, and pitfalls
 
@@ -312,7 +311,7 @@ its package size, memory and cold start. A local Windows install is not proof of
 - A heading can contain a place name such as Nevada Fall; applicability must come from reviewed metadata.
 - Changing the embedding model requires compatible document and query vectors and a rebuilt index.
 - Citation-target validation cannot establish that every generated claim is supported; live answer review is separate.
-- A timed-out native request may finish; resource bounds prevent queued work rather than promising native cancellation.
+- Both ranking branches now depend on Qdrant; a complete database outage means guidance is unavailable.
 
 ## Issues we hit
 
@@ -326,23 +325,28 @@ source-review findings and browser-stream timing issue remain recorded there as 
 **Why filter by destination before ranking passages?** Because semantically similar advice can describe a different
 trail. Identity and applicability are constraints, while relevance determines which applicable passages to return.
 
-**Does RAG require a vector database?** No. Retrieval can use keywords, embeddings or both. This small collection uses
-a versioned SQLite artifact and an in-memory ranking step; its text and provenance remain the evidence.
+**Does RAG require a vector database?** No. Retrieval can use keywords, embeddings or both. Nimbus uses one Qdrant
+park collection for public text, native BM25 and dense vectors. A compact local catalog holds integrity metadata,
+not another searchable corpus. Weather answer reuse has a separate collection in the same database service.
+
+**Are embeddings generated twice?** No. Tokenizer-only preparation generates no vectors. Publication creates one
+hosted MiniLM vector for each missing chunk in a generation; repeated setup verifies and reuses it. Native BM25
+indexes text without another embedding model. Runtime semantic queries still need their own query embedding.
 
 **Why keep document retrieval separate from weather APIs?** Weather tools supply current conditions and forecasts.
 Published guides supply preparation advice. Combining them must not turn a document into a claim about live status.
 
-**What does the offline evaluation prove?** That retrieval finds labeled evidence for the correct destination and
-abstains on the selected unsupported cases. It does not prove a language model faithfully uses that evidence.
+**What does offline replay prove?** Recorded Qdrant scores exercise the real resolver, scope, fusion and labeled
+evidence rules without credentials. Replay cannot measure today's provider health or a model's answer faithfulness.
+Separate live provider comparisons and answer evaluations measure those concerns.
 
-**How do you keep a retrieval playground faithful to production search?** Add optional diagnostics to the shared
-retriever, rather than duplicating its ranking algorithm in the page. Report the actual scores and selection limits,
-and distinguish unavailable semantic scores from zero similarity. Tests compare explained and normal search results
-on the same corpus, including keyword fallback, scoped candidates and context-budget exclusions.
+**How do you keep a retrieval playground faithful to production search?** Add diagnostics to the shared retriever.
+Report actual branch scores, ranks and selection limits; distinguish unavailable scores from zero similarity.
+Tests compare explained and normal results, including dense-only failures, scoped candidates and context limits.
 
 ## Things to try
 
-- Compare keyword and local hybrid scores for the same question without calling Gemini.
+- Compare native BM25 and hybrid scores for the same question without calling Gemini.
 - Ask about Mist Trail spray with spring and summer dates and inspect the safety passage.
 - Try Yellowstone's Grand Canyon and Kanarra Creek narrows; no covered park should be substituted.
 - Inspect the difference between a below-threshold candidate, the four-result limit and the context-character budget.
@@ -351,5 +355,5 @@ on the same corpus, including keyword fallback, scoped candidates and context-bu
 ## What's next
 
 Review corpus changes before publication and expand the benchmark before adding more destinations. A production
-preview and live Gemini/citation evaluation remain required. Live alerts and river-level services are separate
-future tools, rather than claims derived from stored documents.
+preview and live Gemini/citation evaluation remain required. Current notices use the separate step-17 NPS tool;
+river conditions and other live safety facts cannot be inferred from stored preparation documents.

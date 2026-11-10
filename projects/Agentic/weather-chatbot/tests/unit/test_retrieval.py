@@ -1,41 +1,44 @@
 """The playground explains the real retriever's scores, scope, limits and fallback without asking Gemini."""
 
 import asyncio
-import math
 import re
-from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 from typing import cast
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from structlog.testing import capture_logs
 
-from nimbus.park_semantic import PARK_MODEL, SemanticResult
+from nimbus.park_semantic import PARK_MODEL
 from nimbus.parks import ParkKnowledge
-from tests.unit.test_parks import chunk, write_index
-
-
-async def query_vector(_text: str) -> list[float]:
-    """A known semantic direction so ranking assertions never depend on native model weights."""
-    return [1.0, 0.0]
+from tests.park_fakes import FakeParkStore, knowledge_for
+from tests.unit.test_parks import chunk
 
 
 def scored_knowledge(tmp_path: Path) -> ParkKnowledge:
     """Keyword evidence, a semantic-only match and a below-threshold chunk in the same destination."""
-    path = write_index(
-        tmp_path / "scores.sqlite",
+    return knowledge_for(
+        tmp_path,
         [
             chunk("keyword", "Clothing", ["zion-narrows"]),
             chunk("meaning", "Attire", ["zion-narrows"]),
             chunk("irrelevant", "Restaurant", ["zion-narrows"]),
-            chunk("other-park", "Clothing", ["yosemite"], park_id="yosemite"),
+            chunk(
+                "other-park",
+                "Clothing",
+                ["yosemite"],
+                park_id="yosemite",
+                document_id="yosemite-guide",
+                title="Yosemite guide",
+                source_url="https://www.nps.gov/yose/planyourvisit/safety.htm",
+            ),
         ],
-        [[0.0, 1.0], [1.0, 0.0], [0.6, 0.8], [1.0, 0.0]],
+        keyword_scores={"keyword": 2.5},
+        semantic_scores={"keyword": 0.0, "meaning": 1.0, "irrelevant": 0.2},
     )
-    return ParkKnowledge(path, query_vector, "test-model")
 
 
 def test_explanation_uses_the_actual_scores_order_and_selected_passages(tmp_path: Path) -> None:
@@ -59,9 +62,8 @@ def test_explanation_uses_the_actual_scores_order_and_selected_passages(tmp_path
     assert rows[1]["keyword_rank"] is None
     assert rows[1]["semantic_component"] == pytest.approx(0.1 / 61)
     assert rows[1]["final_score"] == pytest.approx(0.1 / 61)
-    # With equal-length passages and one term present in one of three, BM25 is ln(1 + 2.5 / 1.5).
-    expected_keyword = math.log(1 + 2.5 / 1.5)
-    assert rows[0]["keyword_score"] == pytest.approx(expected_keyword)
+    # The displayed raw score must come from the remote branch, not a second local BM25 computation.
+    assert rows[0]["keyword_score"] == pytest.approx(2.5)
     assert rows[0]["keyword_rank"] == 1
     assert rows[0]["keyword_component"] == pytest.approx(1 / 61)
     assert rows[0]["semantic_score"] == pytest.approx(0)
@@ -69,12 +71,12 @@ def test_explanation_uses_the_actual_scores_order_and_selected_passages(tmp_path
     assert rows[0]["semantic_component"] == 0
     assert rows[0]["final_score"] == pytest.approx(1 / 61)
     assert [item["selection"] for item in rows] == ["retrieved", "retrieved", "below_threshold"]
-    assert rows[2]["semantic_score"] == pytest.approx(0.6)
+    assert rows[2]["semantic_score"] == pytest.approx(0.2)
 
 
 def test_explanation_distinguishes_result_limits_from_the_context_budget(tmp_path: Path) -> None:
     passages = [chunk(f"item-{index}", "Clothing", ["zion-narrows"]) for index in range(6)]
-    service = ParkKnowledge(write_index(tmp_path / "count.sqlite", passages))
+    service = knowledge_for(tmp_path, passages)
     result = asyncio.run(service.search("zion-narrows", "clothing", explain=True))
     assert len(result["passages"]) == 4
     assert [row["selection"] for row in result["diagnostics"]["candidates"]] == [
@@ -86,7 +88,7 @@ def test_explanation_distinguishes_result_limits_from_the_context_budget(tmp_pat
         "result_limit",
     ]
     long_passages = [chunk(f"long-{index}", "Clothing " * 880, ["zion-narrows"]) for index in range(3)]
-    service = ParkKnowledge(write_index(tmp_path / "budget.sqlite", long_passages))
+    service = knowledge_for(tmp_path, long_passages)
     result = asyncio.run(service.search("zion-narrows", "clothing", explain=True))
     assert len(result["passages"]) == 1
     assert [row["selection"] for row in result["diagnostics"]["candidates"]] == [
@@ -96,32 +98,31 @@ def test_explanation_distinguishes_result_limits_from_the_context_budget(tmp_pat
     ]
 
 
-def test_failed_embeddings_show_missing_semantic_scores_and_keep_keyword_ranking(tmp_path: Path) -> None:
-    path = write_index(tmp_path / "fallback.sqlite", [chunk("item", "Clothing", ["zion"])], [[1.0, 0.0]])
-
-    async def fail(_text: str) -> list[float]:
-        """An unavailable local encoder, whose private error text must not appear in diagnostics or logs."""
-        raise RuntimeError("private-model-error")
-
+def test_failed_semantic_branch_keeps_only_verified_keyword_ranking(tmp_path: Path) -> None:
+    service = knowledge_for(
+        tmp_path, [chunk("item", "Clothing", ["zion"])], semantic_status="unavailable", keyword_scores={"item": 2.0}
+    )
     with capture_logs() as lines:
-        result = asyncio.run(ParkKnowledge(path, fail, "test-model").search("zion", "clothing", explain=True))
+        result = asyncio.run(service.search("zion", "clothing private-preparation-question", explain=True))
     row = result["diagnostics"]["candidates"][0]
     assert result["retrieval_mode"] == "lexical"
     assert row["semantic_score"] is None
     assert row["final_score"] == row["keyword_component"]
-    assert "private-model-error" not in str(result) + str(lines)
+    assert result["semantic_status"] == "unavailable"
+    assert result["keyword_status"] == "ready"
+    assert "private-preparation-question" not in str(lines)
 
 
 def test_explanation_obeys_destination_and_season_before_scoring(tmp_path: Path) -> None:
-    path = write_index(
-        tmp_path / "season.sqlite",
+    service = knowledge_for(
+        tmp_path,
         [
             chunk("summer", "Clothing", ["zion"], seasons=["summer"]),
             chunk("winter", "Clothing", ["zion"], seasons=["winter"]),
             chunk("trail-only", "Clothing", ["zion-narrows"]),
         ],
     )
-    result = asyncio.run(ParkKnowledge(path).search("zion", "clothing", date(2026, 12, 1), explain=True))
+    result = asyncio.run(service.search("zion", "clothing", date(2026, 12, 1), explain=True))
     assert result["diagnostics"]["season"] == "winter"
     assert result["diagnostics"]["candidate_count"] == 1
     assert result["diagnostics"]["candidates"][0]["chunk"]["id"] == "winter"
@@ -136,6 +137,8 @@ def test_playground_is_linked_and_does_not_embed_until_a_question_is_submitted(c
     assert "No question run yet" in page.text
     assert 'id="retrieval-ranking"' not in page.text
     assert page.headers["cache-control"] == "no-store"
+    service = cast(ParkKnowledge, cast(FastAPI, client.app).state.park_knowledge)
+    assert all(call["method"] == "catalog" for call in cast(FakeParkStore, service.store).calls)
 
 
 def test_playground_shows_real_hybrid_scores_and_links_without_gemini(client: TestClient, tmp_path: Path) -> None:
@@ -148,7 +151,7 @@ def test_playground_shows_real_hybrid_scores_and_links_without_gemini(client: Te
     assert 'data-chunk="meaning" data-selection="retrieved"' in page.text
     assert 'data-chunk="irrelevant" data-selection="below_threshold"' in page.text
     assert 'data-chunk="other-park"' not in page.text
-    assert "0.6000" in page.text
+    assert "0.2000" in page.text
     assert "1.0000" in page.text
     assert "Keyword score" in page.text
     assert "Semantic score" in page.text
@@ -163,53 +166,65 @@ def test_playground_shows_real_hybrid_scores_and_links_without_gemini(client: Te
 
 
 def test_playground_explains_lexical_fallback_and_no_matches(client: TestClient) -> None:
+    service = cast(ParkKnowledge, cast(FastAPI, client.app).state.park_knowledge)
+    cast(FakeParkStore, service.store).semantic_status = "unavailable"
     page = client.post("/api/knowledge/retrieval", data={"destination": "zion", "q": "zzzzunmatched"})
     assert page.status_code == 200
     assert "Keyword-only retrieval" in page.text
-    assert "Keyword results remain available" in page.text
+    assert "verified Qdrant keyword results" in page.text
     assert "No chunks retrieved" in page.text
     assert "Not available" in page.text
 
 
+def test_failed_keyword_branch_never_appears_as_successful_hybrid(client: TestClient, tmp_path: Path) -> None:
+    """Failure of required Qdrant BM25 produces an explicit unavailable view and skips dense work."""
+    service = knowledge_for(tmp_path, [chunk("item", "Clothing", ["zion"])], keyword_status="unavailable")
+    cast(FastAPI, client.app).state.park_knowledge = service
+    page = client.post("/api/knowledge/retrieval", data={"destination": "zion", "q": "clothing"})
+    assert page.status_code == 200
+    assert "Retrieval unavailable" in page.text
+    assert "Keyword search did not complete" in page.text
+    assert "Hybrid retrieval" not in page.text
+    assert 'id="retrieval-ranking"' not in page.text
+    assert not any(call["method"] == "semantic" for call in cast(FakeParkStore, service.store).calls)
+
+
+def test_inspection_failure_does_not_hide_a_successful_retrieval(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A browser-catalog read can fail independently; the later search's verified evidence remains visible."""
+    service = scored_knowledge(tmp_path)
+    unavailable = asyncio.run(service.inspection())
+    unavailable.update(available=False, status="timeout", chunks=[])
+    monkeypatch.setattr(service, "inspection", AsyncMock(return_value=unavailable))
+    cast(FastAPI, client.app).state.park_knowledge = service
+    page = client.post("/api/knowledge/retrieval", data={"destination": "zion-narrows", "q": "clothing"})
+    assert page.status_code == 200
+    assert "Knowledge index unavailable" in page.text
+    assert "Hybrid retrieval" in page.text
+    assert 'data-chunk="meaning" data-selection="retrieved"' in page.text
+
+
 def test_hosted_playground_identifies_its_model_and_absent_dense_candidates(client: TestClient, tmp_path: Path) -> None:
-    """Hosted results must not imply their scores came from the bundled local vectors or a missing score is zero."""
-
-    class HostedScores:
-        """A bounded dense ranking whose text still comes from the real local index."""
-
-        provider = "qdrant"
-        model = PARK_MODEL
-
-        async def search(
-            self,
-            query: str,
-            *,
-            index_version: str,
-            park_id: str,
-            destination_id: str,
-            season: str | None,
-            eligible: Mapping[str, str],
-        ) -> SemanticResult:
-            """Return one semantic match; the keyword-only candidate is absent from the provider's result."""
-            return SemanticResult("ready", {"meaning": 0.91})
-
-    local = scored_knowledge(tmp_path)
-    path = tmp_path / "scores.sqlite"
-    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(path, semantic_search=HostedScores())
+    """Both branch scores come from Qdrant, and an absent semantic candidate is never displayed as zero."""
+    service = scored_knowledge(tmp_path)
+    cast(FakeParkStore, service.store).semantic_scores = {"meaning": 0.91}
+    cast(FastAPI, client.app).state.park_knowledge = service
     page = client.post("/api/knowledge/retrieval", data={"destination": "zion-narrows", "q": "clothing"})
     assert page.status_code == 200
     assert "Hybrid retrieval" in page.text
     assert "Qdrant Cloud MiniLM" in page.text
     assert PARK_MODEL in page.text
-    assert local.embedding_model not in page.text
+    assert "Keyword provider: Qdrant BM25" in page.text
     keyword_row = re.search(r'<tr data-chunk="keyword".*?</tr>', page.text, re.DOTALL)
     assert keyword_row is not None
     semantic_cell = re.findall(r'<td class="retrieval-score">(.*?)</td>', keyword_row.group(), re.DOTALL)[2]
     assert "Not returned" in semantic_cell
     assert "0.0000" not in semantic_cell
     assert "0.9100" in page.text
-    assert "separately built local index" in page.text
-    assert "Inspect source chunk" in page.text
+    assert "same hosted semantic vectors" in page.text
+    assert "separately built local index" not in page.text
+    assert "Inspect chunk &amp; vector" in page.text
 
 
 @pytest.mark.parametrize(
@@ -234,15 +249,15 @@ def test_spring_filter_keeps_year_round_guidance_and_excludes_winter(
     client: TestClient, tmp_path: Path, explicit: bool
 ) -> None:
     """An explicit season and a season in the question use the same shared filter without inventing a date."""
-    path = write_index(
-        tmp_path / "spring.sqlite",
+    service = knowledge_for(
+        tmp_path,
         [
             chunk("spring-gear", "Clothing layers", ["zion-narrows"], seasons=["spring"]),
             chunk("year-round", "Clothing footwear", ["zion-narrows"]),
             chunk("winter-gear", "Clothing drysuit", ["zion-narrows"], seasons=["winter"]),
         ],
     )
-    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(path)
+    cast(FastAPI, client.app).state.park_knowledge = service
     data = {"destination": "zion-narrows", "q": "What clothing should I wear in spring?", "visit_date": ""}
     if explicit:
         data["season"] = "spring"
@@ -262,7 +277,7 @@ def test_spring_filter_keeps_year_round_guidance_and_excludes_winter(
     ("status", "message"),
     [
         ("disabled", "No semantic search was requested"),
-        ("index_mismatch", "not ready for this document version"),
+        ("unavailable", "verified Qdrant keyword results"),
         ("timeout", "exceeded its time limit"),
     ],
 )
@@ -270,8 +285,8 @@ def test_fallback_notice_explains_configuration_index_and_temporary_failures(
     client: TestClient, tmp_path: Path, status: str, message: str
 ) -> None:
     """Disabled inference and an unprepared index must not suggest a retry will activate semantic search."""
-    path = write_index(tmp_path / "state.sqlite", [chunk("item", "Clothing", ["zion"])])
-    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(path, semantic_status=status)
+    service = knowledge_for(tmp_path, [chunk("item", "Clothing", ["zion"])], semantic_status=status)
+    cast(FastAPI, client.app).state.park_knowledge = service
     page = client.post("/api/knowledge/retrieval", data={"destination": "zion", "q": "clothing"})
     assert page.status_code == 200
     assert message in page.text
@@ -280,8 +295,9 @@ def test_fallback_notice_explains_configuration_index_and_temporary_failures(
 
 
 def test_playground_escapes_questions_and_passages_and_retains_form_values(client: TestClient, tmp_path: Path) -> None:
-    path = write_index(tmp_path / "escape.sqlite", [chunk("item", "<script>unsafe()</script> Clothing", ["zion"])])
-    cast(FastAPI, client.app).state.park_knowledge = ParkKnowledge(path)
+    cast(FastAPI, client.app).state.park_knowledge = knowledge_for(
+        tmp_path, [chunk("item", "<script>unsafe()</script> Clothing", ["zion"])]
+    )
     page = client.post(
         "/api/knowledge/retrieval",
         data={"destination": "zion", "q": "<script>private()</script> clothing", "visit_date": "2026-12-01"},
@@ -301,6 +317,5 @@ def test_disabled_and_missing_indexes_have_explicit_states(client: TestClient, t
     assert page.status_code == 200
     assert "Retrieval is disabled" in page.text
     app.state.settings = app.state.settings.model_copy(update={"parks_enabled": True})
-    app.state.park_knowledge = ParkKnowledge(tmp_path / "missing.sqlite")
-    delattr(app.state, "knowledge_catalog")
+    app.state.park_knowledge = ParkKnowledge(tmp_path / "missing.json")
     assert "Knowledge index unavailable" in client.get("/knowledge/retrieval").text

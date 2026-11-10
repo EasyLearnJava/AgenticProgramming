@@ -196,21 +196,24 @@ a new deployment; production validation remains a separate release action:
 
 | Setting | Value | Purpose |
 | --- | --- | --- |
-| `PARKS_SEMANTIC_PROVIDER` | `qdrant` | Use hosted MiniLM instead of a local model. |
+| `PARKS_SEMANTIC_PROVIDER` | `qdrant` | Use the Qdrant text/vector store and hosted MiniLM. |
 | `PARKS_RETRIEVAL_MODE` | `hybrid` | Enable BM25 plus hosted semantic ranking; `lexical` disables semantic calls. |
 | `QDRANT_URL` | Your Qdrant cluster HTTPS endpoint | Reuse the existing endpoint if both features share a cluster. |
-| `PARKS_QDRANT_COLLECTION` | `nimbus_park_guidance`, or a dedicated park collection per environment | Must differ from `QDRANT_COLLECTION`, the weather cache. |
+| `PARKS_QDRANT_COLLECTION` | `nimbus_park_guidance_v2`, or a dedicated park collection per environment | Must differ from `QDRANT_COLLECTION`, the weather cache. |
 | `PARKS_QDRANT_API_KEY` | Optional separate secret with read access to the park collection | If omitted, the existing `QDRANT_API_KEY` must permit those reads. |
 
 Use an authorized setup credential with collection/index/point write permission to run
 `uv run python -m tools.setup_park_search` from the checked-out candidate revision. The command embeds public source
-chunks and publishes a readiness marker only after verification; it does not alter the weather-cache collection.
+chunks once per published generation and verifies them before publishing a readiness marker. A repeat run reuses
+verified points. It does not alter the weather-cache collection. Native BM25 requires Qdrant 1.20 or newer; setup
+checks the actual scoring index. The prior park collection is retained for rollback and is not migrated in place.
 After any source/index rebuild, publish that new index version before validating the corresponding deployment.
 
 On the exact preview, submit **What should I wear to hike The Narrows in Zion in spring?** in Retrieval Playground.
 Check Qdrant provider readiness, BM25 and semantic scores, the selected season and the retrieved source text. Inspect
-the linked Activity/LangSmith trace for BM25, semantic and fusion steps. Ask the same question in chat and inspect its
-source citations. Confirm the wrong trail/season cannot supply evidence and a provider failure visibly uses BM25.
+the linked Activity/LangSmith trace for collection, BM25, semantic and fusion steps. Ask the same question in chat
+and inspect its source citations. Check source pages and the actual hosted vectors in Chunks & vectors. Confirm
+wrong-trail/season evidence is rejected, semantic-only failure retains BM25, and a full outage says unavailable.
 
 Run `uv run python -m tools.eval_park_hybrid` with the intended collection and inspect provider failures, recall@4,
 top-1 and MRR@4 separately. Record the exact commit, deployment, collection and evidence before production; local

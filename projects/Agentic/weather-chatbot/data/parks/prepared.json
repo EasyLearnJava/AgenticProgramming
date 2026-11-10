@@ -1,0 +1,840 @@
+{
+  "schema_version": 2,
+  "index_version": "5b2eddcd5a2f6a24",
+  "corpus_built_at": "2026-11-10T20:18:09.485040+00:00",
+  "destinations": [
+    {
+      "id": "grand-canyon",
+      "park_id": "grand-canyon",
+      "name": "Grand Canyon National Park (South Rim)",
+      "aliases": [
+        "Grand Canyon",
+        "Grand Canyon National Park",
+        "Grand Canyon South Rim"
+      ],
+      "latitude": 36.059117257442715,
+      "longitude": -112.10929870605469,
+      "time_zone": "America/Phoenix",
+      "forecast_reference": "NPS South Rim reference point; inner-canyon and North Rim conditions can differ substantially.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/weather-condition.htm"
+    },
+    {
+      "id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "name": "South Kaibab Trail, Grand Canyon National Park",
+      "aliases": [
+        "South Kaibab",
+        "South Kaibab Trail",
+        "Grand Canyon South Kaibab"
+      ],
+      "latitude": 36.059117257442715,
+      "longitude": -112.10929870605469,
+      "time_zone": "America/Phoenix",
+      "forecast_reference": "Nearby NPS South Rim reference point; not the South Kaibab trailhead or the hotter inner canyon.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/weather-condition.htm"
+    },
+    {
+      "id": "yosemite",
+      "park_id": "yosemite",
+      "name": "Yosemite National Park (Yosemite Valley)",
+      "aliases": [
+        "Yosemite",
+        "Yosemite National Park",
+        "Yosemite Valley"
+      ],
+      "latitude": 37.74539308593381,
+      "longitude": -119.59244728088379,
+      "time_zone": "America/Los_Angeles",
+      "forecast_reference": "NPS Yosemite Valley reference point; not the park high country or all elevations.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weathermap.htm"
+    },
+    {
+      "id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "name": "Mist Trail, Yosemite National Park",
+      "aliases": [
+        "Mist Trail",
+        "Yosemite Mist Trail",
+        "Vernal Fall",
+        "Vernal Falls",
+        "Nevada Fall",
+        "Nevada Falls"
+      ],
+      "latitude": 37.74539308593381,
+      "longitude": -119.59244728088379,
+      "time_zone": "America/Los_Angeles",
+      "forecast_reference": "Nearby NPS Yosemite Valley reference point; not the Mist Trail stairway, waterfall spray or upper elevations.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weathermap.htm"
+    },
+    {
+      "id": "zion",
+      "park_id": "zion",
+      "name": "Zion National Park",
+      "aliases": [
+        "Zion",
+        "Zion National Park"
+      ],
+      "latitude": 37.25082,
+      "longitude": -112.95633,
+      "time_zone": "America/Denver",
+      "forecast_reference": "Zion Canyon regional reference point selected by NPS; not the whole park or a trail-specific forecast.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm"
+    },
+    {
+      "id": "zion-narrows",
+      "park_id": "zion",
+      "name": "The Narrows (bottom-up), Zion National Park",
+      "aliases": [
+        "The Narrows",
+        "Narrows",
+        "Zion Narrows",
+        "Narrows bottom up"
+      ],
+      "latitude": 37.25082,
+      "longitude": -112.95633,
+      "time_zone": "America/Denver",
+      "forecast_reference": "Nearby Zion Canyon regional reference from NPS; not the Narrows trailhead, canyon microclimate, upstream rainfall, river flow or water temperature.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm"
+    }
+  ],
+  "source_count": 13,
+  "chunk_count": 40,
+  "chunks": [
+    {
+      "id": "grand-canyon-south-kaibab-8a80b1bfb1af6329",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "Hike Smart",
+      "text": "Make a Plan\n\nOnce you have researched your trip and are confident in what to expect on the trail, communicate your plan to someone who will notice if you are overdue and report it to 911.\n\nCheck the Weather\n\nSummer temperatures in the shade routinely pass 100°F (38°C).\n\nAvoid hiking between 10 am and 4 pm, the hottest times of day.\n\nFrom July to September, monsoons can build large, violent lightning storms.\n\nSeek shelter immediately.\n\nIn winter and early spring, temperatures can drop below 32°F (0°C) and upper portions of this steep trail become dangerously icy.\n\nHard ice often conceals potentially hazardous passages.\n\nOver-the-shoe traction devices are highly recommended.\n\nPack Properly\n\nIt is critical to determine before your hike your needs for fluids and for snacks high in calories and salts.\n\nConsuming twice as many calories as during normal exercise is realistic for summer canyon hikes.\n\nThe hike out of the canyon will likely take twice as long as the hike down.\n\nWearing sun hats and cool, wet clothing will help regulate your core body temperature during warmer hikes.\n\nEnergy Balance\n\nYour body needs energy-balancing proper nutrition and hydration are critical to your hiking success!",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "8a80b1bfb1af6329919550c8b8985946e84f15029baf109bcc380826640efa82",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "grand-canyon-south-kaibab-a50159f767c746b3",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "About South Kaibab Trail",
+      "text": "The South Kaibab Trail is a well-defined, well-maintained dirt trail offering wonderful expansive views.\n\nThis can be a great trail for short trips into the canyon of half a day or less, but the openness of this trail lends itself to extreme heat during the summer months and little to no protection from passing storms.\n\nThere is little shade, and what is there comes mostly from the canyon walls at the very beginning of the trail in the early part of day.\n\nThere is no water along the trail, though there is a spring-fed water filling station at the trailhead during the summer.\n\nNo private vehicles allowed at the trailhead.\n\nAccess is by foot, bicycle, or shuttle bus only.\n\n*Note: all trails into the canyon are steep and difficult; consider contacting a park ranger before starting your hike.",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a50159f767c746b30c27e091c56318c7f6179f7dda3b703c234c5deb2521ae5c",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "grand-canyon-south-kaibab-a9cd20003c00bc7a",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "Trail Description",
+      "text": "Hikers seeking panoramic views unparalleled on any other trail at Grand Canyon will want to consider a hike down the South Kaibab Trail.\n\nIt is the only trail at Grand Canyon National Park that so dramatically holds true to a ridgeline descent.\n\nBut this exhilarating sense of exposure to the vastness of the canyon comes at a cost: there is little shade and no water for the length of this trail.\n\nDuring winter months, the constant sun exposure is likely to keep most of the trail relatively free of ice and snow.\n\nFor those who insist on hiking during summer months, which is not recommended in general, this trail is the quickest way to the bottom (it has been described as \"a trail in a hurry to get to the river\"), but due to lack of any water sources, ascending the trail can be a dangerous proposition.",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a9cd20003c00bc7aa75f286d7efd46d370b349f3d396de68ba21d4aece86bc26",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "grand-canyon-south-kaibab-d4527642743f9aae",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "Hike Smart",
+      "text": "Eat and drink while resting-sip fluids only when thirsty.\n\nToo little water leads to dehydration and heat stroke.\n\nExcessive hydration and insufficient salt intake causes hyponatremia a seizure-producing electrolyte disorder.\n\nIf you do not feel well: seek shade, get wet, cool off, eat, and rest.\n\nTurning around may be your best option.",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "d4527642743f9aae35117b3a7850e22c36496113b50bfd1fa201d5c3e430dd75",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "grand-canyon-summer-8b0b605a781f265e",
+      "document_id": "grand-canyon-summer",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Summer Hiking - Hike Smart",
+      "section": "Summer Hiking Essentials",
+      "text": "Water - Carry plain water and some form of electrolyte replacement.\n\nKeep in mind, only the Bright Angel and North Kaibab Trails have potable water spigots and these may be out of service due to time of year or maintenance issues.\n\nSalty snacks and high energy food - Salty foods such as pretzels, crackers, and chips, are preferred in order to balance water intake during the hot summer season.\n\nStop and eat often.\n\nConsume twice as much as you normally would.\n\nFirst Aid Kit - Common canyon items include: hand sanitizer, bandaids, ace wrap, antibiotic ointment, and blister care.\n\nMap - While many trails are well-marked, maps are helpful tools.\n\nSturdy Footwear – Use broken-in hiking boots or trail shoes with good traction to navigate rocky, steep, and uneven terrain.\n\nFlashlight/Spare Batteries - Don't rely on your cell phone as a light source!\n\nCarry a flashlight and spare batteries that will allow you to hike out during the cool hours of the day.\n\nCooling Mechanisms - spray water bottles, bandanas, and towels are portable and a way to cool off your body after leaving a water source.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/hike-smart.htm",
+      "source_updated_at": "2026-06-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "8b0b605a781f265e149cb775fa8239cdeeab87074e4429717742b437663dee77",
+      "seasons": [
+        "summer"
+      ]
+    },
+    {
+      "id": "grand-canyon-summer-c0feca0dd59194f0",
+      "document_id": "grand-canyon-summer",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Summer Hiking - Hike Smart",
+      "section": "Wait for the Shade—AVOID HIKING BETWEEN 10 AM AND 4 PM",
+      "text": "Even if you are eating and drinking correctly you still need to avoid hiking in direct sunlight during the hottest part of the day.\n\nSun temperatures are 15F to 20F (9C-11C) degrees hotter than posted shade temperatures.\n\nAnd keep in mind, the farther into the canyon you go the hotter it gets!\n\nPlan your day so you are not hiking between the hours of 10am and 4pm.\n\nTake a break near shade and water to avoid the worst heat of day.\n\nEnjoy a predawn start and a late afternoon finish.\n\nExperienced desert hikers know that the timing of their hike is the most important factor in avoiding hazards.\n\nMost of the people who need emergency medical help in the canyon due to heat illness are hiking between 10 a.m.\n\nand 4 p.m.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/hike-smart.htm",
+      "source_updated_at": "2026-06-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "c0feca0dd59194f09e397441e3fbec93396d758809f47358396d7b195304421c",
+      "seasons": [
+        "summer"
+      ]
+    },
+    {
+      "id": "grand-canyon-summer-fa90a0534035fcc1",
+      "document_id": "grand-canyon-summer",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Summer Hiking - Hike Smart",
+      "section": "Summer Hiking Essentials",
+      "text": "Sun protection layers/Hat/Sunscreen - to keep the sun off you and protect your skin.\n\nWhistle and/or Signal Mirror - for emergency use.\n\nWaterproof Clothing - poncho or jacket; especially useful during monsoon season (mid-July to early September).",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/hike-smart.htm",
+      "source_updated_at": "2026-06-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "fa90a0534035fcc1dac8a682c3064f732f5fc643fbab332bb86c2efb1d6bfd0c",
+      "seasons": [
+        "summer"
+      ]
+    },
+    {
+      "id": "grand-canyon-winter-1f1318e2ee354afa",
+      "document_id": "grand-canyon-winter",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Winter Hiking",
+      "section": "Winter Hiking Essentials",
+      "text": "Food – especially salty foods.\n\nEat twice as much as normal.\n\nFirst Aid Kit – bandaids, ace wrap, antiseptic, moleskin, etc.\n\nMap – while many trails are well-marked, maps are helpful tools.\n\nWater – plain and some with electrolyte replacement.\n\nPack – to carry the essentials.\n\nFlashlight/Spare Batteries – allows you to hike out at night.\n\nAppropriate Footwear - waterproof boots, gaiters to keep snow and mud out of your boots.\n\nOver-the-shoe traction devices - it will only take a short and unexpected stretch of ice to make you glad you have extra traction.\n\nHiking Poles – to help with footing on icy trails.\n\nWhistle and/or Signal Mirror – for emergency use, know how to use your equipment.\n\nWaterproof/Warm Clothing – parka, hat, gloves for the snow and rain, plus an extra set of dry clothing – in case you get wet.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/winter-recreation.htm",
+      "source_updated_at": "2025-03-12",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "1f1318e2ee354afa59b00ffd698ede58c9657bbcc6cd12d17d619cd7fb9a2214",
+      "seasons": [
+        "winter"
+      ]
+    },
+    {
+      "id": "yosemite-hiking-899bbb1ca1de34d8",
+      "document_id": "yosemite-hiking",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Hiking in Yosemite",
+      "section": "Things to Remember While Hiking",
+      "text": "Stay on trails: taking shortcuts causes trail erosion--and is both dangerous and illegal.\n\nCarry (and drink) plenty of water: a leading cause of injuries on the trail is dehydration.\n\nBe sure to treat river, stream, lake, or spring water.\n\nPets and bicycles are only permitted on bike paths.\n\nHorses and mules have the right of way on trails.\n\nPack out what you pack in.\n\nTrails are not maintained nor are they regularly patrolled: travel carefully and at your own risk.\n\nSmoking while traveling on trails is prohibited, though you may smoke while stopped except when fire restrictions are in effect.\n\n(Crush out and dispose of cigarette butts in a trash receptacle.)",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/hiking.htm",
+      "source_updated_at": "2024-11-08",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "899bbb1ca1de34d84f587ddb841860ee978cdd01f5d511308a24faa9923ace59",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-lightning-2ceba34b20a95dc8",
+      "document_id": "yosemite-lightning",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Lightning Safety",
+      "section": "Plan Ahead",
+      "text": "When planning your trip to Yosemite, include time for alternative activities during severe weather.\n\nAlternative activities include scenic driving, taking a bus tour, or spending time indoors at visitor centers and museums.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/lightning.htm",
+      "source_updated_at": "2025-01-21",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "2ceba34b20a95dc8fbc0f4828f5279298ca93b6b2921316e54666d4acc0df9fe",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-lightning-d64ef72942c3c949",
+      "document_id": "yosemite-lightning",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Lightning Safety",
+      "section": "Plan Ahead",
+      "text": "Check the weather forecast.\n\nWatch for afternoon build-up of cumulus clouds.\n\nSeek shelter or go to lower elevations if you see towering thunderheads, darkening skies, increased wind, or thunder and lightning.\n\nThunderstorms are most common in the afternoon.\n\nThunderstorms often develop when the sun heats the air near the ground and pockets of warmer air start to rise in the atmosphere.\n\nMountain ridges and peaks contribute to updrafts that fuel thunderstorms.\n\nAs these pockets of air rise, cumulus clouds form.\n\nThese clouds grow vertically and become towering cumulus, and may be one of the first signs of a developing thunderstorm.\n\nThe final stage of development is when anvil-shaped clouds, known as cumulonimbus form.\n\nThese clouds are higher and wider, and are associated with lightning.\n\nEven if a thunderstorm is approaching from far away, descend as far and fast as you can before taking shelter.\n\nCount the seconds between the flash of the lightning and the sound of the thunder; divide the number of seconds by five to get a very rough estimate of the distance (in miles) that the lightning storm is away from you.\n\nConsider postponing a hike in order to avoid lightning.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/lightning.htm",
+      "source_updated_at": "2025-01-21",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "d64ef72942c3c949fdefb3e0d1fae35c0dfb6839a3616d40c93d0aa99b0a7f89",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-lightning-dd0ab96d0b11769c",
+      "document_id": "yosemite-lightning",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Lightning Safety",
+      "section": "How To Avoid Getting Struck By Lightning",
+      "text": "Thunderstorms bring lightning, a powerful force that can result in death.\n\nIn July 1985, lightning at Half Dome killed two people and injured three others (two of them, critically).\n\nThough most common June through September, thunderstorms can happen any time of the year.\n\nDuring July through September, the North American monsoonal weather pattern can cause moisture from the Gulf of California to flow into the Sierra Nevada, resulting in thunderstorms.\n\nUltimately, there is no safe shelter outside.\n\nThe only safe place is in a substantial building or hard topped vehicle.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/lightning.htm",
+      "source_updated_at": "2025-01-21",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "dd0ab96d0b11769c2b20e06f9849708533ba8e1845a6be6d3db4b4b029fdd40d",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-mist-trail-0fb5fc16449469bf",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "text": "From here, you can either return down the Mist Trail, or continue over the bridge to the John Muir Trail for an alternate route back to Yosemite Valley.\n\nIf you choose the John Muir Trail, you will enjoy different scenery, with great views of Liberty Cap and different views of Nevada Fall.\n\nThe John Muir Trail is longer—approximately 4 miles one-way compared to the Mist Trail’s 2.5 miles (4 km)—so plan accordingly.\n\nSome hikers may be continuing from the top of Nevada Fall to hike to Half Dome or elsewhere in Yosemite’s wilderness.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "0fb5fc16449469bf198a74f05086bec941c25aa14ebf835c384221fea31d57c6",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-mist-trail-23af491412c16afb",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "text": "From this point, you can: choose to turn around and head back the way you came; continue up to the next junction (about 0.2 miles / 0.3 km) and take the longer route back via the John Muir Trail; or continue uphill on the Mist Trail to the top of Nevada Fall.\n\nIf you choose to continue on the Mist Trail, shortly beyond Vernal Fall, you will pass by Emerald Pool and Silver Apron.\n\nBoth of these look may look inviting on a hot summer’s day, but it is illegal and dangerous to swim here due to the extremely hazardous current.\n\nContinuing along the Mist Trail, you’ll experience another 1.5 miles (2.4 km) of steep, rocky switchbacks in order to reach Nevada Fall.\n\nCrashing down 594 feet, this thunderous waterfall is fullest in spring and early summer, and you will find terrific photographic opportunities along this stretch of trail.\n\nAt the top of the climb, head right to reach the footbridge that crosses the Merced River above the fall, allowing you a closer view of it.\n\nUse extreme caution while you're near any flowing water or wet rock in this area.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "23af491412c16afb07ec2527068d122f8312f1eddb849ba7777803efa695743a",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-mist-trail-5475fe8e320510b4",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Stay Safe",
+      "text": "Stay on the established trail: do not swim or wade in the river and do not walk along the edge of the river.\n\nObserve warning signs and railings—these exist for your safety.\n\nCarry a head lamp (with fresh or extra batteries) in case you end up hiking more slowly or farther then planned and find yourself hiking back in the dark.\n\nSprained ankles and knee injuries are common on this trail.\n\nThere are many areas of loose rock/decomposed granite, mixed with steep steps, and water, which makes for slippery footing in places.\n\nAvoid becoming dehydrated or experiencing heat exhaustion.\n\nDrink plenty and drink often; pace yourself; rest in the shade; and eat salty snacks.\n\nThe granite steps along the Mist Trail leading up to the brink of Vernal Fall can be slick and crowded.\n\nConsider making a loop by continuing on the trail, past the brink of Vernal Fall and Emerald Pool, taking the cutoff trail to Clark Point, and then hiking down the John Muir Trail.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "5475fe8e320510b4c94c5895d0aebf2f4ecf0eecacc82a033ca8feebb4b42973",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-mist-trail-7305ad7900c6c09c",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "text": "You'll find an excellent view of Vernal Fall from the footbridge at 0.8 miles (1.3 km).\n\nAbout 0.2 miles (0.3 km) beyond the bridge, the Mist Trail and the John Muir Trail diverge.\n\nTo proceed directly to the top of Vernal Fall, follow the Mist Trail 0.3 miles (0.5 km) up a steep granite stairway of over 600 steps.\n\nPrepare for slippery footing and a tremendous amount of waterfall spray in spring and early summer (hence the name for this trail!).\n\nYou will delight in views of Vernal Fall all along this stretch of trail and may even be able to see a rainbow in the spray of the fall.\n\nAt the top of Vernal Fall, you can experience jaw-dropping views straight down the length of the 317-foot waterfall (please don't cross the railings and use extreme caution while you're near any flowing water or wet rock in this area).",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "7305ad7900c6c09c75f366be1af259fb393603cbe372a584c382dcff2408a3e4",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-mist-trail-99afcab6f4c6dab1",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Seasonality",
+      "text": "You can hike to both waterfalls all year.\n\nHowever, in winter, there is a specific route that remains open while some sections of trail are closed.\n\nThe lower portion of the Mist Trail along Vernal Fall closes in winter due to risk of falling ice and rock.\n\nThe upper portion of the John Muir Trail between Clark Point and the top of Nevada Fall is closed in winter due to treacherously icy conditions.\n\nKeep in mind that the sections of trail that remain open in the winter may be very icy and/or snowy.\n\nView current conditions for trail closures and view historical opening and closing dates for this trail.\n\nView a trail profile and map of the winter route to the top of Vernal Fall and Nevada Fall.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "99afcab6f4c6dab11ad4c81768f90ee87e318aec74ac53e468bd5ca340bb7663",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-mist-trail-cdd3276a6ceb45f2",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "text": "Distance: 5.4 mi (8.7 km) round trip (via Mist Trail)\n\nElevation gain: 2000 ft (610 m)\n\nDifficulty: Strenuous\n\nTime: 5-6 hours\n\nYou can also take the John Muir Trail to the top of Vernal Fall (via the Clark Point cutoff) and the top of Nevada Fall, or combine the Mist Trail and John Muir Trail into a loop.\n\nSee the map, profile, and description below for more information.\n\nAll begin at: Happy Isles (shuttle stop #16)\n\nThis very popular hike originates near Happy Isles in eastern Yosemite Valley.\n\nThe John Muir and Mist Trails offer spectacular, up-close views of two large waterfalls, enjoyable scenery along the Merced River, and unique views across Yosemite Valley.\n\nThis first paved mile of trail is busiest and accesses the Vernal Fall Footbridge.\n\nAlmost entirely uphill, you can appreciate views along the way, and during spring, when the water levels are at their peak, you can also glimpse Illillouette Fall from this first section of trail.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "cdd3276a6ceb45f211440d9a03aabe742b07ed34a7c585a0c1ef4776ec736d74",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "yosemite-weather-ca9931635f70bbf3",
+      "document_id": "yosemite-weather",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Yosemite Weather",
+      "section": "Weather",
+      "text": "Yosemite National Park covers nearly 1,200 square miles (3,100 square km) in the Sierra Nevada, with elevations ranging from about 2,000 feet (600 m) to 13,000 ft (4,000 m).\n\nYosemite receives 95% of its precipitation between October and May (and over 75% between November and March).\n\nMost of Yosemite is blanketed in snow from about November through May.\n\n(Yosemite Valley can be rainy or snowy in any given winter storm.)\n\nCheck current weather forecasts in the park by location.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weather.htm",
+      "source_updated_at": "2024-10-20",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "ca9931635f70bbf333416db4dcf2808a8918563036fea16892835bf7d0748ed8",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-bottom-up-208786837de3d51b",
+      "document_id": "zion-bottom-up",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "The Narrows from the Bottom Up",
+      "section": "Recommended Gear",
+      "text": "Proper footwear, equipment, and clothing will help protect you in The Narrows.\n\nYou should also bring water, food, and basics like first aid.\n\nCheck the Narrows Safety page for a full list of recommended gear.\n\nHere are some key recommendations:\n\nProper Footwear: Sandals, crocs, or bare feet are not appropriate and often result in twisted ankles or crushed toes.\n\nWear closed-toe shoes or boots.\n\nHiking Stick / Pole: The Narrows is wet and slippery.\n\nA stick/pole is recommended for balance.\n\nDrysuit / Waders: For parts of the year, The Narrows can be quite cold.\n\nMany visitors will bring suits/waders to stay warm.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowsbottomup.htm",
+      "source_updated_at": "2026-09-18",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "208786837de3d51b2328910918f16b95624ee0e125c3f151bd1685061e7b6f82",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-bottom-up-93966b4f2ee3ea00",
+      "document_id": "zion-bottom-up",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "The Narrows from the Bottom Up",
+      "section": "Safety",
+      "text": "The Virgin River Narrows is extremely beautiful, but it is challenging.\n\nAt least 60% of the hike is spent wading, walking, and sometimes swimming in the river.\n\nThe water is cold and fast-flowing, and the riverbed is mostly large, slippery boulders.\n\nEven on short trips, this hike can be challenging and risky.\n\nBefore your hike, always check the weather and flash flood potential.\n\nFlash floods can happen at any time, and your safety is your responsibility.\n\nVisit our Narrows Safety page for information about flash floods, cyanobacteria, and other potential hazards.\n\nNarrows Safety\n\nThe Narrows is a strenuous trail that requires proper planning and equipment.\n\nLearn about flash floods, cyanobacteria, and more.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowsbottomup.htm",
+      "source_updated_at": "2026-09-18",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "93966b4f2ee3ea00dc986968f2aab2bd58f13449755f59f1381a968816a9af57",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-flash-flood-7f81eea584c07949",
+      "document_id": "zion-flash-flood",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Flash Floods in Zion",
+      "section": "When do flash floods occur?",
+      "text": "Flash floods can occur at any time in Zion National Park and the desert southwest.\n\nAll narrow canyons are potentially hazardous.\n\nFlash floods, often caused by storms miles away, pose real danger and can be life threatening.\n\nHave a back-up plan in case of inclement weather.\n\nBy entering a narrow canyon, dry wash, or stream, you are assuming a risk:\n\nCheck the weather forecast and stop by a visitor center for up-to-date Flash Flood Potential information.\n\nTake note of areas that are likely to flood and avoid those areas.\n\nWatch for changing weather or a buildup of clouds.\n\nLeave an itinerary with someone and check in when you are done.\n\nBring extra food or water in case flooding blocks your path.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/flash-flood.htm",
+      "source_updated_at": "2026-05-15",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "7f81eea584c07949d4851b1aabdb0185be44ac3fe34cc3ac77aa6b805cbe5bb8",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-flash-flood-b94ec2a130d8a244",
+      "document_id": "zion-flash-flood",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Flash Floods in Zion",
+      "section": "What are flash floods?",
+      "text": "Flash floods are sudden increases in the depth and speed of water in rivers, streams, or washes due to heavy rain.\n\nFloodwater can be deep and full of sediment, often making crossing/navigating the water impossible.\n\nRushing water can also carry debris like rocks, branches, tree trunks, and even boulders.\n\nFlash floods are unpredictable.\n\nFlash floods can happen even with sunny skies overhead.\n\nThere is never a \"0% chance\" of flooding.\n\nSlot canyons are particularly dangerous during inclement weather.\n\nYou can’t outrun a flash flood.\n\nFlash floods can be deadly, and death most often occurs by blunt force trauma from rocks/debris in the water.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/flash-flood.htm",
+      "source_updated_at": "2026-05-15",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "b94ec2a130d8a244c4a0b5c8d005da540348889e1740b739064aaa71288f2da2",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-hiking-423176bb0147faef",
+      "document_id": "zion-hiking",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Hiking in Zion",
+      "section": "Hiking in Zion",
+      "text": "Plan ahead and prepare for your hike in Zion National Park.\n\nReview the trail information linked below to choose a trail that is right for your group.\n\nYour safety is your responsibility.\n\nYou can read the most recent trail information on our trail access information page.\n\nFor updated trail closure information, check the current conditions.\n\nFind trailhead location maps on our publications page.\n\nMuch longer hikes are located in the Zion Wilderness.\n\nThese are not loop hikes.\n\nMost day hikers will hike out and back the same way.\n\nHikers do not need to travel the full distance, they can turn around at any point and return the way they came.\n\nThe group size limit for all Zion Wilderness trails, including the Virgin River Narrows beyond the junction with Orderville Canyon, is 12 people.\n\nZion Canyon Trails\n\nThe most popular trails in Zion National Park are located in Zion Canyon.\n\nThis includes Angels Landing, The Narrows, and many others.\n\nKolob Canyons Trails\n\nSeveral hiking options are located in Kolob Canyons, the northwest corner of Zion National Park.\n\nKolob Terrace Trails\n\nThese trails are at a higher elevation, mostly stretching across a center portion of the park.\n\nEast Rim Area Trails",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/hiking-in-zion.htm",
+      "source_updated_at": "2026-01-13",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "423176bb0147faefe4c61915fd94e4daeb14f2298dc57fb9c27320b891f84502",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-hiking-e8f276ad35701b2d",
+      "document_id": "zion-hiking",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Hiking in Zion",
+      "section": "Hiking in Zion",
+      "text": "This area is located east of Zion Canyon at a much higher elevation.\n\nSouthwest Desert Trails\n\nA beautiful low-elevation area located in the southwest corner of Zion National Park.\n\nBackpacking\n\nOvernight trips require a Wilderness permit.\n\nExplore your options and reserve permits in advance.\n\nPlan Your Trip into the Zion Wilderness",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/hiking-in-zion.htm",
+      "source_updated_at": "2026-01-13",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "e8f276ad35701b2de4b35980ec19568f4077730a0ad8e42c121ffce60cae00c7",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-1810fa01bed2bdc5",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Dry Bags",
+      "text": "Water levels in the Virgin River Narrows, even when the flow is low, can range from ankle deep to full swims.\n\nMost of the time, the river is ankle to knee-deep, but all top-down hikers should be prepared for deep sections where swimming is required.\n\nEven the most experienced hikers occasionally trip or fall in the Virgin River.\n\nIt is a good idea to keep your belongings in waterproof bags/containers.\n\nMany hikers bring or rent dry bags to protect all of their gear.\n\nSmaller, resealable bags provide extra protection for phones, cameras, wallets, keys, and other valuables.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "1810fa01bed2bdc53bb11d09e1cb8cf1584b34fcd65fc82a138a28fad5998451",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-2eedc203659db073",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Flashlight / Headlamp",
+      "text": "Every week, hikers and canyoneers spend unintended nights in the Wilderness of the park.\n\nA good headlamp can mean the difference between getting back to the trailhead and spending the night in the canyon.\n\nThe flashlight on a phone is not sufficient for nighttime navigation.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "2eedc203659db07362fac14c700eb455e31e576aa88be801af2c2529ac8e225e",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-628371585ed611c5",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Clothing and Equipment",
+      "text": "Over half of your time in The Narrows will be spent wading, walking, and sometimes swimming in the river.\n\nThe water is cold and fast-flowing, and the riverbed is mostly large, slippery boulders.\n\nUse appropriate clothing and equipment to help protect you and your belongings.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "628371585ed611c5c3cbb10d11eb3cd16a7bf00e241be8a750b6ae2e2284a05b",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-9a3f452e801ae94b",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Summer",
+      "text": "Even in mid-summer, the temperature of the river can be cool.\n\nAverage summer water temperatures range from 56° to 68° Fahrenheit (13° to 20° Celsius).\n\nAlthough you'll probably hike in shorts and a short-sleeve shirt, bring extra warm clothing in a dry bag for each member of your group.\n\nParts of the canyon are quite shady, breezy, and cool.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "9a3f452e801ae94b78e9424804b6ad7369904ec0555f779fbc27994ea0112720",
+      "seasons": [
+        "summer"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-a0a4961d68e33613",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Water",
+      "text": "Even on a cool day, you will lose hydration through sweat, urination, and breathing.\n\nBring at least one gallon of water per person per day and drink it.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a0a4961d68e33613e449b2ca41a0333d61caa2931c520671ee2172fb32177ec3",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-a8bf22cfbce280c0",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Food",
+      "text": "Food keeps your energy up and helps you stay warm.\n\nAlways bring more food than you plan to eat.\n\nIt can be a life-saver if you spend an unexpected evening or night in The Narrows.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a8bf22cfbce280c067346f198390de078122f2675049299db0ff79611f39349c",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-b566bd1de03ecfa3",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Footwear",
+      "text": "Hiking in the Virgin River is like walking on slippery bowling balls.\n\nMuch of the hike requires balancing on algae-coated rocks in the middle of a swiftly flowing river.\n\nSturdy, closed-toe footwear is essential.\n\nHiking boots with good ankle support are best.\n\nSandals, crocs, and bare feet are not appropriate.\n\nInappropriate footwear often results in twisted ankles and crushed toes.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "b566bd1de03ecfa3fe7e6ecec4fae66304295502d2901342db117eb5b172afb8",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-c7b50945413cba1a",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Clothing",
+      "text": "If you had to spend an unplanned evening/night in the canyon due to an injury, how prepared would you and your group be?\n\nExtra clothing options are essential for a safe and fun trip.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "c7b50945413cba1aa4135aeaf60867edd2c5d09498f11882f0ec333698281962",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-cd193acd37552ced",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Year-Round",
+      "text": "The temperature of the water in the Virgin River is often colder than the air.\n\nAt the same time, breezes blow steadily, and very little sunlight penetrates to the canyon floor.\n\nRegardless of the time of year, always take additional warm clothing stored in a dry waterproof bag.\n\nClothing made of wool or synthetic fibers has the best insulation.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "cd193acd37552ced49930f16aceecbcc2334f8bc4c42712f0d954524bc724fe1",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-d7d4dc5c67c54e69",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Flash Floods",
+      "text": "Flash floods, often caused by storms miles away, are a very real danger and can be life threatening.\n\nDuring a flash flood, the water level rises quickly, within minutes or even seconds.\n\nA flash flood can rush down a canyon in a wall of water 12 feet high or more.\n\nBefore starting any trip into a narrow canyon, speak with a park ranger at a visitor center or read online about current conditions, weather forecasts, and flash flood potential.\n\nIf bad weather threatens your area, do not enter narrow canyons.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "d7d4dc5c67c54e69380200a87cdf194c8d933b941e9fdad72d5c4ead64104d8d",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-e2cd5f0bba752f74",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Spring and Fall",
+      "text": "Hike with multiple layers that can be removed or added as the air temperature changes.\n\nIn the early spring and late fall months, neoprene socks, pants, bib overalls, or a wetsuit may be necessary to hike in the river.\n\nAverage spring and fall water temperatures range from 41° to 53° Fahrenheit (5° to 12° Celsius).",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "e2cd5f0bba752f748817c4bfb644b67c33ce5663c56a32aec5a6fedfa13396dd",
+      "seasons": [
+        "spring",
+        "fall"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-efc5f1d6aa3e2c72",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Winter",
+      "text": "A neoprene wetsuit or drysuit with warm layers may be needed.\n\nAverage winter water temperatures range from 38° to 45° Fahrenheit (3° to 7° Celsius).\n\nDuring the winter months, ice may form within the canyon.\n\nWatch for falling ice and be prepared for very slippery conditions.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "efc5f1d6aa3e2c72812510a3040b6a8c1dbf305665267fb993bd7a0a36204024",
+      "seasons": [
+        "winter"
+      ]
+    },
+    {
+      "id": "zion-narrows-safety-fa60feef15831bba",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Hiking Poles / Sticks",
+      "text": "Hiking/trekking poles or sticks are highly recommended and will help you maintain balance.\n\nIt is often difficult to balance without the support of a pole.\n\nPoles/sticks can also be used to check water depth when the river is cloudy with sediments.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "fa60feef15831bbae5c68aee86a87c40cd25dafe12a63f3e4df59d79fbb568e4",
+      "seasons": [
+        "all"
+      ]
+    },
+    {
+      "id": "zion-seasons-761453ecb93e1242",
+      "document_id": "zion-seasons",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Zion Seasonal Preparation",
+      "section": "Winter",
+      "text": "December, January, and February - Solitude and snow (sometimes)\n\nConditions\n\nWinters in Zion National Park are cold and often wet.\n\nTemperatures can range from highs of 50-60°F during the day to lows well below freezing at night.\n\nNearly half of the annual precipitation in Zion Canyon falls between the months of December and March.\n\nRoads are plowed, but certain trails may be closed due to the hazard of falling ice.\n\nAfter winter storms, snow typically disappears within a matter of hours at lower elevations.\n\nAt higher elevations, the snow accumulates.\n\nIcy conditions may exist on trails, especially anywhere that stays in the shade.\n\nWe recommend traction devices for your boots to reduce the risk of slipping.\n\nThe Narrows will be cold and you will likely need a drysuit to hike safely.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/seasons.htm",
+      "source_updated_at": "2024-07-27",
+      "fetched_at": "2026-11-02T20:52:12.375989+00:00",
+      "content_hash": "761453ecb93e124220d52a09517a0ddfced703172895e169df0703f5da8065ff",
+      "seasons": [
+        "winter"
+      ]
+    },
+    {
+      "id": "zion-weather-1cee1a1fe9f92a19",
+      "document_id": "zion-weather",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Zion Weather and Climate",
+      "section": "Weather and Climate",
+      "text": "Download this Zion National Park Weather Chart\n\nBe Prepared\n\nZion is known for a wide range of weather conditions.\n\nTemperatures vary with changes in elevation and day/night temperatures may differ by over 30°F.\n\n7-Day Forecast and Current Weather Conditions\n\nZion Canyon\n\nKolob Canyons\n\nEast Entrance\n\nBryce Canyon\n\nCurrent Temperature in Zion Canyon\n\nFlash Flood Information for Southern Utah\n\nLive Weather and Air Quality Data (select Zion National Park in the drop-down menu)\n\nLooking for a live view of the conditions in Zion Canyon?\n\nThis webcam is located at park headquarters in Zion Canyon and shows one of the park's most famous views, The Temples and Towers of the Virgin.\n\nZion Webcam\n\nWater Conditions\n\nWeather forecast for Duck Creek Village (Headwaters of the Zion Narrows)\n\nFlow rate of the North Fork Virgin River\n\nFlash Flood Potential\n\nWilderness Conditions\n\nWilderness Trail and Campsite Descriptions\n\nWilderness Water Sources",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm",
+      "source_updated_at": "2026-01-04",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "1cee1a1fe9f92a1902c207a0195ba13a8dcfe12f4cc09a7a1e3ba7068ec5bd42",
+      "seasons": [
+        "all"
+      ]
+    }
+  ]
+}

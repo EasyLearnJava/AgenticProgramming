@@ -1,23 +1,22 @@
 """
-nimbus/park_ingest.py: reviewed NPS pages become paragraph-preserving chunks and an atomic, read-only SQLite index.
+nimbus/park_ingest.py: reviewed NPS pages become text-only publication inputs and compact runtime identities.
 Ingestion runs before deployment; visitors cannot add a source or cause the chat to crawl the web.
 """
 
 import hashlib
 import json
-import math
 import re
-import sqlite3
-from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from nimbus.parks import Destination, ParkChunk, Season
+from nimbus.park_models import Destination, ParkChunk, Season
+from nimbus.park_text import record_hash, to_embedding_text
 from nimbus.utils import checked_source_url
 
 MAX_SOURCE_BYTES = 2_000_000
@@ -197,69 +196,182 @@ def chunk_page(
     return chunks
 
 
+INDEX_SCHEMA = 2
+MAX_INDEX_BYTES = 20 * 1024 * 1024
+INDEX_FIELDS = {
+    "schema_version",
+    "index_version",
+    "corpus_built_at",
+    "destinations",
+    "chunks",
+    "source_count",
+    "chunk_count",
+}
+
+
+def compact_chunk(chunk: ParkChunk) -> dict[str, Any]:
+    """Retain checked identities and provenance without storing passage text or embeddings in the runtime catalog."""
+    return {**chunk.model_dump(mode="json", exclude={"text"}), "record_hash": record_hash(chunk)}
+
+
+def _version(destinations: list[dict[str, Any]], chunks: list[dict[str, Any]]) -> str:
+    """Version the exact compact catalog, including full-record hashes, independently of its build timestamp."""
+    document = {
+        "schema_version": INDEX_SCHEMA,
+        "destinations": sorted(destinations, key=lambda item: item["id"]),
+        "chunks": sorted(chunks, key=lambda item: item["id"]),
+    }
+    canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
+def _checked_records(
+    destinations: list[Destination], chunks: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Reject duplicate identities, invalid scopes and inconsistent source provenance before publication."""
+    if not destinations or len(destinations) > 100 or not chunks or len(chunks) > 1000:
+        raise ValueError("Index requires bounded destinations and chunks")
+    places = {item.id: item.park_id for item in destinations}
+    if len(places) != len(destinations) or len({item["id"] for item in chunks}) != len(chunks):
+        raise ValueError("Index identities must be unique")
+    if any(any(places.get(identity) != item["park_id"] for identity in item["destination_ids"]) for item in chunks):
+        raise ValueError("Chunk names an unknown destination")
+    sources: dict[str, tuple[str, str, str]] = {}
+    for item in chunks:
+        provenance = (item["park_id"], item["source_url"], item["title"])
+        if item["document_id"] in sources and sources[item["document_id"]] != provenance:
+            raise ValueError("Source identity has conflicting provenance")
+        sources[item["document_id"]] = provenance
+    return (
+        sorted((item.model_dump(mode="json") for item in destinations), key=lambda item: item["id"]),
+        sorted(chunks, key=lambda item: item["id"]),
+    )
+
+
+def _read_document(path: Path) -> dict[str, Any]:
+    """Read a bounded JSON artifact; do not create missing files or accept unknown schema fields."""
+    if not path.is_file() or path.stat().st_size > MAX_INDEX_BYTES:
+        raise ValueError("Missing or oversized park artifact")
+    document: Any = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(document, dict)
+        or set(document) != INDEX_FIELDS
+        or type(document["schema_version"]) is not int
+        or document["schema_version"] != INDEX_SCHEMA
+        or not isinstance(document["index_version"], str)
+        or not re.fullmatch(r"[a-f0-9]{16}", document["index_version"])
+        or not isinstance(document["corpus_built_at"], str)
+        or datetime.fromisoformat(document["corpus_built_at"]).tzinfo is None
+        or not isinstance(document["destinations"], list)
+        or not isinstance(document["chunks"], list)
+    ):
+        raise ValueError("Invalid park artifact schema")
+    return document
+
+
+def _checked_header(document: dict[str, Any], places: list[dict[str, Any]], chunks: list[dict[str, Any]]) -> None:
+    """Counts and version must identify exactly the validated public records, not merely a plausible index."""
+    if (
+        document["index_version"] != _version(places, chunks)
+        or type(document["chunk_count"]) is not int
+        or document["chunk_count"] != len(chunks)
+        or type(document["source_count"]) is not int
+        or document["source_count"] != len({chunk["document_id"] for chunk in chunks})
+    ):
+        raise ValueError("Park artifact count or version mismatch")
+
+
+def load_prepared(path: Path) -> dict[str, Any]:
+    """Validate the text-only publication artifact, including every dense-input hash and full-record identity."""
+    document = _read_document(path)
+    destinations = [Destination.model_validate(value) for value in document["destinations"]]
+    chunks = [ParkChunk.model_validate(value) for value in document["chunks"]]
+    for chunk in chunks:
+        expected = hashlib.sha256(to_embedding_text(chunk.title, chunk.section, chunk.text).encode()).hexdigest()
+        if chunk.content_hash != expected:
+            raise ValueError("Prepared passage content hash mismatch")
+    places, compact = _checked_records(destinations, [compact_chunk(chunk) for chunk in chunks])
+    _checked_header(document, places, compact)
+    return {
+        **document,
+        "destinations": places,
+        "chunks": [chunk.model_dump(mode="json") for chunk in sorted(chunks, key=lambda item: item.id)],
+    }
+
+
+def load_catalog(path: Path) -> dict[str, Any]:
+    """Validate the runtime identity catalog; it must contain neither passage text nor stored vectors."""
+    document = _read_document(path)
+    destinations = [Destination.model_validate(value) for value in document["destinations"]]
+    chunks: list[dict[str, Any]] = []
+    expected_fields = (set(ParkChunk.model_fields) - {"text"}) | {"record_hash"}
+    for value in document["chunks"]:
+        if (
+            not isinstance(value, dict)
+            or set(value) != expected_fields
+            or not isinstance(value["record_hash"], str)
+            or not re.fullmatch(r"[a-f0-9]{64}", value["record_hash"])
+        ):
+            raise ValueError("Invalid compact passage metadata")
+        metadata = ParkChunk.model_validate(
+            {**{name: item for name, item in value.items() if name != "record_hash"}, "text": "metadata only"}
+        ).model_dump(mode="json", exclude={"text"})
+        chunks.append({**metadata, "record_hash": value["record_hash"]})
+    places, chunks = _checked_records(destinations, chunks)
+    _checked_header(document, places, chunks)
+    return {**document, "destinations": places, "chunks": chunks}
+
+
 def write_index(
     path: Path,
     destinations: list[Destination],
     chunks: list[ParkChunk],
     *,
-    embeddings: list[list[float]] | None = None,
-    embedding_model: str = "",
+    catalog_path: Path | None = None,
     built_at: str | None = None,
 ) -> str:
-    """Validate all records, write a complete replacement, and atomically publish it; return its content version."""
-    # ① Validate the entire generation before touching the currently published index.
-    dimensions = len(embeddings[0]) if embeddings else 0
-    if embeddings is not None and (
-        not embedding_model
-        or len(embeddings) != len(chunks)
-        or not dimensions
-        or any(len(vector) != dimensions or not all(math.isfinite(value) for value in vector) for vector in embeddings)
-        or any(not any(vector) for vector in embeddings)
-    ):
-        raise ValueError("Invalid or mismatched park embeddings")
-    if not destinations or not chunks or len({item.id for item in chunks}) != len(chunks):
-        raise ValueError("Index requires destinations and unique chunks")
-    destination_ids = {item.id: item.park_id for item in destinations}
-    if any(
-        any(destination_ids.get(identity) != chunk.park_id for identity in chunk.destination_ids) for chunk in chunks
-    ):
-        raise ValueError("Chunk names an unknown destination")
-    records = [chunk.model_dump_json() for chunk in sorted(chunks, key=lambda item: item.id)]
-    places = [item.model_dump_json() for item in sorted(destinations, key=lambda item: item.id)]
-    version = hashlib.sha256("\n".join([*places, *records, embedding_model]).encode()).hexdigest()[:16]
-    metadata = {
-        "schema_version": "1",
+    """Publish validated text-only preparation and a compact runtime catalog, with each file replaced atomically."""
+    # ① Validate every record and digest before touching either currently prepared artifact.
+    full_records = [ParkChunk.model_validate(chunk.model_dump()) for chunk in chunks]
+    for chunk in full_records:
+        expected = hashlib.sha256(to_embedding_text(chunk.title, chunk.section, chunk.text).encode()).hexdigest()
+        if chunk.content_hash != expected:
+            raise ValueError("Prepared passage content hash mismatch")
+    places, compact = _checked_records(destinations, [compact_chunk(chunk) for chunk in full_records])
+    timestamp = built_at or datetime.now(UTC).isoformat()
+    if datetime.fromisoformat(timestamp).tzinfo is None:
+        raise ValueError("Build time needs a timezone")
+    version = _version(places, compact)
+    common: dict[str, Any] = {
+        "schema_version": INDEX_SCHEMA,
         "index_version": version,
-        "embedding_model": embedding_model,
-        "embedding_dimensions": str(dimensions),
-        "corpus_built_at": built_at or datetime.now(UTC).isoformat(),
-        "source_count": str(len({chunk.document_id for chunk in chunks})),
-        "chunk_count": str(len(chunks)),
+        "corpus_built_at": timestamp,
+        "destinations": places,
+        "source_count": len({item["document_id"] for item in compact}),
+        "chunk_count": len(compact),
     }
-    # ② The temporary database shares the destination filesystem, so replace is atomic.
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".building.sqlite")
+    prepared = {
+        **common,
+        "chunks": [item.model_dump(mode="json") for item in sorted(full_records, key=lambda item: item.id)],
+    }
+    catalog = {**common, "chunks": compact}
+    catalog_path = catalog_path or path.with_name("catalog.json")
+    if path.resolve() == catalog_path.resolve():
+        raise ValueError("Preparation and catalog paths must differ")
+    # ② Stage both complete files first. A reader checks versions rather than consuming a mismatched pair.
+    staged: list[tuple[Path, Path]] = []
     try:
-        temporary.unlink(missing_ok=True)
-        with closing(sqlite3.connect(temporary)) as connection, connection:
-            connection.executescript(
-                "CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
-                "CREATE TABLE destinations (id TEXT PRIMARY KEY, json TEXT NOT NULL);"
-                "CREATE TABLE chunks (id TEXT PRIMARY KEY, json TEXT NOT NULL, embedding TEXT);"
-            )
-            connection.executemany("INSERT INTO metadata VALUES (?, ?)", metadata.items())
-            connection.executemany(
-                "INSERT INTO destinations VALUES (?, ?)",
-                ((item.id, item.model_dump_json()) for item in destinations),
-            )
-            connection.executemany(
-                "INSERT INTO chunks VALUES (?, ?, ?)",
-                (
-                    (chunk.id, chunk.model_dump_json(), json.dumps(embeddings[index]) if embeddings else None)
-                    for index, chunk in enumerate(chunks)
-                ),
-            )
-        temporary.replace(path)
+        for target, document in ((path, prepared), (catalog_path, catalog)):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_suffix(".building.json")
+            staged.append((temporary, target))
+            payload = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
+            if len(payload.encode()) > MAX_INDEX_BYTES:
+                raise ValueError("Oversized park artifact")
+            temporary.write_text(payload, encoding="utf-8")
+        for temporary, target in staged:
+            temporary.replace(target)
     finally:
-        temporary.unlink(missing_ok=True)
+        for temporary, _target in staged:
+            temporary.unlink(missing_ok=True)
     return version

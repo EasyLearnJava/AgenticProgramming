@@ -1,0 +1,293 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1280" viewBox="0 0 960 1280" role="img"
+  aria-labelledby="title desc">
+  <title id="title">DemoDay part 2: how Nimbus finds park guidance and answers from it</title>
+  <desc id="desc">A swimlane flowchart in four columns: your browser; Nimbus, the FastAPI app on Vercel; Gemini and
+    the side paths; and stored data in one Qdrant Cloud park collection. A chat question starts at step 1, where
+    Gemini calls resolve_destination; a place Nimbus doesn't cover, such as Glacier (check 12), gets a reply that says
+    so and no search. The Retrieval Playground starts at step 2 with the park you pick. Step 2 sets the park or
+    trail and a season from the visit date, a season you pick or the question's words: "in spring" gives Spring,
+    "Yosemite Fall" and "summer and fall" give none (checks 1, 4 and 5). Step 3 reads the approved passages from
+    Qdrant and checks the published version and every passage's hash against the app's catalog. Step 4 ranks the
+    question's key words with Qdrant's BM25 index (check 3), and step 5 ranks its meaning with MiniLM vectors made
+    by Qdrant Cloud inference (check 2). Step 6 fuses both rankings and keeps at most four passages within 10,000
+    characters. If the meaning search fails or is slow, BM25 ranks are used alone; if Qdrant or BM25 fails, guidance
+    is unavailable. The Playground stops there and shows the season, scores and each passage's decision without
+    calling Gemini (checks 1 to 5). Chat continues (checks 6 to 11): Gemini answers from the returned passages or
+    says what they don't cover, and only links to returned sources stay clickable. Activity, the LangSmith trace,
+    the Sources and Chunks pages and the answer judge show each part.</desc>
+  <defs>
+    <marker id="grey" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#5f8279"/>
+    </marker>
+    <marker id="green" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#17845a"/>
+    </marker>
+    <marker id="blue" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2c64a8"/>
+    </marker>
+    <marker id="amber" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#b45309"/>
+    </marker>
+  </defs>
+  <rect width="960" height="1280" rx="24" fill="#f3fbf8"/>
+  <g font-family="Segoe UI,system-ui,Arial,sans-serif" fill="#123f35">
+    <!-- Heading -->
+    <text x="28" y="48" font-size="25" font-weight="700">One park question, two ways to see the evidence</text>
+    <text x="28" y="78" font-size="15" fill="#47645c">Green paths show the passages without Gemini. Blue paths
+      answer from them in chat, with citations.</text>
+
+    <!-- Lanes -->
+    <g fill="#ffffff" fill-opacity="0.65" stroke="#cfe5dc" stroke-width="1.5">
+      <rect x="16" y="100" width="170" height="940" rx="14"/>
+      <rect x="198" y="100" width="350" height="940" rx="14"/>
+      <rect x="560" y="100" width="200" height="940" rx="14"/>
+      <rect x="772" y="100" width="172" height="940" rx="14"/>
+    </g>
+    <g stroke="#cfe5dc" stroke-width="1.5">
+      <path d="M16 136 H186 M198 136 H548 M560 136 H760 M772 136 H944"/>
+    </g>
+    <g font-size="12.5" font-weight="700" fill="#47645c" letter-spacing="1" text-anchor="middle">
+      <text x="101" y="123">YOUR BROWSER</text>
+      <text x="373" y="123">NIMBUS · FASTAPI ON VERCEL</text>
+      <text x="660" y="123">GEMINI AND BRANCHES</text>
+      <text x="858" y="123">STORED DATA</text>
+    </g>
+
+    <!-- Boxes -->
+    <g fill="#ffffff" stroke="#bdd8cf" stroke-width="2">
+      <rect x="28" y="156" width="140" height="58" rx="12"/>
+      <rect x="28" y="274" width="140" height="74" rx="12"/>
+      <rect x="258" y="156" width="278" height="90" rx="12"/>
+      <rect x="258" y="274" width="278" height="90" rx="12"/>
+      <rect x="258" y="392" width="278" height="74" rx="12"/>
+      <rect x="258" y="494" width="278" height="74" rx="12"/>
+      <rect x="258" y="596" width="278" height="74" rx="12"/>
+      <rect x="258" y="698" width="278" height="110" rx="12"/>
+      <rect x="258" y="846" width="278" height="74" rx="12"/>
+      <rect x="258" y="948" width="278" height="74" rx="12"/>
+      <rect x="572" y="274" width="176" height="90" rx="12"/>
+      <rect x="572" y="846" width="176" height="74" rx="12"/>
+    </g>
+    <rect x="28" y="698" width="140" height="110" rx="12" fill="#e0f5ec" stroke="#17845a" stroke-width="2"/>
+    <rect x="28" y="948" width="140" height="74" rx="12" fill="#e9f1fb" stroke="#2c64a8" stroke-width="2"/>
+    <rect x="572" y="166" width="176" height="70" rx="12" fill="#ffffff" stroke="#8fb0a6" stroke-width="1.5"
+      stroke-dasharray="6 5"/>
+    <rect x="572" y="698" width="176" height="110" rx="12" fill="#fff4e5" stroke="#b45309" stroke-width="2"/>
+
+    <!-- Qdrant Cloud, the park collection -->
+    <path d="M784 386 V796 A74 12 0 0 0 932 796 V386" fill="#ffffff" stroke="#bdd8cf" stroke-width="2"/>
+    <ellipse cx="858" cy="386" rx="74" ry="12" fill="#e7f4ef" stroke="#bdd8cf" stroke-width="2"/>
+
+    <!-- Step numbers -->
+    <g fill="#0f766e">
+      <circle cx="281" cy="180" r="13"/>
+      <circle cx="281" cy="298" r="13"/>
+      <circle cx="281" cy="416" r="13"/>
+      <circle cx="281" cy="518" r="13"/>
+      <circle cx="281" cy="620" r="13"/>
+      <circle cx="281" cy="722" r="13"/>
+      <circle cx="281" cy="870" r="13"/>
+      <circle cx="281" cy="972" r="13"/>
+    </g>
+    <g font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">
+      <text x="281" y="185">1</text>
+      <text x="281" y="303">2</text>
+      <text x="281" y="421">3</text>
+      <text x="281" y="523">4</text>
+      <text x="281" y="625">5</text>
+      <text x="281" y="727">6</text>
+      <text x="281" y="875">7</text>
+      <text x="281" y="977">8</text>
+    </g>
+
+    <!-- Box titles -->
+    <g font-size="15" font-weight="700">
+      <text x="40" y="180">Chat page</text>
+      <text x="40" y="298">Playground</text>
+      <text x="304" y="185">Find the destination</text>
+      <text x="304" y="303">Set the park and season</text>
+      <text x="304" y="421">Read the approved passages</text>
+      <text x="304" y="523">Rank by keywords (BM25)</text>
+      <text x="304" y="625">Rank by meaning (MiniLM)</text>
+      <text x="304" y="727">Fuse and pick the evidence</text>
+      <text x="304" y="875">Answer from the passages</text>
+      <text x="304" y="977">Keep only real citations</text>
+      <text x="40" y="722" fill="#0f5c40">Evidence view</text>
+      <text x="40" y="972" fill="#1f4f86">Cited answer</text>
+      <text x="584" y="870">Gemini</text>
+      <text x="584" y="722" fill="#8a3f06">A search fails?</text>
+      <text x="858" y="424" text-anchor="middle">Qdrant Cloud</text>
+    </g>
+
+    <!-- Box details -->
+    <g font-size="13" fill="#47645c">
+      <text x="40" y="200">you ask</text>
+      <text x="40" y="318">you pick a park,</text>
+      <text x="40" y="335">then ask</text>
+      <text x="304" y="204">a park or trail Nimbus covers;</text>
+      <text x="304" y="221">in chat, Gemini calls</text>
+      <text x="304" y="238">resolve_destination</text>
+      <text x="304" y="322">this park or trail's passages;</text>
+      <text x="304" y="339">season: visit date, your pick</text>
+      <text x="304" y="356">or the question's words</text>
+      <text x="304" y="440">Qdrant's version and hashes</text>
+      <text x="304" y="457">must match the app's catalog</text>
+      <text x="304" y="542">the question's key words,</text>
+      <text x="304" y="559">scored by Qdrant's BM25 index</text>
+      <text x="304" y="644">the question as a vector,</text>
+      <text x="304" y="661">compared in Qdrant Cloud</text>
+      <text x="304" y="746">weighted rank fusion; meaning</text>
+      <text x="304" y="763">counts at 0.30, alone at 0.55;</text>
+      <text x="304" y="780">at most 4 passages, 10,000 chars</text>
+      <text x="304" y="894">Gemini gets the passages and</text>
+      <text x="304" y="911">their sources as tool output</text>
+      <text x="304" y="996">links to returned sources stay</text>
+      <text x="304" y="1013">clickable; others become text</text>
+      <text x="40" y="742">season, scores and</text>
+      <text x="40" y="759">why each passage</text>
+      <text x="40" y="776">was kept or not;</text>
+      <text x="40" y="793">Gemini not called</text>
+      <text x="40" y="992">links only to</text>
+      <text x="40" y="1009">returned sources</text>
+      <text x="584" y="190" font-weight="700" fill="#123f35">Not covered?</text>
+      <text x="584" y="210">Glacier: says so,</text>
+      <text x="584" y="227">searches nothing</text>
+      <text x="584" y="321">“in spring” → Spring</text>
+      <text x="584" y="339">“Yosemite Fall” → none</text>
+      <text x="584" y="357">“summer and fall” → none</text>
+      <text x="584" y="889">answers from the text</text>
+      <text x="584" y="906">or says what's missing</text>
+      <text x="584" y="742" fill="#8a3f06">Meaning search down</text>
+      <text x="584" y="759" fill="#8a3f06">or slow: BM25 alone</text>
+      <text x="584" y="776" fill="#8a3f06">Qdrant or BM25 down:</text>
+      <text x="584" y="793" fill="#8a3f06">guidance unavailable</text>
+    </g>
+    <g font-size="13" fill="#47645c" text-anchor="middle">
+      <text x="858" y="443">park guidance</text>
+      <text x="858" y="482" font-weight="700" fill="#123f35">Approved text</text>
+      <text x="858" y="501">40 passages from</text>
+      <text x="858" y="519">13 NPS pages</text>
+      <text x="858" y="566" font-weight="700" fill="#123f35">BM25 index</text>
+      <text x="858" y="585">native, in Qdrant</text>
+      <text x="858" y="652" font-weight="700" fill="#123f35">Vectors</text>
+      <text x="858" y="671">MiniLM, made once by</text>
+      <text x="858" y="689">Qdrant Cloud</text>
+      <text x="858" y="707">inference</text>
+      <text x="858" y="752" font-weight="700" fill="#123f35">Kept apart from</text>
+      <text x="858" y="771">weather answers</text>
+    </g>
+
+    <!-- Plain flow -->
+    <g stroke="#5f8279" stroke-width="2.5" fill="none" marker-end="url(#grey)">
+      <path d="M168 185 H252"/>
+      <path d="M168 311 H252"/>
+      <path d="M397 246 V268"/>
+      <path d="M397 364 V386"/>
+      <path d="M397 466 V488"/>
+      <path d="M397 568 V590"/>
+      <path d="M397 670 V692"/>
+    </g>
+    <g stroke="#5f8279" stroke-width="2.5" fill="none" marker-start="url(#grey)" marker-end="url(#grey)">
+      <path d="M542 429 H778"/>
+      <path d="M542 531 H778"/>
+      <path d="M542 633 H778"/>
+    </g>
+    <path d="M536 319 H572" stroke="#8fb0a6" stroke-width="1.5" fill="none"/>
+    <path d="M536 201 H566" stroke="#8fb0a6" stroke-width="2" stroke-dasharray="5 4" fill="none"
+      marker-end="url(#grey)"/>
+
+    <!-- Playground: green -->
+    <path d="M258 753 H174" stroke="#17845a" stroke-width="3" fill="none" marker-end="url(#green)"/>
+    <!-- Chat answer: blue -->
+    <g stroke="#2c64a8" stroke-width="3" fill="none" marker-end="url(#blue)">
+      <path d="M397 808 V840"/>
+      <path d="M397 920 V942"/>
+      <path d="M258 985 H174"/>
+    </g>
+    <g stroke="#2c64a8" stroke-width="3" fill="none" marker-start="url(#blue)" marker-end="url(#blue)">
+      <path d="M540 883 H568"/>
+    </g>
+    <!-- A search fails: amber -->
+    <path d="M536 753 H566" stroke="#b45309" stroke-width="3" fill="none" marker-end="url(#amber)"/>
+
+    <!-- Flow labels -->
+    <g font-size="12.5" fill="#47645c">
+      <text x="213" y="177" text-anchor="middle">question</text>
+      <text x="213" y="303" text-anchor="middle">question</text>
+      <text x="405" y="263">a covered place</text>
+      <text x="405" y="381">same scope for both</text>
+      <text x="660" y="421" text-anchor="middle">read passages</text>
+      <text x="660" y="523" text-anchor="middle">BM25 search</text>
+      <text x="660" y="625" text-anchor="middle">semantic search</text>
+    </g>
+
+    <!-- Which demo checks show each step, or take each path -->
+    <g font-size="12" font-weight="700" fill="#17845a" text-anchor="middle">
+      <text x="660" y="551">check 3: the passage's own words</text>
+      <text x="660" y="653">check 2: different words</text>
+    </g>
+    <g font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+      <rect x="584" y="283" width="98" height="22" rx="11" fill="#17845a"/>
+      <text x="633" y="298">Checks 1, 4, 5</text>
+      <rect x="672" y="176" width="66" height="22" rx="11" fill="#5f8279"/>
+      <text x="705" y="191">Check 12</text>
+      <rect x="176" y="722" width="74" height="22" rx="11" fill="#17845a"/>
+      <text x="213" y="737">Checks 1–5</text>
+      <rect x="410" y="813" width="84" height="22" rx="11" fill="#2c64a8"/>
+      <text x="452" y="828">Checks 6–11</text>
+    </g>
+
+    <!-- Where each step shows up -->
+    <text x="28" y="1078" font-size="16" font-weight="700">Where each step shows up</text>
+    <g fill="#ffffff" stroke="#bdd8cf" stroke-width="1.5">
+      <rect x="28" y="1092" width="176" height="28" rx="14"/>
+      <rect x="28" y="1128" width="176" height="28" rx="14"/>
+      <rect x="28" y="1164" width="176" height="28" rx="14"/>
+      <rect x="28" y="1200" width="176" height="28" rx="14"/>
+    </g>
+    <g fill="#e7f4ef" stroke="#0f766e" stroke-width="1.5">
+      <rect x="244" y="1092" width="196" height="28" rx="14"/>
+      <rect x="244" y="1128" width="196" height="28" rx="14"/>
+      <rect x="244" y="1164" width="196" height="28" rx="14"/>
+      <rect x="244" y="1200" width="196" height="28" rx="14"/>
+    </g>
+    <g stroke="#5f8279" stroke-width="2" fill="none" marker-end="url(#grey)">
+      <path d="M204 1106 H238"/>
+      <path d="M204 1142 H238"/>
+      <path d="M204 1178 H238"/>
+      <path d="M204 1214 H238"/>
+    </g>
+    <g font-size="13" text-anchor="middle">
+      <text x="116" y="1111">Axiom log lines</text>
+      <text x="116" y="1147">LangSmith spans</text>
+      <text x="116" y="1183">Qdrant collection</text>
+      <text x="116" y="1219">Judge verdicts</text>
+      <text x="342" y="1111" font-weight="700">Activity</text>
+      <text x="342" y="1147" font-weight="700">View LangSmith trace</text>
+      <text x="342" y="1183" font-weight="700">Sources, Chunks &amp; vectors</text>
+      <text x="342" y="1219" font-weight="700">eval_park_answers</text>
+    </g>
+    <g font-size="13" fill="#47645c">
+      <text x="456" y="1111">a row per request, with the search's mode and status</text>
+      <text x="456" y="1147">collection read, BM25, semantic and fusion timings</text>
+      <text x="456" y="1183">the 13 sources and 40 passages, with their real vectors</text>
+      <text x="456" y="1219">finding the passage and answering it, graded apart</text>
+    </g>
+
+    <!-- Legend -->
+    <g stroke-width="3" fill="none">
+      <path d="M28 1258 H58" stroke="#17845a"/>
+      <path d="M232 1258 H262" stroke="#2c64a8"/>
+      <path d="M390 1258 H420" stroke="#b45309"/>
+      <path d="M570 1258 H600" stroke="#8fb0a6" stroke-width="2" stroke-dasharray="5 4"/>
+      <path d="M790 1258 H820" stroke="#5f8279"/>
+    </g>
+    <g font-size="13" fill="#47645c">
+      <text x="66" y="1263">Playground, no Gemini</text>
+      <text x="270" y="1263">Chat answer</text>
+      <text x="428" y="1263">A search fails</text>
+      <text x="608" y="1263">Not covered, no search</text>
+      <text x="828" y="1263">Shared steps</text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,1127 @@
+{
+  "cases_sha256": "d4d0c6675552a9c83aef1e9daa02a5f6a77ae20f5f9e6590d5c96f9d057a2cf3",
+  "index_version": "5b2eddcd5a2f6a24",
+  "model": "sentence-transformers/all-minilm-l6-v2",
+  "profile": "nimbus-park-hybrid-text-v2",
+  "recorded_at": "2026-11-10T20:26:11.134833+00:00",
+  "records": {
+    "07e09f312e23de81987f2ff99c8ec0c6ae63738c090b40b953aeb3bbcf45899e": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.31273612,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.42878777,
+        "zion-flash-flood-7f81eea584c07949": 0.34781876,
+        "zion-flash-flood-b94ec2a130d8a244": 0.29197657,
+        "zion-hiking-423176bb0147faef": 0.16885221,
+        "zion-hiking-e8f276ad35701b2d": 0.09100343,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.5510069,
+        "zion-narrows-safety-2eedc203659db073": 0.4212348,
+        "zion-narrows-safety-628371585ed611c5": 0.53269804,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.4003005,
+        "zion-narrows-safety-a0a4961d68e33613": 0.47161272,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.3183953,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.38621214,
+        "zion-narrows-safety-c7b50945413cba1a": 0.5027541,
+        "zion-narrows-safety-cd193acd37552ced": 0.52365226,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.37817472,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.39401305,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.40210983,
+        "zion-narrows-safety-fa60feef15831bba": 0.50256354,
+        "zion-seasons-761453ecb93e1242": 0.110345766,
+        "zion-weather-1cee1a1fe9f92a19": 0.18510152
+      }
+    },
+    "0d3c2fe6ae174bf5487ea0e26492d39a2a159618268e29628d90b5f30ce60415": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 0.5334102,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.33940694,
+        "grand-canyon-summer-fa90a0534035fcc1": 0.3787756,
+        "grand-canyon-winter-1f1318e2ee354afa": 0.51412255
+      }
+    },
+    "12f33f38e540a5d036dc3a6d928c31bd608b1add9db05b9e8d448ccff3fc2204": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.0795584,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.4711967,
+        "yosemite-lightning-d64ef72942c3c949": 0.5773725,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.46047127,
+        "yosemite-weather-ca9931635f70bbf3": 0.21269965
+      }
+    },
+    "145639ced06b47c3696689946314e402a9b17081cc26f5d11241a8d9a4823ad3": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.28464058,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.18336333,
+        "zion-flash-flood-7f81eea584c07949": 0.26144275,
+        "zion-flash-flood-b94ec2a130d8a244": 0.17042029,
+        "zion-hiking-423176bb0147faef": 0.094269805,
+        "zion-hiking-e8f276ad35701b2d": 0.12114875,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.44338268,
+        "zion-narrows-safety-2eedc203659db073": 0.18700409,
+        "zion-narrows-safety-628371585ed611c5": 0.36104938,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.29110116,
+        "zion-narrows-safety-a0a4961d68e33613": 0.32507792,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.1735993,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.31580743,
+        "zion-narrows-safety-c7b50945413cba1a": 0.46162128,
+        "zion-narrows-safety-cd193acd37552ced": 0.46270838,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.145278,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.34694755,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.35065746,
+        "zion-narrows-safety-fa60feef15831bba": 0.23741257,
+        "zion-seasons-761453ecb93e1242": 0.2320102,
+        "zion-weather-1cee1a1fe9f92a19": 0.089940675
+      }
+    },
+    "170b3b1ce87e824672f3a149f2953f1b23bae735ee58a418fefcec9da08f0667": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 0.028577236,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.013960036,
+        "grand-canyon-summer-fa90a0534035fcc1": -0.03277555,
+        "grand-canyon-winter-1f1318e2ee354afa": 0.06370631
+      }
+    },
+    "1b946acf7ef5682444e7bc3d5c9e820245abf4cc97fa8c15d8475cc25e33f419": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.62011707,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.27863145,
+        "zion-flash-flood-7f81eea584c07949": 0.15018533,
+        "zion-flash-flood-b94ec2a130d8a244": 0.07933113,
+        "zion-hiking-423176bb0147faef": 0.21683455,
+        "zion-hiking-e8f276ad35701b2d": 0.1449099,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.2597996,
+        "zion-narrows-safety-2eedc203659db073": 0.22973737,
+        "zion-narrows-safety-628371585ed611c5": 0.45549354,
+        "zion-narrows-safety-a0a4961d68e33613": 0.08364963,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.22405066,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.4241101,
+        "zion-narrows-safety-c7b50945413cba1a": 0.46206963,
+        "zion-narrows-safety-cd193acd37552ced": 0.28945264,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.11485681,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.33675516,
+        "zion-narrows-safety-fa60feef15831bba": 0.31776804,
+        "zion-weather-1cee1a1fe9f92a19": 0.1457403
+      }
+    },
+    "1bd6c5fbd2cb891d7f8526149d690251f37c11e758e1ef2c55a4df162e6808b6": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.41188648,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.29288614,
+        "zion-flash-flood-7f81eea584c07949": 0.2860573,
+        "zion-flash-flood-b94ec2a130d8a244": 0.284023,
+        "zion-hiking-423176bb0147faef": 0.17923684,
+        "zion-hiking-e8f276ad35701b2d": 0.12346756,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.26540837,
+        "zion-narrows-safety-2eedc203659db073": 0.20233054,
+        "zion-narrows-safety-628371585ed611c5": 0.26733586,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.14063501,
+        "zion-narrows-safety-a0a4961d68e33613": 0.14944205,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.10356603,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.47585964,
+        "zion-narrows-safety-c7b50945413cba1a": 0.30119714,
+        "zion-narrows-safety-cd193acd37552ced": 0.20466235,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.2075994,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.24676022,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.23693657,
+        "zion-narrows-safety-fa60feef15831bba": 0.3361885,
+        "zion-seasons-761453ecb93e1242": 0.3102517,
+        "zion-weather-1cee1a1fe9f92a19": 0.13664788
+      }
+    },
+    "1bde1bbce813c875ebb73cf841d5e6f56ba8bc155ddb480a798c249e2a23b32a": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.5532532,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.4328264,
+        "zion-flash-flood-7f81eea584c07949": 0.3274101,
+        "zion-flash-flood-b94ec2a130d8a244": 0.30438,
+        "zion-hiking-423176bb0147faef": 0.26865378,
+        "zion-hiking-e8f276ad35701b2d": 0.1864226,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.35237688,
+        "zion-narrows-safety-2eedc203659db073": 0.32150936,
+        "zion-narrows-safety-628371585ed611c5": 0.3904266,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.24777748,
+        "zion-narrows-safety-a0a4961d68e33613": 0.25005123,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.2218029,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.58790064,
+        "zion-narrows-safety-c7b50945413cba1a": 0.42338616,
+        "zion-narrows-safety-cd193acd37552ced": 0.3302655,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.3058234,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.3201114,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.301216,
+        "zion-narrows-safety-fa60feef15831bba": 0.38948894,
+        "zion-seasons-761453ecb93e1242": 0.35219374,
+        "zion-weather-1cee1a1fe9f92a19": 0.21246974
+      }
+    },
+    "1d1ce06a0b9313c1a6f615d68d0593b4347c85582a9061fd09ddbb2dcf6bb5c3": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.6663184,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.3381493,
+        "zion-flash-flood-7f81eea584c07949": 0.40782297,
+        "zion-flash-flood-b94ec2a130d8a244": 0.28601366,
+        "zion-hiking-423176bb0147faef": 0.54757786,
+        "zion-hiking-e8f276ad35701b2d": 0.48031887,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.2895681,
+        "zion-narrows-safety-2eedc203659db073": 0.29626375,
+        "zion-narrows-safety-628371585ed611c5": 0.42761528,
+        "zion-narrows-safety-a0a4961d68e33613": 0.15567042,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.19903868,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.47122216,
+        "zion-narrows-safety-c7b50945413cba1a": 0.5252308,
+        "zion-narrows-safety-cd193acd37552ced": 0.33284938,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.13536479,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.3687928,
+        "zion-narrows-safety-fa60feef15831bba": 0.3503697,
+        "zion-weather-1cee1a1fe9f92a19": 0.44355556
+      }
+    },
+    "1f31cc471bf1d7fec948cd672bbb8db5e2c60b15ded3b32807bc21c8efd82aa8": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 8.803642,
+        "grand-canyon-winter-1f1318e2ee354afa": 6.3024035
+      }
+    },
+    "21814fb1a5c18dd73a85ade40c32d6490e8931b65886cd35e2e1f0a09988a61c": {
+      "method": "bm25",
+      "scores": {
+        "zion-flash-flood-b94ec2a130d8a244": 1.9257463,
+        "zion-narrows-safety-2eedc203659db073": 10.384393
+      }
+    },
+    "220ac757ef6928623614321d392c3c12d0ee8da85495a12aacc8304e85a143b1": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.2121065,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.17923617,
+        "yosemite-lightning-d64ef72942c3c949": 0.2590928,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.08853535,
+        "yosemite-mist-trail-0fb5fc16449469bf": 0.20384862,
+        "yosemite-mist-trail-23af491412c16afb": 0.36213604,
+        "yosemite-mist-trail-5475fe8e320510b4": 0.38151595,
+        "yosemite-mist-trail-7305ad7900c6c09c": 0.43893003,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 0.23248312,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 0.25222903,
+        "yosemite-weather-ca9931635f70bbf3": 0.034037367
+      }
+    },
+    "2a974e4d7b2cc22910b3e555931080951402800bdf4289067a8c9008a2fa2832": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.21459565,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.4074217,
+        "yosemite-lightning-d64ef72942c3c949": 0.43750256,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.4535408,
+        "yosemite-weather-ca9931635f70bbf3": 0.29858118
+      }
+    },
+    "2b5258e17871d75f325c65fbd821b1630317ac02f4a6fd7a1c2da575c3dfa6d5": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.43176025,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.19220604,
+        "zion-flash-flood-7f81eea584c07949": 0.26956373,
+        "zion-flash-flood-b94ec2a130d8a244": 0.20589411,
+        "zion-hiking-423176bb0147faef": 0.25229988,
+        "zion-hiking-e8f276ad35701b2d": 0.24500802,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.28205612,
+        "zion-narrows-safety-2eedc203659db073": 0.26205078,
+        "zion-narrows-safety-628371585ed611c5": 0.34440053,
+        "zion-narrows-safety-a0a4961d68e33613": 0.26232713,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.24865794,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.32446325,
+        "zion-narrows-safety-c7b50945413cba1a": 0.54249626,
+        "zion-narrows-safety-cd193acd37552ced": 0.5105379,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.122634776,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.42137444,
+        "zion-narrows-safety-fa60feef15831bba": 0.26217887,
+        "zion-weather-1cee1a1fe9f92a19": 0.287533
+      }
+    },
+    "2b6c501a66ab42533ad8d8ec531bcfbd35ce128d930ca8e10610f0e8f9ba1d1b": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 3.5541646,
+        "yosemite-mist-trail-23af491412c16afb": 1.2899395,
+        "yosemite-mist-trail-5475fe8e320510b4": 2.8442276,
+        "yosemite-mist-trail-7305ad7900c6c09c": 4.3754144,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 3.108241
+      }
+    },
+    "2d86f3974a826b6790ccb1326659d62eee4d3efd64cb93a76427358780078c26": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 8.254671,
+        "zion-bottom-up-93966b4f2ee3ea00": 2.1803038,
+        "zion-narrows-safety-628371585ed611c5": 3.9490228,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 9.957933,
+        "zion-narrows-safety-fa60feef15831bba": 2.916745,
+        "zion-seasons-761453ecb93e1242": 5.0055346
+      }
+    },
+    "2f5c8a0a5df503bfcf1a37b2a830ae6a9f9185b3d6336ab7e8d391915c4b148d": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.26329425,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.3304353,
+        "yosemite-lightning-d64ef72942c3c949": 0.21728078,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.21631074,
+        "yosemite-weather-ca9931635f70bbf3": 0.3998147
+      }
+    },
+    "34340d45ee2fc804e9928a41ddde0ff8e99a101495edf2d60960caca1b8e4e3d": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 7.747343,
+        "zion-narrows-safety-628371585ed611c5": 2.8123224,
+        "zion-narrows-safety-b566bd1de03ecfa3": 3.9983373,
+        "zion-narrows-safety-c7b50945413cba1a": 2.915685,
+        "zion-narrows-safety-cd193acd37552ced": 2.4294274,
+        "zion-narrows-safety-e2cd5f0bba752f74": 6.252555
+      }
+    },
+    "38de6aec8684cec9af261c9a9542def0a695a3ab0b2e55b3ba0b2a4d89ef9c4d": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.6341698,
+        "yosemite-weather-ca9931635f70bbf3": 2.755027
+      }
+    },
+    "3a4903b98780963ff9eea85e56f156c3202271c1ff6fc98d33be3f2abdd8cb01": {
+      "method": "semantic",
+      "scores": {
+        "zion-flash-flood-7f81eea584c07949": 0.7230457,
+        "zion-flash-flood-b94ec2a130d8a244": 0.7013723,
+        "zion-hiking-423176bb0147faef": 0.32249308,
+        "zion-hiking-e8f276ad35701b2d": 0.2288517,
+        "zion-seasons-761453ecb93e1242": 0.30491942,
+        "zion-weather-1cee1a1fe9f92a19": 0.39375973
+      }
+    },
+    "3c14217f68f73454861e38e172c5df364071f09352aa390c8d378d2ec82f1393": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 0.56918955,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.6229861,
+        "grand-canyon-summer-fa90a0534035fcc1": 0.77684724
+      }
+    },
+    "3dc3fe6b352437f2f532729e1d847a5946cb3f80b3ec0905a2378be545a18ec4": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.2121065,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.17923617,
+        "yosemite-lightning-d64ef72942c3c949": 0.2590928,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.08853535,
+        "yosemite-mist-trail-0fb5fc16449469bf": 0.20384862,
+        "yosemite-mist-trail-23af491412c16afb": 0.36213604,
+        "yosemite-mist-trail-5475fe8e320510b4": 0.38151595,
+        "yosemite-mist-trail-7305ad7900c6c09c": 0.43893003,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 0.23248312,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 0.25222903,
+        "yosemite-weather-ca9931635f70bbf3": 0.034037367
+      }
+    },
+    "421edb4f7119220865e48c29d9389c2643dae7e56c421d442941cfd094b4179a": {
+      "method": "bm25",
+      "scores": {}
+    },
+    "43f61b00164e96b94e85f6c4250af02f3ea427864a9fbf769e31f7d33dc74ef6": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.09127519,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.16085663,
+        "yosemite-lightning-d64ef72942c3c949": 0.31355536,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.17929642,
+        "yosemite-mist-trail-0fb5fc16449469bf": 0.24883977,
+        "yosemite-mist-trail-23af491412c16afb": 0.38206923,
+        "yosemite-mist-trail-5475fe8e320510b4": 0.32147864,
+        "yosemite-mist-trail-7305ad7900c6c09c": 0.41632363,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 0.24614975,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 0.26748604,
+        "yosemite-weather-ca9931635f70bbf3": 0.073588714
+      }
+    },
+    "4600a79f7837bb492fcdde8e7ffa616cd0adbbeb86ad1d75cfae00fcbfc9ca61": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 5.01324,
+        "grand-canyon-summer-c0feca0dd59194f0": 2.1371768,
+        "grand-canyon-summer-fa90a0534035fcc1": 10.960715
+      }
+    },
+    "4c2f6785d561d94b3dd1e88e60d934a581bef5e19c4a2723f3c428b8b98e877a": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.34420943,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.42778414,
+        "zion-flash-flood-7f81eea584c07949": 0.3206603,
+        "zion-flash-flood-b94ec2a130d8a244": 0.34189045,
+        "zion-hiking-423176bb0147faef": 0.37039113,
+        "zion-hiking-e8f276ad35701b2d": 0.27519673,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.40613598,
+        "zion-narrows-safety-2eedc203659db073": 0.44458097,
+        "zion-narrows-safety-628371585ed611c5": 0.42256287,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.31098664,
+        "zion-narrows-safety-a0a4961d68e33613": 0.26508808,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.3107854,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.4593814,
+        "zion-narrows-safety-c7b50945413cba1a": 0.40951186,
+        "zion-narrows-safety-cd193acd37552ced": 0.37234956,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.31357986,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.34837,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.28915897,
+        "zion-narrows-safety-fa60feef15831bba": 0.64366865,
+        "zion-seasons-761453ecb93e1242": 0.25331205,
+        "zion-weather-1cee1a1fe9f92a19": 0.3048167
+      }
+    },
+    "4c806665eed0a9b45d5a79cf5ba4d973df53f0982f37047db77a1457d4abd6bb": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.010517873,
+        "zion-bottom-up-93966b4f2ee3ea00": -0.020912927,
+        "zion-flash-flood-7f81eea584c07949": 0.02617109,
+        "zion-flash-flood-b94ec2a130d8a244": 0.037234716,
+        "zion-hiking-423176bb0147faef": 0.033048403,
+        "zion-hiking-e8f276ad35701b2d": 0.057033207,
+        "zion-narrows-safety-1810fa01bed2bdc5": -0.008035621,
+        "zion-narrows-safety-2eedc203659db073": 0.028879646,
+        "zion-narrows-safety-628371585ed611c5": -0.0019114232,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.01718063,
+        "zion-narrows-safety-a0a4961d68e33613": -0.013013894,
+        "zion-narrows-safety-a8bf22cfbce280c0": -0.02088198,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.0034697177,
+        "zion-narrows-safety-c7b50945413cba1a": 0.02067095,
+        "zion-narrows-safety-cd193acd37552ced": 0.021803994,
+        "zion-narrows-safety-d7d4dc5c67c54e69": -0.0015553143,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.02583332,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.009938441,
+        "zion-narrows-safety-fa60feef15831bba": -0.0378387,
+        "zion-seasons-761453ecb93e1242": 0.06826307,
+        "zion-weather-1cee1a1fe9f92a19": 0.06062838
+      }
+    },
+    "527f6c2fbd69296b589c24363720263f42f6b5bf0f371fed5b5ffa3a3092d3f2": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 0.5334711,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.6473414,
+        "grand-canyon-summer-fa90a0534035fcc1": 0.6046225
+      }
+    },
+    "564e166fa767e7b79ed59856cc2c5140161531ac678833a630a2e3d516f76a7e": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.39010358,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.054668214,
+        "zion-flash-flood-7f81eea584c07949": 0.17423485,
+        "zion-flash-flood-b94ec2a130d8a244": 0.10774953,
+        "zion-hiking-423176bb0147faef": 0.06667924,
+        "zion-hiking-e8f276ad35701b2d": 0.08614376,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.24496546,
+        "zion-narrows-safety-2eedc203659db073": 0.0891474,
+        "zion-narrows-safety-628371585ed611c5": 0.18448567,
+        "zion-narrows-safety-a0a4961d68e33613": 0.14699858,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.06597881,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.19923466,
+        "zion-narrows-safety-c7b50945413cba1a": 0.33171815,
+        "zion-narrows-safety-cd193acd37552ced": 0.36604065,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.011742994,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.49304822,
+        "zion-narrows-safety-fa60feef15831bba": 0.15809333,
+        "zion-seasons-761453ecb93e1242": 0.43016395,
+        "zion-weather-1cee1a1fe9f92a19": 0.14155006
+      }
+    },
+    "599319ea419d75bf3784218a38400ecc4c6142863c1a0020b7cb60aa6415c7f1": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.4472176,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.19809335,
+        "zion-flash-flood-7f81eea584c07949": 0.19017524,
+        "zion-flash-flood-b94ec2a130d8a244": 0.20680608,
+        "zion-hiking-423176bb0147faef": 0.16396281,
+        "zion-hiking-e8f276ad35701b2d": 0.11676506,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.13200301,
+        "zion-narrows-safety-2eedc203659db073": 0.12291316,
+        "zion-narrows-safety-628371585ed611c5": 0.17523104,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.051010773,
+        "zion-narrows-safety-a0a4961d68e33613": 0.007054694,
+        "zion-narrows-safety-a8bf22cfbce280c0": -0.011444619,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.5084873,
+        "zion-narrows-safety-c7b50945413cba1a": 0.27022493,
+        "zion-narrows-safety-cd193acd37552ced": 0.13097626,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.091361694,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.1685346,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.17220518,
+        "zion-narrows-safety-fa60feef15831bba": 0.22417498,
+        "zion-seasons-761453ecb93e1242": 0.35414904,
+        "zion-weather-1cee1a1fe9f92a19": 0.06784603
+      }
+    },
+    "5a57f0427e1a9114d12dcbefa5187f5c8eb8628392dd3908b6769ae1bfccb960": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 2.0547616,
+        "grand-canyon-summer-c0feca0dd59194f0": 5.1752253,
+        "grand-canyon-summer-fa90a0534035fcc1": 2.5463984
+      }
+    },
+    "5b426a0ed858a20b260f215ee8f057f3f3ec881ac7fb4594c218b48c14edfdb3": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.2121065,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.17923617,
+        "yosemite-lightning-d64ef72942c3c949": 0.2590928,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.08853535,
+        "yosemite-mist-trail-0fb5fc16449469bf": 0.20384862,
+        "yosemite-mist-trail-23af491412c16afb": 0.36213604,
+        "yosemite-mist-trail-5475fe8e320510b4": 0.38151595,
+        "yosemite-mist-trail-7305ad7900c6c09c": 0.43893003,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 0.23248312,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 0.25222903,
+        "yosemite-weather-ca9931635f70bbf3": 0.034037367
+      }
+    },
+    "5dab3996f907bdfddf24facec01e47d7c6e5da8043e16c8b0525d0bb497987e9": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 3.8941872,
+        "grand-canyon-winter-1f1318e2ee354afa": 3.173954
+      }
+    },
+    "5f5dbcbb04a39280c8c343bfe52f48bb0fec2edec0a7663f2c65c4dd8dc0308d": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 1.5346948,
+        "zion-bottom-up-93966b4f2ee3ea00": 1.2401263,
+        "zion-flash-flood-7f81eea584c07949": 1.8417009,
+        "zion-flash-flood-b94ec2a130d8a244": 0.87256867,
+        "zion-hiking-423176bb0147faef": 0.67592746,
+        "zion-narrows-safety-1810fa01bed2bdc5": 6.1078286,
+        "zion-narrows-safety-628371585ed611c5": 3.995304,
+        "zion-narrows-safety-9a3f452e801ae94b": 5.5390005,
+        "zion-narrows-safety-a0a4961d68e33613": 3.4375186,
+        "zion-narrows-safety-a8bf22cfbce280c0": 2.1445622,
+        "zion-narrows-safety-b566bd1de03ecfa3": 1.3989028,
+        "zion-narrows-safety-c7b50945413cba1a": 2.915685,
+        "zion-narrows-safety-cd193acd37552ced": 5.9010544,
+        "zion-narrows-safety-e2cd5f0bba752f74": 1.147485,
+        "zion-narrows-safety-fa60feef15831bba": 1.2015668,
+        "zion-weather-1cee1a1fe9f92a19": 0.7414542
+      }
+    },
+    "61bd6d849103fe41426780fb22fd017d880c653ea9e6b57e11b86541d59a7b32": {
+      "method": "bm25",
+      "scores": {}
+    },
+    "626940fef2b161911f4e4d26ef9dab1ecef40b47b087889fb31a76c3210f4eb3": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-south-kaibab-8a80b1bfb1af6329": 2.9377496,
+        "grand-canyon-south-kaibab-a50159f767c746b3": 3.860416,
+        "grand-canyon-south-kaibab-a9cd20003c00bc7a": 5.8742146,
+        "grand-canyon-south-kaibab-d4527642743f9aae": 2.3394387,
+        "grand-canyon-summer-8b0b605a781f265e": 2.0547616,
+        "grand-canyon-summer-c0feca0dd59194f0": 2.4851005,
+        "grand-canyon-summer-fa90a0534035fcc1": 4.5603
+      }
+    },
+    "62edbad0a56466e4656cfb948f3d2bc3e2bc578730d92505dffbbc5a8c2c2c63": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-lightning-d64ef72942c3c949": 8.307162,
+        "yosemite-lightning-dd0ab96d0b11769c": 8.53005
+      }
+    },
+    "687de4d605e72c54794912a9b0c771cd3bb42557a8d4ee24b576e0d208e23ac3": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-93966b4f2ee3ea00": 6.4796863,
+        "zion-flash-flood-7f81eea584c07949": 11.664531,
+        "zion-flash-flood-b94ec2a130d8a244": 7.965022,
+        "zion-hiking-423176bb0147faef": 1.3450661,
+        "zion-hiking-e8f276ad35701b2d": 1.0496832,
+        "zion-narrows-safety-2eedc203659db073": 1.1238917,
+        "zion-narrows-safety-9a3f452e801ae94b": 1.0496832,
+        "zion-narrows-safety-c7b50945413cba1a": 1.199254,
+        "zion-narrows-safety-cd193acd37552ced": 1.0125409,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 12.630409,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 1.0980165,
+        "zion-seasons-761453ecb93e1242": 2.3252063,
+        "zion-weather-1cee1a1fe9f92a19": 6.03754
+      }
+    },
+    "6e0352286a0b5cd7e52b26126bef092a2ce70ac01beacdf0a721bdafb3037d15": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-winter-1f1318e2ee354afa": 11.99374
+      }
+    },
+    "6f1c533fe127abfd9cf24ce4b3a991c7c09b0dd7a20848476e3d4087833f2b2b": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.167647,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.26228368,
+        "yosemite-lightning-d64ef72942c3c949": 0.32720935,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.25215873,
+        "yosemite-mist-trail-0fb5fc16449469bf": 0.2324138,
+        "yosemite-mist-trail-23af491412c16afb": 0.38106465,
+        "yosemite-mist-trail-5475fe8e320510b4": 0.27300104,
+        "yosemite-mist-trail-7305ad7900c6c09c": 0.34258395,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 0.23519713,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 0.2324155,
+        "yosemite-weather-ca9931635f70bbf3": 0.1714473
+      }
+    },
+    "7832bae697e8a2c372bf4d3f224ebb2dfc453a489da08ce7a0bf4fa69e7897d3": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-lightning-2ceba34b20a95dc8": 4.7149754,
+        "yosemite-lightning-d64ef72942c3c949": 1.0115737,
+        "yosemite-lightning-dd0ab96d0b11769c": 1.3521396,
+        "yosemite-weather-ca9931635f70bbf3": 6.7096276
+      }
+    },
+    "884799b21bab967746b7ff04cbdfaaab0bc3867519f8ed53234c0f8d721c77e5": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 3.3257892,
+        "zion-bottom-up-93966b4f2ee3ea00": 1.2401263,
+        "zion-flash-flood-b94ec2a130d8a244": 0.87256867,
+        "zion-hiking-423176bb0147faef": 0.67592746,
+        "zion-narrows-safety-1810fa01bed2bdc5": 1.4203718,
+        "zion-narrows-safety-628371585ed611c5": 1.1829818,
+        "zion-narrows-safety-9a3f452e801ae94b": 1.1222296,
+        "zion-narrows-safety-b566bd1de03ecfa3": 1.3989028,
+        "zion-narrows-safety-cd193acd37552ced": 1.0825202,
+        "zion-narrows-safety-e2cd5f0bba752f74": 1.147485,
+        "zion-narrows-safety-fa60feef15831bba": 5.9785333,
+        "zion-weather-1cee1a1fe9f92a19": 0.7414542
+      }
+    },
+    "89c7d2c4943941cbf7e56fd75d42b0bb1e43dd2f44607d1b655d85ceebfa9fa0": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 4.773173,
+        "zion-bottom-up-93966b4f2ee3ea00": 3.8890495,
+        "zion-flash-flood-7f81eea584c07949": 0.43538508,
+        "zion-flash-flood-b94ec2a130d8a244": 1.6618295,
+        "zion-hiking-423176bb0147faef": 0.67592746,
+        "zion-narrows-safety-1810fa01bed2bdc5": 6.82962,
+        "zion-narrows-safety-628371585ed611c5": 12.256408,
+        "zion-narrows-safety-9a3f452e801ae94b": 1.7077414,
+        "zion-narrows-safety-a0a4961d68e33613": 0.876749,
+        "zion-narrows-safety-b566bd1de03ecfa3": 1.3989028,
+        "zion-narrows-safety-cd193acd37552ced": 1.6473141,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.6576871,
+        "zion-narrows-safety-e2cd5f0bba752f74": 1.7461736,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.61247206,
+        "zion-narrows-safety-fa60feef15831bba": 1.8284719,
+        "zion-weather-1cee1a1fe9f92a19": 1.3060815
+      }
+    },
+    "8b8f06a1b3487561a5f9f64cff9d670ed02b68497ee49a130e8788f82097e06a": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-lightning-dd0ab96d0b11769c": 1.6861277,
+        "yosemite-mist-trail-23af491412c16afb": 1.6778514,
+        "yosemite-mist-trail-7305ad7900c6c09c": 2.763867,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 2.106104,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 1.7572553,
+        "yosemite-weather-ca9931635f70bbf3": 3.169798
+      }
+    },
+    "8bbf5194581f4f7bfe05a2256bd814c15e6471f0c4f12241c945bb2c6ddeefd4": {
+      "method": "bm25",
+      "scores": {
+        "zion-flash-flood-7f81eea584c07949": 1.5573492,
+        "zion-seasons-761453ecb93e1242": 8.915058
+      }
+    },
+    "8e06cf042acca729c0ab049e0efb5a88b062a4765305a26ca1285a9f0c3dcd5c": {
+      "method": "bm25",
+      "scores": {
+        "zion-flash-flood-7f81eea584c07949": 4.0691404,
+        "zion-flash-flood-b94ec2a130d8a244": 1.3058614,
+        "zion-hiking-423176bb0147faef": 2.077274,
+        "zion-seasons-761453ecb93e1242": 6.0663753,
+        "zion-weather-1cee1a1fe9f92a19": 2.4110434
+      }
+    },
+    "90c0ee2361b510de9b4172c7616eb213dd1120122bad21dcec5f0a811658dcf7": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-south-kaibab-8a80b1bfb1af6329": 0.47986,
+        "grand-canyon-south-kaibab-a50159f767c746b3": 0.5746484,
+        "grand-canyon-south-kaibab-a9cd20003c00bc7a": 0.5520407,
+        "grand-canyon-south-kaibab-d4527642743f9aae": 0.4286845,
+        "grand-canyon-summer-8b0b605a781f265e": 0.45235667,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.39351252,
+        "grand-canyon-summer-fa90a0534035fcc1": 0.43742952
+      }
+    },
+    "92ebe5c62d7b1f7871745bdeffba2f6ae2449ee3782268641b68e0d213decf71": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-mist-trail-23af491412c16afb": 1.6778514,
+        "yosemite-mist-trail-5475fe8e320510b4": 3.4382896,
+        "yosemite-mist-trail-7305ad7900c6c09c": 7.1392813,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 2.106104,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 1.7572553
+      }
+    },
+    "94752ed145c66fbcf5c412cf26ac49daf1d5a4df2782df16f90e57384c6efb5d": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-lightning-d64ef72942c3c949": 7.15185,
+        "yosemite-lightning-dd0ab96d0b11769c": 6.821308
+      }
+    },
+    "97cf147275e53bb5626cbbb65e13a628eb1ee50389fcd4adbfe240d744743332": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-winter-1f1318e2ee354afa": 0.6575129
+      }
+    },
+    "9931f0d275502304142db53bd7fc06f0444cc55314319fd53c5dff0f01fd64c9": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.40522712,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.036979865,
+        "zion-flash-flood-7f81eea584c07949": 0.09869377,
+        "zion-flash-flood-b94ec2a130d8a244": -0.017517291,
+        "zion-hiking-423176bb0147faef": 0.110127404,
+        "zion-hiking-e8f276ad35701b2d": 0.1538404,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.27355283,
+        "zion-narrows-safety-2eedc203659db073": 0.12521033,
+        "zion-narrows-safety-628371585ed611c5": 0.26871,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.24580488,
+        "zion-narrows-safety-a0a4961d68e33613": 0.14104828,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.10641898,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.2288154,
+        "zion-narrows-safety-c7b50945413cba1a": 0.49470535,
+        "zion-narrows-safety-cd193acd37552ced": 0.34052956,
+        "zion-narrows-safety-d7d4dc5c67c54e69": -0.05532623,
+        "zion-narrows-safety-fa60feef15831bba": 0.18276623,
+        "zion-weather-1cee1a1fe9f92a19": 0.057845823
+      }
+    },
+    "99845dfc9db9c758af67b0f3237a7b306322bcfe88b59c07af98839baa9dd0c1": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": -0.04092148,
+        "yosemite-lightning-2ceba34b20a95dc8": -0.068146914,
+        "yosemite-lightning-d64ef72942c3c949": 0.016717626,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.005418893,
+        "yosemite-weather-ca9931635f70bbf3": 0.03604994
+      }
+    },
+    "9a3aa5fc4d1cee91aa9f5a461a34a6eadca330c6d6cafb5668794b9e9258488c": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 4.0892997,
+        "grand-canyon-summer-c0feca0dd59194f0": 4.9645214,
+        "grand-canyon-summer-fa90a0534035fcc1": 2.5463984
+      }
+    },
+    "9a3fab3a6fe8ac18ad3fcc1e75e4e3015930a614127104625a599720c897344c": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-lightning-2ceba34b20a95dc8": 1.4664714,
+        "yosemite-lightning-d64ef72942c3c949": 7.15185,
+        "yosemite-lightning-dd0ab96d0b11769c": 7.9239893
+      }
+    },
+    "9c8c579d91fd71ad3f6ea56353d8559af59261b62bcd075a66a5625e3f17405b": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.3699925,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.1657948,
+        "yosemite-lightning-d64ef72942c3c949": 0.014445177,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.060550086,
+        "yosemite-weather-ca9931635f70bbf3": 0.10594551
+      }
+    },
+    "a1aa4fd604e983d7998f38bf600c7b71041103c4ea8459198d6af1877befdb96": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 1.6567707,
+        "zion-bottom-up-93966b4f2ee3ea00": 2.760325,
+        "zion-flash-flood-7f81eea584c07949": 1.1018922,
+        "zion-flash-flood-b94ec2a130d8a244": 0.8161616,
+        "zion-hiking-423176bb0147faef": 1.3450661,
+        "zion-hiking-e8f276ad35701b2d": 1.0496832,
+        "zion-narrows-safety-1810fa01bed2bdc5": 1.5527176,
+        "zion-narrows-safety-2eedc203659db073": 1.1238917,
+        "zion-narrows-safety-628371585ed611c5": 5.8432865,
+        "zion-narrows-safety-a0a4961d68e33613": 3.4375186,
+        "zion-narrows-safety-a8bf22cfbce280c0": 4.459712,
+        "zion-narrows-safety-c7b50945413cba1a": 1.199254,
+        "zion-narrows-safety-cd193acd37552ced": 1.0125409,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 1.3452064,
+        "zion-narrows-safety-e2cd5f0bba752f74": 3.1502638,
+        "zion-narrows-safety-fa60feef15831bba": 2.2424061,
+        "zion-weather-1cee1a1fe9f92a19": 1.4593555
+      }
+    },
+    "a889c99f620ca10fe9bee0f5dd76fe9363bcac9b25dd362d37ff1209e616eb8a": {
+      "method": "bm25",
+      "scores": {
+        "grand-canyon-south-kaibab-8a80b1bfb1af6329": 3.0315251,
+        "grand-canyon-south-kaibab-a50159f767c746b3": 6.564461,
+        "grand-canyon-south-kaibab-a9cd20003c00bc7a": 6.0630655,
+        "grand-canyon-south-kaibab-d4527642743f9aae": 2.5312905,
+        "grand-canyon-summer-8b0b605a781f265e": 5.5037785,
+        "grand-canyon-summer-c0feca0dd59194f0": 3.0987587,
+        "grand-canyon-summer-fa90a0534035fcc1": 2.5463984
+      }
+    },
+    "acee061fac62baed3b875bd150a3a6decd88d4ac0ca597b4b4b47121f6c70a3d": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-mist-trail-23af491412c16afb": 3.0764592,
+        "yosemite-mist-trail-5475fe8e320510b4": 4.765662,
+        "yosemite-mist-trail-7305ad7900c6c09c": 11.801523,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 2.106104,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 1.7572553,
+        "yosemite-weather-ca9931635f70bbf3": 2.755027
+      }
+    },
+    "ae29d21152313b6b40dc6159e2ed2b8316c9125e0a3f86736b72d59699952d4f": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.105738975,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.39770103,
+        "zion-flash-flood-7f81eea584c07949": 0.669961,
+        "zion-flash-flood-b94ec2a130d8a244": 0.7247007,
+        "zion-hiking-423176bb0147faef": 0.23397799,
+        "zion-hiking-e8f276ad35701b2d": 0.15470162,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.17484257,
+        "zion-narrows-safety-2eedc203659db073": 0.346957,
+        "zion-narrows-safety-628371585ed611c5": 0.12306677,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.22329089,
+        "zion-narrows-safety-a0a4961d68e33613": 0.108582206,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.039199173,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.15577577,
+        "zion-narrows-safety-c7b50945413cba1a": 0.1774045,
+        "zion-narrows-safety-cd193acd37552ced": 0.24065012,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.6577488,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.21629441,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.22768538,
+        "zion-narrows-safety-fa60feef15831bba": 0.15082577,
+        "zion-seasons-761453ecb93e1242": 0.28997827,
+        "zion-weather-1cee1a1fe9f92a19": 0.35510346
+      }
+    },
+    "b09c50bdb969161a3a31106be6192b8168fa8a4d46de8f74a209db688fda9d9b": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.44327578,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.2507829,
+        "zion-flash-flood-7f81eea584c07949": 0.24753168,
+        "zion-flash-flood-b94ec2a130d8a244": 0.1434324,
+        "zion-hiking-423176bb0147faef": 0.17358725,
+        "zion-hiking-e8f276ad35701b2d": 0.10281803,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.40897834,
+        "zion-narrows-safety-2eedc203659db073": 0.26531827,
+        "zion-narrows-safety-628371585ed611c5": 0.46131882,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.56188834,
+        "zion-narrows-safety-a0a4961d68e33613": 0.45885897,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.36729014,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.40039188,
+        "zion-narrows-safety-c7b50945413cba1a": 0.576499,
+        "zion-narrows-safety-cd193acd37552ced": 0.6296475,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.18105093,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.5266892,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.60694945,
+        "zion-narrows-safety-fa60feef15831bba": 0.37325484,
+        "zion-seasons-761453ecb93e1242": 0.3472793,
+        "zion-weather-1cee1a1fe9f92a19": 0.25899646
+      }
+    },
+    "bcceba7232d1c0d272379e4d4d1bd725b2f18cf3c3a2155384e743346c52295c": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 0.5761106,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.34722042,
+        "grand-canyon-summer-fa90a0534035fcc1": 0.45087826,
+        "grand-canyon-winter-1f1318e2ee354afa": 0.59473574
+      }
+    },
+    "be8deb331b27caed45cea6a2a0bd1c57efe470af55a154be6b82f247647cc56d": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.21452394,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.33623704,
+        "yosemite-lightning-d64ef72942c3c949": 0.46049166,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.41194522,
+        "yosemite-weather-ca9931635f70bbf3": 0.19396177
+      }
+    },
+    "bf95784ed90b7303a42aeeaf93a574f613063fc2fc180b3e97a40efffe8e0850": {
+      "method": "semantic",
+      "scores": {
+        "zion-flash-flood-7f81eea584c07949": 0.3274927,
+        "zion-flash-flood-b94ec2a130d8a244": 0.19207665,
+        "zion-hiking-423176bb0147faef": 0.14760773,
+        "zion-hiking-e8f276ad35701b2d": 0.14384785,
+        "zion-seasons-761453ecb93e1242": 0.48858127,
+        "zion-weather-1cee1a1fe9f92a19": 0.28404745
+      }
+    },
+    "c1fa2b0a6edcfa247846be30d4117474c1c2326ccf8ba2ca824bf6fe57af3c89": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-mist-trail-23af491412c16afb": 3.0764592,
+        "yosemite-mist-trail-5475fe8e320510b4": 4.765662,
+        "yosemite-mist-trail-7305ad7900c6c09c": 11.801523,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 2.106104,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 1.7572553,
+        "yosemite-weather-ca9931635f70bbf3": 2.755027
+      }
+    },
+    "c2c6b57fdec116f7e0ce49a94225ba626767d8bc74ee553014c8862e542fcf14": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-lightning-d64ef72942c3c949": 7.561101,
+        "yosemite-lightning-dd0ab96d0b11769c": 4.151382
+      }
+    },
+    "c5d1b098c215e292e3fa49aa48692b6bd6446f85eadd41635e5bd2efde03d434": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-south-kaibab-8a80b1bfb1af6329": 0.5136557,
+        "grand-canyon-south-kaibab-a50159f767c746b3": 0.20486608,
+        "grand-canyon-south-kaibab-a9cd20003c00bc7a": 0.21342257,
+        "grand-canyon-south-kaibab-d4527642743f9aae": 0.1840559,
+        "grand-canyon-summer-8b0b605a781f265e": 0.37489447,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.58510995,
+        "grand-canyon-summer-fa90a0534035fcc1": 0.5130401
+      }
+    },
+    "c65ba5c649cc5f716b69bac0cdfcc4bf9e656c8f511e6a1702f320071067051e": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.048733555,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.46282643,
+        "yosemite-lightning-d64ef72942c3c949": 0.55123746,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.51417255,
+        "yosemite-mist-trail-0fb5fc16449469bf": 0.05340333,
+        "yosemite-mist-trail-23af491412c16afb": 0.15188724,
+        "yosemite-mist-trail-5475fe8e320510b4": 0.10229039,
+        "yosemite-mist-trail-7305ad7900c6c09c": 0.13067704,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 0.02813497,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 0.020082902,
+        "yosemite-weather-ca9931635f70bbf3": 0.101342574
+      }
+    },
+    "c86f30ce995f299e1a8fbb91744036f38c1b844bd18fae5199126cea480a5587": {
+      "method": "semantic",
+      "scores": {
+        "yosemite-hiking-899bbb1ca1de34d8": 0.22723041,
+        "yosemite-lightning-2ceba34b20a95dc8": 0.17714375,
+        "yosemite-lightning-d64ef72942c3c949": 0.26310298,
+        "yosemite-lightning-dd0ab96d0b11769c": 0.13404061,
+        "yosemite-mist-trail-0fb5fc16449469bf": 0.3306187,
+        "yosemite-mist-trail-23af491412c16afb": 0.44081104,
+        "yosemite-mist-trail-5475fe8e320510b4": 0.5140407,
+        "yosemite-mist-trail-7305ad7900c6c09c": 0.4535299,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 0.37916243,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 0.33678967,
+        "yosemite-weather-ca9931635f70bbf3": 0.20161696
+      }
+    },
+    "ca0b65157daa13b1a17cdd97e62a5efc4cfd3282bd104a8f82eb12825ed91fe3": {
+      "method": "bm25",
+      "scores": {
+        "zion-narrows-safety-1810fa01bed2bdc5": 1.5527176,
+        "zion-narrows-safety-a8bf22cfbce280c0": 2.1445622
+      }
+    },
+    "cfe21e7adfade3c00f852ce065ebb5e905991b4f2fdba402ba680403c8d2c178": {
+      "method": "bm25",
+      "scores": {
+        "yosemite-mist-trail-23af491412c16afb": 3.0764592,
+        "yosemite-mist-trail-5475fe8e320510b4": 4.765662,
+        "yosemite-mist-trail-7305ad7900c6c09c": 11.801523,
+        "yosemite-mist-trail-99afcab6f4c6dab1": 2.106104,
+        "yosemite-mist-trail-cdd3276a6ceb45f2": 1.7572553,
+        "yosemite-weather-ca9931635f70bbf3": 2.755027
+      }
+    },
+    "d2a6c4e5e71f53d41ea4d86dcc5fbdf5169acbf29cd85389243a9f04b73aaf3e": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 8.34247,
+        "zion-bottom-up-93966b4f2ee3ea00": 1.6762271,
+        "zion-flash-flood-b94ec2a130d8a244": 2.4594874,
+        "zion-narrows-safety-628371585ed611c5": 2.2077224,
+        "zion-narrows-safety-b566bd1de03ecfa3": 8.179415,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 2.1907797,
+        "zion-narrows-safety-fa60feef15831bba": 2.916745
+      }
+    },
+    "d37d4f0259a810a052a7cfc5c939bc1880fb8f3e65bbf14a9ff138aefc52988b": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.13435423,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.1607286,
+        "zion-flash-flood-7f81eea584c07949": 0.08972303,
+        "zion-flash-flood-b94ec2a130d8a244": 0.08535597,
+        "zion-hiking-423176bb0147faef": 0.03232962,
+        "zion-hiking-e8f276ad35701b2d": 0.05809696,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.17189434,
+        "zion-narrows-safety-2eedc203659db073": 0.46710166,
+        "zion-narrows-safety-628371585ed611c5": 0.14565894,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.011182989,
+        "zion-narrows-safety-a0a4961d68e33613": 0.08944334,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.059772737,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.16777116,
+        "zion-narrows-safety-c7b50945413cba1a": 0.23786804,
+        "zion-narrows-safety-cd193acd37552ced": 0.11669668,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.11848883,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.06496008,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.03261292,
+        "zion-narrows-safety-fa60feef15831bba": 0.17361832,
+        "zion-seasons-761453ecb93e1242": 0.012461973,
+        "zion-weather-1cee1a1fe9f92a19": 0.00042370893
+      }
+    },
+    "d5abecacb4355f78f74cc869aba03dca33e55f1973a29c1545dc6eb4c21d2f54": {
+      "method": "semantic",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 0.319404,
+        "zion-bottom-up-93966b4f2ee3ea00": 0.30896112,
+        "zion-flash-flood-7f81eea584c07949": 0.28179297,
+        "zion-flash-flood-b94ec2a130d8a244": 0.18091334,
+        "zion-hiking-423176bb0147faef": 0.1884533,
+        "zion-hiking-e8f276ad35701b2d": 0.17374538,
+        "zion-narrows-safety-1810fa01bed2bdc5": 0.61890453,
+        "zion-narrows-safety-2eedc203659db073": 0.34083796,
+        "zion-narrows-safety-628371585ed611c5": 0.5344764,
+        "zion-narrows-safety-9a3f452e801ae94b": 0.41253012,
+        "zion-narrows-safety-a0a4961d68e33613": 0.4377268,
+        "zion-narrows-safety-a8bf22cfbce280c0": 0.3131267,
+        "zion-narrows-safety-b566bd1de03ecfa3": 0.42583776,
+        "zion-narrows-safety-c7b50945413cba1a": 0.5880066,
+        "zion-narrows-safety-cd193acd37552ced": 0.60436785,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.23337851,
+        "zion-narrows-safety-e2cd5f0bba752f74": 0.4572271,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 0.44411218,
+        "zion-narrows-safety-fa60feef15831bba": 0.42241734,
+        "zion-seasons-761453ecb93e1242": 0.2310739,
+        "zion-weather-1cee1a1fe9f92a19": 0.16687304
+      }
+    },
+    "dae8a11d4f1cc8fce89e18c1e14dec36c5f3499b541ecc3b3ed5514fffa96f36": {
+      "method": "semantic",
+      "scores": {
+        "zion-flash-flood-7f81eea584c07949": 0.44178867,
+        "zion-flash-flood-b94ec2a130d8a244": 0.36495563,
+        "zion-hiking-423176bb0147faef": 0.3841917,
+        "zion-hiking-e8f276ad35701b2d": 0.39788532,
+        "zion-seasons-761453ecb93e1242": 0.74098,
+        "zion-weather-1cee1a1fe9f92a19": 0.4701286
+      }
+    },
+    "db63f839c67ec883ce4a8dcdd5505a60e4889bec618bb3e9e5018843c9e6a635": {
+      "method": "bm25",
+      "scores": {
+        "zion-flash-flood-7f81eea584c07949": 12.0929785,
+        "zion-flash-flood-b94ec2a130d8a244": 10.060144,
+        "zion-hiking-423176bb0147faef": 2.857646,
+        "zion-hiking-e8f276ad35701b2d": 1.0496832,
+        "zion-seasons-761453ecb93e1242": 2.0184002,
+        "zion-weather-1cee1a1fe9f92a19": 10.122849
+      }
+    },
+    "e01383d73fa52afbde46255413be139f15da004166df0b0dce0f9fc295959214": {
+      "method": "bm25",
+      "scores": {}
+    },
+    "e14106573e33c00499f005f5197a48d8a7f50205a9ab2dea891d510457b54fcc": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 1.5346948,
+        "zion-flash-flood-7f81eea584c07949": 1.6885448,
+        "zion-flash-flood-b94ec2a130d8a244": 1.9257463,
+        "zion-narrows-safety-1810fa01bed2bdc5": 1.8174373,
+        "zion-narrows-safety-628371585ed611c5": 2.8123224,
+        "zion-narrows-safety-9a3f452e801ae94b": 7.104994,
+        "zion-narrows-safety-c7b50945413cba1a": 5.510029,
+        "zion-narrows-safety-cd193acd37552ced": 2.4294274
+      }
+    },
+    "e7d4bf795afbc230f53d1b8882b58e08fac8322e7be765cd91bc28b95cb9d669": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 1.9592755,
+        "zion-bottom-up-93966b4f2ee3ea00": 1.2401263,
+        "zion-flash-flood-b94ec2a130d8a244": 3.332056,
+        "zion-hiking-423176bb0147faef": 0.67592746,
+        "zion-narrows-safety-1810fa01bed2bdc5": 1.4203718,
+        "zion-narrows-safety-628371585ed611c5": 3.3907042,
+        "zion-narrows-safety-9a3f452e801ae94b": 1.1222296,
+        "zion-narrows-safety-b566bd1de03ecfa3": 5.9462566,
+        "zion-narrows-safety-cd193acd37552ced": 1.0825202,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 2.029962,
+        "zion-narrows-safety-e2cd5f0bba752f74": 1.147485,
+        "zion-narrows-safety-fa60feef15831bba": 1.2015668,
+        "zion-weather-1cee1a1fe9f92a19": 2.1251822
+      }
+    },
+    "eee34e4e976d28bdac04b39c9e9b5e2e850a53cf16ca29b79648263724b6ae09": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 8.244968,
+        "zion-bottom-up-93966b4f2ee3ea00": 3.8890495,
+        "zion-flash-flood-7f81eea584c07949": 1.9927343,
+        "zion-flash-flood-b94ec2a130d8a244": 1.6618295,
+        "zion-hiking-423176bb0147faef": 0.67592746,
+        "zion-narrows-safety-1810fa01bed2bdc5": 3.5652184,
+        "zion-narrows-safety-628371585ed611c5": 7.4841433,
+        "zion-narrows-safety-9a3f452e801ae94b": 8.01289,
+        "zion-narrows-safety-a0a4961d68e33613": 3.24963,
+        "zion-narrows-safety-a8bf22cfbce280c0": 4.8253336,
+        "zion-narrows-safety-b566bd1de03ecfa3": 1.3989028,
+        "zion-narrows-safety-c7b50945413cba1a": 2.915685,
+        "zion-narrows-safety-cd193acd37552ced": 6.267169,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 0.6576871,
+        "zion-narrows-safety-e2cd5f0bba752f74": 1.7461736,
+        "zion-narrows-safety-efc5f1d6aa3e2c72": 6.164364,
+        "zion-narrows-safety-fa60feef15831bba": 1.8284719,
+        "zion-seasons-761453ecb93e1242": 5.6103745,
+        "zion-weather-1cee1a1fe9f92a19": 1.3060815
+      }
+    },
+    "f597774413485e2a4f28e5a7054bab00394676b459fa12386f70ef8312f37b40": {
+      "method": "semantic",
+      "scores": {
+        "grand-canyon-summer-8b0b605a781f265e": 0.56943685,
+        "grand-canyon-summer-c0feca0dd59194f0": 0.71813387,
+        "grand-canyon-summer-fa90a0534035fcc1": 0.7118999
+      }
+    },
+    "ff451f80c1fe41639ee14229fb90c06aca3709486c118710501d1f72600e22d9": {
+      "method": "bm25",
+      "scores": {
+        "zion-bottom-up-208786837de3d51b": 3.6160462,
+        "zion-flash-flood-b94ec2a130d8a244": 2.4594874,
+        "zion-narrows-safety-b566bd1de03ecfa3": 4.5473537,
+        "zion-narrows-safety-d7d4dc5c67c54e69": 2.029962,
+        "zion-seasons-761453ecb93e1242": 1.5488994
+      }
+    }
+  },
+  "schema_version": 1
+}

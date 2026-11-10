@@ -61,13 +61,13 @@ weather, preparation and NPS notices. The NWS decision described above belongs t
   scope, expiry and mode, not preference values. Five typed fields are allowed: airport, weather units,
   currency, preparation interest and departure window. No accounts or cross-device linking are implemented. Anyone
   using the same browser profile can manage its preferences. New chat does not clear them.
-- **Park knowledge** ships with the application. The offline builder validates the records before writing
-  and replacing the SQLite index. Visitors can inspect source dates, sections and vectors directly.
-  Optional hosted retrieval publishes public chunk vectors and filter metadata to a dedicated Qdrant collection.
-  A versioned readiness marker ties search to the local artifact. Both BM25 and semantic search share park,
-  destination and season filters; RRF merges their ranks, and SQLite remains the source of answer text and links.
-  Hosted queries send the search text to Qdrant, without chat history or preferences. Provider failures retain
-  a visible BM25 fallback. [Inspect the collection](/knowledge/sources) ·
+- **Park knowledge** lives in a dedicated Qdrant collection: approved text, provenance, a native BM25 text index
+  and hosted MiniLM dense vectors. Text-only preparation preserves reviewed section and season boundaries.
+  Publication generates each vector once per generation and verifies text, vectors and the readiness marker.
+  The app bundles only destination metadata and expected record hashes, then reads actual passages from Qdrant.
+  Both searches share park, destination, season and version filters; Nimbus fuses ranks and bounds the context.
+  Hosted requests send search text without attaching history or preferences. A semantic-only failure can use
+  successful Qdrant BM25; a full outage makes guidance unavailable. [Inspect the collection](/knowledge/sources) ·
   [Inspect ranking and traces](technical-details.md#reproduce-a-park-retrieval).
 - **Open-Meteo data** uses separate lifetimes in Vercel's Runtime Cache. A place lookup can be reused for 30 days,
   current weather for 10 minutes, and forecasts and air quality for 30 minutes. A cache failure falls through to an
@@ -123,8 +123,8 @@ This cache is an optimization, not long-term history or a memory service.
 ## What happens when a dependency fails
 
 The components have separate deadlines and outcomes. If hotels time out, a confirmed plan can still show
-flights, weather and notices. An empty inventory is a different result from a provider outage. If a local
-embedding query is unavailable, park retrieval can still use keywords. If an optional travel service fails
+flights, weather and notices. An empty inventory is a different result from a provider outage. If hosted dense
+search fails, successful Qdrant BM25 can still answer; a full Qdrant outage cannot. If an optional travel service fails
 its tool-discovery check, Health shows that result separately from core weather and park-index readiness.
 [Read the health report](/health).
 

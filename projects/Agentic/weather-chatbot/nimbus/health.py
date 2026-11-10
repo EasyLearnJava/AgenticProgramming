@@ -1,7 +1,7 @@
 """
 nimbus/health.py: GET/HEAD /api/health checks weather lanes, the enabled park index and travel providers. Checks run
 concurrently within eight seconds. Open-Meteo geocodes Paris, the Nimbus MCP server lists weather tools, and the
-Apify checks validate configured access. Index readiness makes no network call and loads no ML model. Optional
+Apify checks validate configured access. Index readiness checks Qdrant publication without inference. Optional
 flight and hotel providers list search tools and report their status separately. A failed weather or index check
 returns HTTP 503. Each weather lane retains its own status.
 Reports are shared for one minute per address on this app instance, with a successful response cached at the CDN.
@@ -183,8 +183,8 @@ def make_checks(request: Request, mcp_url: str | None) -> dict[CheckName, Check]
                 raise apify.error or UpstreamUnavailableError()
 
     async def park_index() -> None:
-        """Check the already loaded public index without inference, network calls, or writable connections."""
-        if not isinstance(state.park_knowledge, ParkKnowledge) or not state.park_knowledge.available:
+        """Verify the Qdrant publication without generating embeddings or changing stored records."""
+        if not isinstance(state.park_knowledge, ParkKnowledge) or await state.park_knowledge.health() != "ready":
             raise ContractError
 
     checks: dict[CheckName, Check] = {

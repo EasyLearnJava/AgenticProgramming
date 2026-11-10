@@ -14,8 +14,8 @@ from nimbus.app import create_app
 from nimbus.cache import WeatherCache
 from nimbus.config import Settings
 from nimbus.nws_alerts import NwsAlertsService
-from nimbus.parks import ParkKnowledge
 from tests.fakes import FakeCacheStore, FakeModel, OpenMeteoRecordings
+from tests.park_fakes import fixture_knowledge
 
 
 @pytest.fixture(autouse=True)
@@ -25,12 +25,11 @@ def no_settings_from_the_shell(monkeypatch: pytest.MonkeyPatch) -> None:
         alias = field.validation_alias
         for variable in alias.choices if isinstance(alias, AliasChoices) else [name]:
             monkeypatch.delenv(str(variable).upper(), raising=False)
-    # Application unit tests use the committed corpus but never load native model weights in background threads.
-    # Encoder behavior is covered separately with test doubles; the CLI evaluates real CPU embeddings.
+    # Recorded public corpus and deterministic provider doubles keep application tests entirely offline.
     monkeypatch.setattr(
         "nimbus.app.make_park_knowledge",
         lambda settings, tracer=None: (
-            ParkKnowledge(settings.parks_index_path, tracer=tracer) if settings.parks_enabled else None
+            fixture_knowledge(settings.parks_index_path, tracer=tracer) if settings.parks_enabled else None
         ),
     )
 

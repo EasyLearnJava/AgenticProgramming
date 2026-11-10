@@ -15,14 +15,15 @@ from nimbus.parks import (
     HOSTED_STANDALONE_SEMANTIC_SCORE,
     MAX_CONTEXT_CHARS,
     MAX_PASSAGES,
-    ParkKnowledge,
     make_park_knowledge,
 )
-from tools.eval_parks import ParkCase, evidence_rank, grade_retrieval, read_cases
+from tools.eval_parks import ParkCase, evidence_rank, grade_retrieval, provider_failure, read_cases
 
 
 def semantic_only(result: dict[str, Any]) -> dict[str, Any]:
     """Evaluate dense ranks at the candidate cutoff, independently of the hybrid's keyword/admission gate."""
+    if result.get("semantic_status") != "ready":
+        return {**result, "passages": [], "status": "unavailable"}
     candidates = [
         item for item in result.get("diagnostics", {}).get("candidates", []) if item["semantic_rank"] is not None
     ]
@@ -40,10 +41,12 @@ def semantic_only(result: dict[str, Any]) -> dict[str, Any]:
 
 async def compare(settings: Settings, cases: list[ParkCase]) -> dict[str, Any]:
     """Record grades and ranks only; a provider failure is separate from a legitimate retrieval miss."""
-    hosted = make_park_knowledge(settings)
+    hosted = make_park_knowledge(settings.model_copy(update={"parks_retrieval_mode": "hybrid"}))
     if hosted is None or hosted.semantic_provider != "qdrant":
         raise ValueError("Select hosted Qdrant retrieval for this comparison")
-    lexical = ParkKnowledge(settings.parks_index_path)
+    lexical = make_park_knowledge(settings.model_copy(update={"parks_retrieval_mode": "lexical"}))
+    if lexical is None:
+        raise ValueError("Park knowledge is disabled")
     rows = []
     for case in cases:
         if case.resolution != "resolved":
@@ -56,6 +59,7 @@ async def compare(settings: Settings, cases: list[ParkCase]) -> dict[str, Any]:
             {
                 "id": case.id,
                 "semantic_status": hybrid["semantic_status"],
+                "provider_failure": provider_failure(baseline) or provider_failure(hybrid),
                 "grades_evidence": case.expected_status == "found",
                 "profiles": {
                     name: {
@@ -90,7 +94,7 @@ async def compare(settings: Settings, cases: list[ParkCase]) -> dict[str, Any]:
             "keyword_weight": 1.0,
             "semantic_weight": SEMANTIC_WEIGHT,
         },
-        "provider_failures": sum(row["semantic_status"] != "ready" for row in rows),
+        "provider_failures": sum(row["provider_failure"] is not None for row in rows),
         "quality_regressions": [
             metric
             for metric in ("passed", "recall_at_4", "top_1", "mrr_at_4")
@@ -107,7 +111,7 @@ def main() -> int:
     parser.add_argument("--cases", type=Path, default=Path("evals/parks.json"))
     parser.add_argument("--output", type=Path, default=Path("evals/park-hybrid-last-run.json"))
     args = parser.parse_args()
-    settings = Settings(parks_semantic_provider="qdrant", parks_retrieval_mode="hybrid")
+    settings = Settings(parks_retrieval_mode="hybrid")
     try:
         report = asyncio.run(compare(settings, read_cases(args.cases)))
     except Exception as error:

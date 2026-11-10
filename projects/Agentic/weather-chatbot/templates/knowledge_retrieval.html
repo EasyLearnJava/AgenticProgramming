@@ -58,7 +58,7 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
       question is used. Otherwise, all seasons remain eligible. Year-round guidance is always included.
     </p>
   </form>
-  <p class="retrieval-hint">Uses the same retriever as chat. Hosted semantic search sends this question to Qdrant.
+  <p class="retrieval-hint">Uses the same retriever as chat. Keyword and semantic searches send this question to Qdrant.
     No Gemini or weather call is made.</p>
 </section>
 {% if result and result.diagnostics is defined %}
@@ -68,7 +68,7 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
   'needs_keyword_support': 'Needs keyword support or a higher semantic score',
   'result_limit': 'Outside top 4', 'context_limit': 'Context budget exceeded'
 } %}
-{% set provider_labels = {'local': 'Local CPU MiniLM', 'qdrant': 'Qdrant Cloud MiniLM', 'none': 'Not used'} %}
+{% set provider_labels = {'qdrant': 'Qdrant Cloud MiniLM', 'none': 'Not used'} %}
 {% set season_labels = {
   'date': 'visit date', 'explicit': 'selected season', 'query': 'question', 'none': 'no season'
 } %}
@@ -76,13 +76,8 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
   'disabled': 'Keyword retrieval is configured for this server. No semantic search was requested.',
   'not_needed': 'No passages match these destination and season filters. Semantic search was not needed.',
   'timeout': 'Semantic search exceeded its time limit. This run uses keyword results.',
-  'busy': 'The local semantic worker is busy. This run uses keyword results.',
-  'unconfigured': 'Hosted semantic search is not configured on this server. Keyword results remain available.',
-  'index_mismatch': 'The hosted park index is not ready for this document version. Keyword results remain available.',
   'invalid_response': 'Semantic search returned an invalid result. This run uses keyword results.',
-  'missing_dependencies': 'Local semantic inference is not installed on this server. Keyword results remain available.',
-  'missing_weights': 'The local embedding model is not available on this server. Keyword results remain available.',
-  'incompatible_model': 'The query and document embedding models do not match. Keyword results remain available.'
+  'unavailable': 'Semantic search is unavailable. This run uses verified Qdrant keyword results.'
 } %}
 <section class="knowledge-panel retrieval-results" aria-labelledby="retrieval-results-title"
   data-retrieval-mode="{{ result.retrieval_mode }}">
@@ -105,18 +100,19 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
   <p class="retrieval-hint">Season: {{ diagnostics.season|title if diagnostics.season else 'All seasons' }}
     ({{ season_labels.get(diagnostics.season_source, 'no season') }}) ·
     Context: {{ diagnostics.context_chars }} / {{ diagnostics.max_context_chars }} characters</p>
-  <p class="retrieval-hint">Semantic provider: {{ provider_labels.get(result.semantic_provider, 'Not used') }}
+  <p class="retrieval-hint">Keyword provider: Qdrant BM25 ·
+    Semantic provider: {{ provider_labels.get(result.semantic_provider, 'Not used') }}
     {% if result.semantic_model %} · Model: {{ result.semantic_model }}{% endif %}</p>
   {% if result.semantic_provider == 'qdrant' %}
-  <p class="retrieval-hint">Hosted similarity uses Qdrant's vectors.
-    The Chunks &amp; vectors page shows the separately built local index.</p>
+  <p class="retrieval-hint">Both searches use this Qdrant park collection.
+    The Chunks &amp; vectors page shows its stored text and the same hosted semantic vectors.</p>
   {% endif %}
   <p class="retrieval-hint"><strong>Keyword terms used:</strong>
     {% if diagnostics.keyword_terms %}{{ diagnostics.keyword_terms|join(', ') }}{% else %}None{% endif %}.
-    Common words and destination names are removed; fixed vocabulary rules add related terms.</p>
+    Nimbus prepares these terms before Qdrant applies its BM25 tokenizer and scoring.</p>
   <details class="retrieval-explanation">
     <summary>How to read the scores</summary>
-    <p><strong>Keyword score</strong> is the raw BM25-style score, based on matching terms, rarity and passage length.
+    <p><strong>Keyword score</strong> is Qdrant's BM25 score, based on matching terms, rarity and passage length.
       Each retrieval method ranks its qualifying passages independently.</p>
     <p><strong>Semantic score</strong> is cosine similarity from −1 to 1.
       “Not returned” means the hosted search did not return that candidate; “Not available” means no score is
@@ -194,7 +190,7 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
       {{ item.chunk.source_updated_at or 'Not provided' }} · Retrieved: {{ item.chunk.fetched_at[:10] }}</p>
     <div class="knowledge-card-links">
       <a href="{{ chunk_url(item.chunk.id, knowledge_filters) }}">
-        {{ 'Inspect source chunk →' if result.semantic_provider == 'qdrant' else 'Inspect chunk & vector →' }}
+        Inspect chunk &amp; vector →
       </a>
       <a href="{{ item.chunk.source_url }}" target="_blank" rel="noopener noreferrer">Official source ↗
         <span class="visually-hidden"> (opens in a new tab)</span></a>
@@ -205,7 +201,11 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
 {% endif %}
 {% elif result %}
 <section class="knowledge-empty"><h2>Retrieval unavailable</h2>
-  <p>The knowledge service could not retrieve this collection. Check the index configuration.</p></section>
+  <p>The Qdrant park collection could not complete this retrieval. No answer context was selected.</p>
+  {% if result.keyword_status is defined and result.keyword_status not in ('ready', 'not_needed') %}
+  <p>Keyword search did not complete, so this run is not reported as successful hybrid retrieval.</p>
+  {% endif %}
+</section>
 {% else %}
 <section class="knowledge-empty"><h2>No question run yet</h2>
   <p>Enter a preparation question and choose a park or trail to see its scores and retrieved passages.</p></section>

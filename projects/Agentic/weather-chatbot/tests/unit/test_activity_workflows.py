@@ -17,6 +17,7 @@ from nimbus.config import Settings
 from nimbus.observability import TIMELINE_EVENTS, TIMELINE_FIELDS, to_activity_line, to_activity_requests
 from nimbus.parks import ParkKnowledge
 from nimbus.travel.conditions import Section, checked, preparation
+from tests.park_fakes import fixture_knowledge
 
 
 def event(name: str, **fields: object) -> Row:
@@ -178,7 +179,7 @@ def test_undecided_park_clarification_does_not_claim_a_model_run(client: TestCli
 def test_preparation_logs_each_scoped_retrieval_for_activity(
     settings: Settings, topic: str, expected_statuses: list[str]
 ) -> None:
-    knowledge = ParkKnowledge(settings.parks_index_path)
+    knowledge = fixture_knowledge(settings.parks_index_path)
     with capture_logs() as logs:
         guidance = asyncio.run(preparation(knowledge, "zion", "zion", topic, date(2026, 11, 6)))
     assert guidance.data
@@ -199,7 +200,7 @@ def test_preparation_logs_each_scoped_retrieval_for_activity(
 
 @pytest.mark.parametrize("missing", [True, False])
 def test_unavailable_preparation_is_recorded_and_visible(tmp_path: Path, missing: bool) -> None:
-    knowledge = None if missing else ParkKnowledge(tmp_path / "missing.sqlite")
+    knowledge = None if missing else ParkKnowledge(tmp_path / "missing.json")
     with capture_logs() as logs:
         guidance = asyncio.run(preparation(knowledge, "zion", "zion", "private-topic", date(2026, 11, 6)))
     assert guidance.failed

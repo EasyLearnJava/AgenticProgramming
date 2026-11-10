@@ -1,4 +1,4 @@
-"""Adapters from Nimbus's reviewed golden, travel and lexical park evals to public harness attempt records."""
+"""Adapters from Nimbus's reviewed golden, travel and hosted park evals to public harness attempt records."""
 
 import asyncio
 import html
@@ -12,9 +12,10 @@ from zoneinfo import ZoneInfo
 
 import httpx2
 
+from nimbus.config import Settings
 from nimbus.errors import ANSWER_TOO_SLOW, MODEL_BUSY, NOT_SET_UP
 from nimbus.goldens import Golden, read_goldens
-from nimbus.parks import ParkKnowledge
+from nimbus.parks import make_park_knowledge
 from nimbus.travel.models import TravelReport
 from tools import eval_parks, eval_travel, evals
 
@@ -196,8 +197,10 @@ async def live_cases(
 
 
 async def park_cases() -> list[dict[str, Any]]:
-    """Run the existing graded retrieval cases once on the bundled SQLite index with local keyword retrieval."""
-    knowledge = ParkKnowledge(eval_parks.INDEX_PATH)
+    """Explicitly run configured Qdrant retrieval; failed provider work never counts as a correct abstention."""
+    knowledge = make_park_knowledge(Settings(parks_enabled=True, parks_retrieval_mode="hybrid"))
+    if knowledge is None:
+        raise ValueError("Park knowledge is disabled")
     rows = []
     cases = eval_parks.read_cases()  # The existing reader rejects duplicate IDs.
     if not cases or not all(_CASE_ID.fullmatch(case.id) for case in cases):
@@ -210,7 +213,16 @@ async def park_cases() -> list[dict[str, Any]]:
                 "suite": "parks",
                 "case_id": case.id,
                 "attempt": 1,
-                "outcome": "pass" if result.passed else "retrieval_mismatch",
+                "outcome": (
+                    "provider_timeout"
+                    if result.provider_failure == "timeout"
+                    else "provider_unavailable"
+                    if result.provider_failure
+                    else "pass"
+                    if result.passed
+                    else "retrieval_mismatch"
+                ),
+                "checks": [f"qdrant_{result.provider_failure}"] if result.provider_failure else [],
                 "duration_ms": round((time.perf_counter() - start) * 1000),
             }
         )

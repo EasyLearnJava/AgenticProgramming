@@ -20,7 +20,7 @@ working, and each with a chapter written while it's built. The first version's p
 | Tools | LangChain tools with Pydantic inputs; `httpx2` for the calls out, `tenacity` for retries (9.1.4: google-genai wants it below 9.2) |
 | MCP | The official `mcp` SDK (FastMCP) for our server; `langchain-mcp-adapters` for the MCP lanes |
 | Settings | pydantic-settings: one module reads the environment |
-| State between requests | Chat stays in the browser (step 6); Open-Meteo uses Vercel Runtime Cache (step 7); public park guidance uses bundled read-only SQLite (step 16); explicitly approved travel defaults use optional Mem0 storage; optional Qdrant stores private weather answers with at most 120 seconds of reuse |
+| State between requests | Chat stays in the browser (step 6); Open-Meteo uses Vercel Runtime Cache (step 7); public park guidance uses a dedicated Qdrant collection (step 16); explicitly approved travel defaults use optional Mem0 storage; optional Qdrant stores private weather answers with at most 120 seconds of reuse |
 | Logs | structlog, JSON lines with a request id; Axiom (from step 12), read back onto the Observability pages (step 14) |
 | Errors, traces | Sentry; LangSmith for the model's runs (from step 3), then the agent's (from step 4) |
 | Tests | pytest; Playwright for Python with axe; mutation checks |
@@ -28,8 +28,8 @@ working, and each with a chapter written while it's built. The first version's p
 | CI, hosting | GitHub Actions with uv; Vercel's Python runtime |
 
 Vercel runs many copies of the app, which share no process memory. The chat transcript lives in the visitor's browser;
-agent requests send bounded conversation to Gemini. Weather data uses Vercel Runtime Cache. Step 16 adds a read-only
-SQLite artifact of public park guidance, built before deployment and containing no visitor data. Optional Mem0
+agent requests send bounded conversation to Gemini. Weather data uses Vercel Runtime Cache. Step 16 uses Qdrant
+for public park text, native BM25 and dense search; only approved metadata/hashes ship with the app. Optional Mem0
 storage now holds only five typed travel defaults after explicit consent. An opaque signed browser cookie identifies
 that preference scope; it is not an account or a LangGraph checkpoint. The app does not persist the conversation as
 preference memory.
@@ -42,11 +42,11 @@ Mem0 consent. Request guards and original weather-data expiry constrain every hi
 failures or uncertainty retain the existing agent, park and travel behavior.
 [Cache architecture and validation](docs/technical-details.md#follow-a-weather-cache-hit).
 
-Optional hosted park retrieval uses a separate Qdrant collection of public guidance vectors. The shared search
-filters by park, destination and season, combines BM25 and MiniLM ranks, and resolves final text and citations from
-SQLite. The Playground exposes each ranking contribution; Activity links private BM25, semantic and fusion traces.
-Provider failures retain BM25. Setup verifies the published index version before enabling semantic queries, without
-adding Torch to Vercel.
+Park retrieval uses one dedicated Qdrant collection for public text, source metadata, native BM25 and hosted
+MiniLM vectors. The shared search filters both branches by park, destination and season, then combines ranks in
+Nimbus. The Playground explains scores; Activity links private collection, BM25, semantic and fusion traces.
+A dense-only failure retains Qdrant BM25; a full Qdrant outage makes guidance explicitly unavailable. Preparation
+creates no embeddings; explicit publication generates hosted vectors once per generation and reuses verified points.
 [Retrieval setup and comparison](docs/technical-details.md#publish-and-validate-hosted-park-search).
 
 ## 2. The roadmap
@@ -68,7 +68,7 @@ adding Torch to Vercel.
 | 13 | Evals and release: golden questions as LangSmith datasets, a load test, rollback; Technical details; the backup deleted | |
 | 14 | Observability: Activity, Performance, Evaluations and Health, read back from Axiom with a token that can only query; the menu in groups | The query token (done) |
 | 15 | Activity by request: each a row that opens onto its timeline, shown only by its ref; every tool, lane, ending, reason and day on the other pages a link to its requests | |
-| 16 | Park and trail preparation: official source ingestion, a versioned index, scoped BM25/optional hosted hybrid retrieval, citations and retrieval comparisons | Publish the dedicated public park collection and configure hosted settings before verifying the exact preview build; local CPU MiniLM remains optional |
+| 16 | Park and trail preparation: official source ingestion, a versioned index, scoped Qdrant BM25 and semantic retrieval, citations and retrieval comparisons | Publish the dedicated public park collection and configure hosted settings before verifying the exact preview build |
 | 17 | Official NPS notices: bounded API checks, a separate page, shared chat tool and source attribution | Configure the NPS key for the intended Vercel environments; verify notices and quota before releasing |
 | 18 | Read-only Kiwi flights, trivago hotels and a shared national park trip planner | Local provider checks complete. Run repeated chat evaluations and verify the target preview before release |
 | 19 | Deterministic replay, scored live trials, feedback and reviewed regression cases | Validate the operator-configured preview and review deployment evidence before promotion |

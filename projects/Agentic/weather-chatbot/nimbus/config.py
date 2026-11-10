@@ -77,17 +77,16 @@ class Settings(BaseSettings):
     # key, the chat says it isn't set up.
     google_api_key: SecretStr | None = None
     gemini_model: str = Field(default=GEMINI_MODEL, pattern=r"^[a-z0-9][a-z0-9.\-]*$")
-    # Park guidance uses a versioned index and pinned CPU MiniLM weights, cached by the offline build command.
+    # Park guidance uses Qdrant for text, BM25 and hosted dense vectors; the local catalog is metadata only.
     flights_enabled: bool = False
     hotels_enabled: bool = False
     parks_enabled: bool = True
-    parks_retrieval_mode: Literal["auto", "lexical", "hybrid"] = "auto"
-    parks_semantic_provider: Literal["local", "qdrant"] = "local"
-    parks_qdrant_collection: str = Field(default="nimbus_park_guidance", pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    parks_retrieval_mode: Literal["auto", "lexical", "hybrid"] = "hybrid"
+    parks_semantic_provider: Literal["qdrant"] = "qdrant"
+    parks_qdrant_collection: str = Field(default="nimbus_park_guidance_v2", pattern=r"^[a-z][a-z0-9_]{0,63}$")
     parks_qdrant_api_key: SecretStr | None = None
-    parks_index_path: Path = PROJECT_ROOT / "data" / "parks" / "index.sqlite"
-    parks_model_cache: Path = PROJECT_ROOT / "data" / "parks" / "model"
-    parks_model_revision: str = Field(default="1110a243fdf4706b3f48f1d95db1a4f5529b4d41", pattern=r"^[a-f0-9]{40}$")
+    parks_index_path: Path = PROJECT_ROOT / "data" / "parks" / "catalog.json"
+    parks_prepared_path: Path = PROJECT_ROOT / "data" / "parks" / "prepared.json"
     # Optional official NPS notices; keep the credential in .env.local or a Sensitive deployment variable.
     nps_api_key: SecretStr | None = None
     # Opt-in browser-scoped travel preferences; an independent stable secret signs its opaque browser identity.

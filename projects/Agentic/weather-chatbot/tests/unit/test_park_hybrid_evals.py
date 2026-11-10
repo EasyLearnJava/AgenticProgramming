@@ -62,6 +62,13 @@ def test_semantic_only_reports_no_evidence_when_the_dense_branch_returned_no_qua
     assert dense["passages"] == []
 
 
+def test_semantic_provider_failure_cannot_pass_an_expected_abstention() -> None:
+    """Unavailable dense scoring is not a successful no-match search, even on an unanswerable case."""
+    dense = eval_park_hybrid.semantic_only(result(status="timeout"))
+    assert dense["status"] == "unavailable"
+    assert grade_retrieval(example(expected_status="not_found"), dense) == ["expected not_found, got unavailable"]
+
+
 @pytest.mark.parametrize("position", [0, 1])
 def test_forbidden_sections_fail_even_when_the_required_source_evidence_was_retrieved(position: int) -> None:
     passages = [passage(section="Clothing")]
@@ -92,8 +99,11 @@ class RecordedSearch:
 
 def bind_profiles(monkeypatch: pytest.MonkeyPatch, lexical: RecordedSearch, hosted: RecordedSearch) -> Settings:
     """Replace both profile constructors without loading local settings, credentials, or native embeddings."""
-    monkeypatch.setattr(eval_park_hybrid, "make_park_knowledge", lambda _settings: hosted)
-    monkeypatch.setattr(eval_park_hybrid, "ParkKnowledge", lambda _path: lexical)
+    monkeypatch.setattr(
+        eval_park_hybrid,
+        "make_park_knowledge",
+        lambda settings: lexical if settings.parks_retrieval_mode == "lexical" else hosted,
+    )
     return Settings(_env_file=None)
 
 

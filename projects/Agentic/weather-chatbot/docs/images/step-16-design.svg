@@ -15,14 +15,14 @@
     </g>
     <g font-size="16" text-anchor="middle">
       <text x="139" y="126">Approved NPS pages</text><text x="139" y="149">Reviewed source snapshots</text>
-      <text x="473" y="126">Section chunks + metadata</text><text x="473" y="149">CPU MiniLM embeddings</text>
-      <text x="813" y="126">Versioned index</text><text x="813" y="149">Bundled, read-only SQLite</text>
+      <text x="473" y="126">Section chunks + metadata</text><text x="473" y="149">Tokenizer only; no embeddings</text>
+      <text x="813" y="126">Qdrant text + vectors</text><text x="813" y="149">Hosted MiniLM once</text>
       <text x="139" y="280">Existing chat agent</text><text x="139" y="305">Resolve park or trail</text>
       <text x="473" y="244">Retrieve guidance</text><text x="473" y="266">Destination + season filters</text>
       <text x="473" y="332">Existing weather tools</text><text x="473" y="354">Selected REST or MCP lane</text>
       <text x="813" y="280">Forecast + preparation</text><text x="813" y="305">Cited source links</text>
       <text x="139" y="450">Retrieval Playground</text><text x="139" y="475">Bounded POST body</text>
-      <text x="473" y="450">Shared guidance retriever</text><text x="473" y="475">Keyword / local MiniLM</text>
+      <text x="473" y="450">Shared guidance retriever</text><text x="473" y="475">Qdrant BM25 + MiniLM</text>
       <text x="813" y="450">Scores + selected chunks</text><text x="813" y="475">Sources and exclusions</text>
     </g>
     <text x="24" y="215" font-size="16" font-weight="700">During chat</text>

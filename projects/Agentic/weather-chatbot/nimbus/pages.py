@@ -183,10 +183,7 @@ def chat_page(request: Request) -> HTMLResponse:
         "history_max_chars": HISTORY_MAX_CHARS,
         "answer_max_chars": HISTORY_ANSWER_MAX_CHARS,
         "hosted_park_search": bool(
-            knowledge
-            and knowledge.available
-            and knowledge.semantic_provider == "qdrant"
-            and knowledge.semantic_status == "ready"
+            knowledge and knowledge.available and knowledge.store and knowledge.store.configured
         ),
     }
     return render_page(request, "chat.html", context)

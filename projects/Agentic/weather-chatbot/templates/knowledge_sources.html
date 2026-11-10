@@ -15,12 +15,12 @@
   {% for item in visible_documents %}
   <article class="knowledge-source-card" data-park="{{ item.park_id }}">
     <div class="knowledge-card-top"><span class="knowledge-park">{{ item.park }}</span>
-      <span class="knowledge-status">{{ 'Indexed' if item.vectors == item.count else 'Text indexed' }}</span>
+      <span class="knowledge-status">Indexed in Qdrant</span>
     </div>
     <h3><a href="/knowledge/sources/{{ item.id }}">{{ item.title }}</a></h3>
     <p class="knowledge-document-id">{{ item.id }}</p>
     <dl class="knowledge-card-numbers"><div><dt>Chunks</dt><dd>{{ item.count }}</dd></div>
-      <div><dt>Vectors</dt><dd>{{ item.vectors }}</dd></div><div><dt>Indexed words</dt><dd>{{ item.words }}</dd></div>
+      <div><dt>Indexed words</dt><dd>{{ item.words }}</dd></div>
     </dl>
     <div class="knowledge-source-dates"><p>Source updated <strong>{{ item.updated or 'Not provided' }}</strong></p>
       <p>Retrieved <time datetime="{{ item.retrieved }}">{{ item.retrieved }}</time></p></div>

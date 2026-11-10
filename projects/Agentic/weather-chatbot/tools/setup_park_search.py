@@ -1,8 +1,7 @@
-"""Publish approved, tokenizer-prepared park chunks to a dedicated Qdrant collection using hosted MiniLM."""
+"""Publish public text and one hosted dense embedding per chunk to a verified Qdrant BM25/dense collection."""
 
 import argparse
 import asyncio
-import math
 import sys
 from collections.abc import Callable
 from typing import Any
@@ -11,8 +10,9 @@ from uuid import NAMESPACE_URL, uuid5
 import httpx2
 
 from nimbus.config import Settings
-from nimbus.park_embeddings import MINILM_MODEL, to_embedding_text
+from nimbus.park_ingest import load_catalog, load_prepared
 from nimbus.park_semantic import (
+    BM25_FIELD,
     PARK_DIMENSIONS,
     PARK_MODEL,
     PARK_PROFILE,
@@ -22,65 +22,48 @@ from nimbus.park_semantic import (
     manifest_id,
     manifest_payload,
     point_id,
+    vector_ready,
 )
-from nimbus.parks import ParkKnowledge
+from nimbus.park_text import to_embedding_text
 
 SETUP_SECONDS = 120
 BATCH_SIZE = 16
 OWNER_ID = str(uuid5(NAMESPACE_URL, f"{PARK_PROFILE}/collection"))
 OWNER = {"kind": "ownership", "schema": PARK_SCHEMA, "profile": PARK_PROFILE, "model": PARK_MODEL}
 MARKER_VECTOR = [1.0, *([0.0] * (PARK_DIMENSIONS - 1))]
+KEYWORD_FIELDS = ("kind", "index_version", "model", "profile", "park_id", "destination_ids", "seasons")
+TEXT_SCHEMA: dict[str, object] = {"type": "text", "tokenizer": "word", "lowercase": True, "scoring": True}
 
 
 def make_setup_client() -> httpx2.AsyncClient:
-    """Allow bounded hosted embedding work during explicit setup, never during application startup."""
+    """Allow bounded hosted embedding work only during the explicit publisher, never app startup."""
     return httpx2.AsyncClient(timeout=30, follow_redirects=False, limits=httpx2.Limits(max_connections=2))
 
 
 def _completed(document: dict[str, Any] | None) -> None:
-    """A wait=true write must report completed, not merely acknowledge an asynchronous operation."""
+    """A wait=true write must complete rather than merely acknowledge an asynchronous operation."""
     result = document.get("result") if document else None
     if not isinstance(result, dict) or result.get("status") != "completed":
         raise ValueError("Park publication write was not confirmed")
 
 
-def _vector_ready(value: object) -> bool:
-    """A retrieved hosted vector must have the supported dimensions and a finite, nonzero direction."""
-    return (
-        isinstance(value, list)
-        and len(value) == PARK_DIMENSIONS
-        and all(type(number) in {int, float} and -1e6 < number < 1e6 and math.isfinite(number) for number in value)
-        and any(number != 0 for number in value)
-    )
-
-
 def read_public_chunks(settings: Settings) -> tuple[str, list[dict[str, Any]]]:
-    """Require the existing tokenizer-prepared index, but regenerate every vector with the hosted model."""
-    knowledge = ParkKnowledge(settings.parks_index_path)
-    catalog = knowledge.inspection()
-    if (
-        not catalog["available"]
-        or not catalog["embedding_model"].startswith(f"{MINILM_MODEL}@")
-        or catalog["dimensions"] != PARK_DIMENSIONS
-        or not catalog["chunks"]
-        or any(not _vector_ready(chunk["embedding"]) for chunk in catalog["chunks"])
-    ):
-        raise ValueError("Build the tokenizer-prepared MiniLM park index before publishing hosted search")
-    return str(catalog["index_version"]), list(catalog["chunks"])
+    """Read tokenizer-prepared public text; no SQLite, local vectors or model weights are required."""
+    prepared = load_prepared(settings.parks_prepared_path)
+    catalog = load_catalog(settings.parks_index_path)
+    if prepared["index_version"] != catalog["index_version"]:
+        raise ValueError("Prepared park text and release catalog versions differ")
+    return str(prepared["index_version"]), list(prepared["chunks"])
 
 
-async def _collection(api: QdrantParkAPI, http: httpx2.AsyncClient) -> None:
-    """Create or verify our collection; refuse existing unmanaged data and incompatible vector settings."""
-    current = await api.request(http, "GET", "", missing_ok=True)
-    if current is None:
-        created = await api.request(http, "PUT", "", {"vectors": {"size": PARK_DIMENSIONS, "distance": "Cosine"}})
-        if not created or created.get("result") is not True:
-            raise ValueError("Park collection creation was not confirmed")
-        current = await api.request(http, "GET", "")
-    if current is None:
+def _collection_result(document: dict[str, Any] | None) -> dict[str, Any]:
+    """Check dense-vector compatibility without accepting malformed collection settings."""
+    result = document.get("result") if document else None
+    if not isinstance(result, dict):
         raise ValueError("Park collection is missing")
-    result = current.get("result")
-    vectors = result.get("config", {}).get("params", {}).get("vectors") if isinstance(result, dict) else None
+    config = result.get("config")
+    params = config.get("params") if isinstance(config, dict) else None
+    vectors = params.get("vectors") if isinstance(params, dict) else None
     if (
         not isinstance(vectors, dict)
         or type(vectors.get("size")) is not int
@@ -88,6 +71,36 @@ async def _collection(api: QdrantParkAPI, http: httpx2.AsyncClient) -> None:
         or vectors.get("distance") != "Cosine"
     ):
         raise ValueError("Existing park collection has incompatible vector settings")
+    return result
+
+
+def _index_ready(name: str, value: object) -> bool:
+    """Require native scored text, not a filtering-only index mislabeled as BM25."""
+    if not isinstance(value, dict):
+        return False
+    if name != BM25_FIELD:
+        return value.get("data_type") == "keyword"
+    params = value.get("params")
+    scoring = params.get("scoring") if isinstance(params, dict) else None
+    return (
+        value.get("data_type") == "text"
+        and isinstance(params, dict)
+        and params.get("type") == "text"
+        and params.get("tokenizer") == "word"
+        and params.get("lowercase") is True
+        and (scoring is True or scoring == {"type": "bm25"})
+    )
+
+
+async def _collection(api: QdrantParkAPI, http: httpx2.AsyncClient) -> None:
+    """Create a dedicated owned collection; never repurpose incompatible data or the weather cache."""
+    current = await api.request(http, "GET", "", missing_ok=True)
+    if current is None:
+        created = await api.request(http, "PUT", "", {"vectors": {"size": PARK_DIMENSIONS, "distance": "Cosine"}})
+        if not created or created.get("result") is not True:
+            raise ValueError("Park collection creation was not confirmed")
+        current = await api.request(http, "GET", "")
+    result = _collection_result(current)
     owner = await api.request(http, "GET", f"/points/{OWNER_ID}", missing_ok=True)
     owner_result = owner.get("result") if owner else None
     if owner is not None:
@@ -106,22 +119,43 @@ async def _collection(api: QdrantParkAPI, http: httpx2.AsyncClient) -> None:
                 {"points": [{"id": OWNER_ID, "vector": MARKER_VECTOR, "payload": OWNER}]},
             )
         )
-    for key in ("kind", "index_version", "model", "profile", "park_id", "destination_ids", "seasons"):
-        _completed(await api.request(http, "PUT", "/index?wait=true", {"field_name": key, "field_schema": "keyword"}))
+    # ① Text is indexed by native BM25; this branch needs no second embedding model.
+    indexes = result.get("payload_schema", {})
+    if not isinstance(indexes, dict):
+        raise ValueError("Invalid collection index settings")
+    for name in (*KEYWORD_FIELDS, BM25_FIELD):
+        if name in indexes:
+            if not _index_ready(name, indexes[name]):
+                raise ValueError("Existing collection has incompatible text or scope indexes")
+            continue
+        _completed(
+            await api.request(
+                http,
+                "PUT",
+                "/index?wait=true",
+                {"field_name": name, "field_schema": TEXT_SCHEMA if name == BM25_FIELD else "keyword"},
+            )
+        )
+    checked = _collection_result(await api.request(http, "GET", ""))
+    indexes = checked.get("payload_schema", {})
+    if not isinstance(indexes, dict) or any(
+        not _index_ready(name, indexes.get(name)) for name in (*KEYWORD_FIELDS, BM25_FIELD)
+    ):
+        raise ValueError("Park keyword indexes were not verified")
 
 
-async def _verify_batch(
+async def _existing_batch(
     api: QdrantParkAPI, http: httpx2.AsyncClient, batch: list[dict[str, Any]], version: str
-) -> None:
-    """Re-read hosted vectors and exact public metadata before making this version available to chat."""
+) -> set[str]:
+    """Verify existing immutable records before reusing them; never silently overwrite corrupt records."""
     expected = {point_id(version, chunk["id"]): chunk_payload(chunk, version) for chunk in batch}
     document = await api.request(
         http, "POST", "/points", {"ids": list(expected), "with_payload": True, "with_vector": True}
     )
     points = document.get("result") if document else None
-    if not isinstance(points, list) or len(points) != len(expected):
-        raise ValueError("Park publication is incomplete")
-    seen = set()
+    if not isinstance(points, list) or len(points) > len(expected):
+        raise ValueError("Invalid park publication verification")
+    seen: set[str] = set()
     for item in points:
         if (
             not isinstance(item, dict)
@@ -129,68 +163,95 @@ async def _verify_batch(
             or item["id"] not in expected
             or item["id"] in seen
             or item.get("payload") != expected[item["id"]]
-            or not _vector_ready(item.get("vector"))
+            or not vector_ready(item.get("vector"))
         ):
-            raise ValueError("Park publication did not match its local index")
+            raise ValueError("Park publication did not match the prepared corpus")
         seen.add(item["id"])
+    return seen
+
+
+async def _verify_batch(
+    api: QdrantParkAPI, http: httpx2.AsyncClient, batch: list[dict[str, Any]], version: str
+) -> None:
+    """Require all source records and hosted vectors before publishing the generation marker."""
+    present = await _existing_batch(api, http, batch, version)
+    if present != {point_id(version, chunk["id"]) for chunk in batch}:
+        raise ValueError("Park publication is incomplete")
 
 
 async def setup(
     settings: Settings,
     factory: Callable[[], httpx2.AsyncClient] = make_setup_client,
 ) -> tuple[str, int]:
-    """Upload only public source chunks and publish a verified readiness marker; never expire or delete records."""
+    """Publish approved records once; repeat runs verify and reuse embeddings instead of generating them again."""
     api = QdrantParkAPI(settings)
     if not api.configured:
         raise ValueError("Configure a dedicated park collection and an authorized Qdrant credential")
     version, chunks = read_public_chunks(settings)
     async with asyncio.timeout(SETUP_SECONDS), factory() as http:
-        # ① Scope collection ownership before making any payload or index changes.
         await _collection(api, http)
-        # ② Hosted inference uses exactly the same model as runtime queries, not the local vectors in SQLite.
+        document = await api.request(http, "GET", f"/points/{manifest_id(version)}", missing_ok=True)
+        marker = manifest_payload(version, len(chunks))
+        if document is not None:
+            existing = document.get("result")
+            if not isinstance(existing, dict) or existing.get("payload") != marker:
+                raise ValueError("Existing park readiness marker does not match")
+        # ② Upload only missing chunks. Both initial and resumed setup use the same hosted dense model as queries.
         for offset in range(0, len(chunks), BATCH_SIZE):
             batch = chunks[offset : offset + BATCH_SIZE]
-            points = [
-                {
-                    "id": point_id(version, chunk["id"]),
-                    "vector": {
-                        "text": to_embedding_text(chunk["title"], chunk["section"], chunk["text"]),
-                        "model": PARK_MODEL,
-                    },
-                    "payload": chunk_payload(chunk, version),
-                }
-                for chunk in batch
-            ]
-            _completed(await api.request(http, "PUT", "/points?wait=true", {"points": points}))
+            present = await _existing_batch(api, http, batch, version)
+            missing = [chunk for chunk in batch if point_id(version, chunk["id"]) not in present]
+            if document is not None and missing:
+                raise ValueError("A published park generation is incomplete")
+            if missing:
+                points = [
+                    {
+                        "id": point_id(version, chunk["id"]),
+                        "vector": {
+                            "text": to_embedding_text(chunk["title"], chunk["section"], chunk["text"]),
+                            "model": PARK_MODEL,
+                        },
+                        "payload": chunk_payload(chunk, version),
+                    }
+                    for chunk in missing
+                ]
+                _completed(await api.request(http, "PUT", "/points?wait=true", {"points": points}))
             await _verify_batch(api, http, batch, version)
-        # ③ A count guards against duplicate/unrecognized records; readers require the marker written last.
-        count = await api.request(
-            http,
-            "POST",
-            "/points/count",
-            {
-                "exact": True,
-                "filter": {
-                    "must": [
-                        {"key": "kind", "match": {"value": "chunk"}},
-                        {"key": "index_version", "match": {"value": version}},
-                        {"key": "profile", "match": {"value": PARK_PROFILE}},
-                    ]
-                },
-            },
-        )
+        # ③ Counts and native BM25 queryability are verified before readiness is written, without dense re-embedding.
+        conditions = [
+            {"key": "kind", "match": {"value": "chunk"}},
+            {"key": "index_version", "match": {"value": version}},
+            {"key": "profile", "match": {"value": PARK_PROFILE}},
+        ]
+        count = await api.request(http, "POST", "/points/count", {"exact": True, "filter": {"must": conditions}})
         counted = count.get("result") if count else None
         if not isinstance(counted, dict) or type(counted.get("count")) is not int or counted["count"] != len(chunks):
             raise ValueError("Park publication count did not match")
-        marker = manifest_payload(version, len(chunks))
-        _completed(
-            await api.request(
-                http,
-                "PUT",
-                "/points?wait=true",
-                {"points": [{"id": manifest_id(version), "vector": MARKER_VECTOR, "payload": marker}]},
-            )
+        query = await api.request(
+            http,
+            "POST",
+            "/points/query",
+            {
+                "query": {"text": chunk_payload(chunks[0], version)[BM25_FIELD][:1000]},
+                "using": BM25_FIELD,
+                "filter": {"must": conditions},
+                "limit": 1,
+                "with_payload": False,
+                "with_vector": False,
+            },
         )
+        queried = query.get("result") if query else None
+        if not isinstance(queried, dict) or not isinstance(queried.get("points"), list) or not queried["points"]:
+            raise ValueError("Park BM25 index was not queryable")
+        if document is None:
+            _completed(
+                await api.request(
+                    http,
+                    "PUT",
+                    "/points?wait=true",
+                    {"points": [{"id": manifest_id(version), "vector": MARKER_VECTOR, "payload": marker}]},
+                )
+            )
         verified = await api.request(http, "GET", f"/points/{manifest_id(version)}")
         result = verified.get("result") if verified else None
         if not isinstance(result, dict) or result.get("payload") != marker:
@@ -199,7 +260,7 @@ async def setup(
 
 
 def main() -> int:
-    """Publish an explicitly selected collection, reporting only public version/count and safe failure classes."""
+    """Publish an explicitly selected collection, reporting only version/count and sanitized failure classes."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--collection", help="Dedicated park collection; must differ from the weather cache")
     args = parser.parse_args()
@@ -207,9 +268,9 @@ def main() -> int:
         settings = Settings(**({"parks_qdrant_collection": args.collection} if args.collection else {}))
         version, count = asyncio.run(setup(settings))
     except Exception as error:
-        print(f"Park search setup failed ({type(error).__name__}); check the index, credentials and collection.")
+        print(f"Park search setup failed ({type(error).__name__}); check the corpus, credentials and collection.")
         return 1
-    print(f"Verified hosted park index {version}: {count} public chunks, {PARK_DIMENSIONS} dimensions.")
+    print(f"Verified hosted park index {version}: {count} public chunks, native BM25, {PARK_DIMENSIONS} dimensions.")
     return 0
 
 

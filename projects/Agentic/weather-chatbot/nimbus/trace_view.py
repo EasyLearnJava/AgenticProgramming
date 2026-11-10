@@ -52,6 +52,7 @@ CACHE_LABELS = {
 }
 PARK_LABELS = {
     PARK_RETRIEVAL_NAME: "Park guidance retrieval",
+    PARK_TRACE_NAMES["catalog"]: "Qdrant park collection read",
     PARK_TRACE_NAMES["bm25"]: "Park BM25 search",
     PARK_TRACE_NAMES["semantic"]: "Park semantic search",
     PARK_TRACE_NAMES["fusion"]: "Park rank fusion",
@@ -79,7 +80,7 @@ RETRIEVAL_LABELS = {
     "unsupported": "Unsupported destination",
 }
 RETRIEVAL_MODES = {"hybrid": "Hybrid (BM25 + semantic)", "lexical": "BM25 only", "none": ""}
-RETRIEVAL_PROVIDERS = {"qdrant": "Qdrant hosted MiniLM", "local": "Local CPU MiniLM", "none": ""}
+RETRIEVAL_PROVIDERS = {"qdrant": "Qdrant Cloud", "local": "Local CPU MiniLM", "none": ""}
 SEASON_SOURCES = {"date": "Visit date", "explicit": "Season selection", "query": "Question", "none": ""}
 CACHE_OUTCOMES = {
     "completed": "Completed",
@@ -341,6 +342,8 @@ def _label(span: _Span, root_id: UUID) -> tuple[str, str] | None:
     if span.name in MEMORY_LABELS and span.run_type == "TOOL":
         return "Memory", MEMORY_LABELS[span.name]
     if span.name in PARK_LABELS and span.run_type == "CHAIN":
+        if span.name == PARK_TRACE_NAMES["bm25"] and span.metadata.retrieval_provider == "qdrant":
+            return "Step", "Qdrant park BM25 search"
         if span.name == PARK_TRACE_NAMES["semantic"] and span.metadata.retrieval_provider == "qdrant":
             return "Step", "Qdrant park semantic search"
         return ("Retrieval" if span.name == PARK_RETRIEVAL_NAME else "Step"), PARK_LABELS[span.name]

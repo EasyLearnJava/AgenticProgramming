@@ -1,0 +1,840 @@
+{
+  "schema_version": 2,
+  "index_version": "5b2eddcd5a2f6a24",
+  "corpus_built_at": "2026-11-10T20:18:09.485040+00:00",
+  "destinations": [
+    {
+      "id": "grand-canyon",
+      "park_id": "grand-canyon",
+      "name": "Grand Canyon National Park (South Rim)",
+      "aliases": [
+        "Grand Canyon",
+        "Grand Canyon National Park",
+        "Grand Canyon South Rim"
+      ],
+      "latitude": 36.059117257442715,
+      "longitude": -112.10929870605469,
+      "time_zone": "America/Phoenix",
+      "forecast_reference": "NPS South Rim reference point; inner-canyon and North Rim conditions can differ substantially.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/weather-condition.htm"
+    },
+    {
+      "id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "name": "South Kaibab Trail, Grand Canyon National Park",
+      "aliases": [
+        "South Kaibab",
+        "South Kaibab Trail",
+        "Grand Canyon South Kaibab"
+      ],
+      "latitude": 36.059117257442715,
+      "longitude": -112.10929870605469,
+      "time_zone": "America/Phoenix",
+      "forecast_reference": "Nearby NPS South Rim reference point; not the South Kaibab trailhead or the hotter inner canyon.",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/weather-condition.htm"
+    },
+    {
+      "id": "yosemite",
+      "park_id": "yosemite",
+      "name": "Yosemite National Park (Yosemite Valley)",
+      "aliases": [
+        "Yosemite",
+        "Yosemite National Park",
+        "Yosemite Valley"
+      ],
+      "latitude": 37.74539308593381,
+      "longitude": -119.59244728088379,
+      "time_zone": "America/Los_Angeles",
+      "forecast_reference": "NPS Yosemite Valley reference point; not the park high country or all elevations.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weathermap.htm"
+    },
+    {
+      "id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "name": "Mist Trail, Yosemite National Park",
+      "aliases": [
+        "Mist Trail",
+        "Yosemite Mist Trail",
+        "Vernal Fall",
+        "Vernal Falls",
+        "Nevada Fall",
+        "Nevada Falls"
+      ],
+      "latitude": 37.74539308593381,
+      "longitude": -119.59244728088379,
+      "time_zone": "America/Los_Angeles",
+      "forecast_reference": "Nearby NPS Yosemite Valley reference point; not the Mist Trail stairway, waterfall spray or upper elevations.",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weathermap.htm"
+    },
+    {
+      "id": "zion",
+      "park_id": "zion",
+      "name": "Zion National Park",
+      "aliases": [
+        "Zion",
+        "Zion National Park"
+      ],
+      "latitude": 37.25082,
+      "longitude": -112.95633,
+      "time_zone": "America/Denver",
+      "forecast_reference": "Zion Canyon regional reference point selected by NPS; not the whole park or a trail-specific forecast.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm"
+    },
+    {
+      "id": "zion-narrows",
+      "park_id": "zion",
+      "name": "The Narrows (bottom-up), Zion National Park",
+      "aliases": [
+        "The Narrows",
+        "Narrows",
+        "Zion Narrows",
+        "Narrows bottom up"
+      ],
+      "latitude": 37.25082,
+      "longitude": -112.95633,
+      "time_zone": "America/Denver",
+      "forecast_reference": "Nearby Zion Canyon regional reference from NPS; not the Narrows trailhead, canyon microclimate, upstream rainfall, river flow or water temperature.",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm"
+    }
+  ],
+  "source_count": 13,
+  "chunk_count": 40,
+  "chunks": [
+    {
+      "id": "grand-canyon-south-kaibab-8a80b1bfb1af6329",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "Hike Smart",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "8a80b1bfb1af6329919550c8b8985946e84f15029baf109bcc380826640efa82",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "9932c66fff4002816092fa7fe5d1e64d4acba391725f56103c19a937134d8572"
+    },
+    {
+      "id": "grand-canyon-south-kaibab-a50159f767c746b3",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "About South Kaibab Trail",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a50159f767c746b30c27e091c56318c7f6179f7dda3b703c234c5deb2521ae5c",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "658025cf7625ba03e47bc7e2da1ccea46d3a048a83cfdc27fc94c3d97db346b5"
+    },
+    {
+      "id": "grand-canyon-south-kaibab-a9cd20003c00bc7a",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "Trail Description",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a9cd20003c00bc7aa75f286d7efd46d370b349f3d396de68ba21d4aece86bc26",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "8c08ebed79c319864f4cdf415f11168eeb90724c5132c3c882284dd9ad0c0f92"
+    },
+    {
+      "id": "grand-canyon-south-kaibab-d4527642743f9aae",
+      "document_id": "grand-canyon-south-kaibab",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "South Kaibab Trail",
+      "section": "Hike Smart",
+      "source_url": "https://www.nps.gov/places/000/south-kaibab-trail.htm",
+      "source_updated_at": "2026-10-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "d4527642743f9aae35117b3a7850e22c36496113b50bfd1fa201d5c3e430dd75",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "ff9eda523f9f488cad2d04fe08e89e79ae3b3bea52dea76bd3b80d1b358cb6c9"
+    },
+    {
+      "id": "grand-canyon-summer-8b0b605a781f265e",
+      "document_id": "grand-canyon-summer",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Summer Hiking - Hike Smart",
+      "section": "Summer Hiking Essentials",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/hike-smart.htm",
+      "source_updated_at": "2026-06-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "8b0b605a781f265e149cb775fa8239cdeeab87074e4429717742b437663dee77",
+      "seasons": [
+        "summer"
+      ],
+      "record_hash": "9069ad3db9ca0d344f461a7923170eaf027c5c2a273b5c56df9a5ca7910fde20"
+    },
+    {
+      "id": "grand-canyon-summer-c0feca0dd59194f0",
+      "document_id": "grand-canyon-summer",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Summer Hiking - Hike Smart",
+      "section": "Wait for the Shade—AVOID HIKING BETWEEN 10 AM AND 4 PM",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/hike-smart.htm",
+      "source_updated_at": "2026-06-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "c0feca0dd59194f09e397441e3fbec93396d758809f47358396d7b195304421c",
+      "seasons": [
+        "summer"
+      ],
+      "record_hash": "c21736ee6b1c0a1f5db25dbc7075617c920c3ccdcbdcfbab91a3e789015e801d"
+    },
+    {
+      "id": "grand-canyon-summer-fa90a0534035fcc1",
+      "document_id": "grand-canyon-summer",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Summer Hiking - Hike Smart",
+      "section": "Summer Hiking Essentials",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/hike-smart.htm",
+      "source_updated_at": "2026-06-26",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "fa90a0534035fcc1dac8a682c3064f732f5fc643fbab332bb86c2efb1d6bfd0c",
+      "seasons": [
+        "summer"
+      ],
+      "record_hash": "7058e959c6478ddae94c2e9d09b0a412ae8d324baf2f40339c646d64f439f1ce"
+    },
+    {
+      "id": "grand-canyon-winter-1f1318e2ee354afa",
+      "document_id": "grand-canyon-winter",
+      "park_id": "grand-canyon",
+      "destination_ids": [
+        "grand-canyon",
+        "grand-canyon-south-kaibab"
+      ],
+      "title": "Winter Hiking",
+      "section": "Winter Hiking Essentials",
+      "source_url": "https://www.nps.gov/grca/planyourvisit/winter-recreation.htm",
+      "source_updated_at": "2025-03-12",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "1f1318e2ee354afa59b00ffd698ede58c9657bbcc6cd12d17d619cd7fb9a2214",
+      "seasons": [
+        "winter"
+      ],
+      "record_hash": "98f409c73fe3d543f8adfdc57c8046864a992ef9142bccd3c24892e8cccd4f28"
+    },
+    {
+      "id": "yosemite-hiking-899bbb1ca1de34d8",
+      "document_id": "yosemite-hiking",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Hiking in Yosemite",
+      "section": "Things to Remember While Hiking",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/hiking.htm",
+      "source_updated_at": "2024-11-08",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "899bbb1ca1de34d84f587ddb841860ee978cdd01f5d511308a24faa9923ace59",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "61d243f4ca24f2e62109d23708d94b597641c307e4d5527262b349c85bd9bb6d"
+    },
+    {
+      "id": "yosemite-lightning-2ceba34b20a95dc8",
+      "document_id": "yosemite-lightning",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Lightning Safety",
+      "section": "Plan Ahead",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/lightning.htm",
+      "source_updated_at": "2025-01-21",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "2ceba34b20a95dc8fbc0f4828f5279298ca93b6b2921316e54666d4acc0df9fe",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "062b11931caa48902c33adfb008b584e737ee6a7562934a2c50258adf62b3ef2"
+    },
+    {
+      "id": "yosemite-lightning-d64ef72942c3c949",
+      "document_id": "yosemite-lightning",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Lightning Safety",
+      "section": "Plan Ahead",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/lightning.htm",
+      "source_updated_at": "2025-01-21",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "d64ef72942c3c949fdefb3e0d1fae35c0dfb6839a3616d40c93d0aa99b0a7f89",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "ce241f7dadd8be64910855c59f6ec753bb5bc0fb27226b3009f3366fbdc1b002"
+    },
+    {
+      "id": "yosemite-lightning-dd0ab96d0b11769c",
+      "document_id": "yosemite-lightning",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Lightning Safety",
+      "section": "How To Avoid Getting Struck By Lightning",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/lightning.htm",
+      "source_updated_at": "2025-01-21",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "dd0ab96d0b11769c2b20e06f9849708533ba8e1845a6be6d3db4b4b029fdd40d",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "5f12e3804a158e5f9ff1be103bc6e72e349a6bf56946dd11cee2fa87cdf8abca"
+    },
+    {
+      "id": "yosemite-mist-trail-0fb5fc16449469bf",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "0fb5fc16449469bf198a74f05086bec941c25aa14ebf835c384221fea31d57c6",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "e374f8999423dd55ff357c089807a61dde8b8f304b27bf74b6160c79922438c1"
+    },
+    {
+      "id": "yosemite-mist-trail-23af491412c16afb",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "23af491412c16afb07ec2527068d122f8312f1eddb849ba7777803efa695743a",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "d652cca178ec5231c653956a938ba272de73d864852cdb88a6f8379d6609e832"
+    },
+    {
+      "id": "yosemite-mist-trail-5475fe8e320510b4",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Stay Safe",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "5475fe8e320510b4c94c5895d0aebf2f4ecf0eecacc82a033ca8feebb4b42973",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "b6f1c39e5dfca0e1eac0c3ba8fe85616814aa1c21820e9a7a774726296bb9e93"
+    },
+    {
+      "id": "yosemite-mist-trail-7305ad7900c6c09c",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "7305ad7900c6c09c75f366be1af259fb393603cbe372a584c382dcff2408a3e4",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "b6a7cccb5f3bf0970e7ef2c9d6f1a7bfcdecfe506553419d543b6e9c4e56bc4d"
+    },
+    {
+      "id": "yosemite-mist-trail-99afcab6f4c6dab1",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Seasonality",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "99afcab6f4c6dab11ad4c81768f90ee87e318aec74ac53e468bd5ca340bb7663",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "b09ea9888c277b3fbd14b74e6afe0fdd0051dcd5da30cd13f94424dac65f275c"
+    },
+    {
+      "id": "yosemite-mist-trail-cdd3276a6ceb45f2",
+      "document_id": "yosemite-mist-trail",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite-mist-trail"
+      ],
+      "title": "Vernal Fall and Nevada Fall Trails",
+      "section": "Top of Nevada Fall",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/vernalnevadatrail.htm",
+      "source_updated_at": "2026-07-27",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "cdd3276a6ceb45f211440d9a03aabe742b07ed34a7c585a0c1ef4776ec736d74",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "d4e55deb954b903674230077413c25f0c60362848f36d75a9fe653205e858fb8"
+    },
+    {
+      "id": "yosemite-weather-ca9931635f70bbf3",
+      "document_id": "yosemite-weather",
+      "park_id": "yosemite",
+      "destination_ids": [
+        "yosemite",
+        "yosemite-mist-trail"
+      ],
+      "title": "Yosemite Weather",
+      "section": "Weather",
+      "source_url": "https://www.nps.gov/yose/planyourvisit/weather.htm",
+      "source_updated_at": "2024-10-20",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "ca9931635f70bbf333416db4dcf2808a8918563036fea16892835bf7d0748ed8",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "bd7b45dd6bcb572bf9b61d1916d24b2e15d6f44cfdba0279c5af23e17160ee38"
+    },
+    {
+      "id": "zion-bottom-up-208786837de3d51b",
+      "document_id": "zion-bottom-up",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "The Narrows from the Bottom Up",
+      "section": "Recommended Gear",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowsbottomup.htm",
+      "source_updated_at": "2026-09-18",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "208786837de3d51b2328910918f16b95624ee0e125c3f151bd1685061e7b6f82",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "df54ed5051d7289b332ea3965c192b64944f0359259a50465cf413ef9fc02e88"
+    },
+    {
+      "id": "zion-bottom-up-93966b4f2ee3ea00",
+      "document_id": "zion-bottom-up",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "The Narrows from the Bottom Up",
+      "section": "Safety",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowsbottomup.htm",
+      "source_updated_at": "2026-09-18",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "93966b4f2ee3ea00dc986968f2aab2bd58f13449755f59f1381a968816a9af57",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "59f73a407aa5b1934aa108eb4071a4579e37d22562f022d57599c46d608009d8"
+    },
+    {
+      "id": "zion-flash-flood-7f81eea584c07949",
+      "document_id": "zion-flash-flood",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Flash Floods in Zion",
+      "section": "When do flash floods occur?",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/flash-flood.htm",
+      "source_updated_at": "2026-05-15",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "7f81eea584c07949d4851b1aabdb0185be44ac3fe34cc3ac77aa6b805cbe5bb8",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "05b0042d2e1622742951f5b0158b07725a4a4cbd4c0b274786a062b6779d39e8"
+    },
+    {
+      "id": "zion-flash-flood-b94ec2a130d8a244",
+      "document_id": "zion-flash-flood",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Flash Floods in Zion",
+      "section": "What are flash floods?",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/flash-flood.htm",
+      "source_updated_at": "2026-05-15",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "b94ec2a130d8a244c4a0b5c8d005da540348889e1740b739064aaa71288f2da2",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "a9da599340918cece9b6de7cb38463eaef986c64b921a15f7fbfd15ed57ed25c"
+    },
+    {
+      "id": "zion-hiking-423176bb0147faef",
+      "document_id": "zion-hiking",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Hiking in Zion",
+      "section": "Hiking in Zion",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/hiking-in-zion.htm",
+      "source_updated_at": "2026-01-13",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "423176bb0147faefe4c61915fd94e4daeb14f2298dc57fb9c27320b891f84502",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "c6824323e2010ed44c2d49b2d7983c3a83e0bdccdf7e0ac8b3ee082780adbddf"
+    },
+    {
+      "id": "zion-hiking-e8f276ad35701b2d",
+      "document_id": "zion-hiking",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Hiking in Zion",
+      "section": "Hiking in Zion",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/hiking-in-zion.htm",
+      "source_updated_at": "2026-01-13",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "e8f276ad35701b2de4b35980ec19568f4077730a0ad8e42c121ffce60cae00c7",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "cddada167a91e962eb836ed200574cbfc020c1824ec3f10f14a520c5845ef11f"
+    },
+    {
+      "id": "zion-narrows-safety-1810fa01bed2bdc5",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Dry Bags",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "1810fa01bed2bdc53bb11d09e1cb8cf1584b34fcd65fc82a138a28fad5998451",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "91212dc46078c2db7f882d2d60238c7042bd296e4039b0464b3a94659639436c"
+    },
+    {
+      "id": "zion-narrows-safety-2eedc203659db073",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Flashlight / Headlamp",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "2eedc203659db07362fac14c700eb455e31e576aa88be801af2c2529ac8e225e",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "f4c02d0ab7c5216b4e1d445d183808dfb03fe0e820dd093f610d40fe955221f5"
+    },
+    {
+      "id": "zion-narrows-safety-628371585ed611c5",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Clothing and Equipment",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "628371585ed611c5c3cbb10d11eb3cd16a7bf00e241be8a750b6ae2e2284a05b",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "a32f452557d9b6a5f78356792f151a0cb980021a112865e57c6fb37d67bd8020"
+    },
+    {
+      "id": "zion-narrows-safety-9a3f452e801ae94b",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Summer",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "9a3f452e801ae94b78e9424804b6ad7369904ec0555f779fbc27994ea0112720",
+      "seasons": [
+        "summer"
+      ],
+      "record_hash": "6d137ef9c6354b13b02e8c89ac9f08baf4569e37522194f9d3cc2d2ff4d8585f"
+    },
+    {
+      "id": "zion-narrows-safety-a0a4961d68e33613",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Water",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a0a4961d68e33613e449b2ca41a0333d61caa2931c520671ee2172fb32177ec3",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "f3cc66b2313e24d8a1be04767db6c1fe091e678260a97a47d848c3cae1d43e81"
+    },
+    {
+      "id": "zion-narrows-safety-a8bf22cfbce280c0",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Food",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "a8bf22cfbce280c067346f198390de078122f2675049299db0ff79611f39349c",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "ac30f55a9b197dea43dce555e94b16e7f26b738b4d0d8859747d077e0ded16f5"
+    },
+    {
+      "id": "zion-narrows-safety-b566bd1de03ecfa3",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Footwear",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "b566bd1de03ecfa3fe7e6ecec4fae66304295502d2901342db117eb5b172afb8",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "deab5f53920e959203c545d2c6391a6afe5b5162c919534f3e73c24437288715"
+    },
+    {
+      "id": "zion-narrows-safety-c7b50945413cba1a",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Clothing",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "c7b50945413cba1aa4135aeaf60867edd2c5d09498f11882f0ec333698281962",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "49c6c774cb1126c55204540e5e8977f50cfb87aac6ce8e58c55cf0353ec596c0"
+    },
+    {
+      "id": "zion-narrows-safety-cd193acd37552ced",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Year-Round",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "cd193acd37552ced49930f16aceecbcc2334f8bc4c42712f0d954524bc724fe1",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "8afff60e5c927d200767bdf3b824f189c85917adf4f8f132320a09dd22d63aa7"
+    },
+    {
+      "id": "zion-narrows-safety-d7d4dc5c67c54e69",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Flash Floods",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "d7d4dc5c67c54e69380200a87cdf194c8d933b941e9fdad72d5c4ead64104d8d",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "3b4867b185eb709c9cab60ea57db73a5ace16d788e6469e865bf31593551aadb"
+    },
+    {
+      "id": "zion-narrows-safety-e2cd5f0bba752f74",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Spring and Fall",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "e2cd5f0bba752f748817c4bfb644b67c33ce5663c56a32aec5a6fedfa13396dd",
+      "seasons": [
+        "spring",
+        "fall"
+      ],
+      "record_hash": "afc9f88b9e2a298aa31440a4685cf94fb6edfb4f11b94422bb0b8034004ce52b"
+    },
+    {
+      "id": "zion-narrows-safety-efc5f1d6aa3e2c72",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Winter",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "efc5f1d6aa3e2c72812510a3040b6a8c1dbf305665267fb993bd7a0a36204024",
+      "seasons": [
+        "winter"
+      ],
+      "record_hash": "3f6eb03e9a58f9f665ee89b2b0072a27d0c9265cb443b828defa5adacbdf36a3"
+    },
+    {
+      "id": "zion-narrows-safety-fa60feef15831bba",
+      "document_id": "zion-narrows-safety",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion-narrows"
+      ],
+      "title": "Virgin River Narrows Safety",
+      "section": "Hiking Poles / Sticks",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/narrowssafety.htm",
+      "source_updated_at": "2026-09-17",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "fa60feef15831bbae5c68aee86a87c40cd25dafe12a63f3e4df59d79fbb568e4",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "9bd358b55f69635eedf2ff034738cb0da270cdee91b7c457e0585b1597b0e460"
+    },
+    {
+      "id": "zion-seasons-761453ecb93e1242",
+      "document_id": "zion-seasons",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Zion Seasonal Preparation",
+      "section": "Winter",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/seasons.htm",
+      "source_updated_at": "2024-07-27",
+      "fetched_at": "2026-11-02T20:52:12.375989+00:00",
+      "content_hash": "761453ecb93e124220d52a09517a0ddfced703172895e169df0703f5da8065ff",
+      "seasons": [
+        "winter"
+      ],
+      "record_hash": "fe95434ae833c7864ff4b65b53aa493f32cc79433fae88b059a14c1e62852965"
+    },
+    {
+      "id": "zion-weather-1cee1a1fe9f92a19",
+      "document_id": "zion-weather",
+      "park_id": "zion",
+      "destination_ids": [
+        "zion",
+        "zion-narrows"
+      ],
+      "title": "Zion Weather and Climate",
+      "section": "Weather and Climate",
+      "source_url": "https://www.nps.gov/zion/planyourvisit/weather-and-climate.htm",
+      "source_updated_at": "2026-01-04",
+      "fetched_at": "2026-11-02T20:38:58.895344+00:00",
+      "content_hash": "1cee1a1fe9f92a1902c207a0195ba13a8dcfe12f4cc09a7a1e3ba7068ec5bd42",
+      "seasons": [
+        "all"
+      ],
+      "record_hash": "3c68965fc5defa207e74819d736f47087811f379764aaa4a07c2bedb91fd7a9e"
+    }
+  ]
+}

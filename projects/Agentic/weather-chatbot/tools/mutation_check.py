@@ -34,7 +34,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/park_tools.py": ("test_park_integration.py", "test_nps_integration.py"),
     "templates/nps_alert_parts.html": ("test_nps_alerts.py", "test_nps_integration.py"),
     "nimbus/parks.py": ("test_parks.py", "test_retrieval.py", "test_park_hardening.py"),
-    "nimbus/park_embeddings.py": ("test_park_embeddings.py", "test_park_hardening.py"),
+    "nimbus/park_text.py": ("test_park_ingest.py", "test_park_hardening.py"),
     "nimbus/knowledge.py": ("test_knowledge.py", "test_retrieval.py", "test_park_hardening.py"),
     "templates/knowledge_chunks.html": ("test_knowledge.py",),
     "templates/knowledge_retrieval.html": ("test_retrieval.py",),
@@ -42,7 +42,7 @@ TESTS_FOR: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/park_ingest.py": ("test_park_ingest.py", "test_park_hardening.py"),
     "nimbus/health.py": ("test_health.py", "test_park_hardening.py", "test_observability.py"),
     "nimbus/prompts.py": ("test_prompts.py", "test_park_hardening.py", "test_chat.py"),
-    "tools/build_park_index.py": ("test_park_hardening.py",),
+    "tools/build_park_index.py": ("test_build_park_index.py", "test_park_hardening.py"),
     "tools/eval_parks.py": ("test_park_evals.py",),
     "nimbus/actor.py": ("test_actor.py", "test_auth_lanes.py"),
     "nimbus/agent.py": ("test_agent.py", "test_answer.py", "test_harness_replay.py"),
@@ -1453,18 +1453,18 @@ MUTATIONS: tuple[Mutation, ...] = (
 )
 
 
-# Park evidence, season, model identity, bounded context, and CPU execution each have a regression guard.
+# Park scope, season, bounded context and tokenizer preparation each have a regression guard.
 MUTATIONS = (
     *MUTATIONS,
     Mutation(
         "nimbus/parks.py",
-        "if destination_id in chunk.destination_ids",
+        'if destination_id in item["destination_ids"]',
         "if True",
         "park retrieval respects the exact trail",
     ),
     Mutation(
         "nimbus/parks.py",
-        'and (season is None or "all" in chunk.seasons or season in chunk.seasons)',
+        'and (season is None or "all" in item["seasons"] or season in item["seasons"])',
         "and True",
         "park guidance respects the visit season",
     ),
@@ -1475,16 +1475,9 @@ MUTATIONS = (
         "park context bounds the number of passages",
     ),
     Mutation(
-        "nimbus/parks.py",
-        "self._query_model != self.embedding_model",
-        "False",
-        "park document and question embedding models match",
-    ),
-    Mutation("nimbus/park_embeddings.py", 'device="cpu"', 'device="cuda"', "park embeddings run on CPU"),
-    Mutation(
-        "nimbus/park_embeddings.py",
-        "> MINILM_MAX_TOKENS for text in texts",
-        "> 10000 for text in texts",
+        "nimbus/park_text.py",
+        'if counter.token_count(f"{prefix}\\n{candidate}") <= MINILM_MAX_TOKENS:',
+        'if counter.token_count(f"{prefix}\\n{candidate}") <= 10000:',
         "MiniLM inputs cannot be silently truncated",
     ),
 )
@@ -1500,7 +1493,7 @@ MUTATIONS = (
     ),
     Mutation(
         "nimbus/knowledge.py",
-        "if filters.chunk and selected is None:",
+        'if catalog["available"] and filters.chunk and selected is None:',
         "if False:",
         "knowledge rejects unknown selected chunks",
     ),
@@ -1562,12 +1555,6 @@ MUTATIONS = (
 
 MUTATIONS = (
     *MUTATIONS,
-    Mutation(
-        "nimbus/parks.py",
-        'settings.parks_retrieval_mode == "auto" and not settings.is_vercel',
-        'settings.parks_retrieval_mode == "auto"',
-        "hardening hosted default excludes local inference",
-    ),
     Mutation(
         "nimbus/parks.py",
         "if any(word not in DESTINATION_CONTEXT_TERMS and not word.isdecimal() for word in remainder.split()):",
@@ -1635,24 +1622,17 @@ MUTATIONS = (
         "hardening concurrent retrieval is bounded",
     ),
     Mutation(
-        "nimbus/park_embeddings.py",
-        "if self._pending is not None and not self._pending.done():",
-        "if False:",
-        "hardening native work cannot queue after a request timeout",
-    ),
-    Mutation(
-        "nimbus/park_embeddings.py",
-        "pending.add_done_callback(self._forget_query)",
-        "pass",
-        "hardening completed query state is released",
-    ),
-    Mutation(
         "nimbus/health.py",
-        "or not state.park_knowledge.available:",
+        'or await state.park_knowledge.health() != "ready":',
         "or False:",
         "hardening missing park index fails health",
     ),
-    Mutation("tools/build_park_index.py", "process.kill()", "pass", "hardening indexing timeout terminates its worker"),
+    Mutation(
+        "tools/build_park_index.py",
+        "if hashlib.sha256(data).hexdigest() != TOKENIZER_SHA256:",
+        "if False:",
+        "hardening preparation uses the exact reviewed tokenizer",
+    ),
     Mutation(
         "tools/eval_parks.py",
         "elif rank > case.max_evidence_rank:",
@@ -2902,7 +2882,7 @@ PARK_HYBRID_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/park_semantic.py",
-        "or any(payload.get(key) != value for key, value in expected.items())",
+        "or payload != manifest_payload(index_version, self._chunk_count)",
         "",
         "park hybrid verifies the published model and index before embedding a query",
     ),
@@ -2914,26 +2894,27 @@ PARK_HYBRID_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/park_semantic.py",
-        'or payload.get("content_hash") != eligible[identity]',
+        'or item["content_hash"] != eligible[identity]',
         "",
         "park hybrid rejects remote passages whose content identity changed",
     ),
     Mutation(
         "nimbus/park_semantic.py",
-        "or destination_id not in destinations",
+        'or destination_id not in item["destination_ids"]',
         "",
         "park hybrid rechecks destination scope on returned candidates",
     ),
     Mutation(
         "nimbus/park_semantic.py",
-        'or (season is not None and season not in seasons and "all" not in seasons)',
+        'or (season is not None and season not in item["seasons"] and "all" not in item["seasons"])',
         "",
         "park hybrid rechecks season scope on returned candidates",
     ),
     Mutation(
         "nimbus/park_semantic.py",
-        "asyncio.timeout(PARK_SEARCH_SECONDS)",
-        "asyncio.timeout(30)",
+        "async with asyncio.timeout(PARK_SEARCH_SECONDS), self._factory() as http:\n"
+        "                # ① Every branch requires",
+        "async with asyncio.timeout(30), self._factory() as http:\n                # ① Every branch requires",
         "park hybrid bounds the complete readiness and query operation",
     ),
     Mutation(
@@ -3014,6 +2995,60 @@ PARK_HYBRID_MUTATIONS: tuple[Mutation, ...] = (
         "{% if false %}",
         "park hybrid discloses hosted query processing independently of weather caching",
     ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        'body["using"] = BM25_FIELD',
+        'body["using"] = "wrong_field"',
+        "park hybrid BM25 uses the native scored text index without embeddings",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        "or payload != chunk_payload(item, index_version)",
+        "",
+        "park hybrid full public payload includes verified keyword text and record hash",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        "or metadata != dict(approved)",
+        "",
+        "park hybrid catalog rejects internally valid but unapproved provenance",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        'chunks.append({**item, "embedding": vector if with_vectors else []})',
+        'chunks.append({**item, "embedding": []})',
+        "park hybrid vector inspection returns actual hosted vectors",
+    ),
+    Mutation(
+        "tools/setup_park_search.py",
+        'and (scoring is True or scoring == {"type": "bm25"})',
+        "and True",
+        "park hybrid publication rejects a filtering-only text index",
+    ),
+    Mutation(
+        "tools/setup_park_search.py",
+        'missing = [chunk for chunk in batch if point_id(version, chunk["id"]) not in present]',
+        "missing = list(batch)",
+        "park hybrid repeated publication reuses verified hosted embeddings",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        'if catalog.status != "ready":',
+        "if False:",
+        "park hybrid an unavailable remote catalog cannot become an empty successful lookup",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        "async with asyncio.timeout_at(deadline):",
+        "async with asyncio.timeout(RETRIEVAL_SECONDS):",
+        "park hybrid semantic work preserves BM25 within the shared chat deadline",
+    ),
+    Mutation(
+        "nimbus/park_tracing.py",
+        '"catalog": "parks.catalog",',
+        '"catalog": "parks.bm25",',
+        "park hybrid catalog reads have their own nested operational trace",
+    ),
 )
 MUTATIONS += PARK_HYBRID_MUTATIONS
 PARK_HYBRID_MUTATIONS += tuple(
@@ -3023,17 +3058,28 @@ PARK_HYBRID_MUTATIONS += tuple(
     in {
         "retrieval unavailable semantic scores are distinct from zero",
         "trace reads still reject a different root identity",
+        "park retrieval respects the exact trail",
+        "park guidance respects the visit season",
+        "park context bounds the number of passages",
+        "MiniLM inputs cannot be silently truncated",
+        "knowledge rejects unknown selected chunks",
+        "the embedding map projects the actual stored vectors",
+        "hardening missing park index fails health",
+        "hardening preparation uses the exact reviewed tokenizer",
     }
 )
 PARK_HYBRID_TESTS: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/park_semantic.py": ("test_park_semantic.py",),
     "tools/setup_park_search.py": ("test_setup_park_search.py",),
     "nimbus/park_ranking.py": ("test_park_hybrid.py",),
-    "nimbus/parks.py": ("test_park_hybrid.py", "test_retrieval.py"),
+    "nimbus/parks.py": ("test_parks.py", "test_park_hybrid.py", "test_retrieval.py"),
+    "nimbus/park_text.py": ("test_park_ingest.py",),
+    "nimbus/health.py": ("test_park_hardening.py",),
+    "tools/build_park_index.py": ("test_build_park_index.py",),
     "nimbus/park_tracing.py": ("test_park_tracing.py",),
     "nimbus/trace_view.py": ("test_trace_view.py",),
     "nimbus/observability.py": ("test_activity_traces.py",),
-    "nimbus/knowledge.py": ("test_retrieval.py",),
+    "nimbus/knowledge.py": ("test_knowledge.py", "test_retrieval.py"),
     "templates/knowledge_retrieval.html": ("test_retrieval.py",),
     "templates/chat.html": ("test_pages.py",),
 }
@@ -3217,7 +3263,7 @@ def main() -> int:
         tuple(
             mutation
             for mutation in MUTATIONS
-            if mutation.file in {"nimbus/parks.py", "nimbus/park_embeddings.py"}
+            if mutation.file in {"nimbus/parks.py", "nimbus/park_text.py"}
             or mutation.rule == "undecided parks require one full-pair lookup before guidance"
             or mutation.rule in {"the conversation so far comes before the question", "no message can change the rules"}
         )
