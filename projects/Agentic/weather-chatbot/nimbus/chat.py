@@ -309,6 +309,8 @@ async def stream_turn(
     pieces: list[str] = []
     chips: dict[str, ToolChip] = {}
     evidence_urls: set[str] = set()
+    # Whether the whole answer has been sent and logged: what follows (the cache save) can't change its ending.
+    answered = False
 
     def ending() -> dict[str, object]:
         """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
@@ -370,6 +372,14 @@ async def stream_turn(
             "memory_note": memory_note,
         }
         if cache_turn is not None:
+            # The receipt proves which conversation Nimbus produced; it doesn't depend on the save, so it can't wait.
+            done["cache_receipt"] = cache_turn.receipt_for(str(done["answer"]))
+        yield to_sse_message(render_part("chat_end.html", done))
+        log.info("chat.done", **ending())
+        answered = True
+        # ⑥ Kept for reuse only once the visitor has the whole answer, so Qdrant's time never delays it. The stream
+        # stays open until the save ends, within the save's own deadline.
+        if cache_turn is not None:
             storing: AbstractContextManager[CacheTraceStep | None] = (
                 request_trace.step("store") if request_trace is not None else nullcontext()
             )
@@ -377,16 +387,18 @@ async def stream_turn(
                 completion = await cache_turn.completed(
                     "".join(pieces), list(chips.values()), str(done["answer"]), trace=cache_step
                 )
-                done["cache_receipt"] = completion.receipt
                 if cache_step is not None:
                     cache_step.outcome(completion.store.status)
-        yield to_sse_message(render_part("chat_end.html", done))
-        log.info("chat.done", **ending())
     except (asyncio.CancelledError, GeneratorExit):
-        # ④ Stop, or the page went away: nothing more can be sent.
-        log.info("chat.aborted", **ending())
+        # ④ Stop, or the page went away: nothing more can be sent. An answer already delivered has its ending.
+        if not answered:
+            log.info("chat.aborted", **ending())
         raise
     except Exception as error:
+        if answered:
+            # The answer was delivered and logged; a failure while keeping it for reuse changes nothing for it.
+            log.warning("semantic_cache.store_failed", errorClass=type(error).__name__)
+            return
         # ⑤ A failure: the answer so far, then our own sentence and the ref that finds the request's lines, never the
         # error's own text, which stays out of the logs too; the model's own error is logged by its class.
         cause = error.__cause__

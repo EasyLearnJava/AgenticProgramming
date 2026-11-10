@@ -2621,9 +2621,9 @@ MUTATIONS += MEMORY_MUTATIONS
 # Weather answer reuse: privacy, expiry, independent guards and honest evaluation evidence.
 SEMANTIC_CACHE_MUTATIONS: tuple[Mutation, ...] = (
     Mutation(
-        "nimbus/semantic_cache/integration.py",
-        "return CacheCompletion(self.receipt_for(html), stored)",
-        'return CacheCompletion(self.receipt_for(html) if entry is not None else "", stored)',
+        "nimbus/chat.py",
+        'done["cache_receipt"] = cache_turn.receipt_for(str(done["answer"]))',
+        'done["cache_receipt"] = ""',
         "cache receipts survive successful answers that cannot be stored",
     ),
     Mutation(

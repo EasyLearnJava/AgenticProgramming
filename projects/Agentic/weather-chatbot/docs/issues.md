@@ -945,4 +945,13 @@ package's code**, **deploying**, or **testing a real API**.
      exclusion. Focused unit checks and five Chrome cases passed, including mobile layout and accessibility.
      All 16 affected mutation rules were caught by assertion failures, and both independent reviews found no
      blocking issues. Validation was local and offline; the full suite and hosted delivery were not run.
+178. **A cache save that Qdrant applied showed as Failed, and the visitor waited for it.** *You, 9 November.* A
+     "Dallas weather" answer's store step was marked Failed, yet the next question reused the answer. **Why:**
+     remove expired, count and save shared one 2 s deadline; the save, with Qdrant's embedding, took 1.96 s, so our
+     deadline cancelled the wait, while Qdrant finished the write. And the save ran before the finished answer was
+     sent, so the visitor waited for it. **Fix:** the finished answer is sent and logged first; the save follows,
+     with its own 5 s deadline (lookups keep 2 s). A save our deadline cuts off is "timed out; may have been
+     saved", in the trace and in Activity, not an error; a cut-off read is still an error. **Check:** a unit test
+     that the save starts only after every event is sent; the receipt's mutation rule now targets the chat line
+     that makes it. No tests were run for this change.
 

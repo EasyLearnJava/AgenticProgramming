@@ -31,6 +31,8 @@ from nimbus.semantic_cache.policy import digest, embedding_text, normalized
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_POINTS = 2000
 TIMEOUT_SECONDS = 2.0
+# A save runs after the visitor has the whole answer, so it can wait longer for Qdrant's embedding and write.
+STORE_TIMEOUT_SECONDS = 5.0
 log = structlog.get_logger()
 
 
@@ -46,13 +48,19 @@ def qdrant_step(
             yield operation
         except asyncio.CancelledError:
             if operation is not None and deadline.expired():
-                operation.outcome("error")
+                # A read our deadline cut off is an outage; a write may still be applied by Qdrant, so it's unknown.
+                operation.outcome("timed_out" if action in {"cleanup", "save"} else "error")
             raise
 
 
 def make_client() -> httpx2.AsyncClient:
-    """Use HTTPS with bounded connections, no redirects and no local inference dependencies."""
-    return httpx2.AsyncClient(timeout=TIMEOUT_SECONDS, follow_redirects=False, limits=httpx2.Limits(max_connections=4))
+    """
+    Use HTTPS with bounded connections, no redirects and no local inference dependencies. Each HTTP wait outlasts
+    the operation's own deadline, which ends it first: 2 s for a lookup, 5 s for a save.
+    """
+    return httpx2.AsyncClient(
+        timeout=STORE_TIMEOUT_SECONDS + 1, follow_redirects=False, limits=httpx2.Limits(max_connections=4)
+    )
 
 
 class SemanticCacheService:
@@ -253,8 +261,9 @@ class SemanticCacheService:
             return CacheStore(status="bypass")
         if entry.expires_at <= self._clock():
             return CacheStore(status="not_reusable")
+        saving = False
         try:
-            async with asyncio.timeout(TIMEOUT_SECONDS) as deadline, self._factory() as http:
+            async with asyncio.timeout(STORE_TIMEOUT_SECONDS) as deadline, self._factory() as http:
                 with qdrant_step(trace, "cleanup", deadline):
                     await self._request(
                         http,
@@ -293,6 +302,7 @@ class SemanticCacheService:
                     "mac": signature(self._key, "entry", record),
                 }
                 with qdrant_step(trace, "save", deadline) as operation:
+                    saving = True
                     await self._request(
                         http,
                         "PUT",
@@ -311,6 +321,13 @@ class SemanticCacheService:
                         operation.outcome("saved")
                 self._log("store", "stored", started)
                 return CacheStore(status="saved")
+        except TimeoutError:
+            # Cut off by our deadline. Once the save was sent, Qdrant may still apply it: say so, not "error".
+            if saving:
+                self._log("store", "timed_out", started, "timeout")
+                return CacheStore(status="timed_out")
+            self._log("store", "error", started, "timeout")
+            return CacheStore(status="error")
         except Exception:
             self._log("store", "error", started, "unavailable")
             return CacheStore(status="error")

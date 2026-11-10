@@ -533,3 +533,34 @@ def test_closing_a_stream_before_completion_never_calls_the_store() -> None:
 
     asyncio.run(cancel())
     assert completed == []
+
+
+def test_the_cache_save_starts_only_after_the_finished_answer_is_sent() -> None:
+    """Qdrant's time never delays the visitor's finished answer: every event, the last included, comes first."""
+    order: list[str] = []
+
+    class Probe:
+        """A cache turn that records when its save begins, without making network requests."""
+
+        def receipt_for(self, _html: str) -> str:
+            """The conversation's receipt, which the finished answer carries."""
+            return "0" * 64
+
+        async def completed(self, *_args: object, **_kwargs: object) -> None:
+            """Record the save's start."""
+            order.append("save")
+
+    async def source() -> AsyncGenerator[AnswerEvent]:
+        """A complete model answer."""
+        yield "Dallas has cloudy skies."
+
+    async def run() -> None:
+        """Read the whole stream, noting each event as it arrives."""
+        stream = stream_turn(source(), QUESTION, "order-test", AnswerStats(), "fake", cache_turn=Probe())  # type: ignore[arg-type]
+        async for _event in stream:
+            order.append("event")
+
+    asyncio.run(run())
+    assert order[-1] == "save"
+    assert order.count("save") == 1
+    assert set(order[:-1]) == {"event"}

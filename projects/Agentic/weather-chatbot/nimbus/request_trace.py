@@ -42,6 +42,8 @@ type CacheOutcome = Literal[
     "not_reusable",
     "cache_full",
     "cancelled",
+    # A write our deadline cut off: Qdrant may still have applied it, so it's neither saved nor an error.
+    "timed_out",
 ]
 type CacheBypassReason = Literal[
     "disabled",

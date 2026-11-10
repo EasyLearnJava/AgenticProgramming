@@ -61,6 +61,7 @@ CACHE_OUTCOMES = {
     "not_reusable": "Not reusable",
     "cache_full": "Cache full",
     "cancelled": "Cancelled",
+    "timed_out": "Timed out; may have been saved",
 }
 CACHE_REASONS = {
     "disabled": "Caching is disabled",

@@ -66,4 +66,5 @@ class CacheLookup(BaseModel):
 class CacheStore(BaseModel):
     """A cache write's actual outcome, separate from whether the weather answer itself succeeded."""
 
-    status: Literal["saved", "not_reusable", "cache_full", "error", "bypass"]
+    # timed_out: the save was sent, then our deadline passed; Qdrant may still have applied it.
+    status: Literal["saved", "not_reusable", "cache_full", "error", "bypass", "timed_out"]

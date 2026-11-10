@@ -834,6 +834,7 @@ def to_semantic_cache_line(row: Row, at: datetime, took: str) -> ActivityLine:
         "saved": ("Answer saved", "ok"),
         "not_reusable": ("Answer not reusable", "idle"),
         "cache_full": ("Cache capacity reached", "idle"),
+        "timed_out": ("Save timed out; Qdrant may still have saved it", "warn"),
         "shadow_hit": ("Match measured; answer not reused", "idle"),
         "ready": ("Inventory read", "ok"),
         "disabled": ("Disabled", "idle"),
