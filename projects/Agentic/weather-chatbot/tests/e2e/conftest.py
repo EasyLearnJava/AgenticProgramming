@@ -63,6 +63,21 @@ class HostedParkScores(FakeParkStore):
             )
         return SemanticResult("ready", {sorted(eligible)[0]: 0.84} if eligible else {})
 
+    async def rerank(
+        self,
+        query: str,
+        *,
+        index_version: str,
+        park_id: str,
+        destination_id: str,
+        season: str | None,
+        eligible: Mapping[str, str],
+    ) -> SemanticResult:
+        """Reverse the supplied RRF shortlist, or fail it, so the UI must distinguish both ranking stages."""
+        if self.rerank_status != "ready":
+            return SemanticResult("unavailable")
+        return SemanticResult("ready", {chunk: float(position + 2) for position, chunk in enumerate(eligible)})
+
 
 def trace_recordings(app: FastAPI) -> AxiomRecordings:
     """A recent traced request, one awaiting upload, and one recorded before trace correlation was enabled."""
@@ -155,6 +170,19 @@ def trace_recordings(app: FastAPI) -> AxiomRecordings:
                         outcome="Passages found",
                         retrieval_mode="BM25 only",
                         retrieval_selected=4,
+                    ),
+                    TraceRow(
+                        "Qdrant ColBERT rerank",
+                        "Step",
+                        10,
+                        336,
+                        1,
+                        "Failed",
+                        parent_index=0,
+                        error="Step reported an error.",
+                        outcome="Invalid response",
+                        retrieval_provider="Qdrant Cloud",
+                        retrieval_candidates=12,
                     ),
                 ),
             )
@@ -428,13 +456,18 @@ def base_url(
         nps_api_key=None,
         flights_enabled=getattr(request, "param", None) in {"travel", "flights-only", "observability"},
         hotels_enabled=getattr(request, "param", None) in {"travel", "observability"},
-        parks_retrieval_mode="hybrid" if getattr(request, "param", None) == "park-hybrid" else "lexical",
+        parks_retrieval_mode="hybrid"
+        if getattr(request, "param", None) in {"park-hybrid", "park-rerank", "park-rerank-error"}
+        else "lexical",
     )
     app = create_app(settings)
     app.state.park_knowledge = fixture_knowledge(settings.parks_index_path, mode=settings.parks_retrieval_mode)
-    if getattr(request, "param", None) == "park-hybrid":
+    if getattr(request, "param", None) in {"park-hybrid", "park-rerank", "park-rerank-error"}:
         store = cast(FakeParkStore, app.state.park_knowledge.store)
         app.state.park_knowledge.store = HostedParkScores(store.chunks)
+        app.state.park_knowledge.rerank_enabled = getattr(request, "param", None) != "park-hybrid"
+        if getattr(request, "param", None) == "park-rerank-error":
+            app.state.park_knowledge.store.rerank_status = "unavailable"
     app.state.nws_alerts = NwsAlertsService(
         lambda: httpx2.AsyncClient(
             transport=httpx2.MockTransport(

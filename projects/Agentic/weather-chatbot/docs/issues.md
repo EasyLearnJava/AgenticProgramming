@@ -1047,3 +1047,21 @@ package's code**, **deploying**, or **testing a real API**.
      harness scenarios passed. New retrieval, integrity, publication, privacy and cancellation regression tests
      accompany the migration. Production configuration and exact-build verification remain on
      [Waiting on you](waiting-on-you.md#qdrant-hybrid-park-retrieval).
+
+185. **Qdrant BM25 statistics ignored the retrieval scope, and RRF left relevant passages below first place.**
+     *Measured retrieval improvement, 10 November.* Result filters constrained destination and season but the
+     default BM25 statistics were shard-wide. **Fix:** use the exact eligible filter for IDF and length statistics,
+     then optionally rerank the best 12 admitted RRF candidates with hosted ColBERT before selecting four passages.
+     The v3 collection stores text, native BM25, named MiniLM and ColBERT vectors. Migration copied all 40 verified
+     MiniLM vectors from v2 and generated only the new ColBERT representation; repeat setup made zero writes and
+     zero embeddings. Prior collections were retained. Invalid, incomplete or timed-out reranking preserves RRF;
+     traces mark the failed stage and Playground distinguishes RRF, cosine and MaxSim scores and final ranks.
+     **Evidence:** top-1 30/38 (78.9%) before, 33/38 (86.8%) after the scope fix, 34/38 (89.5%) with ColBERT.
+     All 41 main cases passed with 100% evidence recall@4 and zero provider failures. The eight frozen holdout
+     cases passed 8/8 versus scoped RRF's 7/8; evidence top-1 was 4/7 versus 3/7. Some main first ranks regress to
+     second, so this is neither a universal improvement nor a 95% result. The new report preserves historical
+     evidence, and the 47-case replay binds the new model and shortlist policy. Two independent reviewers found
+     no blockers; their cumulative-timeout test and failed-eval recording-preservation suggestions were fixed.
+     Focused unit and cross-feature checks passed, as did 18 targeted mutation checks and six Chrome checks.
+     No full eval suite, Gemini answer eval, commit, push or deployment formed part of this verification.
+     [Measurements and limits](technical-details.md#scoped-bm25-and-colbert-validation).

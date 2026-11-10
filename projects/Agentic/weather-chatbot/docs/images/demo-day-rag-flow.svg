@@ -8,9 +8,11 @@
     trail and a season from the visit date, a season you pick or the question's words: "in spring" gives Spring,
     "Yosemite Fall" and "summer and fall" give none (checks 1, 4 and 5). Step 3 reads the approved passages from
     Qdrant and checks the published version and every passage's hash against the app's catalog. Step 4 ranks the
-    question's key words with Qdrant's BM25 index (check 3), and step 5 ranks its meaning with MiniLM vectors made
-    by Qdrant Cloud inference (check 2). Step 6 fuses both rankings and keeps at most four passages within 10,000
-    characters. If the meaning search fails or is slow, BM25 ranks are used alone; if Qdrant or BM25 fails, guidance
+    question's key words with Qdrant's BM25 index and scoped term rarity (check 3), and step 5 ranks its meaning
+    with MiniLM vectors made by Qdrant Cloud inference (check 2). Step 6 fuses both rankings into a shortlist of
+    up to 12 passages. Qdrant ColBERT reranks that shortlist using the full question, then Nimbus selects at most
+    four passages within 10,000 characters. If ColBERT fails, the original RRF order remains available.
+    If the meaning search fails or is slow, BM25 ranks are used alone; if Qdrant or BM25 fails, guidance
     is unavailable. The Playground stops there and shows the season, scores and each passage's decision without
     calling Gemini (checks 1 to 5). Chat continues (checks 6 to 11): Gemini answers from the returned passages or
     says what they don't cover, and only links to returned sources stay clickable. Activity, the LangSmith trace,
@@ -109,7 +111,7 @@
       <text x="304" y="421">Read the approved passages</text>
       <text x="304" y="523">Rank by keywords (BM25)</text>
       <text x="304" y="625">Rank by meaning (MiniLM)</text>
-      <text x="304" y="727">Fuse and pick the evidence</text>
+      <text x="304" y="727">RRF → ColBERT → context</text>
       <text x="304" y="875">Answer from the passages</text>
       <text x="304" y="977">Keep only real citations</text>
       <text x="40" y="722" fill="#0f5c40">Evidence view</text>
@@ -132,13 +134,13 @@
       <text x="304" y="356">or the question's words</text>
       <text x="304" y="440">Qdrant's version and hashes</text>
       <text x="304" y="457">must match the app's catalog</text>
-      <text x="304" y="542">the question's key words,</text>
-      <text x="304" y="559">scored by Qdrant's BM25 index</text>
+      <text x="304" y="542">the question's key words;</text>
+      <text x="304" y="559">term rarity in eligible passages</text>
       <text x="304" y="644">the question as a vector,</text>
       <text x="304" y="661">compared in Qdrant Cloud</text>
-      <text x="304" y="746">weighted rank fusion; meaning</text>
-      <text x="304" y="763">counts at 0.30, alone at 0.55;</text>
-      <text x="304" y="780">at most 4 passages, 10,000 chars</text>
+      <text x="304" y="746">top 12 → token-level reranking</text>
+      <text x="304" y="763">best 4 within 10,000 characters</text>
+      <text x="304" y="780">rerank fails? keep RRF order</text>
       <text x="304" y="894">Gemini gets the passages and</text>
       <text x="304" y="911">their sources as tool output</text>
       <text x="304" y="996">links to returned sources stay</text>
@@ -169,10 +171,10 @@
       <text x="858" y="519">13 NPS pages</text>
       <text x="858" y="566" font-weight="700" fill="#123f35">BM25 index</text>
       <text x="858" y="585">native, in Qdrant</text>
-      <text x="858" y="652" font-weight="700" fill="#123f35">Vectors</text>
-      <text x="858" y="671">MiniLM, made once by</text>
-      <text x="858" y="689">Qdrant Cloud</text>
-      <text x="858" y="707">inference</text>
+      <text x="858" y="652" font-weight="700" fill="#123f35">Two vector types</text>
+      <text x="858" y="671">MiniLM: semantic</text>
+      <text x="858" y="689">ColBERT: reranking</text>
+      <text x="858" y="707">hosted, stored together</text>
       <text x="858" y="752" font-weight="700" fill="#123f35">Kept apart from</text>
       <text x="858" y="771">weather answers</text>
     </g>
@@ -269,7 +271,7 @@
     </g>
     <g font-size="13" fill="#47645c">
       <text x="456" y="1111">a row per request, with the search's mode and status</text>
-      <text x="456" y="1147">collection read, BM25, semantic and fusion timings</text>
+      <text x="456" y="1147">collection, BM25, semantic, fusion and rerank timings</text>
       <text x="456" y="1183">the 13 sources and 40 passages, with their real vectors</text>
       <text x="456" y="1219">finding the passage and answering it, graded apart</text>
     </g>

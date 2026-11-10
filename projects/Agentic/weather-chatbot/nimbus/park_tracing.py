@@ -1,4 +1,4 @@
-"""Private operational traces for park retrieval: BM25, semantic lookup and rank fusion, never query or passage text."""
+"""Private operational traces for park retrieval stages, never query or passage text."""
 
 import asyncio
 from collections.abc import Iterator
@@ -21,8 +21,9 @@ PARK_TRACE_NAMES: Final = {
     "bm25": "parks.bm25",
     "semantic": "parks.semantic",
     "fusion": "parks.fusion",
+    "rerank": "parks.rerank",
 }
-type ParkTraceAction = Literal["catalog", "bm25", "semantic", "fusion"]
+type ParkTraceAction = Literal["catalog", "bm25", "semantic", "fusion", "rerank"]
 type RetrievalStatus = Literal[
     "completed",
     "ready",

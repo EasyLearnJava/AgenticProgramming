@@ -119,3 +119,46 @@ def test_hosted_hybrid_explains_weights_thresholds_scope_and_missing_scores(
     results.evaluate("element => element.scrollIntoView({block: 'start'})")
     page.screenshot(path=str(tmp_path / f"hosted-playground-{width}.png"))
     explanation.screenshot(path=str(tmp_path / f"hosted-scoring-{width}.png"))
+
+
+@pytest.mark.parametrize(
+    ("base_url", "expected_status"),
+    [("park-rerank", "ready"), ("park-rerank-error", "unavailable")],
+    indirect=["base_url"],
+)
+@pytest.mark.parametrize("width", [360, 1280])
+def test_colbert_final_order_or_rrf_fallback_is_visible_and_accessible(
+    page: Page, base_url: str, width: int, tmp_path: Path, expected_status: str
+) -> None:
+    """Controlled reranking proves final context order, score labels and truthful failure on phones and desktops."""
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.goto(f"{base_url}/knowledge/retrieval")
+    page.get_by_label("Question", exact=True).fill("What should I wear to hike The Narrows in Zion in spring?")
+    page.get_by_label("Park or trail", exact=True).select_option("zion-narrows")
+    page.get_by_role("button", name="Run retrieval", exact=True).click()
+    results = page.locator(".retrieval-results")
+    expect(results).to_have_attribute("data-rerank-status", expected_status)
+    ranked = page.locator('#retrieval-ranking tr[data-selection="retrieved"]')
+    first = ranked.first
+    rrf = first.locator(".retrieval-score").nth(4)
+    rerank = first.locator(".retrieval-rerank-score")
+    if expected_status == "ready":
+        expect(results).to_contain_text("ColBERT reranked the RRF shortlist")
+        expect(rrf.locator(".retrieval-branch-rank")).not_to_have_text("Rank 1")
+        expect(rerank.locator(".retrieval-branch-rank")).to_have_text("Rank 1")
+        assert float(rerank.locator("strong").inner_text()) > 1  # ColBERT is not cosine similarity.
+    else:
+        expect(results).to_have_attribute("data-rerank-status", "unavailable")
+        expect(results).to_contain_text("Final order keeps the original RRF ranking")
+        expect(rrf.locator(".retrieval-branch-rank")).to_have_text("Rank 1")
+        expect(rerank).to_contain_text("Not reranked")
+    assert ranked.evaluate_all("rows => rows.map(row => 'retrieved-' + row.dataset.chunk)") == (
+        page.locator(".retrieval-passage").evaluate_all("rows => rows.map(row => row.id)")
+    )
+    page.get_by_text("How to read the scores", exact=True).click()
+    expect(page.locator(".retrieval-explanation")).to_contain_text("not probabilities or confidence")
+    assert "?" not in page.url
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    audit = Axe().run(page)
+    assert audit.violations_count == 0, audit.generate_report()
+    results.screenshot(path=str(tmp_path / f"colbert-playground-{width}.png"))

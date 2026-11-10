@@ -62,12 +62,18 @@ weather, preparation and NPS notices. The NWS decision described above belongs t
   currency, preparation interest and departure window. No accounts or cross-device linking are implemented. Anyone
   using the same browser profile can manage its preferences. New chat does not clear them.
 - **Park knowledge** lives in a dedicated Qdrant collection: approved text, provenance, a native BM25 text index
-  and hosted MiniLM dense vectors. Text-only preparation preserves reviewed section and season boundaries.
-  Publication generates each vector once per generation and verifies text, vectors and the readiness marker.
+  and two named hosted representations: `dense` has 384-dimensional MiniLM vectors; `colbert` holds 96-dimensional
+  token vectors for MaxSim reranking. Text-only preparation preserves reviewed section and season boundaries.
+  The v3 publication verifies both representations, text and the readiness marker. Migration can copy verified
+  MiniLM vectors from v2 and generate only ColBERT vectors; those are a different representation, not duplicate
+  MiniLM embeddings. Repeated publication reuses verified points.
   The app bundles only destination metadata and expected record hashes, then reads actual passages from Qdrant.
-  Both searches share park, destination, season and version filters; Nimbus fuses ranks and bounds the context.
-  Hosted requests send search text without attaching history or preferences. A semantic-only failure can use
-  successful Qdrant BM25; a full outage makes guidance unavailable. [Inspect the collection](/knowledge/sources) ·
+  Both searches share park, destination, season and version filters. BM25's IDF corpus uses those same filters,
+  so unrelated passages do not distort term rarity. RRF builds a shortlist of up to 12; optional ColBERT reranking,
+  enabled by default, reorders it before the four-passage and 10,000-character context limits. Equal rerank scores
+  preserve RRF order. Hosted requests send search text without attaching history or preferences. Reranker failure
+  retains the original RRF ordering; a semantic-only failure can use successful Qdrant BM25. A full outage makes
+  guidance unavailable. [Inspect the collection](/knowledge/sources) ·
   [Inspect ranking and traces](technical-details.md#reproduce-a-park-retrieval).
 - **Open-Meteo data** uses separate lifetimes in Vercel's Runtime Cache. A place lookup can be reused for 30 days,
   current weather for 10 minutes, and forecasts and air quality for 30 minutes. A cache failure falls through to an
@@ -124,7 +130,8 @@ This cache is an optimization, not long-term history or a memory service.
 
 The components have separate deadlines and outcomes. If hotels time out, a confirmed plan can still show
 flights, weather and notices. An empty inventory is a different result from a provider outage. If hosted dense
-search fails, successful Qdrant BM25 can still answer; a full Qdrant outage cannot. If an optional travel service fails
+search fails, successful Qdrant BM25 can still answer. If ColBERT fails, RRF ordering remains usable and its rerank
+span is marked failed. A full Qdrant outage cannot supply guidance. If an optional travel service fails
 its tool-discovery check, Health shows that result separately from core weather and park-index readiness.
 [Read the health report](/health).
 

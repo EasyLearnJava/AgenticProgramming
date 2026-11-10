@@ -199,29 +199,34 @@ a new deployment; production validation remains a separate release action:
 | `PARKS_SEMANTIC_PROVIDER` | `qdrant` | Use the Qdrant text/vector store and hosted MiniLM. |
 | `PARKS_RETRIEVAL_MODE` | `hybrid` | Enable BM25 plus hosted semantic ranking; `lexical` disables semantic calls. |
 | `QDRANT_URL` | Your Qdrant cluster HTTPS endpoint | Reuse the existing endpoint if both features share a cluster. |
-| `PARKS_QDRANT_COLLECTION` | `nimbus_park_guidance_v2`, or a dedicated park collection per environment | Must differ from `QDRANT_COLLECTION`, the weather cache. |
+| `PARKS_QDRANT_COLLECTION` | `nimbus_park_guidance_v3`, or a dedicated park collection per environment | Must differ from `QDRANT_COLLECTION`, the weather cache. |
+| `PARKS_RERANK_ENABLED` | `true` (default) | Use `false` to keep scoped BM25/MiniLM RRF without ColBERT. |
 | `PARKS_QDRANT_API_KEY` | Optional separate secret with read access to the park collection | If omitted, the existing `QDRANT_API_KEY` must permit those reads. |
 
 Use an authorized setup credential with collection/index/point write permission to run
-`uv run python -m tools.setup_park_search` from the checked-out candidate revision. The command embeds public source
-chunks once per published generation and verifies them before publishing a readiness marker. A repeat run reuses
-verified points. It does not alter the weather-cache collection. Native BM25 requires Qdrant 1.20 or newer; setup
+`uv run python -m tools.setup_park_search --reuse-collection nimbus_park_guidance_v2` from the candidate revision.
+This copies verified MiniLM vectors and generates only ColBERT vectors; omit the reuse option on a fresh cluster.
+A repeat run reuses verified points. It does not alter the weather-cache collection. Native BM25 requires
+Qdrant 1.20 or newer; setup
 checks the actual scoring index. The prior park collection is retained for rollback and is not migrated in place.
 After any source/index rebuild, publish that new index version before validating the corresponding deployment.
 
 On the exact preview, submit **What should I wear to hike The Narrows in Zion in spring?** in Retrieval Playground.
-Check Qdrant provider readiness, BM25 and semantic scores, the selected season and the retrieved source text. Inspect
-the linked Activity/LangSmith trace for collection, BM25, semantic and fusion steps. Ask the same question in chat
-and inspect its source citations. Check source pages and the actual hosted vectors in Chunks & vectors. Confirm
-wrong-trail/season evidence is rejected, semantic-only failure retains BM25, and a full outage says unavailable.
+Check provider readiness, BM25/cosine scores, RRF ranks, ColBERT scores, final ranks and the selected season. Inspect
+the linked Activity/LangSmith trace for collection, BM25, semantic, fusion and ColBERT steps. Ask the same question
+in chat and inspect its citations. Check source pages and the actual hosted vectors in Chunks & vectors. Confirm
+wrong-trail/season evidence is rejected, semantic-only failure retains BM25, reranker failure retains RRF, and a
+full outage says unavailable.
 
 Run `uv run python -m tools.eval_park_hybrid` with the intended collection and inspect provider failures, recall@4,
 top-1 and MRR@4 separately. Record the exact commit, deployment, collection and evidence before production; local
 tests and live provider checks do not establish that Vercel configuration or tracing delivery works.
 
 Hosted queries send the search text to Qdrant for embedding; this adapter sends neither full history nor preferences.
-Public park records have no weather-cache TTL. The existing Qdrant Free MiniLM model requires no additional embedding
-API key or local ML package. [Implementation and privacy](technical-details.md#publish-and-validate-hosted-park-search).
+Public park records have no weather-cache TTL. Hosted MiniLM and ColBERT need no additional model key or local ML
+package; ColBERT adds storage and a bounded query. The local v3 publication is verified, but Vercel still needs its
+collection setting updated and the exact deployed build checked.
+[Implementation and privacy](technical-details.md#publish-and-validate-hosted-park-search).
 
 ## Park answer judge
 

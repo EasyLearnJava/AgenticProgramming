@@ -1,0 +1,1247 @@
+{
+  "at": "2026-11-10T21:33:42.971737+00:00",
+  "index_version": "5b2eddcd5a2f6a24",
+  "policy": {
+    "model": "sentence-transformers/all-minilm-l6-v2",
+    "embedding_profile": "nimbus-park-hybrid-colbert-v3",
+    "bm25_statistics_scope": "eligible-corpus",
+    "rerank_model": "answerdotai/answerai-colbert-small-v1",
+    "rerank_limit": 12,
+    "comparison": "same_request_same_eligible_candidates",
+    "hybrid_profile": "colbert_reranked_rrf",
+    "dense_baseline": "candidate_cutoff_without_keyword_gate",
+    "semantic_candidate_cutoff": 0.3,
+    "semantic_only_admission_cutoff": 0.55,
+    "rrf_k": 60,
+    "keyword_weight": 1.0,
+    "semantic_weight": 0.1
+  },
+  "provider_failures": 0,
+  "quality_regressions": [],
+  "summary": {
+    "lexical": {
+      "passed": 41,
+      "cases": 41,
+      "recall_at_4": 1.0,
+      "top_1": 0.8157894736842105,
+      "mrr_at_4": 0.8969298245614036
+    },
+    "semantic": {
+      "passed": 39,
+      "cases": 41,
+      "recall_at_4": 0.9473684210526315,
+      "top_1": 0.8157894736842105,
+      "mrr_at_4": 0.8706140350877194
+    },
+    "rrf": {
+      "passed": 41,
+      "cases": 41,
+      "recall_at_4": 1.0,
+      "top_1": 0.868421052631579,
+      "mrr_at_4": 0.9298245614035089
+    },
+    "hybrid": {
+      "passed": 41,
+      "cases": 41,
+      "recall_at_4": 1.0,
+      "top_1": 0.8947368421052632,
+      "mrr_at_4": 0.9473684210526315
+    }
+  },
+  "cases": [
+    {
+      "id": "narrows-warm-layers",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-summer-clothing",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-winter-suit",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-footwear",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-dry-bags",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        }
+      }
+    },
+    {
+      "id": "narrows-hiking-poles",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-flash-floods",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-headlamp",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "zion-flood-preparation",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "zion-winter-weather",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "canyon-summer-shade",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "canyon-hottest-hours",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "canyon-hiking-food",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "canyon-sun-protection",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "canyon-winter-traction",
+      "semantic_status": "ready",
+      "rerank_status": "not_needed",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "south-kaibab-water",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "south-kaibab-heat",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 4
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "yosemite-lightning",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "yosemite-lightning-shelter",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "yosemite-winter-snow",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "yosemite-water",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "mist-trail-spray",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "mist-trail-rainwear",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "mist-trail-lightning",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-no-account-help",
+      "semantic_status": "ready",
+      "rerank_status": "not_needed",
+      "provider_failure": null,
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "canyon-no-recipe",
+      "semantic_status": "ready",
+      "rerank_status": "not_needed",
+      "provider_failure": null,
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "yosemite-no-stock-analysis",
+      "semantic_status": "ready",
+      "rerank_status": "not_needed",
+      "provider_failure": null,
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    },
+    {
+      "id": "narrows-dry-bags-paraphrase",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-footwear-paraphrase",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        }
+      }
+    },
+    {
+      "id": "canyon-food-paraphrase",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        }
+      }
+    },
+    {
+      "id": "yosemite-lightning-paraphrase",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "mist-spray-paraphrase",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "zion-winter-paraphrase",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "mist-spray-spring",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "mist-spray-summer",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-spring-wear",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": false,
+          "misses": [
+            "supporting passage missing"
+          ],
+          "evidence_rank": null
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-spring-tool-query",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": false,
+          "misses": [
+            "supporting passage missing"
+          ],
+          "evidence_rank": null
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-spring-garments",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 4
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        }
+      }
+    },
+    {
+      "id": "narrows-feet-paraphrase",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "narrows-spare-garments",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "mist-spring-stairway",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    }
+  ],
+  "cases_sha256": "d4d0c6675552a9c83aef1e9daa02a5f6a77ae20f5f9e6590d5c96f9d057a2cf3"
+}

@@ -83,7 +83,8 @@ class Settings(BaseSettings):
     parks_enabled: bool = True
     parks_retrieval_mode: Literal["auto", "lexical", "hybrid"] = "hybrid"
     parks_semantic_provider: Literal["qdrant"] = "qdrant"
-    parks_qdrant_collection: str = Field(default="nimbus_park_guidance_v2", pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    parks_qdrant_collection: str = Field(default="nimbus_park_guidance_v3", pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    parks_rerank_enabled: bool = True
     parks_qdrant_api_key: SecretStr | None = None
     parks_index_path: Path = PROJECT_ROOT / "data" / "parks" / "catalog.json"
     parks_prepared_path: Path = PROJECT_ROOT / "data" / "parks" / "prepared.json"

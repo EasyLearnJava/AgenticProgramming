@@ -155,7 +155,10 @@ def test_playground_shows_real_hybrid_scores_and_links_without_gemini(client: Te
     assert "1.0000" in page.text
     assert "Keyword score" in page.text
     assert "Semantic score" in page.text
-    assert "Final score" in page.text
+    assert "RRF score" in page.text
+    assert "ColBERT score" in page.text
+    assert "Final rank" in page.text
+    assert "Final score" not in page.text
     assert "Semantic contribution" in page.text
     assert "Reciprocal Rank Fusion" in page.text
     assert "Keyword terms used:" in page.text
@@ -174,6 +177,71 @@ def test_playground_explains_lexical_fallback_and_no_matches(client: TestClient)
     assert "verified Qdrant keyword results" in page.text
     assert "No chunks retrieved" in page.text
     assert "Not available" in page.text
+
+
+def test_playground_distinguishes_rrf_from_colbert_and_shows_actual_context_order(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """The higher ColBERT result overtakes the stronger BM25 result without relabelling its RRF score."""
+    service = knowledge_for(
+        tmp_path,
+        [chunk("keyword", "Keyword clothing", ["zion"]), chunk("meaning", "Relevant attire", ["zion"])],
+        keyword_scores={"keyword": 5, "meaning": 2},
+        semantic_scores={"keyword": 0.7, "meaning": 0.9},
+        rerank_scores={"keyword": 4.5, "meaning": 8.75},
+        rerank_enabled=True,
+    )
+    cast(FastAPI, client.app).state.park_knowledge = service
+    page = client.post("/api/knowledge/retrieval", data={"destination": "zion", "q": "What clothing do I need?"})
+    assert page.status_code == 200
+    assert 'data-rerank-status="ready"' in page.text
+    assert "ColBERT reranked the RRF shortlist" in page.text
+    assert "ColBERT score" in page.text
+    assert "RRF score" in page.text
+    assert "Final score" not in page.text
+    assert "not probabilities or confidence" in page.text
+    assert "Term rarity is measured within the eligible destination and season" in page.text
+    result = asyncio.run(service.search("zion", "What clothing do I need?", explain=True))
+    rows = result["diagnostics"]["candidates"]
+    assert [row["chunk"]["id"] for row in rows] == ["meaning", "keyword"]
+    assert [row["rank"] for row in rows] == [1, 2]
+    assert [row["rrf_rank"] for row in rows] == [2, 1]
+    assert [row["rerank_rank"] for row in rows] == [1, 2]
+    assert rows[0]["final_score"] < rows[1]["final_score"]
+    assert rows[0]["rerank_score"] == 8.75
+    assert re.findall(r'<article [^>]*id="retrieved-([^"]+)"', page.text) == [
+        passage["id"] for passage in result["passages"]
+    ]
+    assert re.findall(r"RRF rank (\d+) · RRF score", page.text) == ["2", "1"]
+    assert re.findall(r'<td class="retrieval-score retrieval-rerank-score">\s*<strong>([^<]+)', page.text) == [
+        "8.7500",
+        "4.5000",
+    ]
+
+
+@pytest.mark.parametrize("status", ["timeout", "invalid_response", "unavailable"])
+def test_playground_explains_colbert_failure_and_preserves_rrf_context(
+    client: TestClient, tmp_path: Path, status: str
+) -> None:
+    """A failed or incomplete reranker never looks successful and cannot reorder verified RRF evidence."""
+    service = knowledge_for(
+        tmp_path,
+        [chunk("keyword", "Keyword clothing", ["zion"]), chunk("meaning", "Relevant attire", ["zion"])],
+        keyword_scores={"keyword": 5, "meaning": 2},
+        semantic_scores={"keyword": 0.7, "meaning": 0.9},
+        rerank_scores={"meaning": 8.75},
+        rerank_status=status,
+        rerank_enabled=True,
+    )
+    cast(FastAPI, client.app).state.park_knowledge = service
+    page = client.post("/api/knowledge/retrieval", data={"destination": "zion", "q": "clothing"})
+    assert page.status_code == 200
+    assert f'data-rerank-status="{status}"' in page.text
+    assert "Final order keeps the original RRF ranking" in page.text
+    assert "ColBERT reranked the RRF shortlist" not in page.text
+    assert "Not reranked" in page.text
+    assert re.findall(r'<article [^>]*id="retrieved-([^"]+)"', page.text) == ["keyword", "meaning"]
+    assert "8.7500" not in page.text
 
 
 def test_failed_keyword_branch_never_appears_as_successful_hybrid(client: TestClient, tmp_path: Path) -> None:

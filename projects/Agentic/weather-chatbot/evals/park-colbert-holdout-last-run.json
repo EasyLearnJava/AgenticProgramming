@@ -1,0 +1,290 @@
+{
+  "at": "2026-11-10T21:34:54.455226+00:00",
+  "index_version": "5b2eddcd5a2f6a24",
+  "policy": {
+    "model": "sentence-transformers/all-minilm-l6-v2",
+    "embedding_profile": "nimbus-park-hybrid-colbert-v3",
+    "bm25_statistics_scope": "eligible-corpus",
+    "rerank_model": "answerdotai/answerai-colbert-small-v1",
+    "rerank_limit": 12,
+    "comparison": "same_request_same_eligible_candidates",
+    "hybrid_profile": "colbert_reranked_rrf",
+    "dense_baseline": "candidate_cutoff_without_keyword_gate",
+    "semantic_candidate_cutoff": 0.3,
+    "semantic_only_admission_cutoff": 0.55,
+    "rrf_k": 60,
+    "keyword_weight": 1.0,
+    "semantic_weight": 0.1
+  },
+  "provider_failures": 0,
+  "quality_regressions": [],
+  "summary": {
+    "lexical": {
+      "passed": 7,
+      "cases": 8,
+      "recall_at_4": 0.8571428571428571,
+      "top_1": 0.42857142857142855,
+      "mrr_at_4": 0.5833333333333333
+    },
+    "semantic": {
+      "passed": 8,
+      "cases": 8,
+      "recall_at_4": 1.0,
+      "top_1": 0.5714285714285714,
+      "mrr_at_4": 0.7380952380952381
+    },
+    "rrf": {
+      "passed": 7,
+      "cases": 8,
+      "recall_at_4": 0.8571428571428571,
+      "top_1": 0.42857142857142855,
+      "mrr_at_4": 0.619047619047619
+    },
+    "hybrid": {
+      "passed": 8,
+      "cases": 8,
+      "recall_at_4": 1.0,
+      "top_1": 0.5714285714285714,
+      "mrr_at_4": 0.7380952380952381
+    }
+  },
+  "cases": [
+    {
+      "id": "holdout-narrows-april-insulation",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": false,
+          "misses": [
+            "supporting passage missing"
+          ],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "rrf": {
+          "passed": false,
+          "misses": [
+            "supporting passage missing"
+          ],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "holdout-narrows-camera-protection",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "holdout-kaibab-refill",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        }
+      }
+    },
+    {
+      "id": "holdout-canyon-january-traction",
+      "semantic_status": "ready",
+      "rerank_status": "not_needed",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "holdout-yosemite-storm-shelter",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        }
+      }
+    },
+    {
+      "id": "holdout-mist-may-stairs",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 4
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 3
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 2
+        }
+      }
+    },
+    {
+      "id": "holdout-zion-shaded-winter-paths",
+      "semantic_status": "ready",
+      "rerank_status": "ready",
+      "provider_failure": null,
+      "grades_evidence": true,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": 1
+        }
+      }
+    },
+    {
+      "id": "holdout-canyon-unrelated-password",
+      "semantic_status": "ready",
+      "rerank_status": "not_needed",
+      "provider_failure": null,
+      "grades_evidence": false,
+      "profiles": {
+        "lexical": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "semantic": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "rrf": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        },
+        "hybrid": {
+          "passed": true,
+          "misses": [],
+          "evidence_rank": null
+        }
+      }
+    }
+  ],
+  "cases_sha256": "7eb36463b333e44ec0133031cfda540c90700a2cbcfb2f1072156a168d3fdc9c"
+}

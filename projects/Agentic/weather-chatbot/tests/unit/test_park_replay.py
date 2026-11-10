@@ -12,11 +12,19 @@ import pytest
 
 from nimbus.park_ingest import compact_chunk, load_prepared
 from nimbus.park_models import ParkChunk
-from nimbus.park_semantic import PARK_MODEL, PARK_PROFILE, CatalogResult, SemanticResult
+from nimbus.park_semantic import (
+    COLBERT_MAX_TOKENS,
+    COLBERT_MODEL,
+    PARK_MODEL,
+    PARK_PROFILE,
+    CatalogResult,
+    SemanticResult,
+)
 from tools.eval_parks import PROJECT_ROOT
 from tools.park_replay import (
     RecordedParkStore,
     RecordingParkStore,
+    recording_policy,
     replay_park_cases,
     request_key,
 )
@@ -24,7 +32,9 @@ from tools.park_replay import (
 PRIVATE = "private question must never appear in recording"
 
 
-def recording(tmp_path: Path) -> tuple[Path, Path, dict[str, Any], dict[str, Any]]:
+def recording(
+    tmp_path: Path, *, method: str = "semantic", score: float = 0.8
+) -> tuple[Path, Path, dict[str, Any], dict[str, Any]]:
     """Create a controlled score recording against the approved text-only corpus."""
     corpus = load_prepared(PROJECT_ROOT / "data/parks/prepared.json")
     item = next(chunk for chunk in corpus["chunks"] if "zion-narrows" in chunk["destination_ids"])
@@ -34,18 +44,20 @@ def recording(tmp_path: Path) -> tuple[Path, Path, dict[str, Any], dict[str, Any
         "destination_id": "zion-narrows",
         "season": None,
         "eligible": {item["id"]: item["content_hash"]},
-        "method": "semantic",
+        "method": method,
     }
     cases = tmp_path / "cases.json"
     cases.write_text("[]", encoding="utf-8")
     document = {
-        "schema_version": 1,
+        "schema_version": 3,
         "index_version": corpus["index_version"],
         "model": PARK_MODEL,
         "profile": PARK_PROFILE,
+        "rerank_model": COLBERT_MODEL,
+        "policy": recording_policy(),
         "cases_sha256": hashlib.sha256(cases.read_bytes()).hexdigest(),
         "recorded_at": "2026-11-10T20:00:00Z",
-        "records": {request_key(PRIVATE, scope): {"method": "semantic", "scores": {item["id"]: 0.8}}},
+        "records": {request_key(PRIVATE, scope): {"method": method, "scores": {item["id"]: score}}},
     }
     path = tmp_path / "recording.json"
     path.write_text(json.dumps(document), encoding="utf-8")
@@ -82,7 +94,9 @@ def test_every_scope_field_and_search_method_are_bound_to_the_recording(
     assert asyncio.run(store.search(PRIVATE, **{**scope, field: value})).status == "index_mismatch"
 
 
-@pytest.mark.parametrize("field", ["index_version", "model", "profile", "cases_sha256"])
+@pytest.mark.parametrize(
+    "field", ["index_version", "model", "profile", "cases_sha256", "rerank_model", "policy", "schema_version"]
+)
 def test_changed_contract_requires_reviewed_new_recordings(tmp_path: Path, field: str) -> None:
     """A stale corpus or suite cannot inherit a previous provider result silently."""
     path, cases, _, document = recording(tmp_path)
@@ -139,6 +153,10 @@ def test_recorder_keeps_only_successful_scores_and_no_question_text(tmp_path: Pa
             """Return controlled scores or a failure without any real provider request."""
             return SemanticResult("ready", {identity: 0.8}) if query == PRIVATE else SemanticResult("timeout")
 
+        async def rerank(self, query: str, **kwargs: Any) -> SemanticResult:
+            """MaxSim is a sum over tokens, not a cosine similarity bounded by one."""
+            return SemanticResult("ready", {identity: 22.5}) if query == PRIVATE else SemanticResult("timeout")
+
         async def health(self, version: str) -> str:
             """The test double is configured independently of a live cluster."""
             return "ready"
@@ -149,6 +167,31 @@ def test_recorder_keeps_only_successful_scores_and_no_question_text(tmp_path: Pa
     assert len(store.records) == 1
     assert PRIVATE not in json.dumps(store.records)
     assert "provider timeout" not in json.dumps(store.records)
+    scope.pop("method")
+    assert asyncio.run(store.rerank(PRIVATE, **scope)).scores == {identity: 22.5}
+    assert asyncio.run(store.rerank("provider timeout", **scope)).status == "timeout"
+    assert len(store.records) == 2
+    assert {row["method"] for row in store.records.values()} == {"semantic", "rerank"}
+    assert PRIVATE not in json.dumps(store.records)
+
+
+@pytest.mark.parametrize("score", [-COLBERT_MAX_TOKENS, -3.0, 0.0, 32.5, COLBERT_MAX_TOKENS])
+def test_maxsim_recordings_accept_finite_token_sums_and_bind_the_exact_shortlist(tmp_path: Path, score: float) -> None:
+    """A legitimate MaxSim score above one survives replay, but a changed shortlist never reuses it."""
+    path, cases, scope, _ = recording(tmp_path, method="rerank", score=score)
+    scope.pop("method")
+    store = RecordedParkStore(path, cases_path=cases)
+    assert asyncio.run(store.rerank(PRIVATE, **scope)).scores == {next(iter(scope["eligible"])): score}
+    assert asyncio.run(store.rerank(PRIVATE, **{**scope, "eligible": {}})).status == "index_mismatch"
+    assert asyncio.run(store.rerank("changed question", **scope)).status == "index_mismatch"
+
+
+@pytest.mark.parametrize("score", [True, float("nan"), float("inf"), -COLBERT_MAX_TOKENS - 1, COLBERT_MAX_TOKENS + 1])
+def test_maxsim_recordings_reject_nonfinite_and_out_of_bounds_scores(tmp_path: Path, score: Any) -> None:
+    """Token sums retain an explicit upper bound, including rejection of Python booleans."""
+    path, cases, _, _ = recording(tmp_path, method="rerank", score=score)
+    with pytest.raises(ValueError, match="recorded park scores"):
+        RecordedParkStore(path, cases_path=cases)
 
 
 def test_approved_provider_recordings_replay_all_cases_without_network(monkeypatch: pytest.MonkeyPatch) -> None:

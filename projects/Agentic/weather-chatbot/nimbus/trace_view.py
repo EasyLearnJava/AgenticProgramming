@@ -56,6 +56,7 @@ PARK_LABELS = {
     PARK_TRACE_NAMES["bm25"]: "Park BM25 search",
     PARK_TRACE_NAMES["semantic"]: "Park semantic search",
     PARK_TRACE_NAMES["fusion"]: "Park rank fusion",
+    PARK_TRACE_NAMES["rerank"]: "Qdrant ColBERT rerank",
 }
 RETRIEVAL_LABELS = {
     "completed": "Completed",

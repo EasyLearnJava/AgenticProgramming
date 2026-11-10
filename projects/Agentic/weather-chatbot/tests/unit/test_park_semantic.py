@@ -14,6 +14,10 @@ from structlog.testing import capture_logs
 from nimbus.config import Settings
 from nimbus.park_semantic import (
     BM25_FIELD,
+    COLBERT_MAX_TOKENS,
+    COLBERT_MODEL,
+    COLBERT_VECTOR,
+    DENSE_VECTOR,
     PARK_DIMENSIONS,
     PARK_MODEL,
     PARK_PROFILE,
@@ -131,6 +135,7 @@ def test_hosted_query_is_versioned_filtered_and_uses_header_credentials() -> Non
     assert query.url.path == "/collections/nimbus_park_guidance/points/query"
     body = json.loads(query.content)
     assert body["query"] == {"text": QUESTION, "model": PARK_MODEL}
+    assert body["using"] == DENSE_VECTOR
     assert body["limit"] == 1
     filters = body["filter"]["must"]
     assert {"key": "index_version", "match": {"value": VERSION}} in filters
@@ -300,6 +305,7 @@ def test_bm25_runs_native_text_scoring_without_embedding_model() -> None:
     body = json.loads(provider.requests[-1].content)
     assert body["query"] == {"text": "warm layer"}
     assert body["using"] == BM25_FIELD
+    assert body["params"] == {"idf": {"corpus": body["filter"]}}
     assert "model" not in body["query"]
     assert {"key": "seasons", "match": {"any": ["spring", "all"]}} in body["filter"]["must"]
 
@@ -323,13 +329,13 @@ def test_catalog_reads_the_hosted_text_and_optionally_the_actual_hosted_vector()
     """Knowledge displays the actual Qdrant record; no legacy embedding is manufactured or loaded."""
     provider = Provider(
         catalog_ready(),
-        answer({"points": [point(vector=[0.5] * PARK_DIMENSIONS)], "next_page_offset": None}),
+        answer({"points": [point(vector={DENSE_VECTOR: [0.5] * PARK_DIMENSIONS})], "next_page_offset": None}),
     )
     result = catalog(provider, vectors=True)
     assert result.status == "ready"
     assert result.chunks == [{**CHUNK, "embedding": [0.5] * PARK_DIMENSIONS}]
     body = json.loads(provider.requests[-1].content)
-    assert body["with_vector"] is True
+    assert body["with_vector"] == [DENSE_VECTOR]
     assert body["filter"]["must"] == [
         {"key": "kind", "match": {"value": "chunk"}},
         {"key": "index_version", "match": {"value": VERSION}},
@@ -369,7 +375,9 @@ def test_search_rejects_changed_derived_fields_even_when_source_text_is_unchange
 
 @pytest.mark.parametrize("vector", [[1.0], [0.0] * PARK_DIMENSIONS, [float("nan")] * PARK_DIMENSIONS])
 def test_knowledge_vector_preview_rejects_invalid_remote_vectors(vector: object) -> None:
-    result = catalog(Provider(catalog_ready(), answer({"points": [point(vector=vector)]})), vectors=True)
+    result = catalog(
+        Provider(catalog_ready(), answer({"points": [point(vector={DENSE_VECTOR: vector})]})), vectors=True
+    )
     assert result.status == "invalid_response"
     assert result.chunks == []
 
@@ -415,3 +423,87 @@ def test_health_checks_publication_without_embedding_or_reading_text() -> None:
     assert asyncio.run(service.health(VERSION)) == "ready"
     assert len(provider.requests) == 1
     assert provider.requests[0].method == "GET"
+
+
+def rerank(provider: Callable[..., Any], **overrides: Any) -> SemanticResult:
+    """Exercise the actual reranker against a strictly admitted source shortlist."""
+    service = QdrantParkSearch(
+        settings(), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(provider)), chunk_count=4
+    )
+    scope: dict[str, Any] = {
+        "index_version": VERSION,
+        "park_id": "zion",
+        "destination_id": "zion-narrows",
+        "season": "spring",
+        "eligible": {str(CHUNK["id"]): str(CHUNK["content_hash"])},
+        **overrides,
+    }
+    return asyncio.run(service.rerank(QUESTION, **scope))
+
+
+def test_colbert_rerank_uses_only_the_admitted_shortlist_and_private_query_stays_out_of_logs() -> None:
+    provider = Provider(ready(), answer({"points": [point(score=24.5)]}))
+    with capture_logs() as logs:
+        result = rerank(provider)
+    assert result == SemanticResult("ready", {str(CHUNK["id"]): 24.5})
+    body = json.loads(provider.requests[-1].content)
+    assert body["query"] == {"text": QUESTION, "model": COLBERT_MODEL}
+    assert body["using"] == COLBERT_VECTOR
+    assert body["limit"] == 1
+    assert {"has_id": [point_id(VERSION, str(CHUNK["id"]))]} in body["filter"]["must"]
+    assert {"key": "seasons", "match": {"any": ["spring", "all"]}} in body["filter"]["must"]
+    assert not body["with_vector"]
+    assert "params" not in body
+    assert QUESTION not in json.dumps(logs) + repr(result)
+    assert KEY not in json.dumps(logs) + repr(result)
+
+
+@pytest.mark.parametrize("score", [True, "20", None, float("inf"), float("nan"), -513, 513, 10**400])
+def test_colbert_scores_are_finite_bounded_numbers(score: object) -> None:
+    assert rerank(Provider(ready(), answer({"points": [point(score=score)]}))).status == "invalid_response"
+
+
+@pytest.mark.parametrize("score", [-COLBERT_MAX_TOKENS, -0.1, 0, 30.5, COLBERT_MAX_TOKENS])
+def test_colbert_scores_are_maxsim_not_cosine_probabilities(score: float) -> None:
+    assert rerank(Provider(ready(), answer({"points": [point(score=score)]}))).scores == {str(CHUNK["id"]): score}
+
+
+@pytest.mark.parametrize("points", [[], [point(), point()], [point(id="unknown")]])
+def test_colbert_requires_the_exact_complete_candidate_set(points: list[dict[str, object]]) -> None:
+    result = rerank(Provider(ready(), answer({"points": points})))
+    assert result.status == "invalid_response"
+    assert result.scores == {}
+
+
+def test_colbert_never_ranks_an_unbounded_shortlist() -> None:
+    provider = Provider()
+    assert rerank(provider, eligible={str(i): "a" * 64 for i in range(33)}).status == "invalid_response"
+    assert provider.requests == []
+
+
+def test_colbert_rejects_internally_valid_but_out_of_scope_records() -> None:
+    changed = {**CHUNK, "park_id": "yosemite"}
+    candidate = point(payload=chunk_payload(changed, VERSION), score=20)
+    assert rerank(Provider(ready(), answer({"points": [candidate]}))).status == "invalid_response"
+
+
+def test_colbert_timeout_cancels_work_and_parent_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("nimbus.park_semantic.PARK_SEARCH_SECONDS", 0.01)
+    cancelled = False
+
+    async def slow(_request: httpx2.Request) -> httpx2.Response:
+        nonlocal cancelled
+        try:
+            await asyncio.sleep(1)
+        finally:
+            cancelled = True
+        return ready()
+
+    assert rerank(slow).status == "timeout"
+    assert cancelled
+
+    async def cancel(_request: httpx2.Request) -> httpx2.Response:
+        raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        rerank(cancel)

@@ -2997,8 +2997,8 @@ PARK_HYBRID_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/park_semantic.py",
-        'body["using"] = BM25_FIELD',
-        'body["using"] = "wrong_field"',
+        '"semantic": DENSE_VECTOR, "bm25": BM25_FIELD, "rerank": COLBERT_VECTOR',
+        '"semantic": DENSE_VECTOR, "bm25": "wrong_field", "rerank": COLBERT_VECTOR',
         "park hybrid BM25 uses the native scored text index without embeddings",
     ),
     Mutation(
@@ -3039,8 +3039,8 @@ PARK_HYBRID_MUTATIONS: tuple[Mutation, ...] = (
     ),
     Mutation(
         "nimbus/parks.py",
-        "async with asyncio.timeout_at(deadline):",
-        "async with asyncio.timeout(RETRIEVAL_SECONDS):",
+        "async with asyncio.timeout_at(deadline):\n                        dense =",
+        "async with asyncio.timeout(RETRIEVAL_SECONDS):\n                        dense =",
         "park hybrid semantic work preserves BM25 within the shared chat deadline",
     ),
     Mutation(
@@ -3072,7 +3072,7 @@ PARK_HYBRID_TESTS: Final[dict[str, tuple[str, ...]]] = {
     "nimbus/park_semantic.py": ("test_park_semantic.py",),
     "tools/setup_park_search.py": ("test_setup_park_search.py",),
     "nimbus/park_ranking.py": ("test_park_hybrid.py",),
-    "nimbus/parks.py": ("test_parks.py", "test_park_hybrid.py", "test_retrieval.py"),
+    "nimbus/parks.py": ("test_parks.py", "test_park_hybrid.py", "test_park_rerank.py", "test_retrieval.py"),
     "nimbus/park_text.py": ("test_park_ingest.py",),
     "nimbus/health.py": ("test_park_hardening.py",),
     "tools/build_park_index.py": ("test_build_park_index.py",),
@@ -3186,6 +3186,93 @@ TESTS_FOR["tools/eval_park_answers.py"] = TESTS_FOR["tools/answer_judge.py"] = (
 PARK_HYBRID_TESTS["nimbus/park_tools.py"] = ("test_park_integration.py",)
 PARK_HYBRID_TESTS["tools/eval_park_answers.py"] = PARK_HYBRID_TESTS["tools/answer_judge.py"] = ("test_park_answers.py",)
 
+# Scoped ColBERT checks never fall back to the full unit suite.
+PARK_RERANK_MUTATIONS: tuple[Mutation, ...] = (
+    Mutation(
+        "nimbus/park_semantic.py",
+        'body["params"] = {"idf": {"corpus": body["filter"]}}',
+        'body["params"] = {}',
+        "park rerank BM25 statistics use exactly the eligible result scope",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        'if method == "rerank" and set(scores) != set(eligible):',
+        "if False:",
+        "park rerank rejects an incomplete remote shortlist",
+    ),
+    Mutation(
+        "nimbus/park_semantic.py",
+        'or (method == "rerank" and len(eligible) > DENSE_LIMIT)',
+        "",
+        "park rerank refuses an unbounded remote shortlist",
+    ),
+    Mutation(
+        "tools/setup_park_search.py",
+        'or not multivector_ready(item["vector"].get(COLBERT_VECTOR))',
+        "",
+        "park rerank publication verifies ColBERT vectors before readiness",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        "RERANK_CANDIDATES: Final = 12",
+        "RERANK_CANDIDATES: Final = 32",
+        "park rerank sends only twelve admitted candidates",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        "if result.scores.keys() != {chunk.id for chunk in chunks} or any(",
+        "if any(",
+        "park rerank service rejects partial or extra candidate scores",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        "async with asyncio.timeout_at(deadline):\n                        reranked =",
+        "async with asyncio.timeout(RETRIEVAL_SECONDS):\n                        reranked =",
+        "park rerank uses the remaining retrieval deadline",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        "shortlist.sort(key=lambda item: -reranked.scores[item[1].id])",
+        "shortlist.sort(key=lambda item: reranked.scores[item[1].id])",
+        "park rerank higher MaxSim scores determine the final context order",
+    ),
+    Mutation(
+        "nimbus/parks.py",
+        'if self.rerank_enabled and self.mode != "lexical" and len(ranked) > 1:',
+        'if self.mode != "lexical" and len(ranked) > 1:',
+        "park rerank disabled mode never calls inference",
+    ),
+    Mutation(
+        "nimbus/park_tracing.py",
+        '"rerank": "parks.rerank",',
+        '"rerank": "parks.semantic",',
+        "park rerank has its own private operational trace",
+    ),
+    Mutation(
+        "templates/knowledge_retrieval.html",
+        "RRF rank {{ item.rrf_rank }}",
+        "RRF rank {{ item.rank }}",
+        "park rerank Playground distinguishes fused rank from final rank",
+    ),
+)
+MUTATIONS += PARK_RERANK_MUTATIONS
+PARK_HYBRID_MUTATIONS += PARK_RERANK_MUTATIONS
+PARK_RERANK_MUTATIONS += tuple(
+    mutation
+    for mutation in PARK_HYBRID_MUTATIONS
+    if mutation.rule
+    in {
+        "park hybrid restricts remote ranking to the exact local candidate IDs",
+        "park hybrid rechecks destination scope on returned candidates",
+        "park hybrid rechecks season scope on returned candidates",
+        "park hybrid returned semantic errors mark the child span failed",
+        "park hybrid traces only allow fixed operational outcome words",
+        "park hybrid repeated publication reuses verified hosted embeddings",
+        "park hybrid semantic work preserves BM25 within the shared chat deadline",
+    }
+)
+TESTS_FOR["nimbus/parks.py"] += ("test_park_rerank.py",)
+
 
 def _fails(copy: Path, test_files: tuple[str, ...], *, strict: bool = False, explain_failure: bool = False) -> bool:
     """
@@ -3252,6 +3339,9 @@ def main() -> int:
     parser.add_argument(
         "--park-hybrid", action="store_true", help="Check hosted park retrieval with affected tests only"
     )
+    parser.add_argument(
+        "--park-rerank", action="store_true", help="Check scoped BM25 and ColBERT with affected tests only"
+    )
     parser.add_argument("--traces", action="store_true", help="Check Activity trace correlation, access and privacy")
     parser.add_argument("--weather-cards", action="store_true", help="Check weather presentation evidence and dates")
     parser.add_argument("--semantic-cache", action="store_true", help="Check weather cache isolation and freshness")
@@ -3302,6 +3392,8 @@ def main() -> int:
         )
     if args.park_hybrid:
         selected = PARK_HYBRID_MUTATIONS
+    if args.park_rerank:
+        selected = PARK_RERANK_MUTATIONS
     workers = max(1, int(os.environ.get("MUTATION_WORKERS", "2")))
     with tempfile.TemporaryDirectory(prefix="mut") as scratch:
         # Each worker takes a copy of the project from the queue, and gives it back when its rule is done.
@@ -3310,8 +3402,9 @@ def main() -> int:
             copy = Path(scratch) / str(index)
             shutil.copytree(PROJECT_ROOT, copy, ignore=NOT_COPIED)
             copies.put(copy)
-        if args.park_hybrid:
-            targets = tuple(dict.fromkeys(test for tests in PARK_HYBRID_TESTS.values() for test in tests))
+        scoped = args.park_hybrid or args.park_rerank
+        if scoped:
+            targets = tuple(dict.fromkeys(test for item in selected for test in PARK_HYBRID_TESTS[item.file]))
             if _fails(Path(scratch) / "0", targets, strict=True, explain_failure=True):
                 raise RuntimeError("Affected baseline tests must pass before testing mutations")
 
@@ -3319,9 +3412,7 @@ def main() -> int:
             """One rule, in whichever copy is free."""
             copy = copies.get()
             try:
-                return is_caught(
-                    mutation, copy, affected_tests=PARK_HYBRID_TESTS[mutation.file] if args.park_hybrid else None
-                )
+                return is_caught(mutation, copy, affected_tests=PARK_HYBRID_TESTS[mutation.file] if scoped else None)
             finally:
                 copies.put(copy)
 

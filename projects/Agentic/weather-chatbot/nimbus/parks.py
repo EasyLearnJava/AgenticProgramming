@@ -22,7 +22,15 @@ from nimbus.park_models import Destination as Destination
 from nimbus.park_models import ParkChunk as ParkChunk
 from nimbus.park_models import Season as Season
 from nimbus.park_ranking import RRF_K, SEMANTIC_WEIGHT, VisitSeason, reciprocal_ranks, resolve_season
-from nimbus.park_semantic import PARK_DIMENSIONS, PARK_MODEL, CatalogResult, QdrantParkSearch, SemanticResult
+from nimbus.park_semantic import (
+    COLBERT_MAX_TOKENS,
+    COLBERT_MODEL,
+    PARK_DIMENSIONS,
+    PARK_MODEL,
+    CatalogResult,
+    QdrantParkSearch,
+    SemanticResult,
+)
 from nimbus.park_text import record_hash
 from nimbus.park_tracing import ParkTrace, park_retrieval_trace
 
@@ -33,6 +41,7 @@ HOSTED_MIN_SEMANTIC_SCORE: Final = 0.3
 HOSTED_STANDALONE_SEMANTIC_SCORE: Final = 0.55
 # Leave response construction time before the chat tool's six-second deadline.
 RETRIEVAL_SECONDS: Final = 5.5
+RERANK_CANDIDATES: Final = 12
 GUIDANCE_SCOPE: Final = (
     "Published preparation guidance, not a live status check. Closures, warnings, river levels and drinking-water "
     "availability have not been verified. A reference-point forecast does not cover every part of a trail."
@@ -176,7 +185,7 @@ def to_season(visit_date: date) -> Season:
 
 
 class ParkStore(Protocol):
-    """Remote public corpus and two ranked search methods; tests provide recorded implementations."""
+    """Remote public corpus, two search branches and a reranker; tests provide recorded implementations."""
 
     @property
     def configured(self) -> bool: ...
@@ -203,6 +212,17 @@ class ParkStore(Protocol):
 
     async def health(self, index_version: str) -> str: ...
 
+    async def rerank(
+        self,
+        query: str,
+        *,
+        index_version: str,
+        park_id: str,
+        destination_id: str,
+        season: str | None,
+        eligible: Mapping[str, str],
+    ) -> SemanticResult: ...
+
 
 class ParkKnowledge:
     """Destination metadata stays local; public source text and all scoring live in Qdrant."""
@@ -214,6 +234,7 @@ class ParkKnowledge:
         store: ParkStore | None = None,
         tracer: Tracer | None = None,
         mode: Literal["auto", "lexical", "hybrid"] = "hybrid",
+        rerank_enabled: bool = True,
     ) -> None:
         """Validate only a bounded metadata catalog; startup performs no network or model work."""
         self.index_version = "unavailable"
@@ -223,6 +244,7 @@ class ParkKnowledge:
         self.store = store
         self.tracer = tracer
         self.mode = mode
+        self.rerank_enabled = rerank_enabled
         self.embedding_model = PARK_MODEL
         self.embedding_dimensions = PARK_DIMENSIONS
         try:
@@ -398,6 +420,39 @@ class ParkKnowledge:
                 result["trace_id"] = str(trace.trace_id)
             return result
 
+    async def _rerank(
+        self,
+        query: str,
+        destination: Destination,
+        chunks: list[ParkChunk],
+        season: VisitSeason | None,
+    ) -> SemanticResult:
+        """Rerank only the admitted shortlist; incomplete or malformed results preserve the RRF ordering."""
+        if self.store is None or not self.store.configured:
+            return SemanticResult("unconfigured")
+        try:
+            result = await self.store.rerank(
+                query,
+                index_version=self.index_version,
+                park_id=destination.park_id,
+                destination_id=destination.id,
+                season=season,
+                eligible={chunk.id: chunk.content_hash for chunk in chunks},
+            )
+            if result.status != "ready":
+                return result
+            if result.scores.keys() != {chunk.id for chunk in chunks} or any(
+                isinstance(score, bool)
+                or not isinstance(score, (float, int))
+                or not math.isfinite(score)
+                or not -COLBERT_MAX_TOKENS <= score <= COLBERT_MAX_TOKENS
+                for score in result.scores.values()
+            ):
+                return SemanticResult("invalid_response")
+            return result
+        except Exception:
+            return SemanticResult("unavailable")
+
     async def _search(
         self,
         destination_id: str,
@@ -407,7 +462,7 @@ class ParkKnowledge:
         explain: bool,
         trace: ParkTrace,
     ) -> dict[str, Any]:
-        """Read verified remote text, rank it remotely twice, then apply shared context and citation limits."""
+        """Read verified text, fuse remote ranks, optionally rerank, then apply shared context and citation limits."""
         deadline = asyncio.get_running_loop().time() + RETRIEVAL_SECONDS
         base: dict[str, Any] = {
             "passages": [],
@@ -418,6 +473,9 @@ class ParkKnowledge:
             "semantic_status": self.semantic_status,
             "semantic_provider": "qdrant",
             "semantic_model": PARK_MODEL,
+            "rerank_status": "not_needed" if self.rerank_enabled and self.mode != "lexical" else "disabled",
+            "rerank_provider": "qdrant",
+            "rerank_model": COLBERT_MODEL,
             "scope_note": GUIDANCE_SCOPE,
         }
         if not self.available:
@@ -506,6 +564,9 @@ class ParkKnowledge:
                         "semantic_rank": semantic_rank,
                         "semantic_component": semantic_part,
                         "final_score": rank,
+                        "rrf_rank": None,
+                        "rerank_score": None,
+                        "rerank_rank": None,
                         "rank": None,
                         "selection": (
                             "needs_keyword_support"
@@ -518,22 +579,45 @@ class ParkKnowledge:
             ranked.sort(key=lambda item: (-item[0], item[1].id))
             if explain:
                 for position, (_, chunk) in enumerate(ranked, start=1):
-                    diagnostics[chunk.id].update(rank=position, selection="result_limit")
-            # ③ Only Qdrant text verified against the approved catalog can become context or a citation.
-            passages: list[dict[str, Any]] = []
-            used = 0
-            for _, chunk in ranked:
-                if len(passages) >= MAX_PASSAGES:
-                    break
-                if used + len(chunk.text) > MAX_CONTEXT_CHARS:
-                    if explain:
-                        diagnostics[chunk.id]["selection"] = "context_limit"
-                    continue
-                passages.append(chunk.model_dump())
-                used += len(chunk.text)
+                    diagnostics[chunk.id].update(rank=position, rrf_rank=position, selection="result_limit")
+            step.outcome("completed", mode=mode, candidate_count=len(ranked))
+        # ③ ColBERT can reorder admitted evidence, but cannot add an out-of-scope or below-threshold passage.
+        if self.rerank_enabled and self.mode != "lexical" and len(ranked) > 1:
+            shortlist = ranked[:RERANK_CANDIDATES]
+            with trace.step("rerank") as step:
+                try:
+                    async with asyncio.timeout_at(deadline):
+                        reranked = await self._rerank(
+                            bounded_query, destination, [chunk for _, chunk in shortlist], season
+                        )
+                except TimeoutError:
+                    reranked = SemanticResult("timeout")
+                base["rerank_status"] = reranked.status
+                step.outcome(reranked.status, provider="qdrant", mode=mode, candidate_count=len(shortlist))
+            if reranked.status == "ready":
+                # Python's stable sort preserves RRF order for equal MaxSim scores.
+                shortlist.sort(key=lambda item: -reranked.scores[item[1].id])
+                ranked = shortlist + ranked[RERANK_CANDIDATES:]
                 if explain:
-                    diagnostics[chunk.id]["selection"] = "retrieved"
-            step.outcome("completed", mode=mode, candidate_count=len(ranked), selected_count=len(passages))
+                    for position, (_, chunk) in enumerate(shortlist, start=1):
+                        diagnostics[chunk.id].update(rerank_score=reranked.scores[chunk.id], rerank_rank=position)
+        if explain:
+            for position, (_, chunk) in enumerate(ranked, start=1):
+                diagnostics[chunk.id]["rank"] = position
+        # ④ Only Qdrant text verified against the approved catalog can become context or a citation.
+        passages: list[dict[str, Any]] = []
+        used = 0
+        for _, chunk in ranked:
+            if len(passages) >= MAX_PASSAGES:
+                break
+            if used + len(chunk.text) > MAX_CONTEXT_CHARS:
+                if explain:
+                    diagnostics[chunk.id]["selection"] = "context_limit"
+                continue
+            passages.append(chunk.model_dump())
+            used += len(chunk.text)
+            if explain:
+                diagnostics[chunk.id]["selection"] = "retrieved"
         if explain:
             base["diagnostics"] = {
                 "candidate_count": len(chunks),
@@ -541,6 +625,8 @@ class ParkKnowledge:
                 "season_source": season_source,
                 "keyword_terms": sorted(self.keyword_terms(bounded_query, destination)),
                 "fusion": "rrf",
+                "rerank_enabled": self.rerank_enabled and self.mode != "lexical",
+                "rerank_limit": RERANK_CANDIDATES,
                 "rrf_k": RRF_K,
                 "keyword_weight": 1.0,
                 "semantic_weight": SEMANTIC_WEIGHT,
@@ -551,7 +637,7 @@ class ParkKnowledge:
                 "standalone_semantic_threshold": standalone_threshold,
                 "candidates": sorted(
                     diagnostics.values(),
-                    key=lambda item: (item["rank"] is None, -item["final_score"], item["chunk"]["id"]),
+                    key=lambda item: (item["rank"] is None, item["rank"] or 0, item["chunk"]["id"]),
                 ),
             }
         status = "found" if passages else "not_found"
@@ -570,6 +656,11 @@ def make_park_knowledge(settings: Settings, *, tracer: Tracer | None = None) -> 
     """Configure Qdrant without network calls; the bundled file contains only approved integrity metadata."""
     if not settings.parks_enabled:
         return None
-    knowledge = ParkKnowledge(settings.parks_index_path, tracer=tracer, mode=settings.parks_retrieval_mode)
+    knowledge = ParkKnowledge(
+        settings.parks_index_path,
+        tracer=tracer,
+        mode=settings.parks_retrieval_mode,
+        rerank_enabled=settings.parks_rerank_enabled,
+    )
     knowledge.store = QdrantParkSearch(settings, chunk_count=len(knowledge._expected))
     return knowledge

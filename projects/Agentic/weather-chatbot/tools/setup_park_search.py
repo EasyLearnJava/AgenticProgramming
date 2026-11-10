@@ -1,4 +1,4 @@
-"""Publish public text and one hosted dense embedding per chunk to a verified Qdrant BM25/dense collection."""
+"""Publish public BM25 text, reusable MiniLM vectors and ColBERT multivectors to a dedicated Qdrant collection."""
 
 import argparse
 import asyncio
@@ -13,6 +13,10 @@ from nimbus.config import Settings
 from nimbus.park_ingest import load_catalog, load_prepared
 from nimbus.park_semantic import (
     BM25_FIELD,
+    COLBERT_DIMENSIONS,
+    COLBERT_MODEL,
+    COLBERT_VECTOR,
+    DENSE_VECTOR,
     PARK_DIMENSIONS,
     PARK_MODEL,
     PARK_PROFILE,
@@ -21,16 +25,27 @@ from nimbus.park_semantic import (
     chunk_payload,
     manifest_id,
     manifest_payload,
+    multivector_ready,
     point_id,
     vector_ready,
 )
 from nimbus.park_text import to_embedding_text
+from tools.park_search_migration import read_dense_vectors
 
 SETUP_SECONDS = 120
-BATCH_SIZE = 16
+BATCH_SIZE = 1  # A single ColBERT record stays within the bounded JSON readback limit.
 OWNER_ID = str(uuid5(NAMESPACE_URL, f"{PARK_PROFILE}/collection"))
 OWNER = {"kind": "ownership", "schema": PARK_SCHEMA, "profile": PARK_PROFILE, "model": PARK_MODEL}
 MARKER_VECTOR = [1.0, *([0.0] * (PARK_DIMENSIONS - 1))]
+VECTOR_CONFIG: dict[str, Any] = {
+    DENSE_VECTOR: {"size": PARK_DIMENSIONS, "distance": "Cosine"},
+    COLBERT_VECTOR: {
+        "size": COLBERT_DIMENSIONS,
+        "distance": "Cosine",
+        "multivector_config": {"comparator": "max_sim"},
+        "hnsw_config": {"m": 0},
+    },
+}
 KEYWORD_FIELDS = ("kind", "index_version", "model", "profile", "park_id", "destination_ids", "seasons")
 TEXT_SCHEMA: dict[str, object] = {"type": "text", "tokenizer": "word", "lowercase": True, "scoring": True}
 
@@ -64,13 +79,21 @@ def _collection_result(document: dict[str, Any] | None) -> dict[str, Any]:
     config = result.get("config")
     params = config.get("params") if isinstance(config, dict) else None
     vectors = params.get("vectors") if isinstance(params, dict) else None
-    if (
-        not isinstance(vectors, dict)
-        or type(vectors.get("size")) is not int
-        or vectors.get("size") != PARK_DIMENSIONS
-        or vectors.get("distance") != "Cosine"
-    ):
+    if not isinstance(vectors, dict) or set(vectors) != {DENSE_VECTOR, COLBERT_VECTOR}:
         raise ValueError("Existing park collection has incompatible vector settings")
+    for name, expected in VECTOR_CONFIG.items():
+        actual = vectors[name]
+        if not isinstance(actual, dict) or type(actual.get("size")) is not int:
+            raise ValueError("Existing park collection has incompatible vector settings")
+        for key, value in expected.items():
+            observed = actual.get(key)
+            matches = (
+                isinstance(observed, dict) and all(observed.get(k) == v for k, v in value.items())
+                if isinstance(value, dict)
+                else observed == value
+            )
+            if not matches:
+                raise ValueError("Existing park collection has incompatible vector settings")
     return result
 
 
@@ -96,7 +119,7 @@ async def _collection(api: QdrantParkAPI, http: httpx2.AsyncClient) -> None:
     """Create a dedicated owned collection; never repurpose incompatible data or the weather cache."""
     current = await api.request(http, "GET", "", missing_ok=True)
     if current is None:
-        created = await api.request(http, "PUT", "", {"vectors": {"size": PARK_DIMENSIONS, "distance": "Cosine"}})
+        created = await api.request(http, "PUT", "", {"vectors": VECTOR_CONFIG})
         if not created or created.get("result") is not True:
             raise ValueError("Park collection creation was not confirmed")
         current = await api.request(http, "GET", "")
@@ -104,7 +127,11 @@ async def _collection(api: QdrantParkAPI, http: httpx2.AsyncClient) -> None:
     owner = await api.request(http, "GET", f"/points/{OWNER_ID}", missing_ok=True)
     owner_result = owner.get("result") if owner else None
     if owner is not None:
-        if not isinstance(owner_result, dict) or owner_result.get("payload") != OWNER:
+        if (
+            not isinstance(owner_result, dict)
+            or owner_result.get("id") != OWNER_ID
+            or owner_result.get("payload") != OWNER
+        ):
             raise ValueError("Existing collection is not owned by the park index")
     else:
         count = await api.request(http, "POST", "/points/count", {"exact": True})
@@ -116,7 +143,7 @@ async def _collection(api: QdrantParkAPI, http: httpx2.AsyncClient) -> None:
                 http,
                 "PUT",
                 "/points?wait=true",
-                {"points": [{"id": OWNER_ID, "vector": MARKER_VECTOR, "payload": OWNER}]},
+                {"points": [{"id": OWNER_ID, "vector": {DENSE_VECTOR: MARKER_VECTOR}, "payload": OWNER}]},
             )
         )
     # ① Text is indexed by native BM25; this branch needs no second embedding model.
@@ -163,7 +190,10 @@ async def _existing_batch(
             or item["id"] not in expected
             or item["id"] in seen
             or item.get("payload") != expected[item["id"]]
-            or not vector_ready(item.get("vector"))
+            or not isinstance(item.get("vector"), dict)
+            or set(item["vector"]) != {DENSE_VECTOR, COLBERT_VECTOR}
+            or not vector_ready(item["vector"].get(DENSE_VECTOR))
+            or not multivector_ready(item["vector"].get(COLBERT_VECTOR))
         ):
             raise ValueError("Park publication did not match the prepared corpus")
         seen.add(item["id"])
@@ -182,6 +212,8 @@ async def _verify_batch(
 async def setup(
     settings: Settings,
     factory: Callable[[], httpx2.AsyncClient] = make_setup_client,
+    *,
+    reuse_collection: str | None = None,
 ) -> tuple[str, int]:
     """Publish approved records once; repeat runs verify and reuse embeddings instead of generating them again."""
     api = QdrantParkAPI(settings)
@@ -189,14 +221,19 @@ async def setup(
         raise ValueError("Configure a dedicated park collection and an authorized Qdrant credential")
     version, chunks = read_public_chunks(settings)
     async with asyncio.timeout(SETUP_SECONDS), factory() as http:
+        reused = await read_dense_vectors(settings, http, reuse_collection, version, chunks) if reuse_collection else {}
         await _collection(api, http)
         document = await api.request(http, "GET", f"/points/{manifest_id(version)}", missing_ok=True)
         marker = manifest_payload(version, len(chunks))
         if document is not None:
             existing = document.get("result")
-            if not isinstance(existing, dict) or existing.get("payload") != marker:
+            if (
+                not isinstance(existing, dict)
+                or existing.get("id") != manifest_id(version)
+                or existing.get("payload") != marker
+            ):
                 raise ValueError("Existing park readiness marker does not match")
-        # ② Upload only missing chunks. Both initial and resumed setup use the same hosted dense model as queries.
+        # Reuse verified dense vectors when migrating; generate only missing representations.
         for offset in range(0, len(chunks), BATCH_SIZE):
             batch = chunks[offset : offset + BATCH_SIZE]
             present = await _existing_batch(api, http, batch, version)
@@ -208,8 +245,17 @@ async def setup(
                     {
                         "id": point_id(version, chunk["id"]),
                         "vector": {
-                            "text": to_embedding_text(chunk["title"], chunk["section"], chunk["text"]),
-                            "model": PARK_MODEL,
+                            DENSE_VECTOR: reused.get(
+                                chunk["id"],
+                                {
+                                    "text": to_embedding_text(chunk["title"], chunk["section"], chunk["text"]),
+                                    "model": PARK_MODEL,
+                                },
+                            ),
+                            COLBERT_VECTOR: {
+                                "text": to_embedding_text(chunk["title"], chunk["section"], chunk["text"]),
+                                "model": COLBERT_MODEL,
+                            },
                         },
                         "payload": chunk_payload(chunk, version),
                     }
@@ -235,6 +281,7 @@ async def setup(
                 "query": {"text": chunk_payload(chunks[0], version)[BM25_FIELD][:1000]},
                 "using": BM25_FIELD,
                 "filter": {"must": conditions},
+                "params": {"idf": {"corpus": {"must": conditions}}},
                 "limit": 1,
                 "with_payload": False,
                 "with_vector": False,
@@ -249,12 +296,16 @@ async def setup(
                     http,
                     "PUT",
                     "/points?wait=true",
-                    {"points": [{"id": manifest_id(version), "vector": MARKER_VECTOR, "payload": marker}]},
+                    {
+                        "points": [
+                            {"id": manifest_id(version), "vector": {DENSE_VECTOR: MARKER_VECTOR}, "payload": marker}
+                        ]
+                    },
                 )
             )
         verified = await api.request(http, "GET", f"/points/{manifest_id(version)}")
         result = verified.get("result") if verified else None
-        if not isinstance(result, dict) or result.get("payload") != marker:
+        if not isinstance(result, dict) or result.get("id") != manifest_id(version) or result.get("payload") != marker:
             raise ValueError("Park readiness marker was not verified")
     return version, len(chunks)
 
@@ -263,14 +314,15 @@ def main() -> int:
     """Publish an explicitly selected collection, reporting only version/count and sanitized failure classes."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--collection", help="Dedicated park collection; must differ from the weather cache")
+    parser.add_argument("--reuse-collection", help="Read-only v2 source for reusing verified MiniLM vectors")
     args = parser.parse_args()
     try:
         settings = Settings(**({"parks_qdrant_collection": args.collection} if args.collection else {}))
-        version, count = asyncio.run(setup(settings))
+        version, count = asyncio.run(setup(settings, reuse_collection=args.reuse_collection))
     except Exception as error:
         print(f"Park search setup failed ({type(error).__name__}); check the corpus, credentials and collection.")
         return 1
-    print(f"Verified hosted park index {version}: {count} public chunks, native BM25, {PARK_DIMENSIONS} dimensions.")
+    print(f"Verified hosted park index {version}: {count} public chunks, native BM25, MiniLM and ColBERT.")
     return 0
 
 

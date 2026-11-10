@@ -1,0 +1,71 @@
+[
+  {
+    "id": "holdout-narrows-april-insulation",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "For an April river walk, should I dress in one thick coat or things I can take off and put back on?",
+    "visit_date": "2027-04-12",
+    "document_ids": ["zion-narrows-safety"],
+    "evidence_terms": ["multiple layers", "neoprene"],
+    "forbidden_sections": ["Summer", "Winter"]
+  },
+  {
+    "id": "holdout-narrows-camera-protection",
+    "destination": "The Narrows",
+    "destination_id": "zion-narrows",
+    "query": "If I stumble into the river, how can I stop my camera and wallet getting soaked?",
+    "document_ids": ["zion-narrows-safety"],
+    "evidence_terms": ["waterproof", "cameras", "wallets"]
+  },
+  {
+    "id": "holdout-kaibab-refill",
+    "destination": "South Kaibab Trail",
+    "destination_id": "grand-canyon-south-kaibab",
+    "query": "Can I top up my drinking bottle partway down South Kaibab, or must I carry everything from the start?",
+    "document_ids": ["grand-canyon-south-kaibab"],
+    "evidence_terms": ["no water"]
+  },
+  {
+    "id": "holdout-canyon-january-traction",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "What should I add to my boots so I don't slide on frozen trail sections in January?",
+    "visit_date": "2027-01-18",
+    "document_ids": ["grand-canyon-winter"],
+    "evidence_terms": ["traction devices", "ice"],
+    "forbidden_sections": ["Summer Hiking Essentials"]
+  },
+  {
+    "id": "holdout-yosemite-storm-shelter",
+    "destination": "Yosemite",
+    "destination_id": "yosemite",
+    "query": "If lightning starts during my walk, is staying outdoors under cover enough, or where should I go?",
+    "document_ids": ["yosemite-lightning"],
+    "evidence_terms": ["substantial building", "vehicle"]
+  },
+  {
+    "id": "holdout-mist-may-stairs",
+    "destination": "Mist Trail",
+    "destination_id": "yosemite-mist-trail",
+    "query": "In May, what makes the staircase beside Vernal Fall hard to keep my footing on?",
+    "visit_date": "2027-05-12",
+    "document_ids": ["yosemite-mist-trail"],
+    "evidence_terms": ["slippery", "spray", "spring"]
+  },
+  {
+    "id": "holdout-zion-shaded-winter-paths",
+    "destination": "Zion National Park",
+    "destination_id": "zion",
+    "query": "For shaded Zion paths after a February snowstorm, what boot accessory helps me avoid slipping?",
+    "visit_date": "2027-02-12",
+    "document_ids": ["zion-seasons"],
+    "evidence_terms": ["traction devices", "shade"]
+  },
+  {
+    "id": "holdout-canyon-unrelated-password",
+    "destination": "Grand Canyon",
+    "destination_id": "grand-canyon",
+    "query": "How do I reset the password for my email account?",
+    "expected_status": "not_found"
+  }
+]

@@ -4,7 +4,7 @@
 {% block knowledge_title %}Retrieval Playground{% endblock %}
 {% block knowledge_heading %}Retrieval Playground{% endblock %}
 {% block knowledge_intro %}
-Compare keyword and semantic matches, inspect their combined ranking, and read the passages chat receives.
+Compare keyword and semantic matches, see how ColBERT reorders the shortlist, and read the passages chat receives.
 {% endblock %}
 {% block knowledge_action %}
 <a class="knowledge-button knowledge-secondary" href="/knowledge/chunks">Explore stored chunks →</a>
@@ -58,7 +58,7 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
       question is used. Otherwise, all seasons remain eligible. Year-round guidance is always included.
     </p>
   </form>
-  <p class="retrieval-hint">Uses the same retriever as chat. Keyword and semantic searches send this question to Qdrant.
+  <p class="retrieval-hint">Uses the same retriever as chat. Searches and reranking send this question to Qdrant.
     No Gemini or weather call is made.</p>
 </section>
 {% if result and result.diagnostics is defined %}
@@ -79,8 +79,16 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
   'invalid_response': 'Semantic search returned an invalid result. This run uses keyword results.',
   'unavailable': 'Semantic search is unavailable. This run uses verified Qdrant keyword results.'
 } %}
+{% set rerank_notices = {
+  'disabled': 'ColBERT reranking is disabled. Final order uses the RRF ranking.',
+  'not_needed': 'Fewer than two passages qualified. Reranking was not needed.',
+  'timeout': 'ColBERT exceeded its time limit. Final order keeps the original RRF ranking.',
+  'invalid_response': 'ColBERT returned incomplete or invalid scores. Final order keeps the original RRF ranking.',
+  'unavailable': 'ColBERT is unavailable. Final order keeps the original RRF ranking.',
+  'unconfigured': 'ColBERT is not configured. Final order keeps the original RRF ranking.'
+} %}
 <section class="knowledge-panel retrieval-results" aria-labelledby="retrieval-results-title"
-  data-retrieval-mode="{{ result.retrieval_mode }}">
+  data-retrieval-mode="{{ result.retrieval_mode }}" data-rerank-status="{{ result.rerank_status }}">
   <div class="knowledge-section-heading">
     <h2 id="retrieval-results-title">Retrieval results</h2>
     <span class="retrieval-mode">
@@ -90,6 +98,13 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
   {% if result.retrieval_mode == 'lexical' %}
   <p class="retrieval-notice">{{ notices.get(result.semantic_status,
     'Semantic search is unavailable for this run. Keyword results remain available.') }}</p>
+  {% endif %}
+  {% if result.rerank_status == 'ready' %}
+  <p class="retrieval-rerank-summary"><strong>ColBERT reranked the RRF shortlist.</strong>
+    Final rank shows the order used to select chat's context.</p>
+  {% else %}
+  <p class="retrieval-notice retrieval-rerank-notice">{{ rerank_notices.get(result.rerank_status,
+    'ColBERT could not complete this run. Final order keeps the original RRF ranking.') }}</p>
   {% endif %}
   <dl class="retrieval-summary">
     <div><dt>Destination</dt><dd>{{ result.destination.name }}</dd></div>
@@ -103,6 +118,9 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
   <p class="retrieval-hint">Keyword provider: Qdrant BM25 ·
     Semantic provider: {{ provider_labels.get(result.semantic_provider, 'Not used') }}
     {% if result.semantic_model %} · Model: {{ result.semantic_model }}{% endif %}</p>
+  {% if result.rerank_model %}
+  <p class="retrieval-hint">Reranker: Qdrant ColBERT · Model: {{ result.rerank_model }}</p>
+  {% endif %}
   {% if result.semantic_provider == 'qdrant' %}
   <p class="retrieval-hint">Both searches use this Qdrant park collection.
     The Chunks &amp; vectors page shows its stored text and the same hosted semantic vectors.</p>
@@ -113,6 +131,7 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
   <details class="retrieval-explanation">
     <summary>How to read the scores</summary>
     <p><strong>Keyword score</strong> is Qdrant's BM25 score, based on matching terms, rarity and passage length.
+      Term rarity is measured within the eligible destination and season, including year-round passages.
       Each retrieval method ranks its qualifying passages independently.</p>
     <p><strong>Semantic score</strong> is cosine similarity from −1 to 1.
       “Not returned” means the hosted search did not return that candidate; “Not available” means no score is
@@ -122,12 +141,19 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
       semantic contributes <code>{{ diagnostics.semantic_weight }} / ({{ diagnostics.rrf_k }} + rank)</code>.
       Without a BM25 match, a semantic score must also reach
       {{ diagnostics.standalone_semantic_threshold }} before it contributes.
-      <strong>Final score = keyword contribution + semantic contribution.</strong>
+      <strong>RRF score = keyword contribution + semantic contribution.</strong>
       Keyword-only results use the keyword contribution. Scores measure relevance, not correctness or confidence.</p>
     <p>Semantic ranking starts at {{ diagnostics.semantic_threshold }}. A chunk qualifies for the answer with a
       positive keyword score or semantic similarity of at least {{ diagnostics.standalone_semantic_threshold }}.
-      Qualified chunks are ranked by final score, with chunk ID breaking ties.
-      Chat takes up to {{ diagnostics.max_passages }} chunks within its character budget.</p>
+      Qualified chunks are ranked by RRF score, with chunk ID breaking ties.</p>
+    <p><strong>ColBERT reranking</strong> compares the full question with each of the top
+      {{ diagnostics.rerank_limit }} qualifying RRF passages using token-level relevance.
+      Higher ColBERT scores rank first; RRF rank breaks ties. These scores are not probabilities or confidence,
+      and cannot be compared with cosine similarity or RRF scores. “Not reranked” means a passage was outside the
+      shortlist or reranking did not complete; it is not a score of zero.</p>
+    <p><strong>Final rank</strong> follows ColBERT when it succeeds, otherwise the original RRF order.
+      Chat takes up to {{ diagnostics.max_passages }} chunks within its character budget.
+      Retrieved chunks below show the actual context in that order.</p>
   </details>
   {% if not result.passages %}
   <div class="knowledge-empty"><h3>No chunks retrieved</h3>
@@ -138,11 +164,12 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
     <p>Filtered by destination{% if diagnostics.season %} and season{% endif %}</p></div>
   <div class="knowledge-table-wrap" tabindex="0" role="region" aria-labelledby="ranking-title">
     <table class="knowledge-table retrieval-table" id="retrieval-ranking">
-      <caption class="visually-hidden">Actual keyword, semantic and combined scores for eligible chunks</caption>
-      <thead><tr><th scope="col">Rank</th><th scope="col">Chunk / source</th>
+      <caption class="visually-hidden">Final order, branch scores, RRF ranking and ColBERT reranking for
+        eligible chunks</caption>
+      <thead><tr><th scope="col">Final rank</th><th scope="col">Chunk / source</th>
         <th scope="col">Keyword score</th><th scope="col">Keyword contribution</th>
         <th scope="col">Semantic score</th><th scope="col">Semantic contribution</th>
-        <th scope="col">Final score</th><th scope="col">Decision</th></tr></thead>
+        <th scope="col">RRF score</th><th scope="col">ColBERT score</th><th scope="col">Decision</th></tr></thead>
       <tbody>{% for item in diagnostics.candidates %}
       <tr data-chunk="{{ item.chunk.id }}" data-selection="{{ item.selection }}"
         {% if item.selection == 'retrieved' %} class="knowledge-row-selected"{% endif %}>
@@ -165,7 +192,12 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
           <span class="retrieval-branch-rank">Rank {{ item.semantic_rank or '—' }}</span>
         </td>
         <td class="retrieval-score">{{ '%.4f'|format(item.semantic_component) }}</td>
-        <td class="retrieval-score"><strong>{{ '%.4f'|format(item.final_score) }}</strong></td>
+        <td class="retrieval-score">{{ '%.4f'|format(item.final_score) }}
+          <span class="retrieval-branch-rank">Rank {{ item.rrf_rank or '—' }}</span></td>
+        <td class="retrieval-score retrieval-rerank-score">
+          {% if item.rerank_score is not none %}<strong>{{ '%.4f'|format(item.rerank_score) }}</strong>
+          {% else %}Not reranked{% endif %}
+          <span class="retrieval-branch-rank">Rank {{ item.rerank_rank or '—' }}</span></td>
         <td><span class="retrieval-decision">{{ labels[item.selection] }}</span></td>
       </tr>{% endfor %}</tbody>
     </table>
@@ -183,7 +215,9 @@ Compare keyword and semantic matches, inspect their combined ranking, and read t
     <div class="retrieval-passage-heading"><span class="retrieval-rank" aria-label="Rank {{ item.rank }}">
       {{ item.rank }}</span><div><h3>{{ item.chunk.section }}</h3>
         <a href="/knowledge/sources/{{ item.chunk.document_id }}">{{ item.chunk.title }}</a></div>
-      <p>Final score <strong>{{ '%.4f'|format(item.final_score) }}</strong></p>
+      <p>{% if item.rerank_score is not none %}ColBERT score
+        <strong>{{ '%.4f'|format(item.rerank_score) }}</strong> · {% endif %}
+        RRF rank {{ item.rrf_rank }} · RRF score {{ '%.4f'|format(item.final_score) }}</p>
     </div>
     <p class="knowledge-passage-text">{{ item.chunk.text }}</p>
     <p class="knowledge-document-id">{{ item.chunk.id }} · Source updated:

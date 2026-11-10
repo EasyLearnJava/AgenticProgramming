@@ -1,6 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" width="960" height="560" role="img" aria-labelledby="title desc">
   <title id="title">Park guidance: ingestion, retrieval and cited answers</title>
-  <desc id="desc">Before deployment, approved official sources become section chunks with metadata and a versioned index. During chat, the existing agent resolves a destination, retrieves applicable guidance alongside weather tools, and returns a cited answer. Stored guidance cannot establish live closures or warnings.</desc>
+  <desc id="desc">Before deployment, approved official sources become section chunks with metadata in one Qdrant
+    v3 collection. It stores native BM25, 384-dimensional MiniLM vectors and 96-dimensional ColBERT token vectors.
+    Migration copies verified MiniLM vectors and creates only the new ColBERT representation. Chat and Playground
+    share the same retriever: filter by destination and season, run BM25 with scoped term rarity and MiniLM search,
+    fuse ranks with RRF, rerank up to 12 candidates with ColBERT, then select at most four within the context budget.
+    Reranker failures retain RRF order. Chat combines guidance with requested weather and returns cited answers;
+    Playground shows scores without Gemini. Stored guidance cannot establish live closures or warnings.</desc>
   <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0f766e"/></marker></defs>
   <rect width="960" height="560" fill="#fff"/>
   <g font-family="system-ui, sans-serif" fill="#123d34">
@@ -16,18 +22,20 @@
     <g font-size="16" text-anchor="middle">
       <text x="139" y="126">Approved NPS pages</text><text x="139" y="149">Reviewed source snapshots</text>
       <text x="473" y="126">Section chunks + metadata</text><text x="473" y="149">Tokenizer only; no embeddings</text>
-      <text x="813" y="126">Qdrant text + vectors</text><text x="813" y="149">Hosted MiniLM once</text>
-      <text x="139" y="280">Existing chat agent</text><text x="139" y="305">Resolve park or trail</text>
-      <text x="473" y="244">Retrieve guidance</text><text x="473" y="266">Destination + season filters</text>
+      <text x="813" y="126">One Qdrant v3 collection</text>
+      <text x="813" y="149" font-size="14">MiniLM (384) + ColBERT (96/token)</text>
+      <text x="139" y="280">Existing chat agent</text><text x="139" y="305">Set park/trail + season</text>
+      <text x="473" y="244">Scoped BM25 + MiniLM</text><text x="473" y="266">RRF → ColBERT → best 4</text>
       <text x="473" y="332">Existing weather tools</text><text x="473" y="354">Selected REST or MCP lane</text>
       <text x="813" y="280">Forecast + preparation</text><text x="813" y="305">Cited source links</text>
       <text x="139" y="450">Retrieval Playground</text><text x="139" y="475">Bounded POST body</text>
-      <text x="473" y="450">Shared guidance retriever</text><text x="473" y="475">Qdrant BM25 + MiniLM</text>
-      <text x="813" y="450">Scores + selected chunks</text><text x="813" y="475">Sources and exclusions</text>
+      <text x="473" y="450">Shared guidance retriever</text><text x="473" y="475">Top 12 → rerank → best 4</text>
+      <text x="813" y="450">RRF + ColBERT + final rank</text><text x="813" y="475">Sources and exclusions</text>
     </g>
     <text x="24" y="215" font-size="16" font-weight="700">During chat</text>
     <text x="24" y="405" font-size="16" font-weight="700">Inspect retrieval without Gemini</text>
-    <text x="24" y="536" font-size="15">Published guidance is not a live closure, warning or river-level feed.</text>
+    <text x="24" y="516" font-size="14">Reranker unavailable? Preserve RRF order and show the failed step in the trace.</text>
+    <text x="24" y="542" font-size="15">Published guidance is not a live closure, warning or river-level feed.</text>
   </g>
   <g fill="none" stroke="#0f766e" stroke-width="2" marker-end="url(#arrow)">
     <path d="M254 131H340"/><path d="M598 131H684"/><path d="M254 279L340 249"/><path d="M254 306L340 337"/><path d="M598 249L684 279"/><path d="M598 337L684 306"/><path d="M813 166V190H473V210"/>

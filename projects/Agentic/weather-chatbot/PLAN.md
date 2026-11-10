@@ -43,10 +43,11 @@ failures or uncertainty retain the existing agent, park and travel behavior.
 [Cache architecture and validation](docs/technical-details.md#follow-a-weather-cache-hit).
 
 Park retrieval uses one dedicated Qdrant collection for public text, source metadata, native BM25 and hosted
-MiniLM vectors. The shared search filters both branches by park, destination and season, then combines ranks in
-Nimbus. The Playground explains scores; Activity links private collection, BM25, semantic and fusion traces.
-A dense-only failure retains Qdrant BM25; a full Qdrant outage makes guidance explicitly unavailable. Preparation
-creates no embeddings; explicit publication generates hosted vectors once per generation and reuses verified points.
+MiniLM and ColBERT vectors. Shared filters also scope BM25 statistics. Nimbus combines branch ranks, then Qdrant
+ColBERT reorders at most 12 admitted candidates before four passages become context. Playground distinguishes
+RRF and ColBERT scores; Activity links private retrieval-stage traces. A reranker failure retains RRF, a dense-only
+failure retains BM25, and a full outage is unavailable. Preparation creates no embeddings; migration copies
+verified MiniLM vectors and generates only ColBERT, while repeat publication reuses both.
 [Retrieval setup and comparison](docs/technical-details.md#publish-and-validate-hosted-park-search).
 
 ## 2. The roadmap

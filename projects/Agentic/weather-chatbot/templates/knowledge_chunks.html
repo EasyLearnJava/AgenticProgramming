@@ -49,7 +49,8 @@
       <li><span class="knowledge-dot knowledge-point-yosemite"></span>Yosemite</li></ul>
     <p class="knowledge-map-note">These are the same hosted vectors used by semantic search.
       PCA reduces each vector to two dimensions. Distances here are approximate;
-      retrieval uses all {{ catalog.dimensions }} dimensions. Filters keep the same projection.</p>
+      retrieval uses all {{ catalog.dimensions }} dimensions. Filters keep the same projection.
+      ColBERT's token vectors are used separately for reranking and are not plotted here.</p>
   </section>
   <section class="knowledge-panel knowledge-detail" id="chunk-detail" aria-labelledby="chunk-title">
     {% if selected %}

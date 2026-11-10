@@ -71,6 +71,16 @@
   line-height: 1.7;
 }
 
+.retrieval-rerank-summary {
+  padding: 12px 14px;
+  border: 1px solid #c2ded2;
+  border-radius: 8px;
+  background: #edf6f2;
+  color: #295d4f;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
 .retrieval-summary {
   display: grid;
   grid-template-columns: minmax(160px, 1.5fr) repeat(3, minmax(100px, 1fr));

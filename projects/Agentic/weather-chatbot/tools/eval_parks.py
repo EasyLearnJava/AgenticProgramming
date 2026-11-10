@@ -170,7 +170,11 @@ def to_report(results: Sequence[ParkResult]) -> list[str]:
 def provider_failure(result: dict[str, Any]) -> str | None:
     """Keep unavailable provider work separate from empty evidence, using only fixed public reason codes."""
     failures = {"unconfigured", "index_mismatch", "unavailable", "invalid_response", "timeout"}
-    for value in (result.get("keyword_status", "ready"), result.get("semantic_status", "disabled")):
+    for value in (
+        result.get("keyword_status", "ready"),
+        result.get("semantic_status", "disabled"),
+        result.get("rerank_status", "disabled"),
+    ):
         if not isinstance(value, str) or value not in {"ready", "disabled", "not_needed"}:
             return value if isinstance(value, str) and value in failures else "invalid_response"
     return "unavailable" if result.get("status") == "unavailable" else None

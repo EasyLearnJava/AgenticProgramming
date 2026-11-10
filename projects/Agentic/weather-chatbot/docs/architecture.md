@@ -74,11 +74,13 @@ An accepted hit renders new cards and a fresh answer reference without replaying
 - **Weather and air quality** come from weather tools. The place, forecast dates and available hours constrain
   what the answer can say. A current observation and a forecast cover different times.
 - **Preparation advice** comes from one versioned Qdrant collection built from reviewed NPS excerpts. It stores
-  text, source metadata and dense vectors; Qdrant runs native BM25 and hosted MiniLM search over the same scope.
-  Nimbus verifies full records against bundled metadata/hashes and combines the branch ranks. A semantic-only
-  failure retains Qdrant BM25; a full provider outage makes guidance unavailable, without a local fallback.
+  text, source metadata, MiniLM dense vectors and ColBERT token vectors. Qdrant runs native BM25 and hosted MiniLM
+  search over the same scope; BM25 also measures term rarity within those eligible passages. Nimbus verifies full
+  records against bundled metadata/hashes and combines the branch ranks with RRF. Enabled by default, ColBERT then
+  compares the full question with the best 12 candidates before selecting at most four passages. Reranker failure
+  preserves RRF order; a semantic-only failure retains Qdrant BM25. A full provider outage makes guidance unavailable.
   Follow actual terms, scores and final ranks in [Retrieval Playground](/knowledge/retrieval), then inspect
-  collection, BM25, semantic and fusion timings in Activity. [Source documents](/knowledge/sources) ·
+  collection, BM25, semantic, fusion and attempted rerank timings in Activity. [Source documents](/knowledge/sources) ·
   [Chunks and vectors](/knowledge/chunks).
 - **Notices and warnings** come from separate live services. A park-wide NPS closure and an NWS warning for a
   particular point can have different geographic and time boundaries. You can also check current NPS notices

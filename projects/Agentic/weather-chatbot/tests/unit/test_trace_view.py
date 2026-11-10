@@ -73,6 +73,48 @@ def test_park_retrieval_root_projects_safe_provider_mode_and_stage_counts(traced
 
 
 @pytest.mark.parametrize(
+    ("status", "outcome", "display_status", "display_outcome"),
+    [("SUCCESS", "ready", "Completed", "Ready"), ("ERROR", "invalid_response", "Failed", "Invalid response")],
+)
+def test_colbert_trace_retains_status_and_counts_without_private_data(
+    traced: Settings, status: str, outcome: str, display_status: str, display_outcome: str
+) -> None:
+    """Reranking is an approved stage; incomplete scoring remains visibly failed under a successful fallback."""
+    view = with_runs(
+        traced,
+        span(name="parks.retrieval", metadata={"retrieval_outcome": "found", "retrieval_mode": "hybrid"}),
+        span(
+            UUID(int=806),
+            name="parks.rerank",
+            status=status,
+            metadata={
+                "retrieval_outcome": outcome,
+                "retrieval_provider": "qdrant",
+                "retrieval_candidates": 12,
+                "retrieval_selected": 4,
+                "query": PRIVATE,
+                "passages": PRIVATE,
+                "vectors": PRIVATE,
+                "model": PRIVATE,
+                "api_key": PRIVATE,
+            },
+        ),
+    )
+    assert view.status == "ready"
+    root, rerank = view.rows
+    assert root.status == "Completed"
+    assert rerank.label == "Qdrant ColBERT rerank"
+    assert rerank.kind == "Step"
+    assert rerank.status == display_status
+    assert rerank.outcome == display_outcome
+    assert rerank.parent_index == 0
+    assert rerank.retrieval_candidates == 12
+    assert rerank.retrieval_selected == 4
+    assert rerank.retrieval_provider == "Qdrant Cloud"
+    assert PRIVATE not in str(view)
+
+
+@pytest.mark.parametrize(
     ("name", "kind"),
     [
         ("parks.retrieval", "TOOL"),

@@ -3,15 +3,28 @@
 import asyncio
 import json
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 import httpx2
 import pytest
 
 from nimbus.config import Settings
-from nimbus.park_semantic import BM25_FIELD, PARK_DIMENSIONS, PARK_MODEL, manifest_id
+from nimbus.park_semantic import (
+    BM25_FIELD,
+    COLBERT_DIMENSIONS,
+    COLBERT_MODEL,
+    COLBERT_VECTOR,
+    DENSE_VECTOR,
+    PARK_DIMENSIONS,
+    PARK_MODEL,
+    chunk_payload,
+    manifest_id,
+    point_id,
+)
 from nimbus.park_text import to_embedding_text
 from tests.unit.test_park_semantic import CHUNK, VERSION, answer, settings
 from tools import setup_park_search as publish
+from tools.park_search_migration import LEGACY_PROFILE, legacy_id
 
 PUBLIC_CHUNK: dict[str, Any] = dict(CHUNK)
 
@@ -27,6 +40,7 @@ class Collection:
         self.requests: list[httpx2.Request] = []
         self.failure = ""
         self.embeddings = 0
+        self.models: list[str] = []
 
     async def __call__(self, request: httpx2.Request) -> httpx2.Response:
         """Apply only the publisher operations; no model, network or secret handling is simulated by app code."""
@@ -39,7 +53,11 @@ class Collection:
             size = 100 if self.failure == "dimensions" else PARK_DIMENSIONS
             return answer(
                 {
-                    "config": {"params": {"vectors": {"size": size, "distance": "Cosine"}}},
+                    "config": {
+                        "params": {
+                            "vectors": {**publish.VECTOR_CONFIG, DENSE_VECTOR: {"size": size, "distance": "Cosine"}}
+                        }
+                    },
                     "payload_schema": self.indexes,
                 }
             )
@@ -62,12 +80,16 @@ class Collection:
         if path == "/points" and request.method == "PUT":
             hosted = False
             for point in body["points"]:
-                if isinstance(point["vector"], dict):
-                    hosted = True
-                    if self.failure == "upload":
-                        return httpx2.Response(503, text="private provider error")
-                    self.embeddings += 1
-                    point["vector"] = publish.MARKER_VECTOR.copy()
+                for name, vector in point["vector"].items():
+                    if isinstance(vector, dict):
+                        hosted = True
+                        if self.failure == "upload":
+                            return httpx2.Response(503, text="private provider error")
+                        self.embeddings += 1
+                        self.models.append(vector["model"])
+                        point["vector"][name] = (
+                            publish.MARKER_VECTOR.copy() if name == DENSE_VECTOR else [[0.1] * COLBERT_DIMENSIONS]
+                        )
                 self.points[point["id"]] = point
             status = "acknowledged" if hosted and self.failure == "chunk_ack" else "completed"
             return answer({"status": status})
@@ -113,16 +135,17 @@ def run(provider: Collection, config: Settings | None = None) -> tuple[str, int]
     )
 
 
-def test_publication_stores_text_and_one_dense_embedding_then_enables_bm25(public_index: None) -> None:
+def test_publication_stores_text_and_both_representations_then_enables_bm25(public_index: None) -> None:
     provider = Collection()
     assert run(provider) == (VERSION, 1)
     writes = [json.loads(request.content) for request in provider.requests if request.method == "PUT"]
     point_writes = [body for body in writes if "points" in body]
     hosted = point_writes[1]["points"][0]
-    assert hosted["vector"] == {
+    assert hosted["vector"][DENSE_VECTOR] == {
         "text": to_embedding_text(PUBLIC_CHUNK["title"], PUBLIC_CHUNK["section"], PUBLIC_CHUNK["text"]),
         "model": PARK_MODEL,
     }
+    assert hosted["vector"][COLBERT_VECTOR]["model"] == COLBERT_MODEL
     assert hosted["payload"]["text"] == PUBLIC_CHUNK["text"]
     assert hosted["payload"]["source_url"] == PUBLIC_CHUNK["source_url"]
     assert hosted["payload"]["bm25_text"] == "spring fall spring fall wear suitable layer cold river water"
@@ -133,7 +156,7 @@ def test_publication_stores_text_and_one_dense_embedding_then_enables_bm25(publi
     assert provider.requests[-1].url.path.endswith(manifest_id(VERSION))
     assert all(request.method != "DELETE" for request in provider.requests)
     assert all("weather_cache" not in str(request.url) for request in provider.requests)
-    assert provider.embeddings == 1
+    assert provider.embeddings == 2
 
 
 def test_repeating_verified_setup_does_not_regenerate_embeddings_or_rewrite_records(public_index: None) -> None:
@@ -141,7 +164,7 @@ def test_repeating_verified_setup_does_not_regenerate_embeddings_or_rewrite_reco
     run(provider)
     provider.requests.clear()
     assert run(provider) == (VERSION, 1)
-    assert provider.embeddings == 1
+    assert provider.embeddings == 2
     assert len(provider.points) == 3
     assert not any(request.method == "PUT" for request in provider.requests)
 
@@ -162,10 +185,10 @@ def test_retry_after_unconfirmed_upload_reuses_the_verified_hosted_vector(public
     provider.failure = "chunk_ack"
     with pytest.raises(ValueError, match="not confirmed"):
         run(provider)
-    assert provider.embeddings == 1
+    assert provider.embeddings == 2
     provider.failure = ""
     run(provider)
-    assert provider.embeddings == 1
+    assert provider.embeddings == 2
     assert manifest_id(VERSION) in provider.points
 
 
@@ -228,3 +251,151 @@ def test_setup_deadline_stops_work_without_publishing_a_marker(
 
     with pytest.raises(TimeoutError):
         asyncio.run(publish.setup(settings(), lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(slow))))
+
+
+class LegacyCollection:
+    """The old immutable collection has one preexisting MiniLM vector and accepts no writes."""
+
+    def __init__(self, failure: str = "") -> None:
+        self.failure = failure
+        self.requests: list[httpx2.Request] = []
+        self.vector = [0.25] * PARK_DIMENSIONS
+
+    async def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        assert request.method in {"GET", "POST"}
+        path = request.url.path.removeprefix("/collections/legacy_parks")
+        if not path:
+            size = 100 if self.failure == "dimensions" else PARK_DIMENSIONS
+            return answer({"config": {"params": {"vectors": {"size": size, "distance": "Cosine"}}}})
+        owner_id = str(uuid5(NAMESPACE_URL, f"{LEGACY_PROFILE}/collection"))
+        if path.endswith(owner_id):
+            return answer(
+                {
+                    "id": owner_id,
+                    "payload": {
+                        "kind": "ownership",
+                        "schema": 2,
+                        "profile": LEGACY_PROFILE,
+                        "model": "wrong" if self.failure == "owner" else PARK_MODEL,
+                    },
+                }
+            )
+        if path.endswith(legacy_id(VERSION, "manifest")):
+            return answer(
+                {
+                    "id": legacy_id(VERSION, "manifest"),
+                    "payload": {
+                        "kind": "manifest",
+                        "schema": 2,
+                        "index_version": VERSION,
+                        "profile": LEGACY_PROFILE,
+                        "model": PARK_MODEL,
+                        "chunk_count": 2 if self.failure == "manifest" else 1,
+                        "bm25_field": BM25_FIELD,
+                    },
+                }
+            )
+        assert path == "/points"
+        payload = {**chunk_payload(PUBLIC_CHUNK, VERSION), "schema": 2, "profile": LEGACY_PROFILE}
+        if self.failure == "payload":
+            payload["text"] = "Unapproved source content"
+        point = {
+            "id": legacy_id(VERSION, "chunk", PUBLIC_CHUNK["id"]),
+            "payload": payload,
+            "vector": [1.0] if self.failure == "vector" else self.vector,
+        }
+        return answer([] if self.failure == "missing" else [point, point] if self.failure == "duplicate" else [point])
+
+
+def migrate(target: Collection, source: LegacyCollection) -> tuple[str, int]:
+    """Exercise an actual two-collection migration with independent source and destination transports."""
+
+    async def route(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path.startswith("/collections/legacy_parks"):
+            return await source(request)
+        return await target(request)
+
+    return asyncio.run(
+        publish.setup(
+            settings(),
+            lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(route)),
+            reuse_collection="legacy_parks",
+        )
+    )
+
+
+def test_migration_copies_existing_dense_vectors_and_embeds_only_colbert(public_index: None) -> None:
+    source, target = LegacyCollection(), Collection()
+    assert migrate(target, source) == (VERSION, 1)
+    assert target.models == [COLBERT_MODEL]
+    point = target.points[point_id(VERSION, PUBLIC_CHUNK["id"])]
+    assert point["vector"][DENSE_VECTOR] == source.vector
+    assert point["vector"][COLBERT_VECTOR] == [[0.1] * COLBERT_DIMENSIONS]
+    assert manifest_id(VERSION) in target.points
+    assert all(request.method in {"GET", "POST"} for request in source.requests)
+    target.requests.clear()
+    assert migrate(target, source) == (VERSION, 1)
+    assert target.models == [COLBERT_MODEL]
+    assert not any(request.method == "PUT" for request in target.requests)
+
+
+@pytest.mark.parametrize("failure", ["dimensions", "owner", "manifest", "payload", "vector", "missing", "duplicate"])
+def test_migration_rejects_unverified_sources_before_creating_destination(public_index: None, failure: str) -> None:
+    source, target = LegacyCollection(failure), Collection()
+    with pytest.raises(ValueError, match=r"[Rr]euse"):
+        migrate(target, source)
+    assert not target.requests
+    assert not target.exists
+
+
+@pytest.mark.parametrize("source", ["nimbus_park_guidance", "nimbus_weather_cache", "../foreign"])
+def test_migration_cannot_reuse_the_destination_or_private_cache(public_index: None, source: str) -> None:
+    target = Collection()
+    with pytest.raises(ValueError, match="separate, valid"):
+        asyncio.run(
+            publish.setup(
+                settings(),
+                lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(target)),
+                reuse_collection=source,
+            )
+        )
+    assert not target.requests
+
+
+@pytest.mark.parametrize(
+    "vector",
+    [
+        [],
+        [[1.0]],
+        [[0.0] * COLBERT_DIMENSIONS],
+        [[float("nan")] * COLBERT_DIMENSIONS],
+        [[0.1] * COLBERT_DIMENSIONS] * 513,
+    ],
+)
+def test_publication_rejects_invalid_colbert_before_readiness(public_index: None, vector: object) -> None:
+    target = Collection()
+    # Interrupted publication left a valid dense vector with an invalid reranking representation.
+    target.exists = True
+    target.points[publish.OWNER_ID] = {"id": publish.OWNER_ID, "payload": publish.OWNER}
+    target.points[point_id(VERSION, PUBLIC_CHUNK["id"])] = {
+        "id": point_id(VERSION, PUBLIC_CHUNK["id"]),
+        "payload": chunk_payload(PUBLIC_CHUNK, VERSION),
+        "vector": {DENSE_VECTOR: publish.MARKER_VECTOR, COLBERT_VECTOR: vector},
+    }
+    with pytest.raises(ValueError, match="prepared corpus"):
+        run(target)
+    assert manifest_id(VERSION) not in target.points
+
+
+def test_migration_resume_reuses_confirmed_colbert_without_reembedding(public_index: None) -> None:
+    source, target = LegacyCollection(), Collection()
+    target.failure = "chunk_ack"
+    with pytest.raises(ValueError, match="not confirmed"):
+        migrate(target, source)
+    assert target.models == [COLBERT_MODEL]
+    assert manifest_id(VERSION) not in target.points
+    target.failure = ""
+    migrate(target, source)
+    assert target.models == [COLBERT_MODEL]
+    assert manifest_id(VERSION) in target.points

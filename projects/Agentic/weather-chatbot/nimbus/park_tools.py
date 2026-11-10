@@ -239,6 +239,7 @@ async def _run_knowledge(name: str, run: Callable[[], Awaitable[dict[str, Any]]]
             "retrievalMode": to_status_word(output.get("retrieval_mode")),
             "keywordStatus": to_status_word(output.get("keyword_status")),
             "semanticStatus": to_status_word(output.get("semantic_status")),
+            "rerankStatus": to_status_word(output.get("rerank_status")),
         }
         if name == "search_park_guidance"
         else {}

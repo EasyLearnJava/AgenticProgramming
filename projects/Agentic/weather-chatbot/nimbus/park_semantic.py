@@ -1,4 +1,4 @@
-"""Qdrant owns public park passages, native BM25 and dense retrieval; every read is bounded and verified."""
+"""Qdrant owns park text, native BM25, MiniLM and ColBERT retrieval; every read is bounded and verified."""
 
 import asyncio
 import hashlib
@@ -17,9 +17,14 @@ from nimbus.park_models import ParkChunk
 from nimbus.park_text import record_hash, to_embedding_text
 
 PARK_MODEL: Final = "sentence-transformers/all-minilm-l6-v2"
-PARK_PROFILE: Final = "nimbus-park-hybrid-text-v2"
+PARK_PROFILE: Final = "nimbus-park-hybrid-colbert-v3"
 PARK_DIMENSIONS: Final = 384
-PARK_SCHEMA: Final = 2
+PARK_SCHEMA: Final = 3
+DENSE_VECTOR: Final = "dense"
+COLBERT_VECTOR: Final = "colbert"
+COLBERT_MODEL: Final = "answerdotai/answerai-colbert-small-v1"
+COLBERT_DIMENSIONS: Final = 96
+COLBERT_MAX_TOKENS: Final = 512
 BM25_FIELD: Final = "bm25_text"
 PARK_SEARCH_SECONDS = 3.0
 PARK_CATALOG_SECONDS = 10.0
@@ -30,6 +35,7 @@ type SemanticStatus = Literal[
     "ready", "unconfigured", "index_mismatch", "unavailable", "invalid_response", "timeout", "disabled"
 ]
 type SearchMethod = Literal["semantic", "bm25"]
+type _RankingMethod = Literal["semantic", "bm25", "rerank"]
 
 
 @dataclass(frozen=True)
@@ -73,6 +79,9 @@ def manifest_payload(index_version: str, chunk_count: int) -> dict[str, object]:
         "profile": PARK_PROFILE,
         "chunk_count": chunk_count,
         "bm25_field": BM25_FIELD,
+        "dense_vector": DENSE_VECTOR,
+        "rerank_vector": COLBERT_VECTOR,
+        "rerank_model": COLBERT_MODEL,
     }
 
 
@@ -94,13 +103,22 @@ def chunk_payload(chunk: Mapping[str, Any], index_version: str) -> dict[str, Any
     }
 
 
-def vector_ready(value: object) -> bool:
+def vector_ready(value: object, dimensions: int = PARK_DIMENSIONS) -> bool:
     """Accept only a finite, nonzero hosted vector with the configured dimensionality."""
     return (
         isinstance(value, list)
-        and len(value) == PARK_DIMENSIONS
+        and len(value) == dimensions
         and all(type(number) in {int, float} and -1e6 < number < 1e6 and math.isfinite(number) for number in value)
         and any(number != 0 for number in value)
+    )
+
+
+def multivector_ready(value: object) -> bool:
+    """Bound late-interaction vectors by the hosted model's token and dimensional limits."""
+    return (
+        isinstance(value, list)
+        and 0 < len(value) <= COLBERT_MAX_TOKENS
+        and all(vector_ready(vector, COLBERT_DIMENSIONS) for vector in value)
     )
 
 
@@ -241,6 +259,49 @@ class QdrantParkSearch:
         method: SearchMethod = "semantic",
     ) -> SemanticResult:
         """Run one scoped branch, preserving its score scale for diagnostics and rank fusion."""
+        return await self._rank(
+            query,
+            index_version=index_version,
+            park_id=park_id,
+            destination_id=destination_id,
+            season=season,
+            eligible=eligible,
+            method=method,
+        )
+
+    async def rerank(
+        self,
+        query: str,
+        *,
+        index_version: str,
+        park_id: str,
+        destination_id: str,
+        season: str | None,
+        eligible: Mapping[str, str],
+    ) -> SemanticResult:
+        """Reorder an admitted shortlist only; incomplete or foreign results discard the entire rerank."""
+        return await self._rank(
+            query,
+            index_version=index_version,
+            park_id=park_id,
+            destination_id=destination_id,
+            season=season,
+            eligible=eligible,
+            method="rerank",
+        )
+
+    async def _rank(
+        self,
+        query: str,
+        *,
+        index_version: str,
+        park_id: str,
+        destination_id: str,
+        season: str | None,
+        eligible: Mapping[str, str],
+        method: _RankingMethod,
+    ) -> SemanticResult:
+        """Share publication, scope, transport and record integrity across all ranking stages."""
         if not self.configured:
             return SemanticResult("unconfigured")
         if not eligible:
@@ -249,7 +310,8 @@ class QdrantParkSearch:
             len(eligible) > 1000
             or not query.strip()
             or len(query) > 2000
-            or method not in {"semantic", "bm25"}
+            or method not in {"semantic", "bm25", "rerank"}
+            or (method == "rerank" and len(eligible) > DENSE_LIMIT)
             or season not in {None, "winter", "spring", "summer", "fall"}
         ):
             return SemanticResult("invalid_response")
@@ -272,14 +334,19 @@ class QdrantParkSearch:
                     conditions.append({"key": "seasons", "match": {"any": [season, "all"]}})
                 conditions.append({"has_id": [point_id(index_version, identity) for identity in sorted(eligible)]})
                 body: dict[str, object] = {
-                    "query": {"text": query, "model": PARK_MODEL} if method == "semantic" else {"text": query},
+                    "query": (
+                        {"text": query}
+                        if method == "bm25"
+                        else {"text": query, "model": COLBERT_MODEL if method == "rerank" else PARK_MODEL}
+                    ),
+                    "using": {"semantic": DENSE_VECTOR, "bm25": BM25_FIELD, "rerank": COLBERT_VECTOR}[method],
                     "filter": {"must": conditions},
                     "limit": min(DENSE_LIMIT, len(eligible)),
                     "with_payload": True,
                     "with_vector": False,
                 }
                 if method == "bm25":
-                    body["using"] = BM25_FIELD
+                    body["params"] = {"idf": {"corpus": body["filter"]}}
                 response = await self._api.request(http, "POST", "/points/query", body)
                 result = response.get("result") if response else None
                 points = result.get("points") if isinstance(result, dict) else None
@@ -292,7 +359,13 @@ class QdrantParkSearch:
                     identity, score = item["id"], point.get("score")
                     score_ok = (
                         type(score) in {int, float}
-                        and (-1 <= score <= 1 if method == "semantic" else 0 <= score <= 1_000_000)
+                        and (
+                            -1 <= score <= 1
+                            if method == "semantic"
+                            else -COLBERT_MAX_TOKENS <= score <= COLBERT_MAX_TOKENS
+                            if method == "rerank"
+                            else 0 <= score <= 1_000_000
+                        )
                         and math.isfinite(score)
                     )
                     if (
@@ -306,6 +379,8 @@ class QdrantParkSearch:
                     ):
                         raise ValueError("Park candidate does not match scope")
                     scores[identity] = float(score)
+                if method == "rerank" and set(scores) != set(eligible):
+                    raise ValueError("Park rerank omitted an admitted candidate")
                 return SemanticResult("ready", scores)
         except PublicationError:
             return SemanticResult("index_mismatch")
@@ -347,7 +422,7 @@ class QdrantParkSearch:
                         },
                         "limit": CATALOG_PAGE_SIZE,
                         "with_payload": True,
-                        "with_vector": with_vectors,
+                        "with_vector": [DENSE_VECTOR] if with_vectors else False,
                     }
                     if offset is not None:
                         body["offset"] = offset
@@ -364,7 +439,8 @@ class QdrantParkSearch:
                         metadata["record_hash"] = record_hash(item)
                         if identity in seen or approved is None or metadata != dict(approved):
                             raise ValueError("Catalog record is not approved")
-                        vector = point.get("vector")
+                        vectors = point.get("vector")
+                        vector = vectors.get(DENSE_VECTOR) if isinstance(vectors, dict) else None
                         if with_vectors and not vector_ready(vector):
                             raise ValueError("Invalid hosted vector")
                         chunks.append({**item, "embedding": vector if with_vectors else []})

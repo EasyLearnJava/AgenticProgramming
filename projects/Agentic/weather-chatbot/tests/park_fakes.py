@@ -31,6 +31,8 @@ class FakeParkStore:
         semantic_status: str = "ready",
         keyword_status: str = "ready",
         catalog_status: str = "ready",
+        rerank_scores: dict[str, float] | None = None,
+        rerank_status: str = "ready",
     ) -> None:
         """Capture immutable fixture records and independently adjustable branch outcomes."""
         self.chunks = copy.deepcopy(chunks)
@@ -39,6 +41,8 @@ class FakeParkStore:
         self.semantic_status = semantic_status
         self.keyword_status = keyword_status
         self.catalog_status = catalog_status
+        self.rerank_scores = rerank_scores or {}
+        self.rerank_status = rerank_status
         self.calls: list[dict[str, Any]] = []
 
     async def catalog(
@@ -93,20 +97,37 @@ class FakeParkStore:
         """Report the configured catalog outcome without doing any search."""
         return self.catalog_status
 
+    async def rerank(
+        self,
+        query: str,
+        *,
+        index_version: str,
+        park_id: str,
+        destination_id: str,
+        season: str | None,
+        eligible: Mapping[str, str],
+    ) -> SemanticResult:
+        """Return exact configured MaxSim scores, including invalid sets for defensive boundary tests."""
+        self.calls.append({"method": "rerank", "query": query, "eligible": dict(eligible), "season": season})
+        return SemanticResult(cast(SemanticStatus, self.rerank_status), dict(self.rerank_scores))
+
 
 def fixture_knowledge(
     path: Path | None = None,
     *,
     tracer: Tracer | None = None,
     mode: Literal["auto", "lexical", "hybrid"] = "hybrid",
+    rerank_enabled: bool = False,
 ) -> ParkKnowledge:
     """Load approved fixture input into a fake provider; production never reads prepared passage text."""
     catalog_path = path or ROOT / "data/parks/catalog.json"
     try:
         corpus = load_prepared(catalog_path.with_name("prepared.json"))
     except (OSError, ValueError):
-        return ParkKnowledge(catalog_path, tracer=tracer, mode=mode)
-    return ParkKnowledge(catalog_path, store=FakeParkStore(corpus["chunks"]), tracer=tracer, mode=mode)
+        return ParkKnowledge(catalog_path, tracer=tracer, mode=mode, rerank_enabled=rerank_enabled)
+    return ParkKnowledge(
+        catalog_path, store=FakeParkStore(corpus["chunks"]), tracer=tracer, mode=mode, rerank_enabled=rerank_enabled
+    )
 
 
 def knowledge_for(
@@ -119,6 +140,9 @@ def knowledge_for(
     keyword_status: str = "ready",
     catalog_status: str = "ready",
     mode: Literal["auto", "lexical", "hybrid"] = "hybrid",
+    rerank_enabled: bool = False,
+    rerank_scores: dict[str, float] | None = None,
+    rerank_status: str = "ready",
 ) -> ParkKnowledge:
     """Prepare integrity-valid test records and a controlled remote store for ranker assertions."""
     corpus = load_prepared(ROOT / "data/parks/prepared.json")
@@ -143,5 +167,7 @@ def knowledge_for(
         semantic_status=semantic_status,
         keyword_status=keyword_status,
         catalog_status=catalog_status,
+        rerank_scores=rerank_scores,
+        rerank_status=rerank_status,
     )
-    return ParkKnowledge(catalog, store=store, mode=mode)
+    return ParkKnowledge(catalog, store=store, mode=mode, rerank_enabled=rerank_enabled)

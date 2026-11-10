@@ -319,11 +319,13 @@ contributions rather than implying every returned vector changes ranking.
 
 ### Publish and validate hosted park search
 
-The default collection is `nimbus_park_guidance_v2`, separate from `QDRANT_COLLECTION`, the private weather answer
+The default collection is `nimbus_park_guidance_v3`, separate from `QDRANT_COLLECTION`, the private weather answer
 cache. Public guidance has no answer-cache TTL or browser partition. Setup checks collection ownership, dimensions,
 [native scored-text support](https://qdrant.tech/documentation/manage-data/indexing/#bm25-scoring) and matching
 prepared/catalog versions. It sends approved title, section and text for
-hosted 384-dimensional MiniLM embeddings, verifies payloads and vectors, then publishes a versioned readiness marker.
+hosted 384-dimensional MiniLM embeddings and 96-dimensional ColBERT token vectors, verifies payloads and vectors,
+then publishes a versioned readiness marker. ColBERT uses MaxSim with its HNSW graph disabled: it reranks a small
+shortlist, rather than searching an approximate graph of every token.
 It never runs at app startup. It never deletes weather-cache records or silently adopts an incompatible collection.
 
 Use ignored `.env.local` for `QDRANT_URL` and credentials. The defaults select Qdrant and hybrid retrieval.
@@ -333,13 +335,19 @@ weights. Neither preparation nor production needs Torch, Transformers, SentenceT
 
 ```sh
 uv run python -m tools.build_park_index
-uv run python -m tools.setup_park_search
-uv run python -m tools.eval_parks --lexical-only
-uv run python -m tools.eval_park_hybrid
+uv run python -m tools.setup_park_search --reuse-collection nimbus_park_guidance_v2
+uv run python -m tools.eval_park_hybrid --recording evals/park-retrieval-recording.json
+uv run python -m tools.eval_park_hybrid --cases evals/parks-colbert-holdout.json \
+  --output evals/park-colbert-holdout-last-run.json
 ```
 
-Both evaluation commands above call real Qdrant. The comparison grades BM25, semantic-only and hybrid on identical
-labeled questions, recording recall@4, top-1, MRR@4 and provider failures separately. A provider failure cannot pass
+The reuse option verifies the previous collection's model, ownership, manifest and complete source records, then
+copies its existing MiniLM vectors into the separate v3 collection. Only ColBERT embeddings are generated.
+Omit that option on a fresh cluster. Repeating either setup verifies existing points without reembedding them.
+
+Both evaluation commands call real Qdrant. One explained retrieval per question compares BM25, semantic-only,
+scoped RRF and ColBERT on identical candidates, recording recall@4, top-1, MRR@4 and provider failures separately.
+A provider failure cannot pass
 as an unsupported-question abstention. The semantic-only comparison uses the `0.30` cutoff without BM25 admission
 rules, so it exposes dense-only misses. These retrieval checks do not grade Gemini's answer faithfulness.
 
@@ -352,15 +360,54 @@ refresh it from the reviewed public eval suite, run `uv run python -m tools.park
 
 The search adapter sends the search question to Qdrant, without attaching full history or preference values. Setup
 sends public source text. Logs and traces exclude questions, bodies, vectors and keys. **Activity → LangSmith trace**
-shows catalog, BM25, semantic lookup and fusion steps, timings, fixed outcomes and bounded counts. Failed branches
-remain visibly failed even when usable guidance survives. Playground requests can have a linked trace of their own;
+shows catalog, BM25, semantic lookup, fusion and ColBERT steps, timings, fixed outcomes and bounded counts.
+Failed branches remain visibly failed even when usable guidance survives. Playground requests can have a linked trace;
 chat retrieval nests under its tool call. Health verifies the published Qdrant generation without generating vectors.
 
 Local setup does not configure Vercel or validate a production build. Follow the exact-build checks on
 [Waiting on you](waiting-on-you.md#qdrant-hybrid-park-retrieval).
 
+### Scoped BM25 and ColBERT validation
+
+BM25 now sends `params.idf.corpus` equal to its exact result filter: park, destination, season, generation and eligible
+IDs. This restores destination-specific term frequency and length statistics instead of using shard-wide statistics.
+The same MiniLM vectors, passage text, labels and RRF weights remain in use.
+
+After RRF admission, Qdrant's hosted `answerdotai/answerai-colbert-small-v1` compares the full search question with at
+most 12 candidates. It returns token-level MaxSim scores, not probabilities or cosine confidence values. Nimbus
+verifies the complete shortlist and reorders it, then applies the existing four-passage/10,000-character budget.
+Equal scores preserve RRF order. Timeout, malformed results or missing candidates retain the complete RRF ordering
+and mark the attempted rerank span failed. The reranker shares the original 5.5-second retrieval deadline.
+`PARKS_RERANK_ENABLED=false` disables this stage; lexical mode also skips it.
+
+The main comparison preserves the prior artifact and records the new result in `evals/park-colbert-last-run.json`.
+There are 41 resolved cases, of which 38 have labeled evidence; the other three check abstention.
+
+| Main evidence measurement | Previous Qdrant hybrid | Scoped BM25 + RRF | With ColBERT |
+| --- | --- | --- | --- |
+| Top-ranked evidence | 30/38 (78.9%) | 33/38 (86.8%) | 34/38 (89.5%) |
+| Evidence recall@4 | 100% | 100% | 100% |
+| MRR@4 | 0.890 | 0.930 | 0.947 |
+| Case rules passed | 41/41 | 41/41 | 41/41 |
+
+The ColBERT run had zero provider failures. Relative to scoped RRF, four questions gain the first position and three
+lose it while retaining evidence in the top four: `narrows-footwear-paraphrase`, `canyon-food-paraphrase` and
+`narrows-spring-garments`. This is a modest aggregate gain, not a 95% result or an improvement on every question.
+
+Eight additional questions were frozen before running ColBERT, in `evals/parks-colbert-holdout.json` (SHA-256
+`7eb36463b333e44ec0133031cfda540c90700a2cbcfb2f1072156a168d3fdc9c`). Seven require evidence; one requires abstention.
+Scoped RRF passed 7/8 with evidence recall 6/7 and top-1 3/7. ColBERT passed 8/8, with recall 7/7 and top-1 4/7,
+zero provider failures. `evals/park-colbert-holdout-last-run.json` records that result. The set is small and does not
+establish broad generalization. No Gemini answer evals or unrelated live eval suites were run for this change.
+
+Live publication verified all 40 chunks, copied existing dense vectors and generated the additional ColBERT vectors.
+A repeat publication made zero writes and generated zero embeddings. The prior park and weather-cache collections
+remain unchanged. Replay now binds the v3 profile, models, scope, RRF policy and exact rerank shortlist.
+Two independent reviews found no blockers; their test-budget and recording-preservation suggestions were addressed.
+
 ### Qdrant-only migration validation
 
+This historical v2 migration measurement precedes the scoped-BM25/ColBERT results above.
 The published generation `5b2eddcd5a2f6a24` preserves all 40 original passages across 13 documents and six destinations.
 Tokenizer-only preparation reproduced the original complete-record fingerprint, with a maximum input of 252 tokens.
 The live provider supports native BM25 and stores both passage payloads and actual 384-dimensional dense vectors.

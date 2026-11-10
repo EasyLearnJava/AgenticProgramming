@@ -269,45 +269,46 @@ agent resolves the destination, retrieves applicable source passages and combine
 tools. Source cards identify the documents and their dates. Stored guides do not establish current closures,
 warnings, river levels or water availability. [Step 16](docs/step-16.md) explains the implementation and its limits.
 
-One dedicated Qdrant collection, `nimbus_park_guidance_v2`, stores the public passages, provenance, native BM25 text
-index and 384-dimensional MiniLM vectors. Both ranking branches search that collection with the same destination
-and season constraints. Nimbus combines their ranks and verifies returned text against a compact release catalog.
+One dedicated Qdrant collection, `nimbus_park_guidance_v3`, stores the public passages, provenance, native BM25 text,
+384-dimensional MiniLM vectors and 96-dimensional ColBERT token vectors. BM25 statistics and both retrieval branches
+use the same destination and season scope. Nimbus combines ranks, then Qdrant ColBERT reranks up to 12 admitted
+passages before selecting at most four. Returned text must match a compact release catalog.
 There is no SQLite database or local embedding inference in this path.
 
 ```bash
 uv sync --locked
 uv run python -m tools.build_park_index
-uv run python -m tools.setup_park_search
-uv run python -m tools.eval_parks --lexical-only
-uv run python -m tools.eval_park_hybrid
+uv run python -m tools.setup_park_search --reuse-collection nimbus_park_guidance_v2
+uv run python -m tools.eval_park_hybrid --recording evals/park-retrieval-recording.json
 ```
 
 The builder prepares reviewed source text in `data/parks/prepared.json`; its pinned tokenizer checks chunk size
 without generating vectors. `data/parks/catalog.json` contains only destination and integrity metadata for runtime
-validation. Setup creates dense embeddings once for each missing chunk in a published generation through Qdrant's
-hosted MiniLM. Repeating setup verifies existing points and generates zero new embeddings. BM25 indexes text and
-requires no second embedding model. Setup never runs at application startup.
+validation. Migration copies verified existing MiniLM vectors and generates only the new ColBERT representation.
+For a fresh cluster, omit `--reuse-collection`: setup generates each representation once per missing chunk.
+Repeating setup verifies existing points and generates zero new embeddings. BM25 indexes text without embeddings.
+Setup never runs at application startup and preserves the previous collection.
 
 Put `QDRANT_URL` and `QDRANT_API_KEY` only in ignored `.env.local`. `PARKS_QDRANT_API_KEY` can supply a separate
 credential, and `PARKS_QDRANT_COLLECTION` selects the dedicated park collection; it cannot be the private weather
 cache collection. The defaults use Qdrant and hybrid retrieval. `PARKS_RETRIEVAL_MODE=lexical` requests only Qdrant
-BM25. `PARKS_ENABLED=false` disables park tools and Playground execution. Gemini remains necessary for chat answers,
+BM25. `PARKS_RERANK_ENABLED=false` retains hybrid RRF without ColBERT. `PARKS_ENABLED=false` disables park tools and
+Playground execution. Gemini remains necessary for chat answers,
 not source preparation or retrieval. The adapter sends the tool's search text, without attaching history or
 preferences; Gemini may have worded that search using conversation context.
 
 **Knowledge** opens Qdrant source documents, the chunk/vector explorer and the Retrieval Playground. The explorer
 projects the actual stored Qdrant vectors. Playground questions use bounded POST bodies, never generated URLs.
-Results show the actual keyword terms, native BM25/cosine scores, branch ranks, RRF contributions, chosen passages
-and exclusions. A dense-only failure can retain successful BM25 guidance; a Qdrant catalog or BM25 failure is shown
-as unavailable, never an empty successful result. Activity's linked trace shows catalog, BM25, semantic lookup and
-fusion outcomes without question or passage text.
+Results distinguish native BM25/cosine scores, RRF ranks and ColBERT scores from the final order and selected context.
+A dense-only failure can retain BM25; a reranker failure retains RRF. A catalog or BM25 failure is unavailable.
+Activity's linked trace shows catalog, BM25, semantic, fusion and ColBERT outcomes without question or passage text.
 
-The current real-provider comparison passed all 41 scoped cases for BM25 and hybrid, with zero provider failures.
-Semantic-only passed 39; the spring Narrows clothing cases still require keyword evidence. Hybrid top-1 was 78.9%
-versus BM25's 73.7%; this small reused benchmark does not establish a general improvement. The full offline harness
-passed 461 cases, including 47 park cases using recorded Qdrant scores. Replay checks routing, fusion and evidence
-rules without credentials; it does not remeasure the live provider. See the
-[current retrieval evidence](docs/technical-details.md#qdrant-only-migration-validation).
+The current 41-case comparison has zero provider failures and 100% evidence recall@4. Top-1 rose from the prior
+78.9% (30/38) to 86.8% with scoped BM25, then 89.5% (34/38) with ColBERT. Some individual first ranks still regress;
+this is not a 95% result. Eight separately frozen holdout cases all passed, with top-1 4/7 and recall 7/7.
+The refreshed 47-case recorded replay checks routing, fusion, reranking and evidence without credentials; it does
+not remeasure the live provider. See
+[current retrieval evidence](docs/technical-details.md#scoped-bm25-and-colbert-validation).
 
 Live-answer goldens separately check Gemini's behavior. `uv run python -m tools.eval_park_answers <address>` grades
 whole answers for correctness, grounding and abstention, with safety questions as hard failures

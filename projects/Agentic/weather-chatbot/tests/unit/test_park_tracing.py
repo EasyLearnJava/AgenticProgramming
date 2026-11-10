@@ -23,7 +23,7 @@ def metadata(run: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in run["extra"]["metadata"].items() if key != "revision_id"}
 
 
-def test_standalone_retrieval_has_four_nested_stages_and_flushes_once(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_standalone_retrieval_has_five_nested_stages_and_flushes_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """The Playground receives its own root with real stage timings and no external content."""
     tracing, client = tracer()
     flush = Mock()
@@ -40,13 +40,21 @@ def test_standalone_retrieval_has_four_nested_stages_and_flushes_once(monkeypatc
             semantic.outcome("ready", provider="qdrant", candidate_count=8)
         with retrieval.step("fusion") as fusion:
             fusion.outcome("found", mode="hybrid", selected_count=4)
+        with retrieval.step("rerank") as rerank:
+            rerank.outcome("ready", provider="qdrant", candidate_count=12, selected_count=4)
         retrieval.outcome(
             "found", provider="qdrant", mode="hybrid", candidate_count=12, selected_count=4, season_source="query"
         )
     root, *children = started(client.kept_runs)
     assert root["name"] == PARK_RETRIEVAL_NAME
     assert root["trace_id"] == root["id"] == str(retrieval.trace_id)
-    assert [child["name"] for child in children] == ["parks.catalog", "parks.bm25", "parks.semantic", "parks.fusion"]
+    assert [child["name"] for child in children] == [
+        "parks.catalog",
+        "parks.bm25",
+        "parks.semantic",
+        "parks.fusion",
+        "parks.rerank",
+    ]
     for child in children:
         assert child["parent_run_id"] == root["id"]
         assert child["trace_id"] == root["id"]
@@ -99,12 +107,13 @@ def test_real_langchain_tool_nests_retrieval_in_the_chat_trace(monkeypatch: pyte
 
 
 @pytest.mark.parametrize("status", ["timeout", "invalid_response", "index_mismatch", "index_not_ready", "error"])
-def test_returned_semantic_failure_fails_only_its_stage(status: str) -> None:
-    """A successful BM25 fallback has a successful root but a failed semantic operation."""
+@pytest.mark.parametrize("action", ["semantic", "rerank"])
+def test_returned_optional_failure_fails_only_its_stage(status: str, action: Any) -> None:
+    """Successful fallback retains a failed optional dependency operation in the same trace."""
     tracing, client = tracer()
     with park_retrieval_trace(tracing) as retrieval:
-        with retrieval.step("semantic") as semantic:
-            semantic.outcome(status, provider="qdrant")
+        with retrieval.step(action) as stage:
+            stage.outcome(status, provider="qdrant")
         retrieval.outcome("found", provider="qdrant", mode="lexical", selected_count=2)
     root, child = started(client.kept_runs)
     assert ended(client.kept_runs, child["id"])[0].get("error") == "hidden"
@@ -113,11 +122,12 @@ def test_returned_semantic_failure_fails_only_its_stage(status: str) -> None:
 
 
 @pytest.mark.parametrize("status", ["disabled", "unconfigured", "not_needed"])
-def test_expected_semantic_skips_do_not_claim_a_provider_failure(status: str) -> None:
-    """An intentionally skipped stage remains distinct from an attempted semantic call that failed."""
+@pytest.mark.parametrize("action", ["semantic", "rerank"])
+def test_expected_optional_skips_do_not_claim_a_provider_failure(status: str, action: Any) -> None:
+    """An intentionally skipped stage remains distinct from an attempted provider call that failed."""
     tracing, client = tracer()
-    with park_retrieval_trace(tracing) as retrieval, retrieval.step("semantic") as semantic:
-        semantic.outcome(status, provider="qdrant")
+    with park_retrieval_trace(tracing) as retrieval, retrieval.step(action) as stage:
+        stage.outcome(status, provider="qdrant")
     _, child = started(client.kept_runs)
     finish = ended(client.kept_runs, child["id"])[0]
     assert not finish.get("error")

@@ -134,7 +134,7 @@ which checks show each step or take each path. Select the diagram to open it ful
 - **Tabs:** open [Chat](/), [Source documents](/knowledge/sources), [Chunks & vectors](/knowledge/chunks),
   [Retrieval Playground](/knowledge/retrieval) and [Activity](/activity).
 - **Playground filters:** choose the destination shown below and leave **Visit date** and **Season** blank.
-  This lets the question demonstrate season inference. MiniLM still runs in Qdrant; no Gemini answer is generated.
+  This demonstrates season inference. MiniLM and ColBERT run in Qdrant; no Gemini answer is generated.
 - **Chat pace:** choose **New chat** for each independent scenario and wait until **Send** returns. Leave roughly
   40 seconds between questions as a demo precaution; the provider's actual quota may require longer.
 - **Fresh generation:** park questions bypass the weather answer cache. Gemini writes a new answer when the
@@ -151,8 +151,8 @@ In [Chunks & vectors](/knowledge/chunks), show the **40 indexed passages**. Open
 **Winter** or **Spring and Fall**, then show its text, applicable park/trail, season and citation.
 
 - **Say:** "We retrieve reviewed excerpts, not the whole internet. These passages are the evidence for park guidance."
-- **Point out:** one Qdrant collection holds the approved text, provenance, BM25 index and hosted dense vectors.
-  The vector preview plots those actual Qdrant vectors. Preparation creates no second set of embeddings.
+- **Point out:** one Qdrant collection holds approved text, BM25, MiniLM vectors and ColBERT token vectors.
+  The preview plots MiniLM vectors. Preparation creates no vectors; migration reused MiniLM and added ColBERT.
 
 ### Act 2 · Watch retrieval choose passages
 
@@ -164,7 +164,7 @@ Run these in [Retrieval Playground](/knowledge/retrieval). Pick **The Narrows** 
 > `What should I wear to hike The Narrows in Zion in spring?`
 
 Look for **Hybrid retrieval**, **Spring (question)** and **Spring and Fall** among the selected passages, containing
-layers and neoprene. In the current Qdrant run, **Recommended Gear** ranks first and **Spring and Fall** second.
+layers and neoprene. In the current checked run, **Spring and Fall** ranks first and **Recommended Gear** second.
 
 #### 2 · Match different wording
 
@@ -193,16 +193,17 @@ not proof of Lower Yosemite Fall-specific coverage.
 
 Look for **All seasons (no season)**. Two named seasons must not silently become one.
 
-For each result, show **Keyword score** (BM25), **Semantic score**, the branch contributions and **Final score**.
-Qdrant runs native BM25 and hosted MiniLM semantic search; Nimbus combines their ranks. Expand a retrieved
-passage and compare it with its source.
+For each result, show **Keyword score** (BM25), **Semantic score**, **RRF score/rank**, **ColBERT score/rank** and
+**Final rank**. BM25 statistics use the selected destination and season. Nimbus combines BM25/MiniLM ranks;
+ColBERT reorders the best 12 eligible candidates before four become context. Expand a passage and check its source.
+If ColBERT is unavailable, the page explicitly says the original RRF order was retained.
 
 - **Check 2 is the paraphrase moment:** show whether semantic scoring helped the insulation passage reach the
   selected results. Its exact rank is not a guarantee; a hybrid hit alone does not prove BM25 would have missed it.
 - **Read the Decision column:** a chunk can miss a relevance threshold, need keyword support, fall outside the top
   four, or exceed the context budget. **Not returned** is different from a measured semantic score of zero.
 - **Show observability:** find the Playground request in [Activity](/activity), then open **View LangSmith trace**.
-  Inspect the collection read, BM25, semantic and fusion steps. The page shows the question's terms; the trace
+  Inspect the collection read, BM25, semantic, fusion and ColBERT steps. The page shows the question's terms; the trace
   keeps operational details without the question or passage text.
 
 ### Act 3 · Let Gemini answer from the evidence
@@ -233,8 +234,8 @@ The answer must not claim they are operating now from a saved passage.
 
 **After each answer:** open the `search_park_guidance` chip, expand **Output**, and show the exact passages Gemini
 received. Check that its park-guidance citations point to those returned sources. Then find the request in
-[Activity](/activity) and open **View LangSmith trace**: the search tool contains park retrieval with BM25, semantic
-and fusion steps. Match the request by time and reference; prompts are not shown in Activity.
+[Activity](/activity) and open **View LangSmith trace**: the search tool contains park retrieval with BM25, semantic,
+fusion and ColBERT steps. Match the request by time and reference; prompts are not shown in Activity.
 
 ### Act 4 · Challenge the answer, including when evidence is missing
 

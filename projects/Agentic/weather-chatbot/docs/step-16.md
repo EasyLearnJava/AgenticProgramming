@@ -9,15 +9,15 @@ See [step 17](step-17.md) for separate official notice checks; this index remain
 
 ## What you'll build
 
-- A versioned Qdrant collection containing public passage text, provenance, native BM25 and dense vectors.
-- Destination and seasonal constraints, with hosted MiniLM and BM25 combined through rank fusion.
+- A versioned Qdrant collection containing public text, provenance, native BM25, MiniLM and ColBERT vectors.
+- Destination and seasonal constraints, scoped BM25 statistics, rank fusion and optional ColBERT reranking.
 - Shared park tools, source cards, source/vector browsers and a protected Retrieval Playground.
 - Failure visibility, citation restrictions, health coverage and independently graded retrieval and answer checks.
 
 ## What you'll learn
 
 - Why applicability metadata must be reviewed separately from relevance scores and document names.
-- How to prepare text without generating vectors, then publish one verified hosted embedding per chunk.
+- How to prepare text without vectors, reuse verified MiniLM embeddings and add a distinct reranking representation.
 - How to inspect actual ranking decisions and test failures without depending on a language model.
 - Why citation presence, evidence retrieval and answer faithfulness are different measurements.
 
@@ -35,11 +35,13 @@ harness uses recorded provider scores and does not require a live Qdrant connect
 | Decision | Why |
 |---|---|
 | Reviewed destination and season metadata | Similar names and waterfalls must not inherit unrelated advice |
-| One Qdrant park collection | Public text, native BM25 and dense vectors share a single store |
+| One Qdrant park collection | Public text, native BM25, MiniLM and ColBERT share a single store |
 | Compact release catalog with record hashes | Remote evidence must match approved text, metadata and scope |
 | Tokenizer-only preparation | Keep safety qualifiers within the model budget without local vectors |
-| Explicit, idempotent publication | Reuse verified points; embed each missing chunk once per generation |
-| Separate provider outcomes | Distinguish dense fallback, database failure and genuine no-match results |
+| Scoped BM25 statistics | Measure term rarity inside the same eligible park/trail and season |
+| ColBERT after RRF | Compare the full question with up to 12 admitted passages before choosing context |
+| Explicit, idempotent publication | Copy verified MiniLM vectors during migration; add only missing representations |
+| Separate provider outcomes | Distinguish RRF fallback, dense fallback, database failure and genuine no-match results |
 | Bounded POST bodies under `/api/` | Questions stay out of generated URLs and inside the edge rule's scope |
 | Shared retrieval diagnostics | Playground scores and selected context cannot drift from chat search |
 | Links restricted to retrieved URLs | Source cards and answer links follow the same evidence boundary |
@@ -51,7 +53,7 @@ harness uses recorded provider scores and does not require a live Qdrant connect
 |---|---|
 | `nimbus/parks.py` | Destination resolution, scope, verified evidence and context selection |
 | `nimbus/park_ranking.py` | Season interpretation and rank fusion |
-| `nimbus/park_semantic.py` | Bounded Qdrant records, native BM25 and hosted dense retrieval |
+| `nimbus/park_semantic.py` | Verified Qdrant records, scoped native BM25, hosted dense retrieval and ColBERT |
 | `tools/setup_park_search.py` | Explicit, verified hosted publication |
 | `nimbus/park_tracing.py` | Private operational retrieval spans |
 | `nimbus/park_ingest.py`, `data/parks/manifest.json` | Reviewed source sections and season metadata |
@@ -93,13 +95,21 @@ conservative and is not a global geographic search service; the agent should pas
 Retrieval ① reads and verifies Qdrant text against the compact catalog, ② constrains both hosted ranking branches
 by park, destination, generation and season, and ③ applies reciprocal rank fusion (RRF). Nimbus removes generic
 query terms and expands reviewed concepts. Qdrant's native BM25 scores the prepared text field, which repeats section
-headings for weighting. Hosted MiniLM supplies cosine scores; no second embedding is generated for BM25.
+headings for weighting. Its `params.idf.corpus` receives the same eligibility filter as the search, so unrelated
+passages do not affect term rarity. Hosted MiniLM supplies cosine scores; BM25 needs no embedding model.
 
 RRF combines ranks instead of incompatible raw scores: `1 / (60 + BM25_rank) + 0.1 / (60 + semantic_rank)`.
 Missing/ineligible contributions are zero. Dense ranks start at cosine `0.30`; a candidate without a BM25 match
 must reach `0.55` to enter. Ranking uses order, so first-ranked weak and strong dense matches receive the same bonus.
-These calibrated heuristics are not confidence guarantees. Ties use chunk ID. At most four passages fit within
-10,000 text characters; their text and citations come from verified Qdrant records.
+These calibrated heuristics are not confidence guarantees. RRF ties use chunk ID.
+
+④ ColBERT, enabled by default for hybrid retrieval, reranks the best 12 admitted passages using the full question.
+Qdrant uses `answerdotai/answerai-colbert-small-v1` token vectors and MaxSim scoring. Higher scores rank first;
+ties preserve RRF order. This stage cannot introduce passages outside the eligible RRF shortlist. Its scores are
+neither cosine similarities nor probabilities and must not be compared directly with RRF scores. ⑤ Nimbus selects
+at most four passages within 10,000 text characters from the resulting order. Text and citations remain verified
+Qdrant records. With fewer than two candidates, reranking is unnecessary. A timeout, malformed/incomplete result
+or unavailable reranker preserves the original RRF order for that request.
 
 An actual date determines the season. Without a date, an explicit season or one unambiguous seasonal phrase can
 filter the candidates ("in spring", "winter gear"). "Fall" is surely the season only after a word such as "in",
@@ -108,41 +118,47 @@ filter the candidates ("in spring", "winter gear"). "Fall" is surely the season 
 ignored. A question that names a month ("May" only as "in May" or "May 12") gets no season from its words, and
 proper names such as Nevada Fall do not count. Conflicting explicit date/season inputs are rejected.
 
-`search(..., explain=True)` adds the same raw scores, ranks and exclusion decisions used by normal search.
-A missing semantic score is distinct from zero similarity. The corpus and per-request diagnostics do not store
-visitor conversations or query history.
+`search(..., explain=True)` adds the same raw scores, RRF ranks, ColBERT scores/ranks, final order and exclusion
+decisions used by normal search. A missing semantic or rerank score is distinct from a measured zero. The corpus
+and per-request diagnostics do not store visitor conversations or query history.
 
 ### `nimbus/park_semantic.py` and `tools/setup_park_search.py`
 
-Setup ① verifies dedicated collection ownership and native scored-text support, ② embeds approved title/section/text
-with hosted `sentence-transformers/all-minilm-l6-v2`, and ③ verifies payloads, vectors, counts and BM25 queryability
-before publishing a readiness marker. It stores one 384-dimensional cosine vector per chunk. It reuses existing
-verified points; repeated setup generates zero new embeddings. A partially uploaded generation can resume safely.
+Setup ① verifies dedicated collection ownership and native scored-text support, ② publishes approved title/section/text
+with two named representations, and ③ verifies payloads, both vector types, counts and BM25 queryability before
+publishing a readiness marker. `dense` stores a 384-dimensional cosine MiniLM vector; `colbert` stores a matrix of
+96-dimensional token vectors with MaxSim, without a separate HNSW index. Both are hosted; no model runs on Vercel.
+The v3 migration can read and copy verified MiniLM vectors from v2 with `--reuse-collection`, generating only the
+new ColBERT representation. A fresh collection generates both representations once per missing chunk. Repeated
+setup reuses verified points, and a partially uploaded generation can resume safely.
 The park collection must differ from the private weather-answer cache, and publication never runs at startup.
 
 Runtime requires the matching model/profile/generation marker and validates full records against complete-record
 hashes and metadata from the compact catalog. Candidate scores must be finite, in range and within the same scope.
-Provider calls have bounded responses and deadlines. A failed dense branch can retain successful BM25 guidance.
-A failed catalog or BM25 request returns unavailable; there is no SQLite fallback. Cancellation propagates.
+Provider calls have bounded responses and deadlines within the shared retrieval budget. A failed dense branch can
+retain successful BM25 guidance; a failed reranker retains RRF order. A failed catalog or BM25 request returns
+unavailable; there is no SQLite fallback. Cancellation propagates.
 
 Search text is sent to Qdrant, and publication sends public source text. The adapter does not attach full chat
 history or preferences. Logs and traces exclude questions, source bodies, vectors and keys.
 
 ### `nimbus/park_tracing.py`
 
-A park retrieval span contains catalog, BM25, semantic lookup and rank-fusion children. Chat retrieval nests inside
-its tool trace; a Playground run can have its own trace linked from Activity. Approved metadata records outcome,
-provider,
-mode, counts and whether the season came from a date, an explicit selection or the question. A semantic failure is
-marked failed even when BM25 supplies usable guidance. No query or passage content is serialized.
+A park retrieval span contains catalog, BM25, semantic lookup, rank fusion and an attempted ColBERT rerank.
+Chat retrieval nests inside its tool trace; a Playground run can have its own trace linked from Activity. Approved
+metadata records outcome, provider, mode, counts and whether the season came from a date, an explicit selection or
+the question. A semantic or reranker failure is marked failed even when fallback supplies usable guidance. Disabled
+or unnecessary reranking creates no provider span; the Playground states why it was skipped. No query, passage,
+vector or key content is serialized.
 
 ### `nimbus/park_text.py` and configuration
 
 Shared helpers produce the dense input and canonical complete-record hash. The tokenizer is development-only;
 the runtime has no SentenceTransformer, Torch, local weights or SQLite connection. `PARKS_SEMANTIC_PROVIDER=qdrant`
 is the sole provider, with `hybrid` the default mode. `lexical` uses only Qdrant BM25; `auto` also uses the hosted
-hybrid path. `PARKS_ENABLED=false` disables park tools and Playground execution. The default collection is
-`nimbus_park_guidance_v2`; it cannot share the weather-answer cache collection.
+hybrid path. `PARKS_RERANK_ENABLED=true` is the default; `false` retains scoped RRF without ColBERT calls. Both modes
+still use the v3 collection/profile. `PARKS_ENABLED=false` disables park tools and Playground execution. The default
+collection is `nimbus_park_guidance_v3`; it cannot share the weather-answer cache collection.
 
 ### `nimbus/app.py`
 
@@ -174,12 +190,14 @@ The fixed park prompt extensions preserve instruction-injection rules and city-w
 ### `nimbus/knowledge.py` and `nimbus/retrieval_gate.py`
 
 `/knowledge/sources` and `/knowledge/chunks` read verified Qdrant records without generating embeddings. The PCA
-map uses actual stored Qdrant vectors, keeps its projection stable across filters and is not the retrieval algorithm.
+map uses the stored 384-dimensional MiniLM vectors, keeps its projection stable across filters and is not the
+retrieval algorithm. ColBERT token vectors are used for reranking and are not plotted in this map.
 `GET /knowledge/retrieval` displays an empty form; query-string submissions do not run retrieval.
 
 ① `POST /api/knowledge/retrieval` reads at most 16 KiB, rejects duplicate/unknown fields and foreign browser origins,
 and validates the question, destination, date and optional season. ② The page calls the same search with diagnostics,
-including actual keyword terms, raw scores, branch ranks, RRF contributions and context-selection reasons. The gate
+including actual keyword terms, branch scores/ranks, RRF contributions, separate ColBERT scores/ranks, final order
+and context-selection reasons. It distinguishes a successful rerank from original-RRF fallback. The gate
 permits twelve requests per minute per caller and two in flight per app instance, with bounded expiring bookkeeping.
 The existing planned `/api/` edge rule additionally limits requests across serverless instances; verify it before
 release. In-process limits alone are not a distributed firewall. Inputs/results are not persisted or cached.
@@ -204,14 +222,16 @@ checks. A source and its labeled evidence must appear in the same scoped passage
 top-1 evidence and MRR@4; rank-sensitive cases can require an earlier result. Small candidate sets remain weak tests
 of ordering. These checks measure retrieval, not whether Gemini faithfully uses the evidence.
 
-`tools.eval_park_hybrid` compares BM25, semantic-only and fused results using the same labeled evidence. It records
-provider failures separately and exits unsuccessfully if hosted requests fail or fused evidence misses its rules.
+`tools.eval_park_hybrid` compares BM25, semantic-only, scoped RRF and ColBERT-reranked results from the same measured
+requests and eligible candidates. It records provider failures separately and exits unsuccessfully if hosted
+requests fail or the final evidence misses its rules.
 Inspect top-1 and MRR as well as recall@4; a top-four pass alone does not prove better ranking. Its JSON contains
 case IDs, grades and ranks, without question or passage text.
 The semantic-only baseline independently uses the `0.30` hosted cutoff without the hybrid BM25 admission guard.
 See [current validation](technical-details.md#qdrant-only-migration-validation) and the clearly labeled historical
 calibration record for measured results and the limits of reusing tuning questions as evidence. Offline harness
-checks use recorded Qdrant scores with the real fusion/scoping code; they do not measure current provider quality.
+checks use recorded Qdrant scores with the real scoping, fusion and reranking code; they do not measure current
+provider quality. The comparison report keeps RRF and reranked profiles separate instead of relabelling old scores.
 
 The original thirteen weather goldens remain, plus five park-answer scenarios. Three require official citations;
 two check an unsupported geographic name and ambiguity. The answer evaluator preserves actual citation targets
@@ -232,8 +252,15 @@ without putting the question in the address. Source refreshes and index writes r
 
 For hosted retrieval, set `PARKS_SEMANTIC_PROVIDER=qdrant`, `PARKS_RETRIEVAL_MODE=hybrid`, `QDRANT_URL` and a private
 credential in ignored `.env.local`, then run `uv run python -m tools.setup_park_search`. The optional
-`PARKS_QDRANT_COLLECTION` defaults to `nimbus_park_guidance_v2`; `PARKS_QDRANT_API_KEY` can supply a separate
+`PARKS_QDRANT_COLLECTION` defaults to `nimbus_park_guidance_v3`; `PARKS_QDRANT_API_KEY` can supply a separate
 credential.
+To migrate from an existing v2 collection without generating MiniLM embeddings again, use
+
+```text
+uv run python -m tools.setup_park_search --collection nimbus_park_guidance_v3 --reuse-collection nimbus_park_guidance_v2
+```
+
+The source is read-only; keep the old collection for rollback and publish/verify v3 before changing runtime settings.
 Serving needs read access; setup additionally needs collection/index/point write permission. The existing bundled
 prepared text can be published without local inference. Local settings do not enable the feature on Vercel.
 [Hosted configuration and validation](waiting-on-you.md#qdrant-hybrid-park-retrieval).
@@ -252,14 +279,24 @@ uv run python -m tools.eval_parks
 uv run python -m tools.eval_park_hybrid
 ```
 
-Current Qdrant-only provider validation uses generation `5b2eddcd5a2f6a24`: all 40 original public chunks are present.
-BM25 and hybrid passed all 41 resolved cases, with no provider failures or hybrid evidence regressions. Semantic-only
-passed 39/41; the two spring Narrows clothing cases still missed required supporting evidence. Hybrid top-1 was 78.9%
-and MRR@4 was 0.890, versus BM25's 73.7% and 0.857. See `evals/park-hybrid-last-run.json` for individual case grades.
+**Current scoped-BM25 and ColBERT validation (10 November 2026):** generation `5b2eddcd5a2f6a24` preserves all
+40 public chunks. In `evals/park-colbert-last-run.json`, scoped RRF and ColBERT each pass all 41 resolved cases with
+100% recall@4 and no provider failures. Of the 38 cases with labeled evidence, top-1 improves from 33/38 (86.8%)
+to 34/38 (89.5%); MRR@4 rises from 0.930 to 0.947. Scoped BM25 alone has 81.6% top-1; semantic-only still passes
+39/41. These are retrieval measurements, not Gemini answer grades or a 95% accuracy claim.
 
-The full 47-case live retrieval run, including unsupported and ambiguous destinations, passed and supplied
+The separate eight-case set in `evals/park-colbert-holdout-last-run.json` passes 8/8 after reranking versus 7/8 for
+scoped RRF, with no provider failures. Seven cases have evidence labels: top-1 is 4/7 versus 3/7. This small holdout
+is useful regression evidence, not proof of broad generalization. The main labels have already informed earlier
+tuning; keep the two reports distinct.
+
+**Historical Qdrant-only migration validation:** `evals/park-hybrid-last-run.json` predates scoped BM25 statistics
+and ColBERT. Its hybrid top-1 was 30/38 (78.9%) and MRR@4 was 0.890, with 41/41 resolved cases passing and 100%
+recall@4. It is the before-migration baseline, not the current retriever's result.
+The historical full 47-case live retrieval run, including unsupported and ambiguous destinations, passed and supplied
 `evals/park-retrieval-recording.json`. Credential-free replay then passed 461/461 harness scenarios, including those
-47 recorded park cases. Recording binds method, scope, corpus and eval definitions; unknown requests fail closed.
+47 recorded park cases. Those counts describe that earlier run, not a full rerun for this change. Recording binds
+method, scope, corpus and eval definitions; unknown requests fail closed.
 Focused tests verify tokenizer-only preparation, unchanged source records, identity checks, replay privacy and
 provider-failure grading. Replay does not recheck Qdrant availability, and retrieval checks do not grade Gemini.
 
@@ -269,7 +306,7 @@ build, not the current migration. They are retained as history, not substituted 
 
 ## Deploy it
 
-The evidence below predates hosted hybrid retrieval and the Qdrant-only migration. It validates neither current
+The evidence below predates hosted hybrid retrieval, the Qdrant-only migration and ColBERT. It validates neither current
 production configuration nor a current tag. Use [the release checklist](waiting-on-you.md#qdrant-hybrid-park-retrieval)
 for this migration; preserve the exact commit/deployment association in the historical evidence.
 
@@ -326,27 +363,28 @@ source-review findings and browser-stream timing issue remain recorded there as 
 trail. Identity and applicability are constraints, while relevance determines which applicable passages to return.
 
 **Does RAG require a vector database?** No. Retrieval can use keywords, embeddings or both. Nimbus uses one Qdrant
-park collection for public text, native BM25 and dense vectors. A compact local catalog holds integrity metadata,
-not another searchable corpus. Weather answer reuse has a separate collection in the same database service.
+park collection for public text, native BM25, MiniLM and ColBERT vectors. A compact local catalog holds integrity
+metadata, not another searchable corpus. Weather answer reuse has a separate collection in the same database service.
 
-**Are embeddings generated twice?** No. Tokenizer-only preparation generates no vectors. Publication creates one
-hosted MiniLM vector for each missing chunk in a generation; repeated setup verifies and reuses it. Native BM25
-indexes text without another embedding model. Runtime semantic queries still need their own query embedding.
+**Are embeddings generated twice?** MiniLM is not generated twice. Preparation only tokenizes text. Migration
+copies verified MiniLM vectors and adds ColBERT token vectors: a different representation for reranking, stored in
+the same collection. A fresh publication creates each representation once per missing chunk; repeated setup reuses
+verified points. BM25 indexes text without embeddings. Dense and rerank queries need their own hosted query vectors.
 
 **Why keep document retrieval separate from weather APIs?** Weather tools supply current conditions and forecasts.
 Published guides supply preparation advice. Combining them must not turn a document into a claim about live status.
 
-**What does offline replay prove?** Recorded Qdrant scores exercise the real resolver, scope, fusion and labeled
-evidence rules without credentials. Replay cannot measure today's provider health or a model's answer faithfulness.
+**What does offline replay prove?** Recorded Qdrant scores exercise the real resolver, scope, fusion, reranking and
+labeled evidence rules without credentials. Replay cannot measure today's provider health or answer faithfulness.
 Separate live provider comparisons and answer evaluations measure those concerns.
 
 **How do you keep a retrieval playground faithful to production search?** Add diagnostics to the shared retriever.
-Report actual branch scores, ranks and selection limits; distinguish unavailable scores from zero similarity.
-Tests compare explained and normal results, including dense-only failures, scoped candidates and context limits.
+Report branch scores, RRF and ColBERT ranks, final context order and limits; distinguish missing scores from zero.
+Tests compare explained and normal results, including dense/reranker failures, scoped candidates and context limits.
 
 ## Things to try
 
-- Compare native BM25 and hybrid scores for the same question without calling Gemini.
+- Compare BM25, semantic, RRF and ColBERT scores for the same question without calling Gemini.
 - Ask about Mist Trail spray with spring and summer dates and inspect the safety passage.
 - Try Yellowstone's Grand Canyon and Kanarra Creek narrows; no covered park should be substituted.
 - Inspect the difference between a below-threshold candidate, the four-result limit and the context-character budget.

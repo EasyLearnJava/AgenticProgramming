@@ -494,23 +494,24 @@ Each new set of data is a new key, so the cache grows without end; let entries p
 trail. Identity and applicability are constraints, while relevance determines which applicable passages to return.
 
 **Does RAG require a vector database?** No. Retrieval can use keywords, embeddings or both. Nimbus uses one Qdrant
-park collection for public text, native BM25 and dense vectors. A compact local catalog holds integrity metadata,
-not another searchable corpus. Weather answer reuse has a separate collection in the same database service.
+park collection for public text, native BM25, MiniLM and ColBERT vectors. A compact local catalog holds integrity
+metadata, not another searchable corpus. Weather answer reuse has a separate collection in the same database service.
 
-**Are embeddings generated twice?** No. Tokenizer-only preparation generates no vectors. Publication creates one
-hosted MiniLM vector for each missing chunk in a generation; repeated setup verifies and reuses it. Native BM25
-indexes text without another embedding model. Runtime semantic queries still need their own query embedding.
+**Are embeddings generated twice?** MiniLM is not generated twice. Preparation only tokenizes text. Migration
+copies verified MiniLM vectors and adds ColBERT token vectors: a different representation for reranking, stored in
+the same collection. A fresh publication creates each representation once per missing chunk; repeated setup reuses
+verified points. BM25 indexes text without embeddings. Dense and rerank queries need their own hosted query vectors.
 
 **Why keep document retrieval separate from weather APIs?** Weather tools supply current conditions and forecasts.
 Published guides supply preparation advice. Combining them must not turn a document into a claim about live status.
 
-**What does offline replay prove?** Recorded Qdrant scores exercise the real resolver, scope, fusion and labeled
-evidence rules without credentials. Replay cannot measure today's provider health or a model's answer faithfulness.
+**What does offline replay prove?** Recorded Qdrant scores exercise the real resolver, scope, fusion, reranking and
+labeled evidence rules without credentials. Replay cannot measure today's provider health or answer faithfulness.
 Separate live provider comparisons and answer evaluations measure those concerns.
 
 **How do you keep a retrieval playground faithful to production search?** Add diagnostics to the shared retriever.
-Report actual branch scores, ranks and selection limits; distinguish unavailable scores from zero similarity.
-Tests compare explained and normal results, including dense-only failures, scoped candidates and context limits.
+Report branch scores, RRF and ColBERT ranks, final context order and limits; distinguish missing scores from zero.
+Tests compare explained and normal results, including dense/reranker failures, scoped candidates and context limits.
 
 ## Step 17 · Official Park Notices
 
