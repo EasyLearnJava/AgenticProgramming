@@ -27,7 +27,7 @@ path. Select the diagram to open it full size.*
 
 - **Settings:** the deployment has the weather answer cache in `on` mode and LangSmith tracing enabled.
 - **Tabs:** in one fresh private window, open [Chat](/), [Activity](/activity) and [Weather cache](/weather-cache).
-  A private window has no saved preferences, so step 1 makes no Mem0 call.
+  A private window has no saved preferences, so step 2 makes no Mem0 call.
 - **Pace:** a saved answer is reusable for **two minutes at most**, sometimes less. Before each prompt, wait until
   **Send** comes back in place of **Stop**: the answer shows first, then Nimbus saves it, and a prompt sent during
   the save is dropped.

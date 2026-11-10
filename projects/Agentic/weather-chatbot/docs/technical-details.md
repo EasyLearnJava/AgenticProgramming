@@ -12,8 +12,10 @@ a way to observe the result.
    `/api/chat`. The browser supplies locale, time zone and bounded history. `read_chat_request()` validates
    them. A question can contain up to 2,000 characters. History is limited to ten alternating messages
    and 16,000 characters in total. History is treated as untrusted text.
-2. **Choose the execution path.** `chat()` recognizes explicit memory-management requests and loads usable approved
-   preferences. It then checks park planning intent, city trip intake, missing hotel dates and requests beyond
+2. **Choose the execution path.** The task-scope check runs before memory, deterministic workflows or cache access.
+   Explicit creative requests receive a fixed redirect; uncertain tasks use bounded Gemini classification.
+   `chat()` then recognizes memory-management requests and loads usable approved preferences. It checks park
+   planning intent, city trip intake, missing hotel dates and requests beyond
    the forecast horizon before accessing Gemini. A city dates-only follow-up can reuse
    the earlier destination. The Paris weather question falls through to the agent. The supported daily
    forecast horizon is 16 days, and hourly output covers up to three days. Eligible ordinary weather questions
@@ -23,9 +25,10 @@ a way to observe the result.
    calls in parallel. At most six tool calls fit in a model round. The fifth model call has tools turned off.
    The first model chunk has a ten-second deadline, within the turn's 30-second unauthenticated or 50-second
    authenticated budget.
-4. **Return evidence and text.** `nimbus/answer.py` turns graph events into tool starts, tool outcomes and
-   text. The chat streams HTML using server-sent events (SSE). Expand a chip to see the tool, its timing
-   and outcome. The final Markdown renderer filters links against the permitted sources. If a weather lane
+4. **Return evidence and checked text.** `nimbus/answer.py` turns graph events into tool starts, tool outcomes and
+   text. Tool chips stream immediately through server-sent events (SSE); the complete generated text is buffered
+   until a separate scope check allows it. Expand a chip to see the tool, timing and outcome. The final Markdown
+   renderer filters links against the permitted sources. If a weather lane
    fails, the request outcome and Activity timeline can retain the failure even after partial output.
    [Agent chapter](step-5.md) · [Streaming chapter](step-2.md).
 
@@ -45,6 +48,40 @@ The offline regressions in `tests/unit/test_weather_cards.py` cover missing valu
 separation, malformed results and escaping. `tests/e2e/test_weather_cards.py` exercises the real streamed chat with
 synthetic weather, follow-up history, phone layouts and accessibility. Run the corresponding evidence mutations with
 `python tools/mutation_check.py --weather-cards`.
+
+## Enforce the supported task
+
+`nimbus/scope_guard.py` checks the requested operation before memory reads, trip intake, cache lookup or agent work.
+An explicit request to write a poem stays unsupported when it names Zion or says “become a travel guide.”
+Nimbus returns its fixed capability redirect without a model or tool call for those recognized requests. Weather,
+preparation, notices, travel searches and planning remain supported. Destination corrections and places such as
+Haiku or Story must not be rejected because a place name resembles a creative-writing term.
+
+Uncertain requests use the configured Gemini model with no tools and a strict, bounded decision schema. Only the
+current and previous user question are provided for input classification. Generated answers receive a separate
+check of the current question and complete proposed text before display. The app buffers at most 20,000 characters;
+tool progress remains visible. A blocked answer becomes the fixed redirect. A failed, timed-out or malformed check
+hides the unchecked prose, reports an unavailable check and prevents cache storage. Independently validated weather
+cards can still appear from successful tool results.
+
+Each model check has a four-second cap. The output check shares the existing answer deadline, with time reserved
+from generation. Every generated narrative adds a Gemini call; unclear input can add another. This consumes quota
+and can delay or prevent an otherwise useful answer. Trusted application forms and current-policy cache hits do not
+need another narrative check. `SCOPE_POLICY_VERSION` enters the answer-cache fingerprint, so older unvalidated
+answers cannot bypass the new output check.
+
+Activity and the Nimbus trace view show `scope.input` and `scope.output` outcomes, fixed reasons and timings.
+The guard model call itself has tracing disabled. Questions, answers, preferences, keys and provider error bodies
+are excluded from these operational events. An unavailable checker is a visible failure; an intentional redirect
+is a completed policy decision. These layers reduce scope failures but do not guarantee immunity to prompt injection.
+
+The focused scope replay passed **20/20 cases**, including the three reported poem prompts and normal weather/trip
+requests. **11/11 targeted mutation checks** and **two Chrome checks** passed. The live guard-only artifact
+`evals/scope-guard-live-checks.json` records the latest weather answer as allowed, poem as blocked and weather
+follow-up as allowed. It also preserves six earlier observations with timeout or SDK-format failures; the text-block
+format was fixed, while the timeout cause remains unconfirmed. One successful diagnostic temporarily used a
+ten-second cap and finished in 691 ms; production remains at four seconds. These probes are not full chat or release
+verification. Run the narrow replay with `uv run python -m tools.harness run --mode replay --suite scope`.
 
 ## Follow a weather cache hit
 

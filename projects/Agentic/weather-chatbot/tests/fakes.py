@@ -69,6 +69,9 @@ class FakeModel(BaseChatModel):
     delay: float = 0.0
     fail_after_first_word: BaseException | None = None
     seen: list[list[BaseMessage]] = Field(default_factory=list)
+    guard_seen: list[list[BaseMessage]] = Field(default_factory=list)
+    guard_answer: str = '{"decision":"allow","task":"weather"}'
+    guard_error: BaseException | None = None
     bound_tools: list[str] = Field(default_factory=list)
     tool_choice: str | None = None
     tool_choices: list[str | None] = Field(default_factory=list)
@@ -117,6 +120,13 @@ class FakeModel(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         """The whole of one call, from its stream, when no one is streaming it."""
+        if messages and str(messages[0].content).startswith("Nimbus scope policy:"):
+            self.guard_seen.append(messages)
+            if self.guard_error is not None:
+                raise self.guard_error
+            from langchain_core.outputs import ChatGeneration
+
+            return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self.guard_answer))])
         return await agenerate_from_stream(self._astream(messages, stop, run_manager, **kwargs))
 
     async def _astream(

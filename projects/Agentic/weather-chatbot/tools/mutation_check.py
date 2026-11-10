@@ -3273,6 +3273,85 @@ PARK_RERANK_MUTATIONS += tuple(
 )
 TESTS_FOR["nimbus/parks.py"] += ("test_park_rerank.py",)
 
+SCOPE_MUTATIONS: tuple[Mutation, ...] = (
+    Mutation(
+        "nimbus/scope_guard.py",
+        'return ScopeDecision("blocked", "unsupported", "creative_request")',
+        'return ScopeDecision("allowed", "weather", "supported_task")',
+        "scope explicit creative requests cannot become weather tasks",
+    ),
+    Mutation(
+        "nimbus/scope_guard.py",
+        "with tracing_context(enabled=False):",
+        "with tracing_context(enabled=True):",
+        "scope model checks never trace private questions or answers",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        'if scope.status != "allowed":',
+        "if False:",
+        "scope input decision stops unsupported requests before other workflows",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        'approved = decision.status == "allowed"',
+        "approved = True",
+        "scope rejected output cannot be displayed",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        "pieces.append(event)",
+        "pieces.append(event)\n                    yield to_sse_message(event)",
+        "scope unvalidated prose never leaks in earlier SSE events",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        '# Unchecked model text must not escape through an exception or timeout response.\n            "answer": "",',
+        "# Unchecked model text must not escape through an exception or timeout response.\n"
+        '            "answer": render_answer("".join(pieces)),',
+        "scope generation failures never reveal partial model text",
+    ),
+    Mutation(
+        "nimbus/chat.py",
+        "if cache_turn is not None and approved:",
+        "if cache_turn is not None:",
+        "scope rejected answers are never stored in the weather cache",
+    ),
+    Mutation(
+        "nimbus/scope_tracing.py",
+        'error="Scope check failed" if self.status in SCOPE_FAILURES else None,',
+        "error=None,",
+        "scope failed checks are failed spans rather than successful blocks",
+    ),
+    Mutation(
+        "tools/harness_scope.py",
+        "if stream.tools_seen or answer.tools:",
+        "if False:",
+        "scope harness rejects all tool calls even unrecognized tool names",
+    ),
+    Mutation(
+        "tools/harness_scope.py",
+        "if stream.text_streamed or stream.unexpected_answer:",
+        "if False:",
+        "scope harness detects leaked text before a correct final redirect",
+    ),
+    Mutation(
+        "tools/harness_scope.py",
+        "if answer.text != SCOPE_REDIRECT:",
+        "if False:",
+        "scope harness requires the fixed redirect rather than a weather word",
+    ),
+)
+SCOPE_TESTS: Final[dict[str, tuple[str, ...]]] = {
+    "nimbus/scope_guard.py": ("test_scope_guard.py",),
+    "nimbus/chat.py": ("test_scope_chat.py",),
+    "nimbus/scope_tracing.py": ("test_scope_tracing.py",),
+    "tools/harness_scope.py": ("test_harness_scope.py",),
+}
+MUTATIONS += SCOPE_MUTATIONS
+for _module, _tests in SCOPE_TESTS.items():
+    TESTS_FOR[_module] = tuple(dict.fromkeys((*TESTS_FOR.get(_module, ()), *_tests)))
+
 
 def _fails(copy: Path, test_files: tuple[str, ...], *, strict: bool = False, explain_failure: bool = False) -> bool:
     """
@@ -3343,6 +3422,9 @@ def main() -> int:
         "--park-rerank", action="store_true", help="Check scoped BM25 and ColBERT with affected tests only"
     )
     parser.add_argument("--traces", action="store_true", help="Check Activity trace correlation, access and privacy")
+    parser.add_argument(
+        "--scope-guard", action="store_true", help="Check task-scope guardrails with affected tests only"
+    )
     parser.add_argument("--weather-cards", action="store_true", help="Check weather presentation evidence and dates")
     parser.add_argument("--semantic-cache", action="store_true", help="Check weather cache isolation and freshness")
     parser.add_argument(
@@ -3394,6 +3476,8 @@ def main() -> int:
         selected = PARK_HYBRID_MUTATIONS
     if args.park_rerank:
         selected = PARK_RERANK_MUTATIONS
+    if args.scope_guard:
+        selected = SCOPE_MUTATIONS
     workers = max(1, int(os.environ.get("MUTATION_WORKERS", "2")))
     with tempfile.TemporaryDirectory(prefix="mut") as scratch:
         # Each worker takes a copy of the project from the queue, and gives it back when its rule is done.
@@ -3402,9 +3486,10 @@ def main() -> int:
             copy = Path(scratch) / str(index)
             shutil.copytree(PROJECT_ROOT, copy, ignore=NOT_COPIED)
             copies.put(copy)
-        scoped = args.park_hybrid or args.park_rerank
+        scoped = args.park_hybrid or args.park_rerank or args.scope_guard
+        scoped_tests = SCOPE_TESTS if args.scope_guard else PARK_HYBRID_TESTS
         if scoped:
-            targets = tuple(dict.fromkeys(test for item in selected for test in PARK_HYBRID_TESTS[item.file]))
+            targets = tuple(dict.fromkeys(test for item in selected for test in scoped_tests[item.file]))
             if _fails(Path(scratch) / "0", targets, strict=True, explain_failure=True):
                 raise RuntimeError("Affected baseline tests must pass before testing mutations")
 
@@ -3412,7 +3497,7 @@ def main() -> int:
             """One rule, in whichever copy is free."""
             copy = copies.get()
             try:
-                return is_caught(mutation, copy, affected_tests=PARK_HYBRID_TESTS[mutation.file] if scoped else None)
+                return is_caught(mutation, copy, affected_tests=scoped_tests[mutation.file] if scoped else None)
             finally:
                 copies.put(copy)
 

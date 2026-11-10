@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-11-10T22:28:27.517007+00:00",
+  "scope": "guard_only_contracts_not_end_to_end_chat_or_release_evidence",
+  "model": "gemini-3.5-flash-lite",
+  "scope_policy_version": "scope-v1",
+  "build": {
+    "commit": "f2a6723255387744ed2218810515ffa8d61e8c89",
+    "dirty": true,
+    "environment": "local",
+    "scope_guard_sha256": "77414e502077ed75cd846bf46841a45e2384fb8e348de887e5544583c035f6f9"
+  },
+  "fixtures_sha256": "079c93dc62a8316e6ef583517f79c00a3760ab5212f21140779047db15dd9aee",
+  "previous_observations": [
+    {
+      "case_id": "normal-weather-output",
+      "expected_status": "allowed",
+      "actual_status": "unavailable",
+      "reason": "timeout",
+      "elapsed_ms": 4005,
+      "phase": "before_text_block_fix",
+      "started_at_utc": null,
+      "deadline_seconds": 4.0,
+      "case_sha256": "fc05a6763526adc8bc317b7f0f7176bb030c7bc52a475b5f0b123adc32187268"
+    },
+    {
+      "case_id": "poem-output",
+      "expected_status": "blocked",
+      "actual_status": "unavailable",
+      "reason": "invalid_response",
+      "elapsed_ms": 679,
+      "phase": "before_text_block_fix",
+      "started_at_utc": null,
+      "deadline_seconds": 4.0,
+      "case_sha256": "fa9dd90ed475118a2d596534c6d7dbdc2a39af6b75880e47d1ce4330cd39e00d"
+    },
+    {
+      "case_id": "weather-followup-input",
+      "expected_status": "allowed",
+      "actual_status": "unavailable",
+      "reason": "invalid_response",
+      "elapsed_ms": 890,
+      "phase": "before_text_block_fix",
+      "started_at_utc": null,
+      "deadline_seconds": 4.0,
+      "case_sha256": "1ae26301af8b0ac85408be9b4e97a7637d465613c58f5c2d0f0f1bfd3a17b56b"
+    },
+    {
+      "case_id": "normal-weather-output",
+      "expected_status": "allowed",
+      "actual_status": "unavailable",
+      "reason": "timeout",
+      "elapsed_ms": 4005,
+      "phase": "after_text_block_fix_before_cooldown",
+      "started_at_utc": null,
+      "deadline_seconds": 4.0,
+      "case_sha256": "fc05a6763526adc8bc317b7f0f7176bb030c7bc52a475b5f0b123adc32187268"
+    },
+    {
+      "case_id": "poem-output",
+      "expected_status": "blocked",
+      "actual_status": "unavailable",
+      "reason": "timeout",
+      "elapsed_ms": 4015,
+      "phase": "after_text_block_fix_before_cooldown",
+      "started_at_utc": null,
+      "deadline_seconds": 4.0,
+      "case_sha256": "fa9dd90ed475118a2d596534c6d7dbdc2a39af6b75880e47d1ce4330cd39e00d"
+    },
+    {
+      "case_id": "weather-followup-input",
+      "expected_status": "allowed",
+      "actual_status": "unavailable",
+      "reason": "timeout",
+      "elapsed_ms": 4013,
+      "phase": "after_text_block_fix_before_cooldown",
+      "started_at_utc": null,
+      "deadline_seconds": 4.0,
+      "case_sha256": "1ae26301af8b0ac85408be9b4e97a7637d465613c58f5c2d0f0f1bfd3a17b56b"
+    }
+  ],
+  "latest_checks": [
+    {
+      "case_id": "normal-weather-output",
+      "expected_status": "allowed",
+      "actual_status": "allowed",
+      "reason": "supported_task",
+      "elapsed_ms": 691,
+      "phase": "after_cooldown_diagnostic",
+      "started_at_utc": "2026-11-10T22:26:20.958146+00:00",
+      "deadline_seconds": 10.0,
+      "case_sha256": "fc05a6763526adc8bc317b7f0f7176bb030c7bc52a475b5f0b123adc32187268"
+    },
+    {
+      "case_id": "poem-output",
+      "expected_status": "blocked",
+      "actual_status": "blocked",
+      "reason": "output_mismatch",
+      "elapsed_ms": 528,
+      "phase": "after_cooldown_production_deadline",
+      "started_at_utc": "2026-11-10T22:28:06.096849+00:00",
+      "deadline_seconds": 4.0,
+      "case_sha256": "fa9dd90ed475118a2d596534c6d7dbdc2a39af6b75880e47d1ce4330cd39e00d"
+    },
+    {
+      "case_id": "weather-followup-input",
+      "expected_status": "allowed",
+      "actual_status": "allowed",
+      "reason": "supported_task",
+      "elapsed_ms": 772,
+      "phase": "after_cooldown_production_deadline",
+      "started_at_utc": "2026-11-10T22:28:26.639444+00:00",
+      "deadline_seconds": 4.0,
+      "case_sha256": "1ae26301af8b0ac85408be9b4e97a7637d465613c58f5c2d0f0f1bfd3a17b56b"
+    }
+  ],
+  "latest_checks_passed": true,
+  "notes": [
+    "Prior attempts are retained, not replaced by successful retries.",
+    "Exact timestamps were not captured for the first six observations; null means unknown.",
+    "The first phase identified actual Gemini text-block responses; canonicalization was then fixed.",
+    "Observed 4-second timeouts remain unexplained; neither quota errors nor network latency was independently established.",
+    "After at least 60 seconds cooldown, one diagnostic allowed a 10-second budget but returned in 691 milliseconds. Production configuration stayed at 4 seconds.",
+    "The remaining two checks ran once with the production 4-second deadline, at least 20 seconds apart.",
+    "Haiku weather was allowed by the local input check without another model request.",
+    "No question text, generated answer, credentials, history or provider response is stored in this artifact."
+  ]
+}

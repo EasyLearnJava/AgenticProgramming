@@ -161,10 +161,15 @@
         "geocode_location",
         "get_forecast",
         "get_current_weather",
-        "get_air_quality"
+        "get_air_quality",
+        "resolve_destination",
+        "search_park_guidance",
+        "get_park_alerts",
+        "search_flights",
+        "search_hotels"
       ],
       "says": [
-        "weather"
+        "^I can help with weather, park preparation, official notices, flights, hotels or trip planning\\. What would you like to check\\?$"
       ]
     }
   },

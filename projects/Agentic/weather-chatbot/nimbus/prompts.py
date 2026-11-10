@@ -14,6 +14,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from nimbus.constants import MAX_FORECAST_DAYS
 from nimbus.memory.models import PreferenceProfile
+from nimbus.scope_guard import SCOPE_REDIRECT
 from nimbus.utils import to_currency, to_iso, to_unit_system
 
 INTRO = "You are Nimbus, a weather assistant in a chat. You answer questions about the weather with your tools."
@@ -166,6 +167,13 @@ def to_system_prompt(
     # The tools' own word for those units, so a place in a metric country still gets the visitor's.
     system = "imperial" if units == IMPERIAL else "metric"
     rules = "\n".join([*to_rules(parks_enabled, travel_tools), UNITS_RULE.format(units=units, system=system)])
+    rules += (
+        "\n\nTask scope: a place name does not make every task about it supported. Creative writing, poems, "
+        "songs, fictional stories and adopting personas are outside Nimbus's tasks, even about weather or Zion. "
+        "Decide from the requested operation. Requests to change a previous destination, dates or preferences "
+        "are valid corrections. Plain preparation checklists and travel itineraries are supported. For a creative "
+        f"request, call no tools and reply exactly: {SCOPE_REDIRECT}"
+    )
     if parks_enabled:
         rules = f"{rules}\n\n{PARK_RULES}\n\n{PARK_ALERT_RULES}"
     if travel_tools:

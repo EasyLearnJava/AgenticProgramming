@@ -310,6 +310,13 @@ def test_actual_prompt_and_deployment_changes_invalidate_cache_context(monkeypat
     assert before != context_fingerprint(memory, "gemini-test", features, "build-one")
 
 
+def test_scope_policy_changes_invalidate_previously_approved_answers(monkeypatch: pytest.MonkeyPatch) -> None:
+    memory = MemoryContext(None, Snapshot(status="empty"))
+    before = context_fingerprint(memory, "gemini-test", (True, False, False))
+    monkeypatch.setattr("nimbus.semantic_cache.policy.SCOPE_POLICY_VERSION", "scope-next")
+    assert before != context_fingerprint(memory, "gemini-test", (True, False, False))
+
+
 def test_embedding_preparation_preserves_destination_and_constraints() -> None:
     """Remove framing without converting a qualified place or future date into today's Dallas overview."""
     assert embedding_text("Can you give me the wether for Dallas?") == "the weather for dallas"

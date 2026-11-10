@@ -174,6 +174,7 @@ def test_the_views_are_these_where_clauses_and_health_runs_have_their_own() -> N
             'or (event == "nps.alerts" and tostring(status) == "not_configured") '
             'or (event == "memory.operation" and tostring(status) in ("unavailable", "pending", "conflict")) '
             'or (event == "semantic_cache.operation" and tostring(status) == "error") '
+            'or (event == "guardrail.check" and tostring(status) in ("unavailable", "error")) '
             'or event == "travel.section_error" '
             'or (event in ("travel.plan", "travel.briefing") '
             "and (toint(column_ifexists('failedSections', 0)) > 0 "

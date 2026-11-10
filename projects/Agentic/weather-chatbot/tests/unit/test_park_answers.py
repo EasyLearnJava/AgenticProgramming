@@ -23,6 +23,7 @@ from pydantic import SecretStr, ValidationError
 from nimbus.answer import AnswerStats, stream_weather_answer
 from nimbus.chat import stream_turn
 from nimbus.config import Settings
+from nimbus.scope_guard import ScopeGuard
 from tests.fakes import FakeModel
 from tests.unit.test_park_integration import SOURCE_URL, FakeKnowledge
 from tools import answer_judge, eval_park_answers
@@ -132,7 +133,10 @@ def finished_turn(knowledge: FakeKnowledge) -> str:
     async def run() -> list[str]:
         stats = AnswerStats()
         events = stream_weather_answer(model, [HumanMessage("Narrows")], stats, None, lane(), knowledge=knowledge)
-        return [part async for part in stream_turn(events, "Narrows", "test", stats, "fake-model")]
+        return [
+            part
+            async for part in stream_turn(events, "Narrows", "test", stats, "fake-model", scope_guard=ScopeGuard(model))
+        ]
 
     last = asyncio.run(run())[-1]
     return "\n".join(line.removeprefix("data: ") for line in last.splitlines() if line.startswith("data:"))

@@ -24,6 +24,7 @@ from nimbus.park_ingest import PageSection, ParsedPage, SourceSpec, chunk_page
 from nimbus.parks import ParkKnowledge, make_park_knowledge
 from nimbus.prompts import to_system_prompt
 from nimbus.retrieval_gate import RetrievalGate
+from nimbus.scope_guard import ScopeGuard
 from tests.fakes import FakeModel
 from tests.park_fakes import fixture_knowledge
 from tests.unit.test_park_integration import FakeKnowledge
@@ -99,7 +100,12 @@ def test_mcp_setup_failure_retains_guidance_but_is_logged_as_chat_failed() -> No
         events = stream_weather_answer(
             model, [HumanMessage("Narrows")], stats, None, broken_lane(), MCP_NO_AUTH, knowledge=FakeKnowledge()
         )
-        return [part async for part in stream_turn(events, "Narrows", "review-test", stats, "fake-model")]
+        return [
+            part
+            async for part in stream_turn(
+                events, "Narrows", "review-test", stats, "fake-model", scope_guard=ScopeGuard(model)
+            )
+        ]
 
     with capture_logs() as logs:
         rendered = "".join(asyncio.run(run()))

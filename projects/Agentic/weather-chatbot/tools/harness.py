@@ -24,9 +24,10 @@ from nimbus.constants import PROJECT_ROOT
 from nimbus.harness_scorecard import Attempt, Build, Scorecard, load_report, release_errors, report_path
 from tools.harness_live import live_cases, live_catalog
 from tools.harness_replay import replay_cases
+from tools.harness_scope import scope_replay_cases
 from tools.park_replay import replay_park_cases
 
-LIVE_SUITES = ("golden", "travel")
+LIVE_SUITES = ("golden", "travel", "scope")
 
 
 def source_build() -> Build:
@@ -114,7 +115,7 @@ def report(card: Scorecard) -> str:
 async def replay_attempts() -> list[Attempt]:
     # Replay uses synchronous test doubles and may run their own event loops.
     rows = await asyncio.to_thread(replay_cases)
-    return [Attempt.model_validate(row) for row in [*rows, *await replay_park_cases()]]
+    return [Attempt.model_validate(row) for row in [*rows, *await replay_park_cases(), *scope_replay_cases()]]
 
 
 async def run(args: argparse.Namespace) -> int:
@@ -123,10 +124,14 @@ async def run(args: argparse.Namespace) -> int:
     source = source_build()
     target = None
     if args.mode == "replay":
-        if args.base_url or args.smoke or args.suite or args.repeats is not None or args.pause is not None:
+        if args.base_url or args.smoke or args.repeats is not None or args.pause is not None:
             raise ValueError("live options on replay")
+        if args.suite and args.suite != ["scope"]:
+            raise ValueError("Only scope can be selected for targeted replay")
         trials = 1
-        attempts = await replay_attempts()
+        attempts = (
+            [Attempt.model_validate(row) for row in scope_replay_cases()] if args.suite else await replay_attempts()
+        )
     else:
         if not args.base_url:
             raise ValueError("live mode requires --base-url")
@@ -160,7 +165,11 @@ async def run(args: argparse.Namespace) -> int:
     )
     if card.mode == "live" and card.catalog() != live_catalog(selected, smoke=args.smoke):
         raise ValueError("incomplete live coverage")
-    path = args.output or report_path(card.mode)
+    path = args.output or (
+        report_path(card.mode).with_name(f"scope-last-{card.mode}.json")
+        if set(args.suite or []) == {"scope"}
+        else report_path(card.mode)
+    )
     save(card, path)
     summary = report(card)
     print(summary)

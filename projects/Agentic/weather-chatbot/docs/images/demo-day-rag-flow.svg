@@ -3,7 +3,8 @@
   <title id="title">DemoDay part 2: how Nimbus finds park guidance and answers from it</title>
   <desc id="desc">A swimlane flowchart in four columns: your browser; Nimbus, the FastAPI app on Vercel; Gemini and
     the side paths; and stored data in one Qdrant Cloud park collection. A chat question starts at step 1, where
-    Gemini calls resolve_destination; a place Nimbus doesn't cover, such as Glacier (check 12), gets a reply that says
+    Nimbus first checks it is on task (an off-task request gets a fixed reply), then Gemini calls
+    resolve_destination; a place Nimbus doesn't cover, such as Glacier (check 12), gets a reply that says
     so and no search. The Retrieval Playground starts at step 2 with the park you pick. Step 2 sets the park or
     trail and a season from the visit date, a season you pick or the question's words: "in spring" gives Spring,
     "Yosemite Fall" and "summer and fall" give none (checks 1, 4 and 5). Step 3 reads the approved passages from
@@ -15,7 +16,8 @@
     If the meaning search fails or is slow, BM25 ranks are used alone; if Qdrant or BM25 fails, guidance
     is unavailable. The Playground stops there and shows the season, scores and each passage's decision without
     calling Gemini (checks 1 to 5). Chat continues (checks 6 to 11): Gemini answers from the returned passages or
-    says what they don't cover, and only links to returned sources stay clickable. Activity, the LangSmith trace,
+    says what they don't cover; Gemini checks the whole answer stays on task before its words appear, and only
+    links to returned sources stay clickable. Activity, the LangSmith trace,
     the Sources and Chunks pages and the answer judge show each part.</desc>
   <defs>
     <marker id="grey" viewBox="0 0 10 10" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto-start-reverse">
@@ -106,14 +108,14 @@
     <g font-size="15" font-weight="700">
       <text x="40" y="180">Chat page</text>
       <text x="40" y="298">Playground</text>
-      <text x="304" y="185">Find the destination</text>
+      <text x="304" y="185">Check scope, find the place</text>
       <text x="304" y="303">Set the park and season</text>
       <text x="304" y="421">Read the approved passages</text>
       <text x="304" y="523">Rank by keywords (BM25)</text>
       <text x="304" y="625">Rank by meaning (MiniLM)</text>
       <text x="304" y="727">RRF → ColBERT → context</text>
       <text x="304" y="875">Answer from the passages</text>
-      <text x="304" y="977">Keep only real citations</text>
+      <text x="304" y="977">Check, then show the answer</text>
       <text x="40" y="722" fill="#0f5c40">Evidence view</text>
       <text x="40" y="972" fill="#1f4f86">Cited answer</text>
       <text x="584" y="870">Gemini</text>
@@ -126,9 +128,9 @@
       <text x="40" y="200">you ask</text>
       <text x="40" y="318">you pick a park,</text>
       <text x="40" y="335">then ask</text>
-      <text x="304" y="204">a park or trail Nimbus covers;</text>
-      <text x="304" y="221">in chat, Gemini calls</text>
-      <text x="304" y="238">resolve_destination</text>
+      <text x="304" y="204">off task? a fixed reply; else</text>
+      <text x="304" y="221">Gemini calls resolve_destination</text>
+      <text x="304" y="238">for a park or trail Nimbus covers</text>
       <text x="304" y="322">this park or trail's passages;</text>
       <text x="304" y="339">season: visit date, your pick</text>
       <text x="304" y="356">or the question's words</text>
@@ -143,8 +145,8 @@
       <text x="304" y="780">rerank fails? keep RRF order</text>
       <text x="304" y="894">Gemini gets the passages and</text>
       <text x="304" y="911">their sources as tool output</text>
-      <text x="304" y="996">links to returned sources stay</text>
-      <text x="304" y="1013">clickable; others become text</text>
+      <text x="304" y="996">Gemini checks it stays on task;</text>
+      <text x="304" y="1013">only returned sources are links</text>
       <text x="40" y="742">season, scores and</text>
       <text x="40" y="759">why each passage</text>
       <text x="40" y="776">was kept or not;</text>

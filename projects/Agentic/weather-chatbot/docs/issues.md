@@ -1065,3 +1065,17 @@ package's code**, **deploying**, or **testing a real API**.
      Focused unit and cross-feature checks passed, as did 18 targeted mutation checks and six Chrome checks.
      No full eval suite, Gemini answer eval, commit, push or deployment formed part of this verification.
      [Measurements and limits](technical-details.md#scoped-bm25-and-colbert-validation).
+
+186. **A supported park name let creative-writing requests escape the intended task scope.** *You, 10 November.*
+     A pirate/sea prompt redirected, but Zion and travel-guide variants produced poems. The prompt-only rule and
+     “mentions weather” golden assertion did not enforce the requested task. **Fix:** scope checks precede memory,
+     workflows and cache access; explicit creative requests get a fixed zero-model redirect, while uncertain input
+     uses bounded classification. Generated prose waits for a complete output check; tool chips remain live.
+     Unavailable checks hide prose, mark failure and prevent caching, while verified weather cards can survive.
+     Cache fingerprints bind the scope policy. Private text stays out of Activity and trace metadata.
+     Independent review caught creative/place-name false positives and the real Gemini SDK's text-block format;
+     both were fixed with regression tests. **Check:** scope replay 20/20, targeted mutations 11/11 and two Chrome
+     checks passed. The three latest real guard-only probes passed; their artifact retains six earlier timeout or
+     format failures. Extra model calls consume quota, and four-second checks can still time out. This is bounded
+     scope enforcement with measured limits, not a guarantee against every injection or full live-chat evidence.
+     [Behavior and evidence](technical-details.md#enforce-the-supported-task).

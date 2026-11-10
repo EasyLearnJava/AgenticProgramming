@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from nimbus.memory.context import MemoryContext
 from nimbus.prompts import to_system_prompt
+from nimbus.scope_guard import SCOPE_POLICY_VERSION
 from nimbus.semantic_cache.models import VERSION, CachePolicy
 from nimbus.utils import to_unit_system
 
@@ -123,6 +124,7 @@ def context_fingerprint(memory: MemoryContext, model: str, features: tuple[bool,
     return digest(
         {
             "version": VERSION,
+            "scope_policy": SCOPE_POLICY_VERSION,
             "prompt": digest(prompt_contract),
             "build": build,
             "model": model,

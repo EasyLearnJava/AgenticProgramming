@@ -50,6 +50,7 @@ from nimbus.lanes import LANES
 from nimbus.model import is_tracing_allowed
 from nimbus.pages import render_page
 from nimbus.retrieval_gate import RetrievalGate
+from nimbus.scope_tracing import SCOPE_FAILURES, SCOPE_OUTCOMES, SCOPE_REASON_LABELS
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.trace_links import resolve_trace_link, trace_url
 from nimbus.trace_presenter import present_trace
@@ -114,6 +115,7 @@ TIMELINE_EVENTS: Final = (
     "knowledge.call",
     "memory.operation",
     "semantic_cache.operation",
+    "guardrail.check",
     "nps.alerts",
     "nws.alerts",
     "travel.call",
@@ -210,6 +212,7 @@ ACTIVITY_VIEWS: Final[Mapping[str, str]] = {
         f'or (event == "nps.alerts" and {STATUS} == "not_configured") '
         f'or (event == "memory.operation" and {STATUS} in ("unavailable", "pending", "conflict")) '
         f'or (event == "semantic_cache.operation" and {STATUS} == "error") '
+        f'or (event == "guardrail.check" and {STATUS} in ("unavailable", "error")) '
         f'or event == "travel.section_error" '
         f'or (event in ("travel.plan", "travel.briefing") '
         f"and (toint({to_field('failedSections', '0')}) > 0 or toint({to_field('missingSections', '0')}) > 0)))"
@@ -817,6 +820,21 @@ def to_activity_line(row: Row) -> ActivityLine | None:
         return to_memory_line(row, at, took)
     if event == "semantic_cache.operation":
         return to_semantic_cache_line(row, at, took)
+    if event == "guardrail.check":
+        status, reason, action = (to_words(row, key) for key in ("status", "reason", "action"))
+        label = {"input": "Request scope check", "output": "Answer scope check"}.get(action, "Scope check")
+        details = [SCOPE_OUTCOMES.get(status, "Unknown outcome"), SCOPE_REASON_LABELS.get(reason, "")]
+        detail = " · ".join(item for item in details if item)
+        tone = (
+            "bad"
+            if status in SCOPE_FAILURES
+            else "warn"
+            if status == "blocked"
+            else "ok"
+            if status == "allowed"
+            else "idle"
+        )
+        return ActivityLine(at, label, f"{detail} in {took}", tone)
     return to_question_line(row, at, event, took) or to_call_line(row, at, event, took)
 
 

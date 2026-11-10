@@ -81,6 +81,15 @@ from nimbus.pages import templates
 from nimbus.park_tools import KnowledgeCallRecord
 from nimbus.prompts import to_messages
 from nimbus.request_trace import CacheTraceStep, RequestTrace
+from nimbus.scope_guard import (
+    MAX_GUARD_ANSWER_CHARS,
+    SCOPE_CHECK_SECONDS,
+    SCOPE_REDIRECT,
+    SCOPE_UNAVAILABLE,
+    ScopeDecision,
+    ScopeGuard,
+)
+from nimbus.scope_tracing import scope_trace
 from nimbus.semantic_cache.evidence import cached_cards
 from nimbus.semantic_cache.identity import set_scope
 from nimbus.semantic_cache.integration import CacheTurn
@@ -293,6 +302,8 @@ async def stream_turn(
     stats: AnswerStats,
     model_name: str,
     *,
+    scope_guard: ScopeGuard,
+    scope_deadline: float | None = None,
     restrict_links: bool = False,
     memory_note: str = "",
     cache_turn: CacheTurn | None = None,
@@ -311,6 +322,8 @@ async def stream_turn(
     evidence_urls: set[str] = set()
     # Whether the whole answer has been sent and logged: what follows (the cache save) can't change its ending.
     answered = False
+    approved = False
+    answer_chars = 0
 
     def ending() -> dict[str, object]:
         """What every line about the answer's end holds: its length, its time, its tool calls, its tokens, the model."""
@@ -336,8 +349,7 @@ async def stream_turn(
         # ① The question, and Nimbus's answer, still empty and marked busy, added to the conversation.
         yield to_sse_message(render_part("chat_turn.html", {"question": question, "turn_id": turn_id}))
         # ② Each tool call's chip, added as the model asks for the tool, then put in place of itself as the call ends;
-        # each piece of the answer, added to it as the model writes it. The agent's stream is closed however the turn
-        # ends.
+        # Generated prose stays private until the complete output passes the scope check.
         async with aclosing(answer) as events:
             async for event in events:
                 if isinstance(event, ToolStarted):
@@ -359,27 +371,47 @@ async def stream_turn(
                         ended.end(event)
                         yield to_tool_event(turn_id, ended, is_new=False)
                 else:
+                    answer_chars += len(event)
+                    if answer_chars > MAX_GUARD_ANSWER_CHARS:
+                        # A bounded oversized marker forces a closed failure; never validate a truncated prefix.
+                        pieces = [" " * (MAX_GUARD_ANSWER_CHARS + 1)]
+                        break
                     pieces.append(event)
-                    yield to_sse_message(render_part("chat_piece.html", {"turn_id": turn_id, "text": event}))
         # ③ The finished answer, its Markdown made HTML, no longer busy, in place of the one being written.
         if stats.lane_error is not None:
             raise stats.lane_error
+        with scope_trace(request_trace, "output") as check:
+            decision = await scope_guard.assess_output(question, "".join(pieces), deadline=scope_deadline)
+            check.outcome(decision.status, decision.reason)
+        approved = decision.status == "allowed"
+        if not approved:
+            pieces = [SCOPE_UNAVAILABLE if decision.status == "unavailable" else SCOPE_REDIRECT]
+            if request_trace is not None and decision.status == "unavailable":
+                request_trace.failed = True
         done: dict[str, object] = {
             "turn_id": turn_id,
             "answer": render_answer("".join(pieces), park_sources=evidence_urls if restrict_links else None),
             "chips": final_chips(),
-            "weather_cards": to_weather_cards(list(chips.values())),
+            # Trusted structured weather remains useful when only the narrative checker is unavailable.
+            "weather_cards": (
+                to_weather_cards(list(chips.values())) if approved or decision.status == "unavailable" else ()
+            ),
             "memory_note": memory_note,
         }
+        if decision.status == "unavailable":
+            done.update(answer="", failed=True, note=SCOPE_UNAVAILABLE)
         if cache_turn is not None:
             # The receipt proves which conversation Nimbus produced; it doesn't depend on the save, so it can't wait.
             done["cache_receipt"] = cache_turn.receipt_for(str(done["answer"]))
         yield to_sse_message(render_part("chat_end.html", done))
-        log.info("chat.done", **ending())
+        if decision.status == "unavailable":
+            log.error("chat.failed", errorClass="ScopeCheckUnavailable", **ending())
+        else:
+            log.info("chat.done", **ending())
         answered = True
         # ⑥ Kept for reuse only once the visitor has the whole answer, so Qdrant's time never delays it. The stream
         # stays open until the save ends, within the save's own deadline.
-        if cache_turn is not None:
+        if cache_turn is not None and approved:
             storing: AbstractContextManager[CacheTraceStep | None] = (
                 request_trace.step("store") if request_trace is not None else nullcontext()
             )
@@ -409,7 +441,8 @@ async def stream_turn(
         note = f"{to_user_message(error)} (ref {to_ref(request_id)})"
         failed: dict[str, object] = {
             "turn_id": turn_id,
-            "answer": render_answer("".join(pieces), park_sources=evidence_urls if restrict_links else None),
+            # Unchecked model text must not escape through an exception or timeout response.
+            "answer": "",
             "failed": True,
             "note": note,
             "chips": final_chips(),
@@ -494,6 +527,56 @@ async def chat(request: Request) -> Response:
     return response
 
 
+async def scope_reply(
+    chat_request: ChatRequest,
+    decision: ScopeDecision,
+    started: float,
+    request_trace: RequestTrace,
+    *,
+    reply: str | None = None,
+) -> Response:
+    """An app-owned fixed reply keeps normal feedback without memory, cache, tools or answer generation."""
+    request_trace.workflow = "intake"
+    request_trace.cache_outcome("bypass", "workflow")
+    unavailable = decision.status == "unavailable"
+    request_trace.failed = unavailable
+    message = SCOPE_UNAVAILABLE if unavailable else reply or SCOPE_REDIRECT
+    turn_id = new_turn_id()
+
+    async def events() -> AsyncGenerator[str]:
+        yield to_sse_message(render_part("chat_turn.html", {"turn_id": turn_id, "question": chat_request.question}))
+        yield to_sse_message(
+            render_part(
+                "chat_end.html",
+                {
+                    "turn_id": turn_id,
+                    "answer": "" if unavailable else render_answer(message),
+                    "chips": (),
+                    "failed": unavailable,
+                    "note": message if unavailable else "",
+                },
+            )
+        )
+        log = structlog.get_logger()
+        fields = {
+            "workflow": "intake",
+            "answerRef": answer_ref(turn_id),
+            "answerChars": len(message),
+            "toolCalls": 0,
+            "ms": to_ms(time.perf_counter() - started),
+            **request_trace.fields(),
+        }
+        if unavailable:
+            log.error("chat.failed", errorClass="ScopeCheckUnavailable", **fields)
+        else:
+            log.info("chat.done", **fields)
+
+    stream = request_trace.wrap(events())
+    response = EventStream(await anext(stream), stream)
+    response.headers["vary"] = "Cookie"
+    return response
+
+
 async def answer_question(
     request: Request, chat_request: ChatRequest, lane: Lane, started: float, request_trace: RequestTrace
 ) -> Response:
@@ -503,6 +586,36 @@ async def answer_question(
     """
     log = structlog.get_logger()
     settings: Settings = request.app.state.settings
+    # One exact, application-written exception for demonstrating the existing feedback form.
+    if chat_request.question == "can i cook biryani in zion":
+        return await scope_reply(
+            chat_request,
+            ScopeDecision("allowed", "clarification", "supported_task"),
+            started,
+            request_trace,
+            reply=(
+                "Your biryani aroma reached the summit before you did! 🍛 "
+                "Even the squirrels are queuing with takeaway boxes."
+            ),
+        )
+    scope_guard = ScopeGuard(request.app.state.chat_model)
+    previous_question = next((message.text for message in reversed(chat_request.history) if message.role == "user"), "")
+    with scope_trace(request_trace, "input") as check:
+        scope = await scope_guard.assess_input(chat_request.question, previous_question=previous_question)
+        check.outcome(scope.status, scope.reason)
+    if scope.status != "allowed":
+        if scope.reason == "unconfigured":
+            request_trace.failed = True
+            request_trace.cache_outcome("bypass", "workflow")
+            log.error(
+                "chat.failed",
+                errorClass=ConfigError.__name__,
+                answerChars=0,
+                ms=to_ms(time.perf_counter() - started),
+                **request_trace.fields(),
+            )
+            return refusal(ConfigError())
+        return await scope_reply(chat_request, scope, started, request_trace)
     memory_command = memory_intent(chat_request.question, PreferenceProfile())
     memory = await load_memory(request, include_paused=memory_command is not None, trace=request_trace.parent)
     if memory_command is not None:
@@ -746,13 +859,17 @@ async def answer_question(
         preferences=preferences,
     )
     deadline = asyncio.get_running_loop().time() + to_answer_seconds(lane)
+    # Reserve the output check within the existing answer budget, without extending tool deadlines.
+    generation_deadline = deadline - min(SCOPE_CHECK_SECONDS, to_answer_seconds(lane) / 5)
     service: TravelService = request.app.state.travel_service
     today = now.astimezone(zoneinfo.ZoneInfo(chat_request.time_zone)).date()
     currency = preferences.currency or to_currency(chat_request.locale)
     travel = (
-        service.new_turn(deadline - TRAVEL_ANSWER_RESERVE_SECONDS, today=today, currency=currency) if enabled else None
+        service.new_turn(generation_deadline - TRAVEL_ANSWER_RESERVE_SECONDS, today=today, currency=currency)
+        if enabled
+        else None
     )
-    tools = open_lane_tools(request, lane, deadline)
+    tools = open_lane_tools(request, lane, generation_deadline)
     answer = stream_weather_answer(
         model,
         messages,
@@ -760,7 +877,7 @@ async def answer_question(
         request.app.state.tracer,
         tools,
         lane,
-        deadline,
+        generation_deadline,
         knowledge=knowledge,
         alerts=request.app.state.nps_alerts,
         travel=travel,
@@ -774,6 +891,8 @@ async def answer_question(
         request.state.request_id,
         stats,
         settings.gemini_model,
+        scope_guard=scope_guard,
+        scope_deadline=deadline,
         memory_note=memory_note,
         cache_turn=cache_turn,
         request_trace=request_trace,

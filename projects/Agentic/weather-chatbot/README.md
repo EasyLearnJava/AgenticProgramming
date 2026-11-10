@@ -22,6 +22,13 @@ this browser's normalized labels, source age and remaining lifetime. The maximum
 by a hit. Local reuse is enabled after live checks; hosted activation requires its own validation and settings.
 [How answer caching works](docs/technical-details.md#follow-a-weather-cache-hit).
 
+**Task-scope checks:** recognized creative-writing requests receive an application-written redirect before memory,
+cache or tool work. Normal weather and trip tasks continue; uncertain requests use a bounded Gemini classifier.
+Tool chips still update live, while generated prose waits for a complete output check. An unavailable checker hides
+the unchecked narrative, marks the request failed and can retain verified weather cards; it does not save the answer.
+Each generated narrative needs an extra Gemini call, and uncertain inputs may need another, affecting latency and
+quota. [Behavior, limits and focused checks](docs/technical-details.md#enforce-the-supported-task).
+
 **The whole design on one page:** [Architecture and design](docs/architecture.md): what Nimbus does, how it's built,
 how a question flows through it, why each choice was made, what makes it production grade, and what keeps it safe and
 secure.

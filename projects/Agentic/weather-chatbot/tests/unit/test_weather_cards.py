@@ -11,8 +11,10 @@ from nimbus.answer import AnswerEvent, AnswerStats, ToolEnded, ToolStarted
 from nimbus.chat import render_part, stream_turn
 from nimbus.chips import ChipStatus, ToolChip
 from nimbus.open_meteo import Place, WireRequest
+from nimbus.scope_guard import ScopeGuard
 from nimbus.tools import CurrentWeatherOutput, Day, ForecastOutput, GeocodeOutput, Hour, ToolCallRecord
 from nimbus.weather_cards import to_weather_cards
+from tests.fakes import FakeModel
 
 RECORD = ToolCallRecord(
     "rest-no-auth", WireRequest(method="GET", url="https://api.open-meteo.com/v1/forecast", headers={}), 10, "Weather"
@@ -198,28 +200,35 @@ def test_cards_do_not_reuse_an_unmatched_geocode_or_unknown_tool_payload() -> No
     assert not to_weather_cards([chips[1]])
 
 
-@pytest.mark.parametrize("fails", [False, True])
-def test_final_stream_renders_cards_and_keeps_summary_even_after_model_failure(fails: bool) -> None:
+@pytest.mark.parametrize("failure", ["none", "generation", "guard"])
+def test_final_stream_keeps_verified_cards_after_generation_or_guard_failure(failure: str) -> None:
     async def answer() -> AsyncGenerator[AnswerEvent]:
         """Successful tools, then narrative or a model failure after the weather arrived."""
         for index, chip in enumerate(sample_chips()):
             yield ToolStarted(str(index), chip.name, {})
             yield ToolEnded(str(index), chip.name, chip.output or "", chip.record, False)
         yield "A light jacket may help in the evening."
-        if fails:
+        if failure == "generation":
             raise RuntimeError("private provider error")
 
     async def ending() -> str:
         """Collect the final server-rendered event without an external service."""
-        events = [event async for event in stream_turn(answer(), "Dallas weather", "test-id", AnswerStats(), "fake")]
+        model = FakeModel(guard_error=RuntimeError("private guard error") if failure == "guard" else None)
+        events = [
+            event
+            async for event in stream_turn(
+                answer(), "Dallas weather", "test-id", AnswerStats(), "fake", scope_guard=ScopeGuard(model)
+            )
+        ]
         return events[-1]
 
     final = asyncio.run(ending())
     assert 'class="weather-card' in final
     assert "Dallas, Texas, US" in final
-    assert "A light jacket may help in the evening." in final
+    assert ("A light jacket may help in the evening." in final) is (failure == "none")
     assert "private provider error" not in final
-    assert ("message-error" in final) is fails
+    assert "private guard error" not in final
+    assert ("message-error" in final) is (failure != "none")
 
 
 def test_template_escapes_source_text_and_distinguishes_missing_from_zero() -> None:

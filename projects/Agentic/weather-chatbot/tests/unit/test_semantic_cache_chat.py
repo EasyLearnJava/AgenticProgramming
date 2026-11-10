@@ -16,9 +16,10 @@ from langchain_core.tracers.langchain import wait_for_all_tracers
 from pydantic import SecretStr
 from structlog.testing import capture_logs
 
-from nimbus.answer import AnswerEvent, AnswerStats, render_answer
+from nimbus.answer import AnswerEvent, AnswerStats, ToolStarted, render_answer
 from nimbus.chat import stream_turn
 from nimbus.config import Settings
+from nimbus.scope_guard import ScopeGuard
 from nimbus.semantic_cache.identity import COOKIE, plain_answer
 from nimbus.semantic_cache.service import SemanticCacheService
 from tests.fakes import FakeModel
@@ -271,7 +272,7 @@ def test_browser_repeat_skips_gemini_and_tools_but_has_new_ids_cards_and_feedbac
 def test_with_tracing_on_each_answer_traces_its_cache_steps_under_its_own_request(
     cache_chat: tuple[TestClient, FakeModel, CacheProvider, DallasWeather],
 ) -> None:
-    """The first answer's trace holds the lookup, the agent and the store; the reused answer's, its lookup alone."""
+    """Scope checks accompany fresh answers; cache hits keep the input check without another generation."""
     client, _model, _provider, _weather = cache_chat
     assert isinstance(client.app, FastAPI)
     tracing, recorded = tracer()
@@ -292,8 +293,8 @@ def test_with_tracing_on_each_answer_traces_its_cache_steps_under_its_own_reques
         }
         return sorted(runs.values())
 
-    assert steps(answered) == ["nimbus", "weather_cache.lookup", "weather_cache.store"]
-    assert steps(reused) == ["weather_cache.lookup"]
+    assert steps(answered) == ["nimbus", "scope.input", "scope.output", "weather_cache.lookup", "weather_cache.store"]
+    assert steps(reused) == ["scope.input", "weather_cache.lookup"]
     [reused_end] = [run for run in recorded.kept_runs if run["id"] == reused and run.get("end_time")]
     assert reused_end["extra"]["metadata"]["workflow"] == "cached"
     assert QUESTION not in json.dumps(recorded.kept_runs)
@@ -522,11 +523,20 @@ def test_closing_a_stream_before_completion_never_calls_the_store() -> None:
     async def source() -> AsyncGenerator[AnswerEvent]:
         """A partial model answer whose end is never reached."""
         yield "Partial weather answer"
+        yield ToolStarted("in-flight", "get_forecast", {})
         yield "More weather"
 
     async def cancel() -> None:
-        """Read the new turn and first answer piece, then disconnect the browser."""
-        stream = stream_turn(source(), QUESTION, "cancel-test", AnswerStats(), "fake", cache_turn=Probe())  # type: ignore[arg-type]
+        """Read the new turn and tool progress, then disconnect before answer approval."""
+        stream = stream_turn(
+            source(),
+            QUESTION,
+            "cancel-test",
+            AnswerStats(),
+            "fake",
+            scope_guard=ScopeGuard(FakeModel()),
+            cache_turn=Probe(),  # type: ignore[arg-type]
+        )
         await anext(stream)
         await anext(stream)
         await stream.aclose()
@@ -556,7 +566,15 @@ def test_the_cache_save_starts_only_after_the_finished_answer_is_sent() -> None:
 
     async def run() -> None:
         """Read the whole stream, noting each event as it arrives."""
-        stream = stream_turn(source(), QUESTION, "order-test", AnswerStats(), "fake", cache_turn=Probe())  # type: ignore[arg-type]
+        stream = stream_turn(
+            source(),
+            QUESTION,
+            "order-test",
+            AnswerStats(),
+            "fake",
+            scope_guard=ScopeGuard(FakeModel()),
+            cache_turn=Probe(),  # type: ignore[arg-type]
+        )
         async for _event in stream:
             order.append("event")
 

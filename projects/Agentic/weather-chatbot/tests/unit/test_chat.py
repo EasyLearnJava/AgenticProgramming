@@ -90,17 +90,12 @@ def test_the_first_event_shows_the_question_and_nimbus_s_answer_empty_and_busy(c
     assert f'<div class="answer answer-streaming" id="answer-{turn_id}"></div>' in first
 
 
-def test_each_piece_goes_into_that_answer_and_together_they_are_the_answer(client: TestClient) -> None:
+def test_model_text_is_released_only_as_the_complete_checked_answer(client: TestClient) -> None:
     datas = events(ask(client, "Will it rain in Paris?"))
     turn_id = turn_id_of(datas[0])
-    piece = re.compile(rf'<hx-partial hx-target="#answer-{turn_id}" hx-swap="beforeend">(.*)</hx-partial>', re.S)
-    texts = []
-    for data in datas[1:-1]:
-        match = piece.fullmatch(data.strip())
-        assert match is not None, data
-        texts.append(match[1])
-    assert len(texts) == len(ANSWER.split())
-    assert "".join(texts) == escape(ANSWER)
+    assert len(datas) == 2
+    assert f'hx-target="#answer-{turn_id}" hx-swap="beforeend"' not in "".join(datas)
+    assert render_answer(ANSWER) in datas[-1]
 
 
 def test_the_last_event_swaps_in_the_finished_answer_no_longer_busy(client: TestClient) -> None:
@@ -219,7 +214,7 @@ def test_a_failure_shows_our_sentence_and_its_ref_never_its_own_text(client: Tes
     last = datas[-1]
     assert last.startswith(f'<hx-partial hx-target="#turn-{turn_id}" hx-swap="outerHTML">')
     assert f'<li class="message message-bot message-error" id="turn-{turn_id}">' in last
-    assert "Tomorrow," in last
+    assert "Tomorrow," not in response.text
     assert f"{escape(MODEL_FAILED)} (ref 33a7af21)" in last
     assert "secret" not in response.text
     [failed] = [line for line in lines if line["event"] == "chat.failed"]
@@ -329,7 +324,7 @@ def test_stop_ends_the_answer_and_is_logged_as_aborted_not_failed(monkeypatch: p
 
     async def send(message: Message) -> None:
         sent.append(message)
-        if len(_bodies(sent)) >= 4:
+        if len(_bodies(sent)) >= 1:
             enough_sent.set()
 
     _assert_aborted_within_its_request(_run(_scope(len(body)), receive, send, FakeModel(delay=0.01)))
@@ -375,7 +370,7 @@ def test_stop_is_logged_the_same_when_the_server_reports_it_as_a_failed_send() -
         return {"type": "http.request", "body": body, "more_body": False}
 
     async def send(message: Message) -> None:
-        if len(_bodies(sent)) >= 4:
+        if len(_bodies(sent)) >= 1:
             raise OSError("the browser has gone")
         sent.append(message)
 

@@ -22,6 +22,7 @@ from nimbus.memory.tracing import MEMORY_TRACE_NAMES
 from nimbus.model import is_tracing_allowed
 from nimbus.park_tracing import PARK_RETRIEVAL_NAME, PARK_TRACE_NAMES, RETRIEVAL_STATUSES
 from nimbus.request_trace import CACHE_OPERATION_NAMES, CACHE_STEP_NAMES, REQUEST_TRACE_NAME
+from nimbus.scope_tracing import SCOPE_OUTCOMES, SCOPE_REASON_LABELS, SCOPE_TRACE_NAMES
 from nimbus.tools import WEATHER_TOOLS
 from nimbus.utils import to_iso, to_ms
 
@@ -58,6 +59,7 @@ PARK_LABELS = {
     PARK_TRACE_NAMES["fusion"]: "Park rank fusion",
     PARK_TRACE_NAMES["rerank"]: "Qdrant ColBERT rerank",
 }
+SCOPE_LABELS = {SCOPE_TRACE_NAMES["input"]: "Request scope check", SCOPE_TRACE_NAMES["output"]: "Answer scope check"}
 RETRIEVAL_LABELS = {
     "completed": "Completed",
     "ready": "Ready",
@@ -230,6 +232,20 @@ class _CacheMetadata(BaseModel):
     retrieval_season_source: str = ""
     retrieval_candidates: int | None = None
     retrieval_selected: int | None = None
+    scope_outcome: str = ""
+    scope_reason: str = ""
+
+    @field_validator("scope_outcome", mode="before")
+    @classmethod
+    def checked_scope_outcome(cls, value: object) -> str:
+        """Expose only fixed scope decisions, never model response text."""
+        return value if isinstance(value, str) and value in SCOPE_OUTCOMES else ""
+
+    @field_validator("scope_reason", mode="before")
+    @classmethod
+    def checked_scope_reason(cls, value: object) -> str:
+        """An operational reason must be known before it becomes a public label."""
+        return value if isinstance(value, str) and value in SCOPE_REASON_LABELS else ""
 
     @field_validator("retrieval_outcome", mode="before")
     @classmethod
@@ -342,6 +358,8 @@ def _label(span: _Span, root_id: UUID) -> tuple[str, str] | None:
     """
     if span.name in MEMORY_LABELS and span.run_type == "TOOL":
         return "Memory", MEMORY_LABELS[span.name]
+    if span.name in SCOPE_LABELS and span.run_type == "CHAIN":
+        return "Step", SCOPE_LABELS[span.name]
     if span.name in PARK_LABELS and span.run_type == "CHAIN":
         if span.name == PARK_TRACE_NAMES["bm25"] and span.metadata.retrieval_provider == "qdrant":
             return "Step", "Qdrant park BM25 search"
@@ -399,6 +417,15 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
             decision = f"Not reusable: {REJECTION_LABELS[rejection]}"
         similarity = span.name == CACHE_OPERATION_NAMES["similarity"] and cache_step
         park_step = span.name in PARK_LABELS and span.run_type == "CHAIN"
+        scope_step = span.name in SCOPE_LABELS and span.run_type == "CHAIN"
+        scope_detail = " · ".join(
+            text
+            for text in (
+                SCOPE_OUTCOMES.get(span.metadata.scope_outcome, ""),
+                SCOPE_REASON_LABELS.get(span.metadata.scope_reason, ""),
+            )
+            if text
+        )
         rows.append(
             TraceRow(
                 label=label,
@@ -409,7 +436,9 @@ def _to_view(spans: list[_Span], trace_id: UUID, project_id: UUID) -> TraceView:
                 status=STATUSES.get(span.status or "", "Unknown"),
                 error=f"{kind} reported an error." if span.status == "ERROR" else None,
                 parent_index=parents[index],
-                outcome=RETRIEVAL_LABELS.get(span.metadata.retrieval_outcome, "")
+                outcome=scope_detail
+                if scope_step
+                else RETRIEVAL_LABELS.get(span.metadata.retrieval_outcome, "")
                 if park_step
                 else CACHE_OUTCOMES.get(outcome, ""),
                 cache_reason=decision,

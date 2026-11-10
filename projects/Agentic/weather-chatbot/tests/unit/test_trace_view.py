@@ -741,3 +741,42 @@ def test_cyclic_or_missing_ancestors_do_not_create_false_nesting(traced: Setting
     assert result.status == "ready"
     assert all(row.parent_index is None for row in result.rows)
     assert all(row.depth == 0 for row in result.rows)
+
+
+def test_public_trace_displays_scope_reason_without_leaking_unrelated_metadata(traced: Settings) -> None:
+    view = with_runs(
+        traced,
+        span(name="nimbus.chat"),
+        span(
+            UUID(int=901),
+            name="scope.input",
+            metadata={"scope_outcome": "blocked", "scope_reason": "creative_request", "question": PRIVATE},
+        ),
+        span(
+            UUID(int=902),
+            name="scope.output",
+            status="ERROR",
+            metadata={"scope_outcome": "unavailable", "scope_reason": "timeout", "response": PRIVATE},
+        ),
+        span(
+            UUID(int=903),
+            name="scope.input",
+            metadata={"scope_outcome": PRIVATE, "scope_reason": PRIVATE},
+        ),
+        span(
+            UUID(int=904),
+            name="get_forecast",
+            run_type="TOOL",
+            metadata={"scope_outcome": "blocked", "scope_reason": "creative_request"},
+        ),
+    )
+    assert view.status == "ready"
+    first, second, unknown, unrelated = view.rows[1:]
+    assert first.label == "Request scope check"
+    assert first.status == "Completed"
+    assert first.outcome == "Blocked · Creative writing request"
+    assert second.label == "Answer scope check"
+    assert second.status == "Failed"
+    assert second.outcome == "Unavailable · Scope check timed out"
+    assert unknown.outcome == unrelated.outcome == ""
+    assert PRIVATE not in str(view)

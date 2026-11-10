@@ -18,8 +18,9 @@ from nimbus.goldens import Golden, read_goldens
 from nimbus.parks import make_park_knowledge
 from nimbus.travel.models import TravelReport
 from tools import eval_parks, eval_travel, evals
+from tools.harness_scope import ScopeCase, ScopeStream, read_scope_cases, scope_outcome
 
-SMOKE: Final = {"golden": "rain-tomorrow", "travel": "trivago-direct"}
+SMOKE: Final = {"golden": "rain-tomorrow", "travel": "trivago-direct", "scope": "scope-travel-guide-poem-zion"}
 _CASE_ID = re.compile(r"[a-z0-9][a-z0-9-]*")
 
 
@@ -27,13 +28,17 @@ class _DeploymentMismatchError(Exception):
     """The response cannot be attributed to the preview requested for this run."""
 
 
-def _catalog(suites: tuple[str, ...], smoke: bool) -> dict[str, list[Golden | eval_travel.TravelCase]]:
+def _catalog(suites: tuple[str, ...], smoke: bool) -> dict[str, list[Golden | eval_travel.TravelCase | ScopeCase]]:
     if not suites or len(set(suites)) != len(suites) or set(suites) - SMOKE.keys():
-        raise ValueError("Choose golden, travel, or both as live suites.")
-    catalog: dict[str, list[Golden | eval_travel.TravelCase]] = {}
+        raise ValueError("Choose golden, travel, or scope as live suites.")
+    catalog: dict[str, list[Golden | eval_travel.TravelCase | ScopeCase]] = {}
     for suite in suites:
-        cases: list[Golden | eval_travel.TravelCase] = (
-            list(read_goldens()) if suite == "golden" else list(eval_travel.read_cases())
+        cases: list[Golden | eval_travel.TravelCase | ScopeCase] = (
+            list(read_goldens())
+            if suite == "golden"
+            else list(read_scope_cases())
+            if suite == "scope"
+            else list(eval_travel.read_cases())
         )
         ids = [case.id for case in cases]
         if not cases or len(set(ids)) != len(ids) or not all(_CASE_ID.fullmatch(key) for key in ids):
@@ -106,16 +111,32 @@ def _golden_outcome(case: Golden, answer: evals.Answer, final: str) -> str:
 
 
 async def _attempt(
-    http: httpx2.AsyncClient, base: str, case: Golden | eval_travel.TravelCase, today: date, checks: list[str]
+    http: httpx2.AsyncClient,
+    base: str,
+    case: Golden | eval_travel.TravelCase | ScopeCase,
+    today: date,
+    checks: list[str],
 ) -> tuple[str, list[dict[str, str]]]:
     observed: list[tuple[int, str]] = []
-    golden = case.golden(today) if isinstance(case, eval_travel.TravelCase) else case
+    golden = (
+        case.golden(today)
+        if isinstance(case, eval_travel.TravelCase)
+        else case.golden()
+        if isinstance(case, ScopeCase)
+        else case
+    )
     history = case.history if isinstance(case, eval_travel.TravelCase) else ()
+    scope_stream = ScopeStream()
     try:
         # The HTTP read timeout covers inactivity; this also bounds a slow, continuously streaming answer.
         async with asyncio.timeout(evals.ANSWER_SECONDS):
             answer = await evals.ask(
-                http, base, golden, history=history, observe=lambda code, body: observed.append((code, body))
+                http,
+                base,
+                golden,
+                history=history,
+                observe=lambda code, body: observed.append((code, body)),
+                observe_event=scope_stream.observe if isinstance(case, ScopeCase) else None,
             )
     except _DeploymentMismatchError:
         return "deployment_mismatch", []
@@ -126,6 +147,11 @@ async def _attempt(
     status, final = observed[0]
     calls = _provider_calls(final)
     issue = _response_issue(answer, status, final)
+    if isinstance(case, ScopeCase):
+        # Trip intake is an app-rendered form, so a completed trip response has no narrative .answer element.
+        if issue and not (issue == "incomplete_response" and case.expected == "trip"):
+            return issue, calls
+        return scope_outcome(case, answer, final, scope_stream), calls
     if issue:
         return issue, calls
     if isinstance(case, eval_travel.TravelCase):
@@ -136,7 +162,7 @@ async def _attempt(
 async def live_cases(
     base_url: str,
     *,
-    suites: tuple[str, ...] = ("golden", "travel"),
+    suites: tuple[str, ...] = ("golden", "travel", "scope"),
     repeats: int = 3,
     pause: float = 40,
     smoke: bool = False,

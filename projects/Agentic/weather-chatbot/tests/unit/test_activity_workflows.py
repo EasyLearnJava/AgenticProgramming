@@ -16,7 +16,9 @@ from nimbus.chat import stream_turn
 from nimbus.config import Settings
 from nimbus.observability import TIMELINE_EVENTS, TIMELINE_FIELDS, to_activity_line, to_activity_requests
 from nimbus.parks import ParkKnowledge
+from nimbus.scope_guard import ScopeGuard
 from nimbus.travel.conditions import Section, checked, preparation
+from tests.fakes import FakeModel
 from tests.park_fakes import fixture_knowledge
 
 
@@ -144,7 +146,9 @@ def test_new_model_events_preserve_unknown_usage_and_report_an_explicit_zero(rec
             yield text
 
     async def run() -> None:
-        async for _ in stream_turn(answer(), "synthetic question", "test-12345678", stats, "synthetic"):
+        async for _ in stream_turn(
+            answer(), "synthetic question", "test-12345678", stats, "synthetic", scope_guard=ScopeGuard(FakeModel())
+        ):
             pass
 
     with capture_logs() as logs:

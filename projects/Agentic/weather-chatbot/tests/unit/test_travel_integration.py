@@ -15,6 +15,7 @@ from structlog.testing import capture_logs
 from nimbus.constants import ANSWER_TIMEOUT_SECONDS
 from nimbus.logger import LibraryLogHandler
 from nimbus.prompts import to_system_prompt
+from nimbus.scope_guard import SCOPE_CHECK_SECONDS
 from nimbus.travel import trivago
 from nimbus.travel.mcp_client import travel_mcp_active
 from nimbus.travel.models import TRAVEL_ANSWER_RESERVE_SECONDS
@@ -181,7 +182,7 @@ def test_chat_travel_searches_end_before_the_answer_s_deadline(
 
     monkeypatch.setattr(service, "new_turn", recorded)
     app.state.travel_service = service
-    reserved = ANSWER_TIMEOUT_SECONDS - TRAVEL_ANSWER_RESERVE_SECONDS
+    reserved = ANSWER_TIMEOUT_SECONDS - TRAVEL_ANSWER_RESERVE_SECONDS - SCOPE_CHECK_SECONDS
     started = time.monotonic()
     assert client.post("/api/chat", data={"question": "Flights from Chicago to Las Vegas?"}).status_code == 200
     assert len(deadlines) == 1

@@ -92,6 +92,7 @@ async def ask(
     *,
     history: Sequence[dict[str, str]] = (),
     observe: Callable[[int, str], None] | None = None,
+    observe_event: Callable[[str], None] | None = None,
 ) -> Answer:
     """Asks the golden question as the page would, and reads the answer from its stream."""
     form = {"question": golden.question, "locale": golden.locale, "time_zone": golden.time_zone, "lane": golden.lane}
@@ -118,6 +119,8 @@ async def ask(
             elif line == "" and lines:
                 final = "\n".join(lines)
                 lines.clear()
+                if observe_event is not None:
+                    observe_event(final)
         if observe is not None:
             observe(sent.status_code, final)
     return read_answer([final] if final else [], request_id)

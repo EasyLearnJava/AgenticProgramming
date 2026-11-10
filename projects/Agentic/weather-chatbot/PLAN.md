@@ -42,6 +42,12 @@ Mem0 consent. Request guards and original weather-data expiry constrain every hi
 failures or uncertainty retain the existing agent, park and travel behavior.
 [Cache architecture and validation](docs/technical-details.md#follow-a-weather-cache-hit).
 
+Task-scope checks run before memory, trip workflows and answer-cache lookup. Explicit creative requests receive a
+fixed redirect; uncertain input uses bounded Gemini classification. Tool progress remains live, but generated prose
+is buffered until its scope check succeeds. Unavailable validation hides the narrative and fails visibly while
+retaining verified weather cards where available. The cache fingerprint includes the guard policy version, and only
+approved prose is reusable. [Guard behavior and limits](docs/technical-details.md#enforce-the-supported-task).
+
 Park retrieval uses one dedicated Qdrant collection for public text, source metadata, native BM25 and hosted
 MiniLM and ColBERT vectors. Shared filters also scope BM25 statistics. Nimbus combines branch ranks, then Qdrant
 ColBERT reorders at most 12 admitted candidates before four passages become context. Playground distinguishes
