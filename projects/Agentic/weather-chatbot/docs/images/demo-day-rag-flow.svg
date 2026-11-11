@@ -16,7 +16,8 @@
     If the meaning search fails or is slow, BM25 ranks are used alone; if Qdrant or BM25 fails, guidance
     is unavailable. The Playground stops there and shows the season, scores and each passage's decision without
     calling Gemini (checks 1 to 5). Chat continues (checks 6 to 11): Gemini answers from the returned passages or
-    says what they don't cover; Gemini checks the whole answer stays on task before its words appear, and only
+    says what they don't cover; the whole answer is checked before its words appear (by rule when the question
+    passed by rule and only park and weather tools ran, else by Gemini), and only
     links to returned sources stay clickable. Activity, the LangSmith trace,
     the Sources and Chunks pages and the answer judge show each part.</desc>
   <defs>
@@ -145,7 +146,7 @@
       <text x="304" y="780">rerank fails? keep RRF order</text>
       <text x="304" y="894">Gemini gets the passages and</text>
       <text x="304" y="911">their sources as tool output</text>
-      <text x="304" y="996">Gemini checks it stays on task;</text>
+      <text x="304" y="996">rule pass, else a Gemini check;</text>
       <text x="304" y="1013">only returned sources are links</text>
       <text x="40" y="742">season, scores and</text>
       <text x="40" y="759">why each passage</text>

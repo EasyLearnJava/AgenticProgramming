@@ -311,8 +311,9 @@ failed safety case cannot be hidden by a high average score."
 
 Every chat question passes a scope check before memory, the cache or any tool, and every fresh answer is checked
 again before its words appear. Fixed rules decide the obvious cases at once; Gemini decides the rest within eight
-seconds. A plain weather answer (a weather question passed by rule, answered with only weather tools) passes its
-answer check by rule too, so it costs no extra Gemini call. Choose **New chat** for each question, then open [Activity](/activity) and read the request's
+seconds. A plain weather or park answer (its question passed by rule, answered with only weather or park tools)
+passes its answer check by rule too, so it costs no extra Gemini call. Choose **New chat** for each question, then
+open [Activity](/activity) and read the request's
 **Request scope check** line: it says what was decided, why, and whether a **Rule** or a **Gemini check** decided it,
 with the check's tokens.
 
@@ -321,8 +322,8 @@ with the check's tokens.
 > `What should I wear to hike The Narrows in Zion in spring?`
 
 Nimbus answers with park guidance. Look for **Allowed · Supported task · Rule** in about 0 ms: "hike" and "wear"
-pass by rule. The answer's own check shows as **Answer scope check · Allowed · Gemini check**, before the words
-appear.
+pass by rule. The answer used only park and weather tools, so its own check passes by rule too:
+**Answer scope check · Allowed · Supported task · Rule**, with no extra Gemini call.
 
 #### 14 · On task, passed by Gemini
 

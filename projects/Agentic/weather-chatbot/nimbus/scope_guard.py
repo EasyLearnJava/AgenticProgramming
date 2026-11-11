@@ -48,6 +48,13 @@ SCOPE_CHECK_SECONDS: Final = 8.0
 # The weather tools; an answer that used only these, for a question that passed by rule as weather, skips the
 # Gemini answer check: its facts come from weather data, and the question check has already ruled out creative work.
 WEATHER_TOOL_NAMES: Final = frozenset({"geocode_location", "get_current_weather", "get_forecast", "get_air_quality"})
+# The same holds for a park question passed by rule, answered from park and weather tools only (issue 191).
+PARK_TOOL_NAMES: Final = frozenset({"resolve_destination", "search_park_guidance", "get_park_alerts"})
+RULE_PASS_TOOLS: Final[dict[str, frozenset[str]]] = {
+    "weather": WEATHER_TOOL_NAMES,
+    "park_guidance": WEATHER_TOOL_NAMES | PARK_TOOL_NAMES,
+    "park_alerts": WEATHER_TOOL_NAMES | PARK_TOOL_NAMES,
+}
 SCOPE_POLICY_VERSION: Final = "scope-v1"
 MAX_GUARD_ANSWER_CHARS: Final = 20000
 SCOPE_REDIRECT: Final = (
@@ -162,9 +169,10 @@ def is_plain_weather(question: str, asked: ScopeDecision, tool_names: Collection
     Whether an answer can pass the answer check by rule: its question passed by rule as weather, it called at least
     one tool and only weather tools, and the question names no creative form anywhere ("as a haiku" included).
     """
-    if not (asked.status == "allowed" and asked.method == "rule" and asked.task == "weather"):
+    allowed_tools = RULE_PASS_TOOLS.get(asked.task)
+    if allowed_tools is None or not (asked.status == "allowed" and asked.method == "rule"):
         return False
-    if not tool_names or any(name not in WEATHER_TOOL_NAMES for name in tool_names):
+    if not tool_names or any(name not in allowed_tools for name in tool_names):
         return False
     normalized = unicodedata.normalize("NFKC", question).casefold()
     return not re.search(rf"\b(?:{_CREATIVE_FORM})\b", normalized)
@@ -282,16 +290,16 @@ class ScopeGuard:
         )
 
     async def assess_output(
-        self, question: str, text: str, *, deadline: float | None = None, plain_weather: bool = False
+        self, question: str, text: str, *, deadline: float | None = None, rule_task: ScopeTask | None = None
     ) -> ScopeDecision:
         """Check the complete answer before display, with no conversation, preference or tool-result attachment."""
         if len(question) > QUESTION_MAX_CHARS or len(text) > MAX_GUARD_ANSWER_CHARS:
             return ScopeDecision("unavailable", "unknown", "oversized")
         if not text.strip():
             return ScopeDecision("unavailable", "unknown", "invalid_response")
-        if plain_weather:
-            # A plain weather answer passes by rule (is_plain_weather), saving a Gemini call on every such answer.
-            return ScopeDecision("allowed", "weather", "supported_task")
+        if rule_task is not None:
+            # A plain weather or park answer passes by rule (is_plain_weather), saving a Gemini call on each.
+            return ScopeDecision("allowed", rule_task, "supported_task")
         return await self._check("output", {"question": question, "answer": text}, deadline=deadline)
 
     async def _check(

@@ -1115,3 +1115,12 @@ package's code**, **deploying**, or **testing a real API**.
      refreshed). `SURPRISE_TRIP_ENABLED=false` removes it. On commit, ruff flagged six en dashes and three long
      lines; all were fixed. **Check:** ruff, mypy and an import of the app; at your request no tests, live
      searches, bookings or reviews were run.
+
+191. **Park answers failed their answer check while Gemini was slow.** *You, 10 November.* At 8:35:59 PM CST
+     the Narrows question had its answer in 4.3 s, then its Gemini answer check timed out at 8 s (ref
+     6b6498cb); two more park questions ran past Gemini's time limits. **Fix:** the rule pass from issue 188
+     now covers park answers too: a question passed by rule as park guidance or park alerts, answered with
+     only park and weather tools, and naming no creative form, passes its answer check by rule. Park
+     questions the rules can't place still get both Gemini checks. DemoDay Act 6 (check 13) and part 2's
+     diagram (step 8) say so. **Check:** ruff and mypy on the changed modules; at your request no tests were
+     run.

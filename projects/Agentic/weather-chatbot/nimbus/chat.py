@@ -387,11 +387,14 @@ async def stream_turn(
         if stats.lane_error is not None:
             raise stats.lane_error
         with scope_trace(request_trace, "output") as check:
-            plain_weather = input_scope is not None and is_plain_weather(
+            plain = input_scope is not None and is_plain_weather(
                 question, input_scope, [chip.name for chip in chips.values()]
             )
             decision = await scope_guard.assess_output(
-                question, "".join(pieces), deadline=scope_deadline, plain_weather=plain_weather
+                question,
+                "".join(pieces),
+                deadline=scope_deadline,
+                rule_task=input_scope.task if plain and input_scope is not None else None,
             )
             check.decided(decision)
         approved = decision.status == "allowed"
