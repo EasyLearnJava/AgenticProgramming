@@ -79,7 +79,7 @@
     status.dataset.tone = tone;
     heading.append(status);
     section.append(heading);
-    section.append(element("h3", "", data.title || (kind === "flight" ? "DFW ⇄ LAX" : "Springdale · near Zion")));
+    section.append(element("h3", "", data.title || (kind === "flight" ? "DFW ⇄ SGU" : "Springdale · near Zion")));
     if (Array.isArray(data.details) && data.details.length) {
       const details = element("ul");
       for (const detail of data.details.slice(0, 12)) details.append(element("li", "", detail));
@@ -131,7 +131,7 @@
     const view = controller.receipt?.view || {};
     const route = controller.panel.querySelector("[data-demo-route]");
     if (route) route.textContent = view.flight_destination
-      ? `DFW ⇄ ${view.flight_destination}` : view.flight?.title || "DFW ⇄ LAX";
+      ? `DFW ⇄ ${view.flight_destination}` : view.flight?.title || "DFW ⇄ SGU";
     const dates = [dateLabel(view.checkin), dateLabel(view.checkout)];
     if (dates.every(Boolean)) {
       controller.panel.querySelector("[data-demo-dates]").textContent = `${dates[0]} → ${dates[1]} · 2 nights`;
@@ -176,7 +176,7 @@
       if (response.status === 409) {
         const failure = await response.json().catch(() => ({}));
         if (failure.code === "route_changed") {
-          throw new Error("The demo now uses LAX. Refresh older bookings only; start a new demo for DFW–LAX.");
+          throw new Error("The demo now uses St. George (SGU). Refresh older bookings only; start a new demo for DFW to SGU.");
         }
       }
       const error = new Error(response.status === 429

@@ -90,11 +90,11 @@ async def advance(request: Request) -> JSONResponse:
             headers={"cache-control": "no-store"},
         )
     service.prune()
-    if fields["action"] == "advance" and state.flight_destination != "LAX":
+    if fields["action"] == "advance" and state.flight_destination != "SGU":
         return JSONResponse(
             {
-                "detail": "The demo now uses LAX. Older attempts can only be refreshed. "
-                "Start a new demo for DFW to LAX.",
+                "detail": "The demo now uses St. George (SGU). Older attempts can only be refreshed. "
+                "Start a new demo for DFW to SGU.",
                 "code": "route_changed",
             },
             status_code=409,

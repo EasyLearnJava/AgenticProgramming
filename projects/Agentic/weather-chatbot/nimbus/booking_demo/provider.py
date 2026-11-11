@@ -198,7 +198,7 @@ def _flight_details(journey: dict[str, Any], checkin: str, checkout: str) -> lis
         raise DemoProviderError("invalid_response")
     details = []
     prior_arrival: datetime | None = None
-    for direction, origin, destination, day in (("OUTBOUND", "DFW", "LAX", start), ("INBOUND", "LAX", "DFW", end)):
+    for direction, origin, destination, day in (("OUTBOUND", "DFW", "SGU", start), ("INBOUND", "SGU", "DFW", end)):
         leg = [s for s in segments if isinstance(s, dict) and s.get("direction") == direction]
         if not leg or leg[0].get("originCode") != origin or leg[-1].get("destinationCode") != destination:
             raise DemoProviderError("no_match")
@@ -227,15 +227,15 @@ def _flight_details(journey: dict[str, Any], checkin: str, checkout: str) -> lis
 
 
 async def search_flight(checkin: str, checkout: str) -> dict[str, Any]:
-    """Find only the requested DFW-LAX weekend; never silently substitute a gateway or Monday arrival."""
+    """Find only the requested DFW-SGU weekend; never silently substitute a gateway or Monday arrival."""
     _dates(checkin, checkout)
     payload = await _call(
         "post_flights_rates",
         {
             "legs": [
-                {"origin": "DFW", "destination": "LAX", "date": checkin, "direction": "OUTBOUND"},
+                {"origin": "DFW", "destination": "SGU", "date": checkin, "direction": "OUTBOUND"},
                 {
-                    "origin": "LAX",
+                    "origin": "SGU",
                     "destination": "DFW",
                     "date": checkout,
                     "direction": "INBOUND",
@@ -257,14 +257,21 @@ async def search_flight(checkin: str, checkout: str) -> dict[str, Any]:
     for journey in _first(payload).get("journeys", []):
         try:
             details = _flight_details(journey, checkin, checkout)
-            if journey.get("parameters") != {"adults": 1, "children": 0, "infants": 0}:
+            # The sandbox's search shows zero-adult placeholder counts; verify and prebook still require one adult.
+            party = journey.get("parameters")
+            if party is not None and (
+                not isinstance(party, dict)
+                or party.get("adults") not in (0, 1)
+                or party.get("children", 0) != 0
+                or party.get("infants", 0) != 0
+            ):
                 continue
             offer = journey["cheapestOffer"]
             pricing = offer["pricing"]["display"]
             candidates.append(
                 {
                     "offer_id": _id(offer["offerId"]),
-                    "title": "DFW ↔ LAX · round trip",
+                    "title": "DFW ↔ SGU · round trip",
                     "details": details,
                     "price": _money(pricing["total"], pricing["currency"]),
                     "currency": "USD",

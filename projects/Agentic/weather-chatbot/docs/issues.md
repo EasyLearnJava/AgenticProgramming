@@ -1131,3 +1131,12 @@ package's code**, **deploying**, or **testing a real API**.
      messages, and a search that never started reads "Not searched". The Zion booking demo accepts a Sunday
      return at noon or later (Dallas time), not 6 PM. **Check:** ruff, mypy and an import of the app; the other
      agent made one read-only sandbox lookup, which timed out. At your request no tests or bookings were run.
+
+193. **The Zion booking demo found no round-trip flight.** *You, 10 November.* "Book a trip to Zion this
+     week end" showed "No matching option" for DFW to LAX. **Why:** the sandbox's search reports zero-adult
+     placeholder counts, and the demo required exactly one adult, so it dropped every journey; and the sandbox
+     then refused to verify DFW-LAX and DFW-LAS round trips (provider error 52023), while DFW-SGU verified.
+     **Fix:** search accepts the zero-adult placeholder (verify and prebook still require one adult), and the
+     demo flies DFW to St. George (SGU), about an hour from Zion; older LAX receipts can only be refreshed.
+     **Check:** run locally against the sandbox for Nov 13 to 15: search, verify and prebook succeeded and the
+     simulated booking was accepted (pending, FH-26B-KEK0KU4I). Ruff and mypy pass; no tests were run.

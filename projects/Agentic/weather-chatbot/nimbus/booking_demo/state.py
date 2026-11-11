@@ -65,7 +65,7 @@ class DemoState(BaseModel):
     flight_destination: str = "SGU"
     next_phase: str = "flight_search"
     version: int = 0
-    flight: Product = Field(default_factory=lambda: Product(title="DFW ↔ LAX · round trip"))
+    flight: Product = Field(default_factory=lambda: Product(title="DFW ↔ SGU · round trip"))
     hotel: Product = Field(default_factory=lambda: Product(title="Hotel near Zion · Springdale, Utah"))
     events: list[dict[str, str]] = Field(default_factory=list)
 
@@ -105,7 +105,7 @@ def new_state(owner: str, *, now: datetime | None = None) -> DemoState:
         expires=int(time.time()) + LIFETIME,
         checkin=friday.isoformat(),
         checkout=(friday + timedelta(days=2)).isoformat(),
-        flight_destination="LAX",
+        flight_destination="SGU",
     )
 
 
