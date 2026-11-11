@@ -27,7 +27,7 @@ a way to observe the result.
    authenticated budget.
 4. **Return evidence and checked text.** `nimbus/answer.py` turns graph events into tool starts, tool outcomes and
    text. Tool chips stream immediately through server-sent events (SSE); the complete generated text is buffered
-   until a separate scope check allows it. Expand a chip to see the tool, timing and outcome. The final Markdown
+   until a separate scope check allows it, by rule for a plain weather answer like this one. Expand a chip to see the tool, timing and outcome. The final Markdown
    renderer filters links against the permitted sources. If a weather lane
    fails, the request outcome and Activity timeline can retain the failure even after partial output.
    [Agent chapter](step-5.md) · [Streaming chapter](step-2.md).
@@ -64,13 +64,20 @@ tool progress remains visible. A blocked answer becomes the fixed redirect. A fa
 hides the unchecked prose, reports an unavailable check and prevents cache storage. Independently validated weather
 cards can still appear from successful tool results.
 
-Each model check has a four-second cap. The output check shares the existing answer deadline, with time reserved
-from generation. Every generated narrative adds a Gemini call; unclear input can add another. This consumes quota
-and can delay or prevent an otherwise useful answer. Trusted application forms and current-policy cache hits do not
+Each model check has an eight-second cap (`SCOPE_CHECK_SECONDS`); four seconds timed out too often while Gemini took
+5 to 7 s a call (issue 188). The output check shares the existing answer deadline, with time reserved from
+generation. A plain weather or park answer passes its output check by rule (`is_plain_weather`): its question passed
+by rule as weather, park guidance or park alerts, it called at least one tool and only weather or park tools, and its
+question names no creative form, so "Dallas weather as a haiku" still gets the Gemini check (issues 188 and 191).
+Every other generated narrative adds a Gemini call, and unclear input can add another. This consumes quota and can
+delay or prevent an otherwise useful answer. Trusted application forms and current-policy cache hits do not
 need another narrative check. `SCOPE_POLICY_VERSION` enters the answer-cache fingerprint, so older unvalidated
 answers cannot bypass the new output check.
 
 Activity and the Nimbus trace view show `scope.input` and `scope.output` outcomes, fixed reasons and timings.
+Each decision also carries its method, logged as `method` (`rule` or `model`) with `scopeTokensIn` and
+`scopeTokensOut`, so Activity reads, for example, "Blocked · Outside Nimbus's supported tasks · Gemini check (412
+tokens in, 9 out)" (issue 187).
 The guard model call itself has tracing disabled. Questions, answers, preferences, keys and provider error bodies
 are excluded from these operational events. An unavailable checker is a visible failure; an intentional redirect
 is a completed policy decision. These layers reduce scope failures but do not guarantee immunity to prompt injection.
@@ -80,7 +87,7 @@ requests. **11/11 targeted mutation checks** and **two Chrome checks** passed. T
 `evals/scope-guard-live-checks.json` records the latest weather answer as allowed, poem as blocked and weather
 follow-up as allowed. It also preserves six earlier observations with timeout or SDK-format failures; the text-block
 format was fixed, while the timeout cause remains unconfirmed. One successful diagnostic temporarily used a
-ten-second cap and finished in 691 ms; production remains at four seconds. These probes are not full chat or release
+ten-second cap and finished in 691 ms; production now uses eight seconds. These probes are not full chat or release
 verification. Run the narrow replay with `uv run python -m tools.harness run --mode replay --suite scope`.
 
 ## Follow a weather cache hit
@@ -360,6 +367,17 @@ Only `0.55` controls admission; `0.30` controls which BM25 matches get a semanti
 scores: a weak `0.31` cosine ranked first earns the same `0.1 / 61` bonus as a stronger first-ranked candidate.
 These are calibrated heuristics, not confidence guarantees. The Playground displays active thresholds and branch
 contributions rather than implying every returned vector changes ranking.
+
+### What Gemini receives from a park search
+
+`nimbus/park_tools.py` sends Gemini the search result as JSON: each passage's text, title, section, seasons and
+`source_url`, plus the status and scope note. It leaves out the integrity hashes (`MODEL_HIDDEN_PASSAGE_FIELDS`:
+`content_hash` and `record_hash`) and the trace ID. Gemini once cited those 64-character hashes as bracketed
+references (issue 195); Nimbus still verifies them against the catalog, and the source card is built before they
+are removed. Rule 12 in the park prompt asks for one sentence that answers the question, two to four bullets that
+each start with a short bold label and end with a Markdown source link, and one line on what was not checked; it
+forbids passage IDs, hashes and bracketed reference numbers (issue 196). Only links to returned sources stay
+clickable in the rendered answer.
 
 ### Publish and validate hosted park search
 

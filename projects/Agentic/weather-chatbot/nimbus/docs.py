@@ -180,8 +180,8 @@ CHAPTERS += (
         path="/docs/step-16",
         label="Step 16: Park Guidance with Retrieved Sources",
         summary=(
-            "Official park guidance, retrieved for an exact destination alongside live weather, with source links; "
-            "a versioned index built before deployment, optional embeddings, and evaluations of source evidence."
+            "Official park guidance for an exact destination, with source links: keyword and meaning search in one "
+            "Qdrant collection, reranked by ColBERT, and evaluations of both retrieval and answers."
         ),
     ),
     DocPage(
@@ -194,7 +194,10 @@ CHAPTERS += (
         slug="step-18",
         path="/docs/step-18",
         label="Step 18: Flights, Hotels and National Park Trips",
-        summary="Read-only flight and hotel search, plus a confirmed park trip with weather, guidance and notices.",
+        summary=(
+            "Read-only flight and hotel search, and park trips whose conditions are checked first; a complete chat "
+            "request then searches flights and hotels in the same reply."
+        ),
     ),
     DocPage(
         slug="step-19",

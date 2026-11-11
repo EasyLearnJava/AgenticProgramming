@@ -32,10 +32,14 @@ stored preparation guidance and current alerts have different jobs; the arrows s
    prompt an adjustment. Missing forecast coverage, an incomplete official check or uncertain timing can
    prompt a review with a tentative itinerary. When the checks find no major disruption, the briefing still
    asks the visitor to recheck conditions before departure.
-4. **Search when the visitor asks.** The eligible search controls let the visitor confirm or edit the trip.
-   Kiwi searches flights to a gateway, while trivago searches stays near the park. A driving trip skips
-   flights. A trip with no remaining overnight stay skips hotels. A listed fare or room price can change
-   before the visitor completes a booking with the provider.
+4. **Search when it is safe and complete.** When the decision is proceed or adapt and a flying trip names both
+   airports, the chat briefing searches flights and stays at once, reusing the forecast, guidance and notices it
+   just checked, within the same deadline and rate gate. A missing origin or arrival airport gets one short
+   question that keeps the dates and preferences. Review keeps the search manual; pause blocks it. Kiwi searches
+   flights to a gateway, while trivago searches stays near the park. A driving trip skips flights. A trip with no
+   remaining overnight stay skips hotels. A provider failure is shown beside the results that succeeded. A listed
+   fare or room price can change before the visitor completes a booking with the provider. Saved preferences can
+   fill a gap, such as the home airport, but never start a search on their own.
 
 The standalone **Plan a park trip** form is another entry point. It appears when park guidance and at least
 one travel provider are enabled. On submission, it builds up to five independent sections for flights, hotels,
@@ -134,6 +138,12 @@ search fails, successful Qdrant BM25 can still answer. If ColBERT fails, RRF ord
 span is marked failed. A full Qdrant outage cannot supply guidance. If an optional travel service fails
 its tool-discovery check, Health shows that result separately from core weather and park-index readiness.
 [Read the health report](/health).
+
+Scope checks fail closed. A Gemini check that takes longer than eight seconds, or returns a malformed decision,
+hides the unchecked prose and shows “I could not verify this response right now”; nothing is cached, and validated
+weather cards can still appear. Plain weather and park answers avoid that dependency: when the question passed by
+rule and only weather or park tools ran, the answer check passes by rule. Activity names which one decided, so a
+slow Gemini is visible as the cause. [Scope checks](technical-details.md#enforce-the-supported-task).
 
 Mem0 failures, conflicting records and uncertain writes cannot supply defaults. An unconfirmed save pauses memory
 use; a failed read continues from the current request. A fresh read and revision check precede a save, followed by

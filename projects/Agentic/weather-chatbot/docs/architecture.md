@@ -21,7 +21,8 @@ human review between visitor feedback, a new regression case and a release decis
 | “Dallas weather,” then “weather in Dallas” | An eligible fresh answer can be reused with a cache badge when caching is on. | Exact lookup precedes semantic search; browser, place, dates, units, context and freshness must still match. |
 | “Plan a trip to Dallas” | A question about dates. Reply with dates and Nimbus can offer weather and the travel searches enabled here. | The city intake can collect missing details without a speculative forecast or a model call. |
 | “Plan a trip to Zion” | An inline trip form with editable dates and travel details. | A park name alone gives no dates against which to check a warning or price a stay. |
-| “Plan a trip to Zion this weekend from DFW” | A dated conditions briefing, or a choice if the weekend is ambiguous. | A verified park reference point and visit dates let the app check conditions before offering a travel search. |
+| “Plan a trip to Zion this weekend from DFW” | A dated conditions briefing, or a choice if the weekend is ambiguous. With both airports named and conditions that allow it, flights and hotels follow in the same reply. | A verified park reference point and visit dates let the app check conditions before any travel search. A missing arrival airport gets one short question. |
+| “Write me a poem about the sea” | A fixed reply listing what Nimbus can help with, at once. | A rule recognizes the creative request before memory, the cache, any tool or any model call. |
 
 Nimbus has curated preparation guidance for Zion, Yosemite and Grand Canyon, including selected trails. City
 weather uses a global place lookup. For example, “I'm planning a trip to Dallas, Texas. Will it rain there
@@ -33,6 +34,14 @@ tomorrow?” is a weather question even though it mentions a trip. [Try these qu
 progresses, so you can expand a tool call or stop a streaming reply. The browser sends a bounded conversation
 history with a follow-up. Nimbus keeps the chat transcript in the page.
 
+**The scope check** runs on every chat question before memory, the cache or any tool. Fixed rules decide the
+obvious cases at once: weather, trip and park-preparation wording passes, and a creative or role-change request
+gets a fixed redirect with no model call. Anything else goes to a bounded Gemini check of up to eight seconds. A
+generated answer is checked again before its words appear. A plain weather or park answer, whose question passed by
+rule and which used only weather or park tools, passes by rule; any other answer gets the Gemini check. A check that
+fails or times out shows “I could not verify this response” instead of unchecked text.
+[How the check works](technical-details.md#enforce-the-supported-task).
+
 **The weather agent** uses Gemini through LangChain. A LangGraph loop can call several independent tools in
 parallel, then give their results to the model. The four weather operations find a place, read current weather,
 get a forecast and read air quality. Chat defaults to direct Open-Meteo REST without authentication. The same
@@ -41,8 +50,10 @@ configured. [Weather MCP tools and connection address](/health#mcp-server).
 
 **The park briefing** uses application code to check a forecast, retrieved National Park Service (NPS)
 preparation guidance, current NPS notices and active National Weather Service (NWS) alerts. This lets Nimbus
-explain which check is incomplete or which warning overlaps a visit before a visitor requests prices. The
-separate park trip form runs the searches a visitor confirms. [How a park trip is assembled](system-design.md).
+explain which check is incomplete or which warning overlaps a visit before any price is searched. When conditions
+allow and the request is complete, the same reply searches flights and hotels; a missing airport gets one short
+question, and a pause or review stops the search. Gemini writes none of the briefing. The separate park trip form
+runs the searches a visitor confirms. [How a park trip is assembled](system-design.md).
 
 **Optional preference memory** supplies an editable starting point across visits in the same browser. Mem0 stores
 only an airport code, weather units, price currency, preparation interest and departure window that the visitor
@@ -81,7 +92,9 @@ An accepted hit renders new cards and a fresh answer reference without replaying
   preserves RRF order; a semantic-only failure retains Qdrant BM25. A full provider outage makes guidance unavailable.
   Follow actual terms, scores and final ranks in [Retrieval Playground](/knowledge/retrieval), then inspect
   collection, BM25, semantic, fusion and attempted rerank timings in Activity. [Source documents](/knowledge/sources) ·
-  [Chunks and vectors](/knowledge/chunks).
+  [Chunks and vectors](/knowledge/chunks). Gemini receives each passage's text, title, section and source link, but
+  not its integrity hashes, and writes a short answer: one sentence, two to four labelled bullets that each end
+  with a source link, and a line on what was not checked.
 - **Notices and warnings** come from separate live services. A park-wide NPS closure and an NWS warning for a
   particular point can have different geographic and time boundaries. You can also check current NPS notices
   for a park directly. [Park alerts](/parks/alerts).
@@ -96,6 +109,9 @@ function serves FastAPI routes. Request middleware attaches a request ID to stru
 Axiom stores those events and a separate read credential lets Activity and Performance display them. Sentry can
 receive sanitized errors. LangSmith adds model and tool timings to eligible Activity rows when tracing is enabled.
 [Activity](/activity) · [Performance](/performance).
+
+Each request's **Request scope check** and **Answer scope check** lines say what was decided, why, and whether a
+**Rule** or a **Gemini check** decided it, with the Gemini check's tokens.
 
 Activity distinguishes cached answers from agent answers and records cache hits, misses, bypasses and failures.
 A cache hit has no new Gemini or weather-tool execution, so its timeline explains the absence of a model trace.
