@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Sandbox bookings · Nimbus{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/booking-demo.css">
+<script src="/static/booking-demo.js" defer></script>
+{% endblock %}
+{% block content %}
+<main class="booking-demo-page">
+  <div class="booking-demo-page-heading">
+    <p class="booking-demo-eyebrow">Nimbus travel lab</p>
+    <h1>Sandbox bookings</h1>
+    <p>A flight and hotel booking demo, with the provider’s actual test status at every step.</p>
+  </div>
+  <section class="booking-demo" data-booking-demo>
+    <header class="booking-demo-header">
+      <span class="booking-demo-badge">Sandbox · no charges</span>
+      <h2>A weekend in Zion</h2>
+      <p data-demo-dates>Friday → Sunday · 2 nights</p>
+    </header>
+    <p class="booking-demo-notice">
+      These are simulated bookings, not usable tickets or hotel reservations.
+      Nuitée’s shared sandbox uses the synthetic traveler Avery Linton. No payment details are collected.
+    </p>
+    <div class="booking-demo-summary">
+      <span><strong>Flight</strong> DFW ⇄ SGU</span>
+      <span><strong>Return</strong> Sunday evening in Dallas</span>
+      <span><strong>Hotel</strong> Near Zion in Springdale</span>
+    </div>
+    <div class="booking-demo-cards" data-demo-cards></div>
+    <div class="booking-demo-progress" data-demo-progress hidden>
+      <h3>Booking steps</h3>
+      <ol data-demo-events></ol>
+    </div>
+    <p class="booking-demo-status" data-demo-status role="status" aria-live="polite">
+      Start a test booking, or ask in chat: “Book a trip to Zion this weekend”.
+    </p>
+    <p class="booking-demo-storage" data-demo-storage hidden></p>
+    <div class="booking-demo-actions">
+      <button type="button" data-demo-start>Start a new sandbox demo</button>
+      <button type="button" class="booking-demo-secondary" data-demo-resume hidden>Resume demo</button>
+      <button type="button" class="booking-demo-secondary" data-demo-refresh hidden>Refresh booking status</button>
+      <a href="/">Back to chat</a>
+    </div>
+    <p class="booking-demo-footnote">
+      This tab remembers its latest demo. These shared-sandbox bookings do not appear in your personal Nuitée account.
+      <a href="/parks/alerts">Check park notices</a> separately before planning a real visit.
+    </p>
+    <noscript><p>Enable JavaScript to run the sandbox demo and view its booking status.</p></noscript>
+  </section>
+</main>
+{% endblock %}

@@ -1098,3 +1098,11 @@ package's code**, **deploying**, or **testing a real API**.
      answer check by rule (`is_plain_weather`), so it makes no extra Gemini call; every other answer still gets
      the Gemini check, now with 8 s instead of 4. DemoDay's part 1 diagram (step 7) and Act 6 say so.
      **Check:** ruff and mypy on the changed modules; at your request no tests were run.
+
+189. **A booking step to show after trip planning.** *You, 10 November.* **Added:** an isolated sandbox
+     booking demo (`nimbus/booking_demo/`, App → Demo bookings, or "Book a trip to Zion this weekend" in chat):
+     DFW to SGU flights and a Springdale hotel for the coming weekend, booked in Nuitée's shared sandbox for a
+     fixed synthetic traveler, with simulated payment only and no visitor details. `BOOKING_DEMO_ENABLED=false`
+     removes it. Receipts are signed with `BOOKING_DEMO_SECRET`, else `MEMORY_COOKIE_SECRET`. On commit, ruff
+     flagged four en dashes and mypy two types (an `Any` return, a `Decimal` input); both were fixed. **Check:**
+     ruff, mypy and an import of the app; at your request no tests, live booking runs or reviews were run.

@@ -23,6 +23,10 @@
     <script src="/static/hx-sse.min.js" defer></script>
     <script src="/static/chat.js" defer></script>
     <script src="/static/chat-planner.js" defer></script>
+    {% if request.app.state.settings.booking_demo_enabled %}
+    <link rel="stylesheet" href="/static/booking-demo.css">
+    <script src="/static/booking-demo.js" defer></script>
+    {% endif %}
 {% endblock %}
 {% block content %}
 {% set features = request.app.state.settings %}

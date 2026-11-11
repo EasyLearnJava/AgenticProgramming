@@ -38,6 +38,8 @@ from nimbus.answer import (
     to_answer_seconds,
 )
 from nimbus.auth_lanes import open_mcp_with_auth, open_rest_with_auth
+from nimbus.booking_demo.chat import reply as booking_demo_reply
+from nimbus.booking_demo.state import matches as is_booking_demo
 from nimbus.chips import ToolChip
 from nimbus.config import Settings
 from nimbus.constants import (
@@ -606,6 +608,9 @@ async def answer_question(
                 "Even the squirrels are queuing with takeaway boxes."
             ),
         )
+    # Only the narrow, explicit sandbox booking command uses the isolated demo. Regular planning is unchanged.
+    if settings.booking_demo_enabled and is_booking_demo(chat_request.question):
+        return await booking_demo_reply(request, chat_request, request_trace)
     scope_guard = ScopeGuard(request.app.state.chat_model)
     previous_question = next((message.text for message in reversed(chat_request.history) if message.role == "user"), "")
     with scope_trace(request_trace, "input") as check:

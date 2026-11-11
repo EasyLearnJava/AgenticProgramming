@@ -16,6 +16,8 @@ from nimbus import alerts_page, chat, feedback, health, knowledge, observability
 from nimbus.answer import make_http_client
 from nimbus.apify import make_apify_http_client
 from nimbus.axiom import make_log_shipper
+from nimbus.booking_demo import routes as booking_demo_routes
+from nimbus.booking_demo.workflow import DemoWorkflow
 from nimbus.cache import make_weather_cache
 from nimbus.config import Settings, get_settings
 from nimbus.constants import DOCS_IMAGES_DIR, STATIC_DIR
@@ -73,6 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.memory_gate = RetrievalGate()
     app.state.mem0 = Mem0Service(settings.mem0_api_key, tracer=app.state.tracer)
     app.state.semantic_cache = SemanticCacheService(settings)
+    app.state.booking_demo = DemoWorkflow(settings)
     app.state.travel_service = TravelService(
         flights=kiwi.search_flights if settings.flights_enabled else None,
         hotels=trivago.search_hotels if settings.hotels_enabled else None,
@@ -114,6 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(feedback.router)
     app.include_router(memory_routes.router)
     app.include_router(semantic_cache_page.router)
+    app.include_router(booking_demo_routes.router)
     app.include_router(chat.router)
     app.include_router(health.router)
     app.include_router(observability.router)
