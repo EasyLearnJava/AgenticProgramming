@@ -527,7 +527,7 @@ What Nimbus is built with, and what each part does.
 | **AI** | Gemini (`gemini-3.5-flash-lite`) | Picks tools, writes answers, runs the scope checks, and is the judge in the answer evals |
 | | LangChain | Connects Python to Gemini and defines the tools Gemini can call |
 | | LangGraph | The agent loop: model, tools, model again; at most 5 model calls and 6 tools per round |
-| | MCP (Model Context Protocol) | The standard way to call outside tools: our weather server, Kiwi, Trivago, Apify, Nuitée |
+| | MCP (Model Context Protocol) | The standard way to call outside tools: our weather server, Kiwi, Trivago, Apify |
 | **Weather** | Open-Meteo | Geocoding, current weather, forecast, air quality (free, no key) |
 | | Apify (REST and MCP) | Runs the two weather routes that need sign-in, used when testing those connections |
 | | NWS (weather.gov) | Official severe-weather warnings for trip conditions |
@@ -541,7 +541,6 @@ What Nimbus is built with, and what each part does.
 | **Memory** | Mem0 | Opt-in saved preferences: home airport, units, currency |
 | **Travel** | Kiwi (MCP) | Flight search for trip plans |
 | | Trivago (MCP) | Hotel search for trip plans |
-| | Nuitée LiteAPI sandbox (MCP) | The two booking demos: sandbox flights and hotels, simulated payment |
 | **Hosting and caching** | Vercel | Hosts the app; every push to `main` deploys to production |
 | | Vercel Runtime Cache | Keeps Open-Meteo replies (forecasts up to 30 min, geocoding 30 days) |
 | | Vercel CDN | Caches static files and the health and Observability pages |

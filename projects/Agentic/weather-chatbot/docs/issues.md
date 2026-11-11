@@ -1163,3 +1163,10 @@ package's code**, **deploying**, or **testing a real API**.
      bracketed reference numbers (issue 195). Weather-only prompts are unchanged, so the recorded Paris replay
      keeps its input hashes. **Check:** ruff and mypy; the rule appears only with park tools on. At your
      request no tests were run; Gemini's actual formatting is checked by asking on the live site.
+
+197. **The two sandbox booking demos are removed.** *You, 10 November.* The Zion booking demo (issues 189,
+     192, 193) and the surprise trip (issues 190, 192, 194) are gone: their packages (`nimbus/booking_demo/`,
+     `nimbus/surprise_trip/`), pages, scripts and styles, the chat triggers, the menu links, and the
+     `BOOKING_DEMO_*` and `SURPRISE_TRIP_ENABLED` settings. The regular trip planner, weather, park guidance
+     and memory are unchanged. The issues above stay as history. **Check:** ruff, mypy and an import of the
+     app; no reference to either demo remains in the code. At your request no tests were run.
