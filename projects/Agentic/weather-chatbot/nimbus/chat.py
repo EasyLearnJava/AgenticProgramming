@@ -97,6 +97,8 @@ from nimbus.semantic_cache.evidence import cached_cards
 from nimbus.semantic_cache.identity import set_scope
 from nimbus.semantic_cache.integration import CacheTurn
 from nimbus.semantic_cache.integration import prepare as prepare_cache
+from nimbus.surprise_trip.chat import reply as surprise_trip_reply
+from nimbus.surprise_trip.state import matches as is_surprise_trip
 from nimbus.travel import briefing
 from nimbus.travel.city_intake import city_trip_reply
 from nimbus.travel.hotel_intake import hotel_dates_reply
@@ -609,6 +611,8 @@ async def answer_question(
             ),
         )
     # Only the narrow, explicit sandbox booking command uses the isolated demo. Regular planning is unchanged.
+    if settings.surprise_trip_enabled and is_surprise_trip(chat_request.question):
+        return await surprise_trip_reply(request, chat_request, request_trace)
     if settings.booking_demo_enabled and is_booking_demo(chat_request.question):
         return await booking_demo_reply(request, chat_request, request_trace)
     scope_guard = ScopeGuard(request.app.state.chat_model)

@@ -1,0 +1,77 @@
+{% macro surprise_panel(seed, today, max_date, chat=false) -%}
+<section class="surprise-trip" data-surprise-trip data-seed="{{ seed }}"
+  {% if chat %}data-surprise-chat="true"{% endif %}>
+  <header class="surprise-trip-header">
+    <span class="surprise-trip-badge">Nuitée sandbox · no charges</span>
+    <h2>Your surprise trip</h2>
+    <p>You choose the dates and party. We find the flight and hotel, then wait for your approval.</p>
+  </header>
+  <div class="surprise-trip-route" aria-label="Trip destinations">
+    <div><span>Round-trip flights</span><strong>Dallas DFW ↔ Las Vegas LAS</strong></div>
+    <div><span>Hotel destination</span><strong>Grand Canyon South Rim</strong><small>Tusayan area, Arizona</small></div>
+  </div>
+  <form class="surprise-trip-form" data-surprise-form method="post" action="/api/surprise-trip/start">
+    <input type="hidden" name="token" value="{{ seed }}">
+    <input type="hidden" name="action" value="quote">
+    <div class="surprise-trip-fields">
+      <label>Departure / hotel check-in
+        <input type="date" name="checkin" min="{{ today }}" max="{{ max_date }}" required>
+      </label>
+      <label>Return / hotel check-out
+        <input type="date" name="checkout" min="{{ today }}" max="{{ max_date }}" required>
+      </label>
+      <label>Travelers <span>(adults 18+)</span>
+        <input type="number" name="adults" value="1" min="1" max="6" step="1" required>
+      </label>
+    </div>
+    <p class="surprise-trip-form-note" data-surprise-rooms>
+      1 room · at most 2 adults per room · stays of 1–14 nights.
+    </p>
+    <button type="submit">Find my surprise trip</button>
+  </form>
+  <p class="surprise-trip-notice">
+    All reservations are simulated, using synthetic traveler details. We do not collect passenger or payment details.
+    Las Vegas and Grand Canyon are separate destinations; ground transportation is not included.
+    The quoted total covers flights and the hotel, including disclosed mandatory hotel fees;
+    meals, park entry and optional extras are excluded.
+  </p>
+  <div class="surprise-trip-results" data-surprise-results hidden>
+    <p class="surprise-trip-itinerary" data-surprise-itinerary></p>
+    <div class="surprise-trip-cards" data-surprise-cards></div>
+    <section class="surprise-trip-total" data-surprise-total hidden aria-label="Combined trip quote">
+      <div><span>Flight + hotel total</span><strong data-surprise-amount></strong></div>
+      <p>USD · all selected adults, rooms and nights · known mandatory hotel fees included · sandbox quote</p>
+      <p class="surprise-trip-budget" data-surprise-budget></p>
+    </section>
+    <div class="surprise-trip-approval" data-surprise-approval hidden>
+      <h3>Book both in the sandbox?</h3>
+      <p data-surprise-confirm-copy>No flight or hotel is booked until you say yes.</p>
+      <p class="surprise-trip-expiry" data-surprise-expiry></p>
+      <div class="surprise-trip-actions">
+        <button type="button" data-surprise-confirm>Yes, book both (sandbox)</button>
+        <button type="button" class="surprise-trip-secondary" data-surprise-cancel>No, cancel</button>
+      </div>
+      {% if chat %}<p class="surprise-trip-form-note">You can also type “yes” while this is the current chat request.</p>{% endif %}
+    </div>
+    <details class="surprise-trip-progress" data-surprise-progress hidden>
+      <summary>See the steps</summary>
+      <ol data-surprise-events></ol>
+    </details>
+  </div>
+  <p class="surprise-trip-status" data-surprise-status role="status" aria-live="polite">
+    Choose your dates and traveler count to get a quote. Nothing is booked yet.
+  </p>
+  <p class="surprise-trip-storage" data-surprise-storage hidden></p>
+  <div class="surprise-trip-actions">
+    <button type="button" class="surprise-trip-secondary" data-surprise-resume hidden>Resume remaining steps</button>
+    <button type="button" class="surprise-trip-secondary" data-surprise-refresh hidden>Refresh booking status</button>
+    {% if chat %}<a href="/demo/surprise-trip">View surprise trip</a>{% else %}<a href="/">Back to chat</a>{% endif %}
+  </div>
+  <p class="surprise-trip-footnote">
+    The $800 check applies only to this surprise-trip demo. Every quote needs approval, including totals of $800 or less.
+    Ground transportation, meals, park admission and optional extras are not part of this quote.
+    Shared-sandbox reservations appear here, not in your personal Nuitée account.
+  </p>
+  <noscript><p>JavaScript is required for this sandbox planner and its confirmation step.</p></noscript>
+</section>
+{%- endmacro %}

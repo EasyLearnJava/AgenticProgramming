@@ -141,6 +141,8 @@ def render_page(request: Request, template: str, context: Mapping[str, object], 
     menu = TRAVEL_MENU_GROUPS if planner_enabled else MENU_GROUPS
     if settings.booking_demo_enabled:
         menu = (MenuGroup("App", (*menu[0].items, MenuItem("/demo/bookings", "Demo bookings"))), *menu[1:])
+    if settings.surprise_trip_enabled:
+        menu = (MenuGroup("App", (*menu[0].items, MenuItem("/demo/surprise-trip", "Surprise trip"))), *menu[1:])
     if settings.memory_enabled:
         menu = (MenuGroup("App", (*menu[0].items, MenuItem("/preferences", "My preferences"))), *menu[1:])
     return templates.TemplateResponse(

@@ -198,7 +198,7 @@ def _flight_details(journey: dict[str, Any], checkin: str, checkout: str) -> lis
         raise DemoProviderError("invalid_response")
     details = []
     prior_arrival: datetime | None = None
-    for direction, origin, destination, day in (("OUTBOUND", "DFW", "SGU", start), ("INBOUND", "SGU", "DFW", end)):
+    for direction, origin, destination, day in (("OUTBOUND", "DFW", "LAX", start), ("INBOUND", "LAX", "DFW", end)):
         leg = [s for s in segments if isinstance(s, dict) and s.get("direction") == direction]
         if not leg or leg[0].get("originCode") != origin or leg[-1].get("destinationCode") != destination:
             raise DemoProviderError("no_match")
@@ -227,15 +227,15 @@ def _flight_details(journey: dict[str, Any], checkin: str, checkout: str) -> lis
 
 
 async def search_flight(checkin: str, checkout: str) -> dict[str, Any]:
-    """Find only the requested DFW-SGU weekend; never silently substitute a gateway or Monday arrival."""
+    """Find only the requested DFW-LAX weekend; never silently substitute a gateway or Monday arrival."""
     _dates(checkin, checkout)
     payload = await _call(
         "post_flights_rates",
         {
             "legs": [
-                {"origin": "DFW", "destination": "SGU", "date": checkin, "direction": "OUTBOUND"},
+                {"origin": "DFW", "destination": "LAX", "date": checkin, "direction": "OUTBOUND"},
                 {
-                    "origin": "SGU",
+                    "origin": "LAX",
                     "destination": "DFW",
                     "date": checkout,
                     "direction": "INBOUND",
@@ -264,7 +264,7 @@ async def search_flight(checkin: str, checkout: str) -> dict[str, Any]:
             candidates.append(
                 {
                     "offer_id": _id(offer["offerId"]),
-                    "title": "DFW ↔ SGU · round trip",
+                    "title": "DFW ↔ LAX · round trip",
                     "details": details,
                     "price": _money(pricing["total"], pricing["currency"]),
                     "currency": "USD",

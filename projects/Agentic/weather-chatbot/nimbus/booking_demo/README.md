@@ -3,9 +3,11 @@
 Say **Book a trip to Zion this weekend** in chat, or open **App → Demo bookings** (`/demo/bookings`).
 
 - Fixed synthetic adult Avery Linton; no visitor names, contact details or payment information.
-- Coming Friday through Sunday using Dallas's calendar. DFW → SGU on Friday; arrival back at DFW on Sunday
+- Coming Friday through Sunday using Dallas's calendar. DFW → LAX on Friday; arrival back at DFW on Sunday
   at 6 PM or later. No silent date/airport substitution. On Saturday/Sunday, the coming Friday is the next week.
 - One room within 10 km of Springdale, Utah, for two nights.
+- LAX is in Los Angeles; the Zion hotel remains in Utah. Ground transportation is not included in this demo.
+  Start a new demo to use LAX. Older SGU receipts can display existing results but cannot submit another flight.
 - The official Nuitée MCP's no-key mode supplies its shared **sandbox** credential. No production key or endpoint
   configuration exists in this module. Only simulated `ACC_CREDIT_CARD` payment is sent.
 - Search, verification, prebooking and booking are separate bounded requests. The UI displays confirmed, pending,

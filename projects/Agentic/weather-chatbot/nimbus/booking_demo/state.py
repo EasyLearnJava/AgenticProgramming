@@ -61,9 +61,11 @@ class DemoState(BaseModel):
     expires: int
     checkin: str
     checkout: str
+    # Receipts created before the route change omitted this field. They may be viewed, never booked again.
+    flight_destination: str = "SGU"
     next_phase: str = "flight_search"
     version: int = 0
-    flight: Product = Field(default_factory=lambda: Product(title="DFW ↔ SGU · round trip"))
+    flight: Product = Field(default_factory=lambda: Product(title="DFW ↔ LAX · round trip"))
     hotel: Product = Field(default_factory=lambda: Product(title="Hotel near Zion · Springdale, Utah"))
     events: list[dict[str, str]] = Field(default_factory=list)
 
@@ -78,6 +80,7 @@ class DemoState(BaseModel):
             "id": self.id,
             "checkin": self.checkin,
             "checkout": self.checkout,
+            "flight_destination": self.flight_destination,
             "complete": self.next_phase == "done",
             "next_phase": self.next_phase,
             "flight": self.flight.public(),
@@ -102,6 +105,7 @@ def new_state(owner: str, *, now: datetime | None = None) -> DemoState:
         expires=int(time.time()) + LIFETIME,
         checkin=friday.isoformat(),
         checkout=(friday + timedelta(days=2)).isoformat(),
+        flight_destination="LAX",
     )
 
 

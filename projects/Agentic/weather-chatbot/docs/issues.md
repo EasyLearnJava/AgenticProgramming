@@ -1106,3 +1106,12 @@ package's code**, **deploying**, or **testing a real API**.
      removes it. Receipts are signed with `BOOKING_DEMO_SECRET`, else `MEMORY_COOKIE_SECRET`. On commit, ruff
      flagged four en dashes and mypy two types (an `Any` return, a `Decimal` input); both were fixed. **Check:**
      ruff, mypy and an import of the app; at your request no tests, live booking runs or reviews were run.
+
+190. **A surprise trip with a budget and an explicit Yes.** *You, 10 November.* **Added:** a separate sandbox
+     planner (`nimbus/surprise_trip/`, App → Surprise trip, or "Book a surprise trip" in chat): pick dates and
+     1 to 6 adults; it quotes DFW to Las Vegas flights and a Grand Canyon South Rim hotel in Nuitée's sandbox,
+     adds the full price with mandatory fees, warns above $800, and books only after **Yes, book both**,
+     rechecking the total first. The Zion booking demo now flies DFW to LAX (older SGU receipts can only be
+     refreshed). `SURPRISE_TRIP_ENABLED=false` removes it. On commit, ruff flagged six en dashes and three long
+     lines; all were fixed. **Check:** ruff, mypy and an import of the app; at your request no tests, live
+     searches, bookings or reviews were run.

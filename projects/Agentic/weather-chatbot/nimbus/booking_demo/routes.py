@@ -90,6 +90,16 @@ async def advance(request: Request) -> JSONResponse:
             headers={"cache-control": "no-store"},
         )
     service.prune()
+    if fields["action"] == "advance" and state.flight_destination != "LAX":
+        return JSONResponse(
+            {
+                "detail": "The demo now uses LAX. Older attempts can only be refreshed. "
+                "Start a new demo for DFW to LAX.",
+                "code": "route_changed",
+            },
+            status_code=409,
+            headers={"cache-control": "no-store"},
+        )
     kept = service.latest.get(state.id)
     if kept is not None and kept.version > state.version:
         state = kept.model_copy(deep=True)

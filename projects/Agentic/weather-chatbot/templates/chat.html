@@ -27,6 +27,10 @@
     <link rel="stylesheet" href="/static/booking-demo.css">
     <script src="/static/booking-demo.js" defer></script>
     {% endif %}
+    {% if request.app.state.settings.surprise_trip_enabled %}
+    <link rel="stylesheet" href="/static/surprise-trip.css">
+    <script src="/static/surprise-trip.js" defer></script>
+    {% endif %}
 {% endblock %}
 {% block content %}
 {% set features = request.app.state.settings %}

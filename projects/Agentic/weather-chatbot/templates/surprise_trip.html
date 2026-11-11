@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "surprise_trip_parts.html" import surprise_panel %}
+{% block title %}Surprise trip · Nimbus{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/surprise-trip.css">
+<script src="/static/surprise-trip.js" defer></script>
+{% endblock %}
+{% block content %}
+<main class="surprise-trip-page">
+  <div class="surprise-trip-page-heading">
+    <p>Nimbus travel lab</p>
+    <h1>Surprise trip</h1>
+    <p>A separate sandbox experience: choose dates, see the total, approve both bookings.</p>
+  </div>
+  {{ surprise_panel(seed, today, max_date) }}
+</main>
+{% endblock %}

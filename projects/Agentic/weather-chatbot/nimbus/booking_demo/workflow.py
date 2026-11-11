@@ -21,7 +21,7 @@ PHASES = (
     "done",
 )
 LABELS = {
-    "flight_search": "Search DFW to SGU flights",
+    "flight_search": "Search DFW to LAX flights",
     "flight_verify": "Verify Friday / Sunday-evening itinerary",
     "flight_prebook": "Prepare synthetic flight passenger",
     "flight_book": "Submit simulated flight booking",
@@ -102,7 +102,7 @@ class DemoWorkflow:
                 product.message = "Confirmation was not received. Refresh status to check the existing attempt."
             elif error.reason == "no_match":
                 product.message = (
-                    "No matching DFW to SGU round trip returning to Dallas on Sunday after 6 PM was found. "
+                    "No matching DFW to LAX round trip returning to Dallas on Sunday after 6 PM was found. "
                     "No different airport or date was booked."
                     if phase.startswith("flight_")
                     else "No available Springdale hotel was found for these dates. No other location was booked."
@@ -164,6 +164,10 @@ class DemoWorkflow:
                     result = await provider.recover_hotel(state.hotel_reference)
                 elif product.booking_id:
                     result = await provider.retrieve_flight(product.booking_id)
+                elif state.flight_destination != "LAX":
+                    product.status = "unknown"
+                    product.message = "This older route cannot be submitted again. No new flight booking was made."
+                    continue
                 else:
                     # The flight API guarantees one booking per prebook. This never creates a new prebook.
                     result = await provider.recover_flight(product.prebook_id)
