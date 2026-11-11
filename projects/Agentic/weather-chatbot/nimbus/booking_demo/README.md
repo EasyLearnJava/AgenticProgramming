@@ -4,7 +4,8 @@ Say **Book a trip to Zion this weekend** in chat, or open **App → Demo booking
 
 - Fixed synthetic adult Avery Linton; no visitor names, contact details or payment information.
 - Coming Friday through Sunday using Dallas's calendar. DFW → LAX on Friday; arrival back at DFW on Sunday
-  at 6 PM or later. No silent date/airport substitution. On Saturday/Sunday, the coming Friday is the next week.
+  at noon or later, in Dallas local time. No silent date/airport substitution. On Saturday/Sunday, the coming Friday
+  is the next week.
 - One room within 10 km of Springdale, Utah, for two nights.
 - LAX is in Los Angeles; the Zion hotel remains in Utah. Ground transportation is not included in this demo.
   Start a new demo to use LAX. Older SGU receipts can display existing results but cannot submit another flight.

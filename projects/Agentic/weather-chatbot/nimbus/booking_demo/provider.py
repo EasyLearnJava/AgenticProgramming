@@ -216,7 +216,7 @@ def _flight_details(journey: dict[str, Any], checkin: str, checkout: str) -> lis
         last = _local(leg[-1].get("arrivalTime"), destination)
         if first.date() != day or last.date() != day or first.astimezone(UTC) <= datetime.now(UTC):
             raise DemoProviderError("no_match")
-        if direction == "INBOUND" and last.hour < 18:
+        if direction == "INBOUND" and last.hour < 12:
             raise DemoProviderError("no_match")
         details.append(
             f"{origin} → {destination} · {first:%a %b %d, %H:%M} to {last:%H:%M} local · {len(leg) - 1} connection(s)"
@@ -239,7 +239,7 @@ async def search_flight(checkin: str, checkout: str) -> dict[str, Any]:
                     "destination": "DFW",
                     "date": checkout,
                     "direction": "INBOUND",
-                    "filters": {"arrivalTimeAfter": "18:00", "arrivalTimeBefore": "23:59", "excludeOvernight": True},
+                    "filters": {"arrivalTimeAfter": "12:00", "arrivalTimeBefore": "23:59", "excludeOvernight": True},
                 },
             ],
             "adults": 1,

@@ -22,7 +22,7 @@ PHASES = (
 )
 LABELS = {
     "flight_search": "Search DFW to LAX flights",
-    "flight_verify": "Verify Friday / Sunday-evening itinerary",
+    "flight_verify": "Verify Friday / Sunday noon-or-later return",
     "flight_prebook": "Prepare synthetic flight passenger",
     "flight_book": "Submit simulated flight booking",
     "hotel_search": "Search Springdale hotels near Zion",
@@ -102,7 +102,7 @@ class DemoWorkflow:
                 product.message = "Confirmation was not received. Refresh status to check the existing attempt."
             elif error.reason == "no_match":
                 product.message = (
-                    "No matching DFW to LAX round trip returning to Dallas on Sunday after 6 PM was found. "
+                    "No matching DFW to LAX round trip arriving in Dallas on Sunday at noon or later was found. "
                     "No different airport or date was booked."
                     if phase.startswith("flight_")
                     else "No available Springdale hotel was found for these dates. No other location was booked."

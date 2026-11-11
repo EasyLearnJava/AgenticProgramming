@@ -1,5 +1,6 @@
 """Quote first, approve the combined price, then book: only the surprise-trip sandbox uses this policy."""
 
+import asyncio
 import time
 from decimal import Decimal
 from typing import Any
@@ -27,6 +28,23 @@ LABELS = {
     "flight_book": "Submit approved sandbox flight booking",
     "hotel_book": "Submit approved sandbox hotel booking",
 }
+
+
+def _quote_failure(product: Product, reason: str) -> None:
+    """Display a fixed diagnostic, never the sandbox's raw error body or an unverified price."""
+    product.status = "unavailable"
+    product.price = ""
+    product.price_cents = None
+    product.prepared = {}
+    product.prebook_id = ""
+    product.message = {
+        "no_match": "No matching sandbox quote was found for these dates and travelers.",
+        "timeout": "The sandbox request timed out. This does not mean there are no available options.",
+        "rate_limited": "The sandbox is limiting requests. Wait a minute before requesting a new quote.",
+        "invalid_response": "The sandbox returned inconsistent quote data that could not be validated.",
+        "not_found": "This sandbox quote is no longer available. Request a new quote.",
+    }.get(reason, "The sandbox could not complete this request. Availability could not be checked.")
+    product.message += " Nothing was booked."
 
 
 def _offer(product: Product, value: dict[str, Any]) -> None:
@@ -91,13 +109,20 @@ class SurpriseWorkflow:
             del self.latest[next(iter(self.latest))]
 
     def remember(self, state: SurpriseState) -> dict[str, Any]:
+        if state.phase in {"failed", "cancelled", "expired", "done"}:
+            for product in (state.flight, state.hotel):
+                if product.status == "idle":
+                    product.status = "skipped"
+                    product.message = "This search was not started before the workflow stopped. Nothing was booked."
         self.latest[state.id] = state.model_copy(deep=True)
         self.prune()
         return {"token": self.receipts.encode(state), "view": state.view(volatile=self.receipts.volatile)}
 
     def _await_confirmation(self, state: SurpriseState, *, changed: bool = False) -> None:
         """A quote, even below $800, never grants authority to book either product."""
-        if state.total_cents is None:
+        if state.total_cents is None or any(
+            product.status != "ready" or not product.prebook_id for product in (state.flight, state.hotel)
+        ):
             raise DemoProviderError("invalid_response")
         state.approved_cents = None
         state.quote_expires = int(time.time()) + QUOTE_SECONDS
@@ -106,6 +131,60 @@ class SurpriseWorkflow:
         prefix = "The quoted total changed. " if changed else ""
         warning = "This exceeds your $800 budget. " if state.total_cents > 80_000 else ""
         state.message = f"{prefix}{warning}Flight + hotel total: ${amount:.2f}. Say Yes to book both in the sandbox."
+
+    def _finish_quote(self, state: SurpriseState) -> None:
+        """An independently successful quote stays visible but never authorizes a partial booking."""
+        if all(product.status == "ready" and product.prebook_id for product in (state.flight, state.hotel)):
+            self._await_confirmation(state)
+            return
+        state.phase = "failed"
+        state.approved_cents = None
+        state.message = (
+            "Both searches have finished, but a complete flight and hotel quote is not available. "
+            "Any available result is shown below. Neither booking was submitted. "
+            "Request a new quote before confirming both bookings."
+        )
+
+    def _continue_hotel_quote(self, state: SurpriseState) -> None:
+        """A flight failure cannot cancel hotel quoting, including receipts from the previous sequential flow."""
+        if state.hotel.status == "idle":
+            state.phase = "hotel_search"
+        elif state.hotel.status == "ready" and not state.hotel.prebook_id:
+            state.phase = "hotel_prebook"
+        else:
+            self._finish_quote(state)
+
+    async def _search_product(self, state: SurpriseState, *, flight: bool) -> None:
+        """One bounded search with its own result; an exception does not cancel the other product's search."""
+        product = state.flight if flight else state.hotel
+        phase = "flight_search" if flight else "hotel_search"
+        product.phase = phase
+        search = provider.search_flight if flight else provider.search_hotel
+        started = time.monotonic()
+        reason = ""
+        try:
+            _offer(product, await search(state.checkin, state.checkout, state.adults))
+        except Exception as error:
+            reason = error.reason if isinstance(error, DemoProviderError) else "invalid_response"
+            _quote_failure(product, reason)
+            structlog.get_logger().warning(
+                "surprise_trip.step",
+                step=phase,
+                outcome=product.status,
+                reason=reason,
+                errorClass=type(error).__name__,
+                ms=round((time.monotonic() - started) * 1000),
+            )
+        else:
+            structlog.get_logger().info(
+                "surprise_trip.step",
+                step=phase,
+                outcome=product.status,
+                ms=round((time.monotonic() - started) * 1000),
+            )
+        state.events.append(
+            {"label": LABELS[phase], "status": product.status, "reason": reason, "message": product.message}
+        )
 
     async def act(self, state: SurpriseState, action: str) -> SurpriseState:
         """The server enforces all transitions; a forged action or an advance cannot substitute for consent."""
@@ -140,6 +219,14 @@ class SurpriseWorkflow:
             raise HTTPException(400, "Unknown surprise-trip action")
         if state.phase in {"awaiting_confirmation", "done", "failed", "cancelled", "expired"}:
             return state
+        if state.phase == "search":
+            await asyncio.gather(self._search_product(state, flight=True), self._search_product(state, flight=False))
+            if state.flight.status == "ready":
+                state.phase = "flight_verify"
+            else:
+                self._continue_hotel_quote(state)
+            state.version += 1
+            return state
         if state.phase not in {*QUOTE_PHASES, "flight_refresh", "hotel_refresh", *BOOK_PHASES}:
             raise HTTPException(409, "This surprise-trip step is unavailable.")
         if state.phase in {"flight_refresh", "hotel_refresh", *BOOK_PHASES}:
@@ -161,21 +248,36 @@ class SurpriseWorkflow:
         started = time.monotonic()
         try:
             await self._perform(state, phase)
-        except DemoProviderError as error:
-            product.status = "unknown" if phase in BOOK_PHASES else "unavailable"
-            product.message = (
-                "The booking outcome is unknown. Use Refresh status, not a new booking."
-                if phase in BOOK_PHASES
-                else "No verified matching quote was available from the sandbox. Nothing was booked."
-            )
-            state.phase = "failed"
-            state.message = (
-                "The workflow stopped. Check each booking card; the pair is not an all-or-nothing transaction."
-                if state.flight.submitted or state.hotel.submitted
-                else "The complete trip could not be quoted, so neither flight nor hotel was booked."
-            )
+        except Exception as error:
+            if not isinstance(error, DemoProviderError) and phase not in QUOTE_PHASES:
+                raise
+            reason = error.reason if isinstance(error, DemoProviderError) else "invalid_response"
+            if phase in QUOTE_PHASES:
+                _quote_failure(product, reason)
+                if phase.startswith("flight_"):
+                    self._continue_hotel_quote(state)
+                else:
+                    self._finish_quote(state)
+            else:
+                product.status = "unknown" if phase in BOOK_PHASES else "unavailable"
+                product.message = (
+                    "The booking outcome is unknown. Use Refresh status, not a new booking."
+                    if phase in BOOK_PHASES
+                    else "The approved quote could not be rechecked. Neither booking was submitted."
+                )
+                state.phase = "failed"
+                state.message = (
+                    "The workflow stopped. Check each booking card; the pair is not an all-or-nothing transaction."
+                    if state.flight.submitted or state.hotel.submitted
+                    else "The complete trip could not be quoted, so neither flight nor hotel was booked."
+                )
             structlog.get_logger().warning(
-                "surprise_trip.step", step=phase, outcome=product.status, reason=error.reason
+                "surprise_trip.step",
+                step=phase,
+                outcome=product.status,
+                reason=reason,
+                errorClass=type(error).__name__,
+                ms=round((time.monotonic() - started) * 1000),
             )
         else:
             structlog.get_logger().info(
@@ -184,7 +286,7 @@ class SurpriseWorkflow:
                 outcome=product.status,
                 ms=round((time.monotonic() - started) * 1000),
             )
-        state.events.append({"label": LABELS[phase], "status": product.status})
+        state.events.append({"label": LABELS[phase], "status": product.status, "message": product.message})
         state.version += 1
         return state
 
@@ -199,13 +301,13 @@ class SurpriseWorkflow:
             state.phase = "flight_prebook"
         elif phase == "flight_prebook":
             _prepared(state.flight, await provider.prebook_flight(state.flight.offer, state.adults))
-            state.phase = "hotel_search"
+            self._continue_hotel_quote(state)
         elif phase == "hotel_search":
             _offer(state.hotel, await provider.search_hotel(*dates))
             state.phase = "hotel_prebook"
         elif phase == "hotel_prebook":
             _prepared(state.hotel, await provider.prebook_hotel(state.hotel.offer, state.adults))
-            self._await_confirmation(state)
+            self._finish_quote(state)
         elif phase == "flight_refresh":
             _prepared(state.flight, await provider.refresh_flight(state.flight.prepared, *dates))
             state.phase = "hotel_refresh"

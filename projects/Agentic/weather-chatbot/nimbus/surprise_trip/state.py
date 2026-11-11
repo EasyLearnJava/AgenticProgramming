@@ -88,7 +88,7 @@ class SurpriseState(BaseModel):
     checkin: str
     checkout: str
     adults: int
-    phase: str = "flight_search"
+    phase: str = "search"
     version: int = 0
     quote_expires: int = 0
     approved_cents: int | None = None

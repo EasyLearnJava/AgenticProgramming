@@ -4,7 +4,8 @@ Enter **Book a surprise trip** (case-insensitive, otherwise the complete phrase)
 The first response is a planner, not a booking. Choose dates and 1–6 adults; the hotel allocation is at most two
 adults per room, for a 1–14-night stay. Dates can be chosen within the next 330 days.
 
-1. Search DFW ↔ Las Vegas (LAS) on the chosen dates and a hotel within 20 km of Tusayan / Grand Canyon South Rim.
+1. Independently search DFW ↔ Las Vegas (LAS) on the chosen dates and a hotel within 20 km of Tusayan / Grand Canyon
+   South Rim. These searches run concurrently. A flight failure does not cancel the hotel search or its quote.
 2. Verify and prebook the two offers to obtain complete USD prices. This validates quotes, without confirming
    reservations. Synthetic names and reserved example.com contact details are used.
 3. Add the full-party round-trip flight fare and the full-stay hotel price for every room, including disclosed
@@ -17,6 +18,11 @@ adults per room, for a 1–14-night stay. Dates can be chosen within the next 33
 6. Submit each simulated booking, displaying its own reference and confirmed, pending, failed or unknown state.
    The two provider operations are not atomic. A failed or uncertain flight submission stops hotel submission;
    an accepted-but-pending flight is shown honestly. Recovery reads existing attempts without submitting another.
+
+Search results can contain placeholder passenger metadata; the verified itinerary and prebook must still match the
+selected travelers and full-party price before approval is offered. A partial quote remains visible but cannot be
+confirmed. Timeouts, unavailable inventory and invalid provider data have distinct messages. An unstarted search
+is labelled **Not searched** after the workflow stops, including older saved receipts.
 
 Las Vegas is separate from the Grand Canyon hotel location. Transfers, meals, park entry and optional extras are
 not included. This is a booking demonstration, not a real trip reservation or a conditions/safety assessment.
@@ -31,5 +37,6 @@ accepted. A separate HMAC purpose uses `BOOKING_DEMO_SECRET` or the existing `ME
 receipts are process-local and expire across server restarts/workers. Shared sandbox bookings appear in Nimbus,
 not in the visitor's own Nuitée dashboard.
 
-No tests, reviews, live inventory searches or booking calls were run for this implementation, following the demo
-work's existing constraint. The stored UI is a snapshot; use Refresh booking status for current provider status.
+The flight-search diagnosis used a previously saved sandbox response and one read-only inventory lookup for
+November 12–13, 2026, two adults; that lookup timed out. No tests, reviews or booking calls were run for this fix,
+as requested. The stored UI is a snapshot; request a new quote to use the corrected search flow.

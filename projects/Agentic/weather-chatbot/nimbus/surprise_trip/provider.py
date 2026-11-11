@@ -114,12 +114,14 @@ async def _read_prebook(name: str, prebook_id: str) -> dict[str, Any]:
 def _flight_details(journey: dict[str, Any], checkin: str, checkout: str, adults: int) -> list[str]:
     """Keep the route, dates and connections the user approved, with airport-local clocks."""
     start, end = _dates(checkin, checkout, adults)
+    if not isinstance(journey, dict):
+        raise DemoProviderError("invalid_response")
     segments = journey.get("segments")
-    if (
-        not isinstance(segments, list)
-        or not 2 <= len(segments) <= 4
-        or any(not isinstance(item, dict) or item.get("direction") not in {"OUTBOUND", "INBOUND"} for item in segments)
+    if not isinstance(segments, list) or any(
+        not isinstance(item, dict) or item.get("direction") not in {"OUTBOUND", "INBOUND"} for item in segments
     ):
+        raise DemoProviderError("invalid_response")
+    if not 2 <= len(segments) <= 4:
         raise DemoProviderError("no_match")
     details = []
     prior: datetime | None = None
@@ -150,16 +152,36 @@ def _flight_details(journey: dict[str, Any], checkin: str, checkout: str, adults
 
 def _flight_price(pricing: dict[str, Any], adults: int) -> Decimal:
     """The provider's display.total is the whole-party total, not its perPassenger figure."""
+    if not isinstance(pricing, dict):
+        raise DemoProviderError("invalid_response")
     total = _amount(pricing.get("total"), pricing.get("currency"))
     people = pricing.get("perPassenger")
     if people is not None and not isinstance(people, dict):
         raise DemoProviderError("invalid_response")
     per_person = people.get("adult") if isinstance(people, dict) else None
+    if per_person is not None and not isinstance(per_person, dict):
+        raise DemoProviderError("invalid_response")
     if isinstance(per_person, dict):
         single = _amount(per_person.get("total"), per_person.get("currency"))
         if abs(single * adults - total) > Decimal("0.01") * adults:
             raise DemoProviderError("invalid_response")
     return total
+
+
+def _flight_party(value: Any, adults: int, *, search: bool = False) -> None:
+    """Search may omit counts or return zero-adult placeholders; verified counts must be exact."""
+    if search and value is None:
+        return
+    if not isinstance(value, dict):
+        raise DemoProviderError("invalid_response")
+    for key, expected in (("adults", adults), ("children", 0), ("infants", 0)):
+        count = value.get(key)
+        if search and count is None:
+            continue
+        if type(count) is not int or count < 0:
+            raise DemoProviderError("invalid_response")
+        if count != expected and not (search and key == "adults" and count == 0):
+            raise DemoProviderError("no_match")
 
 
 async def search_flight(checkin: str, checkout: str, adults: int) -> dict[str, Any]:
@@ -182,11 +204,20 @@ async def search_flight(checkin: str, checkout: str, adults: int) -> dict[str, A
         },
         50,
     )
+    data = payload.get("data")
+    if not isinstance(data, list):
+        raise DemoProviderError("invalid_response")
+    if not data:
+        raise DemoProviderError("no_match")
+    if not isinstance(data[0], dict) or not isinstance(data[0].get("journeys"), list):
+        raise DemoProviderError("invalid_response")
     candidates = []
-    for journey in nuitee._first(payload).get("journeys", []):
+    malformed = False
+    for journey in data[0]["journeys"]:
         try:
-            if journey.get("parameters") != {"adults": adults, "children": 0, "infants": 0}:
-                continue
+            if not isinstance(journey, dict):
+                raise DemoProviderError("invalid_response")
+            _flight_party(journey.get("parameters"), adults, search=True)
             details = _flight_details(journey, checkin, checkout, adults)
             offer = journey["cheapestOffer"]
             amount = _flight_price(offer["pricing"]["display"], adults)
@@ -201,30 +232,49 @@ async def search_flight(checkin: str, checkout: str, adults: int) -> dict[str, A
                     **_pricing(amount),
                 }
             )
-        except (DemoProviderError, KeyError, TypeError, ValueError):
-            continue
+        except DemoProviderError as error:
+            malformed |= error.reason != "no_match"
+        except (KeyError, TypeError, ValueError, AttributeError):
+            malformed = True
     if not candidates:
-        raise DemoProviderError("no_match")
+        raise DemoProviderError("invalid_response" if malformed else "no_match")
     candidates.sort(key=lambda item: item["price_cents"])
     return {**candidates[0], "alternatives": candidates[1:3]}
 
 
 async def verify_flight(offer: dict[str, Any], checkin: str, checkout: str, adults: int) -> dict[str, Any]:
+    _dates(checkin, checkout, adults)
     choices = [{k: v for k, v in offer.items() if k != "alternatives"}, *offer.get("alternatives", [])][:3]
+    failures = []
     for candidate in choices:
         try:
             payload = await nuitee._call("post_flights_verify", {"offerId": nuitee._id(candidate["offer_id"])}, 25)
-            journey = nuitee._first(payload)["journey"]
-            if journey.get("passengers") != {"adults": adults, "children": 0, "infants": 0}:
-                raise DemoProviderError("no_match")
+            data = payload.get("data")
+            if not isinstance(data, list) or not data or not isinstance(data[0], dict):
+                raise DemoProviderError("invalid_response")
+            journey = data[0]["journey"]
+            if not isinstance(journey, dict):
+                raise DemoProviderError("invalid_response")
+            _flight_party(journey.get("passengers"), adults)
             details = _flight_details(journey, checkin, checkout, adults)
             return {**candidate, "details": details, **_pricing(_flight_price(journey["pricing"]["display"], adults))}
-        except (DemoProviderError, KeyError, TypeError, ValueError):
-            continue
-    raise DemoProviderError("unavailable")
+        except DemoProviderError as error:
+            failures.append(error.reason)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            failures.append("invalid_response")
+    reason = next(
+        (
+            item
+            for item in ("rate_limited", "timeout", "invalid_response", "unavailable", "no_match")
+            if item in failures
+        ),
+        failures[0] if failures else "unavailable",
+    )
+    raise DemoProviderError(reason)
 
 
 def _flight_prepared(data: dict[str, Any], checkin: str, checkout: str, adults: int) -> dict[str, Any]:
+    _dates(checkin, checkout, adults)
     if "ACC_CREDIT_CARD" not in data.get("paymentTypes", []):
         raise DemoProviderError("invalid_response")
     booking = data["booking"]
@@ -232,8 +282,22 @@ def _flight_prepared(data: dict[str, Any], checkin: str, checkout: str, adults: 
     if not isinstance(passengers, list) or len(passengers) != adults:
         raise DemoProviderError("invalid_response")
     for index, passenger in enumerate(passengers):
-        if passenger.get("firstName") != _NAMES[index][0] or passenger.get("lastName") != _NAMES[index][1]:
+        if (
+            not isinstance(passenger, dict)
+            or passenger.get("firstName") != _NAMES[index][0]
+            or passenger.get("lastName") != _NAMES[index][1]
+            or passenger.get("birthday") != "1990-01-15"
+            or (
+                "passengerType" in passenger
+                and (type(passenger["passengerType"]) is not int or passenger["passengerType"] != 0)
+            )
+        ):
             raise DemoProviderError("invalid_response")
+    journey = booking["journey"]
+    if not isinstance(journey, dict):
+        raise DemoProviderError("invalid_response")
+    if "passengers" in journey:
+        _flight_party(journey["passengers"], adults)
     total = _amount(data.get("price"), data.get("currency"))
     if total != _amount(booking["pricing"].get("totalAmount"), booking["pricing"].get("currency")):
         raise DemoProviderError("invalid_response")

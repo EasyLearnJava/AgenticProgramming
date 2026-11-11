@@ -10,7 +10,7 @@
   let storageAvailable = true;
 
   const phases = {
-    flight_search: "Searching for Friday flights and a Sunday-evening return…",
+    flight_search: "Searching for Friday flights and a Sunday return arriving in Dallas at noon or later…",
     flight_verify: "Checking the selected flight’s availability and fare…",
     flight_prebook: "Preparing the simulated flight reservation…",
     flight_book: "Submitting the sandbox flight booking…",

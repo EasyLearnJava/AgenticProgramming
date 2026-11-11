@@ -10,6 +10,7 @@
   const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
   const stopPhases = new Set(["awaiting_confirmation", "done", "failed", "cancelled", "expired"]);
   const phaseWords = {
+    search: "Searching flights and hotels independently. Nothing is booked…",
     flight_search: "Searching DFW–Las Vegas flights for your dates and party…",
     flight_verify: "Verifying the flight fare and itinerary…",
     flight_prebook: "Preparing the flight quote with synthetic travelers. Nothing is booked…",
@@ -21,7 +22,8 @@
     hotel_book: "Submitting the approved sandbox hotel booking…",
   };
   const statusWords = {
-    idle: ["Waiting", "idle"], ready: ["Quote ready", "idle"], quoted: ["Quote ready", "idle"],
+    idle: ["Not searched yet", "idle"], skipped: ["Not searched", "idle"],
+    ready: ["Quote ready", "idle"], quoted: ["Quote ready", "idle"],
     working: ["Working", "idle"], confirmed: ["Sandbox confirmed", "good"],
     pending: ["Pending confirmation", "warn"], unknown: ["Status unknown", "warn"],
     unavailable: ["Unavailable", "warn"], failed: ["Could not complete", "bad"],
@@ -90,11 +92,14 @@
     line.dataset.error = String(error);
   }
 
-  function card(kind, product = {}) {
+  function card(kind, product = {}, phase) {
     const result = node("article", "surprise-trip-card");
     const top = node("div", "surprise-trip-card-top");
     top.append(node("span", "surprise-trip-card-kind", kind === "flight" ? "Round-trip flight" : "Hotel stay"));
-    const [word, tone] = statusWords[product.status] || ["Status unknown", "warn"];
+    const notSearched = product.status === "idle" || product.status === "skipped";
+    const stopped = stopPhases.has(phase);
+    const [word, tone] = notSearched && stopped ? ["Not searched", "idle"]
+      : statusWords[product.status] || ["Status unknown", "warn"];
     const status = node("span", "surprise-trip-state", word);
     status.dataset.tone = tone;
     top.append(status);
@@ -109,7 +114,11 @@
       result.append(node("p", "surprise-trip-card-price-label", kind === "flight"
         ? "All selected travelers · round trip" : "All rooms and nights · known mandatory fees included"));
     }
-    if (product.message) result.append(node("p", "", product.message));
+    const message = product.message || (notSearched
+      ? stopped ? `This ${kind} search did not run before the trip workflow stopped.`
+        : `This ${kind} search has not started yet.`
+      : "");
+    if (message) result.append(node("p", "", message));
     if (product.reference || product.booking_id) {
       const references = node("dl", "surprise-trip-reference");
       if (product.reference) references.append(node("dt", "", "Booking reference"), node("dd", "", product.reference));
@@ -175,7 +184,7 @@
       panel.querySelector("[data-surprise-itinerary]").textContent = dates.every(Boolean)
         ? `${dates[0]} → ${dates[1]} · ${view.adults} adult${view.adults === 1 ? "" : "s"} · ${view.rooms} room${view.rooms === 1 ? "" : "s"}`
         : "Your selected trip";
-      panel.querySelector("[data-surprise-cards]").replaceChildren(card("flight", view.flight), card("hotel", view.hotel));
+      panel.querySelector("[data-surprise-cards]").replaceChildren(card("flight", view.flight, view.phase), card("hotel", view.hotel, view.phase));
       const total = amount(view);
       const totalSection = panel.querySelector("[data-surprise-total]");
       totalSection.hidden = total === null;
@@ -197,7 +206,8 @@
       events.replaceChildren();
       for (const event of (Array.isArray(view.events) ? view.events : []).slice(-24)) {
         const status = statusWords[event.status]?.[0] || String(event.status || "").replaceAll("_", " ");
-        events.append(node("li", "", `${event.label || "Step"}${status ? ` · ${status}` : ""}`));
+        const message = typeof event.message === "string" ? event.message.trim() : "";
+        events.append(node("li", "", `${event.label || "Step"}${status ? ` · ${status}` : ""}${message ? ` — ${message}` : ""}`));
       }
       panel.querySelector("[data-surprise-progress]").hidden = events.childElementCount === 0;
     }
@@ -322,7 +332,8 @@
       for (const field of ["checkin", "checkout", "adults"]) {
         if (controller.receipt.view[field] !== undefined) controller.form.elements[field].value = controller.receipt.view[field];
       }
-      setStatus(controller, "Showing this tab’s saved result. No booking restarts automatically; refresh to check the provider’s latest status.");
+      const savedMessage = controller.receipt.view.message ? `${controller.receipt.view.message} ` : "";
+      setStatus(controller, `${savedMessage}Showing this tab’s saved result. No booking restarts automatically; refresh to check the provider’s latest status.`);
     }
     controller.form.addEventListener("submit", (event) => {
       event.preventDefault();

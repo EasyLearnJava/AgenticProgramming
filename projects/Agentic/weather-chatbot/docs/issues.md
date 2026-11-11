@@ -1124,3 +1124,10 @@ package's code**, **deploying**, or **testing a real API**.
      questions the rules can't place still get both Gemini checks. DemoDay Act 6 (check 13) and part 2's
      diagram (step 8) say so. **Check:** ruff and mypy on the changed modules; at your request no tests were
      run.
+
+192. **The sandbox booking demos' searches.** *You, 10 November.* **Changed:** the surprise trip searches
+     flights and the hotel at the same time, so a flight failure no longer cancels the hotel quote; a partial
+     quote stays visible but can't be approved; timeouts, no inventory and invalid provider data get their own
+     messages, and a search that never started reads "Not searched". The Zion booking demo accepts a Sunday
+     return at noon or later (Dallas time), not 6 PM. **Check:** ruff, mypy and an import of the app; the other
+     agent made one read-only sandbox lookup, which timed out. At your request no tests or bookings were run.
