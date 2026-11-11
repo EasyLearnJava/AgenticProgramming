@@ -18,7 +18,7 @@ QUOTE_SECONDS = 300
 QUOTE_PHASES = ("flight_search", "flight_verify", "flight_prebook", "hotel_search", "hotel_prebook")
 BOOK_PHASES = ("flight_book", "hotel_book")
 LABELS = {
-    "flight_search": "Search DFW to Las Vegas for all travelers",
+    "flight_search": "Search DFW to Flagstaff for all travelers",
     "flight_verify": "Verify flight itinerary and fare",
     "flight_prebook": "Validate full-party flight quote",
     "hotel_search": "Search hotels near Grand Canyon South Rim",
@@ -70,6 +70,9 @@ def _prepared(product: Product, value: dict[str, Any]) -> None:
         raise DemoProviderError("invalid_response")
     product.prepared = value
     product.prebook_id = identifier
+    if isinstance(value.get("title"), str):
+        # A fallback hotel replaces the searched one, so the card names the hotel actually prebooked.
+        product.title = value["title"][:240]
     product.price_cents = cents
     product.price = f"{Decimal(cents) / 100:.2f}"
     product.currency = "USD"

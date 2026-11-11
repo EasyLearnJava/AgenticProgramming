@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     # Isolated synthetic booking demo. Never accepts a Nuitée production credential or real passenger details.
     booking_demo_enabled: bool = True
     booking_demo_secret: SecretStr | None = Field(default=None, min_length=32)
-    # Separate, consent-gated DFW to Las Vegas / Grand Canyon sandbox planner.
+    # Separate, consent-gated DFW to Flagstaff / Grand Canyon sandbox planner.
     surprise_trip_enabled: bool = True
     parks_enabled: bool = True
     parks_retrieval_mode: Literal["auto", "lexical", "hybrid"] = "hybrid"

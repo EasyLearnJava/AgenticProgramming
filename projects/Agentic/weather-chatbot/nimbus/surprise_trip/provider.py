@@ -1,4 +1,4 @@
-"""Nuitée-only sandbox quotes for DFW to Las Vegas and the Grand Canyon South Rim.
+"""Nuitée-only sandbox quotes for DFW to Flagstaff (FLG) and the Grand Canyon South Rim.
 
 The existing sandbox transport is reused, never its fixed Zion itinerary. Quotes cover every adult and every hotel
 room for the whole stay, including disclosed mandatory pay-at-property fees. No real traveler data is accepted.
@@ -125,7 +125,7 @@ def _flight_details(journey: dict[str, Any], checkin: str, checkout: str, adults
         raise DemoProviderError("no_match")
     details = []
     prior: datetime | None = None
-    for direction, origin, destination, day in (("OUTBOUND", "DFW", "LAS", start), ("INBOUND", "LAS", "DFW", end)):
+    for direction, origin, destination, day in (("OUTBOUND", "DFW", "FLG", start), ("INBOUND", "FLG", "DFW", end)):
         leg = [item for item in segments if item["direction"] == direction]
         if not leg or leg[0].get("originCode") != origin or leg[-1].get("destinationCode") != destination:
             raise DemoProviderError("no_match")
@@ -190,8 +190,8 @@ async def search_flight(checkin: str, checkout: str, adults: int) -> dict[str, A
         "post_flights_rates",
         {
             "legs": [
-                {"origin": "DFW", "destination": "LAS", "date": checkin, "direction": "OUTBOUND"},
-                {"origin": "LAS", "destination": "DFW", "date": checkout, "direction": "INBOUND"},
+                {"origin": "DFW", "destination": "FLG", "date": checkin, "direction": "OUTBOUND"},
+                {"origin": "FLG", "destination": "DFW", "date": checkout, "direction": "INBOUND"},
             ],
             "adults": adults,
             "children": 0,
@@ -224,7 +224,7 @@ async def search_flight(checkin: str, checkout: str, adults: int) -> dict[str, A
             candidates.append(
                 {
                     "offer_id": nuitee._id(offer["offerId"]),
-                    "title": "DFW ↔ Las Vegas (LAS)",
+                    "title": "DFW ↔ Flagstaff (FLG)",
                     "details": details,
                     "checkin": checkin,
                     "checkout": checkout,
@@ -410,7 +410,7 @@ def _hotel_details(adults: int, checkin: str, checkout: str, extra: Decimal) -> 
         f"Grand Canyon South Rim / Tusayan area · {adults} adult(s) · "
         f"{len(occupancies(adults))} room(s) · {nights} night(s)",
         f"Full-stay total includes USD {extra:.2f} in disclosed mandatory fees payable at the property.",
-        "Las Vegas to Grand Canyon ground transportation is not included.",
+        "Flagstaff to Grand Canyon ground transportation (about 80 miles) is not included.",
     ]
 
 
@@ -462,7 +462,9 @@ async def search_hotel(checkin: str, checkout: str, adults: int) -> dict[str, An
             continue
     if not candidates:
         raise DemoProviderError("no_match")
-    return min(candidates, key=lambda item: item["price_cents"])
+    # The sandbox refuses some hotels' rates at prebook, so the next-cheapest few stay available as fallbacks.
+    candidates.sort(key=lambda item: item["price_cents"])
+    return {**candidates[0], "alternatives": candidates[1:4]}
 
 
 def _hotel_prepared(data: dict[str, Any], hotel_id: str, checkin: str, checkout: str, adults: int) -> dict[str, Any]:
@@ -485,17 +487,30 @@ def _hotel_prepared(data: dict[str, Any], hotel_id: str, checkin: str, checkout:
 
 
 async def prebook_hotel(offer: dict[str, Any], adults: int) -> dict[str, Any]:
-    payload = await nuitee._call(
-        "post_rates_prebook",
-        {
-            "offerId": nuitee._id(offer["offer_id"]),
-            "usePaymentSdk": False,
-            "timeout": 20,
-        },
-    )
-    if payload.get("sandbox") is not True:
-        raise DemoProviderError("invalid_response")
-    return _hotel_prepared(payload["data"], offer["hotel_id"], offer["checkin"], offer["checkout"], adults)
+    """Prebook the cheapest hotel, or the next-cheapest when the sandbox refuses a rate (issue 194)."""
+    choices = [{k: v for k, v in offer.items() if k != "alternatives"}, *offer.get("alternatives", [])][:4]
+    reason = "unavailable"
+    for candidate in choices:
+        try:
+            payload = await nuitee._call(
+                "post_rates_prebook",
+                {
+                    "offerId": nuitee._id(candidate["offer_id"]),
+                    "usePaymentSdk": False,
+                    "timeout": 20,
+                },
+            )
+            if payload.get("sandbox") is not True:
+                raise DemoProviderError("invalid_response")
+            prepared = _hotel_prepared(
+                payload["data"], candidate["hotel_id"], candidate["checkin"], candidate["checkout"], adults
+            )
+            return {**prepared, "title": candidate["title"]}
+        except DemoProviderError as error:
+            reason = error.reason
+        except (KeyError, TypeError, ValueError):
+            reason = "invalid_response"
+    raise DemoProviderError(reason)
 
 
 async def refresh_hotel(prepared: dict[str, Any], checkin: str, checkout: str, adults: int) -> dict[str, Any]:

@@ -4,7 +4,7 @@ Enter **Book a surprise trip** (case-insensitive, otherwise the complete phrase)
 The first response is a planner, not a booking. Choose dates and 1–6 adults; the hotel allocation is at most two
 adults per room, for a 1–14-night stay. Dates can be chosen within the next 330 days.
 
-1. Independently search DFW ↔ Las Vegas (LAS) on the chosen dates and a hotel within 20 km of Tusayan / Grand Canyon
+1. Independently search DFW ↔ Flagstaff (FLG) on the chosen dates and a hotel within 20 km of Tusayan / Grand Canyon
    South Rim. These searches run concurrently. A flight failure does not cancel the hotel search or its quote.
 2. Verify and prebook the two offers to obtain complete USD prices. This validates quotes, without confirming
    reservations. Synthetic names and reserved example.com contact details are used.
@@ -24,7 +24,8 @@ selected travelers and full-party price before approval is offered. A partial qu
 confirmed. Timeouts, unavailable inventory and invalid provider data have distinct messages. An unstarted search
 is labelled **Not searched** after the workflow stops, including older saved receipts.
 
-Las Vegas is separate from the Grand Canyon hotel location. Transfers, meals, park entry and optional extras are
+Flagstaff is about 80 miles from the Grand Canyon hotel location. The sandbox could not verify DFW-LAS or
+DFW-PHX round trips (provider error 52023), while DFW-FLG verified. Transfers, meals, park entry and optional extras are
 not included. This is a booking demonstration, not a real trip reservation or a conditions/safety assessment.
 
 The separate `nimbus/surprise_trip` package, templates, namespaced JavaScript/CSS, cookie, signed receipts, in-memory

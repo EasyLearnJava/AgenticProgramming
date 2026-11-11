@@ -92,7 +92,7 @@ class SurpriseState(BaseModel):
     version: int = 0
     quote_expires: int = 0
     approved_cents: int | None = None
-    flight: Product = Field(default_factory=lambda: Product(title="DFW ↔ LAS · round trip"))
+    flight: Product = Field(default_factory=lambda: Product(title="DFW ↔ FLG · round trip"))
     hotel: Product = Field(default_factory=lambda: Product(title="Grand Canyon South Rim · Tusayan area"))
     events: list[dict[str, str]] = Field(default_factory=list)
     message: str = ""

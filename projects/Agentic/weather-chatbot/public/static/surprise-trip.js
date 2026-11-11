@@ -11,7 +11,7 @@
   const stopPhases = new Set(["awaiting_confirmation", "done", "failed", "cancelled", "expired"]);
   const phaseWords = {
     search: "Searching flights and hotels independently. Nothing is booked…",
-    flight_search: "Searching DFW–Las Vegas flights for your dates and party…",
+    flight_search: "Searching DFW to Flagstaff flights for your dates and party…",
     flight_verify: "Verifying the flight fare and itinerary…",
     flight_prebook: "Preparing the flight quote with synthetic travelers. Nothing is booked…",
     hotel_search: "Searching for a hotel near Grand Canyon’s South Rim…",
@@ -103,7 +103,7 @@
     const status = node("span", "surprise-trip-state", word);
     status.dataset.tone = tone;
     top.append(status);
-    result.append(top, node("h3", "", product.title || (kind === "flight" ? "DFW ↔ LAS" : "Grand Canyon South Rim")));
+    result.append(top, node("h3", "", product.title || (kind === "flight" ? "DFW ↔ FLG" : "Grand Canyon South Rim")));
     if (Array.isArray(product.details) && product.details.length) {
       const details = node("ul");
       for (const item of product.details.slice(0, 14)) details.append(node("li", "", item));

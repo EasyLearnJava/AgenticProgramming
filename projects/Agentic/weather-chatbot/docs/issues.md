@@ -1140,3 +1140,11 @@ package's code**, **deploying**, or **testing a real API**.
      demo flies DFW to St. George (SGU), about an hour from Zion; older LAX receipts can only be refreshed.
      **Check:** run locally against the sandbox for Nov 13 to 15: search, verify and prebook succeeded and the
      simulated booking was accepted (pending, FH-26B-KEK0KU4I). Ruff and mypy pass; no tests were run.
+
+194. **The surprise trip couldn't book its flight, and a hotel rate could fail.** *You, 10 November.* **Why:**
+     like issue 193, the sandbox refused to verify DFW-LAS and DFW-PHX round trips (provider error 52023), while
+     DFW-FLG verified; and it refused one hotel's rate at prebook once. **Fix:** the surprise trip flies DFW to
+     Flagstaff (FLG), about 80 miles from the South Rim, and the hotel step falls back to the next-cheapest of up
+     to three more hotels, naming the hotel actually prebooked. **Check:** run locally against the sandbox for
+     Nov 13 to 15, two adults: flight search, verify, prebook and book (pending, FH-26B-CR99GWNV) and hotel
+     search, prebook and book (confirmed, M-RK4HoEC) all succeeded. Ruff and mypy pass; no tests were run.
