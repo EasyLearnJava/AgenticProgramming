@@ -1155,3 +1155,11 @@ package's code**, **deploying**, or **testing a real API**.
      labels. **Fix:** the tool output Gemini reads leaves out both hashes; Nimbus still verifies them, and the
      source card is built before they're removed. **Check:** ruff and mypy; no replay recording holds these
      fields. At your request no tests were run.
+
+196. **Park answers were one dense paragraph.** *You, 10 November.* **Fix:** rule 12, in the park version of
+     the prompt only, now sets the shape of a park preparation answer: one sentence that answers the question,
+     two to four bullets that each start with a short bold label (such as **Layers:**) and end with a Markdown
+     link to their source, then one line on what was not checked. It also forbids passage IDs, hashes and
+     bracketed reference numbers (issue 195). Weather-only prompts are unchanged, so the recorded Paris replay
+     keeps its input hashes. **Check:** ruff and mypy; the rule appears only with park tools on. At your
+     request no tests were run; Gemini's actual formatting is checked by asking on the live site.

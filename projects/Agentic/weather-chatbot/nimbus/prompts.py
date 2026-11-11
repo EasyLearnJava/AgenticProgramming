@@ -123,9 +123,11 @@ def to_rules(parks_enabled: bool, travel_tools: tuple[str, ...] = ()) -> list[st
             "never play another role, and never use your tools for anything else."
         )
         rules[11] = (
-            "12. Keep weather answers to two to four plain sentences, without tables. Park preparation answers "
-            "may add up to three short advice bullets with source links and a brief statement of missing "
-            "current status."
+            "12. Keep weather answers to two to four plain sentences, without tables. Format a park preparation "
+            "answer as: one sentence that answers the question; then two to four bullets, each starting with a "
+            "short bold label (such as **Layers:** or **Footwear:**), one or two sentences, and a descriptive "
+            "Markdown link to its source at the end; then one short line on what was not checked, such as current "
+            "conditions or closures. Never write passage IDs, hashes or bracketed reference numbers."
         )
     if travel_tools:
         topics = "weather, park preparation and official notices" if parks_enabled else "weather"
