@@ -310,8 +310,9 @@ failed safety case cannot be hidden by a high average score."
 ### Act 6 · Keep the chat on task
 
 Every chat question passes a scope check before memory, the cache or any tool, and every fresh answer is checked
-again before its words appear. Fixed rules decide the obvious cases at once; Gemini decides the rest within four
-seconds. Choose **New chat** for each question, then open [Activity](/activity) and read the request's
+again before its words appear. Fixed rules decide the obvious cases at once; Gemini decides the rest within eight
+seconds. A plain weather answer (a weather question passed by rule, answered with only weather tools) passes its
+answer check by rule too, so it costs no extra Gemini call. Choose **New chat** for each question, then open [Activity](/activity) and read the request's
 **Request scope check** line: it says what was decided, why, and whether a **Rule** or a **Gemini check** decided it,
 with the check's tokens.
 
@@ -354,7 +355,7 @@ a closing question mark don't matter. It's written by the app, so no scope check
 show **Give feedback**: choose a category, send it, then find it on Activity's
 [Feedback](/activity?show=feedback) tab, matched to this answer by its **Answer reference**.
 
-- **If you see "I could not verify this response right now":** a Gemini check took longer than four seconds.
+- **If you see "I could not verify this response right now":** a Gemini check took longer than eight seconds.
   Activity shows **Unavailable · Scope check timed out**. Wait a little and ask again; nothing was saved.
 
 **The point to land:** "The rules stop the obvious cases for free, Gemini judges the rest, and Activity shows which

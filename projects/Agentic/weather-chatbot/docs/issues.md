@@ -1089,3 +1089,12 @@ package's code**, **deploying**, or **testing a real API**.
      to capitals or a closing "?". DemoDay part 2 gains Act 6, five scope scenarios. **Check:** ruff and mypy
      on the changed modules; at your request no tests were run, so tests asserting the old log fields or
      decision equality may need updating.
+
+188. **Weather answers failed while Gemini was slow.** *You, 10 November.* Between 6:34 and 6:36 PM CST all
+     three weather questions failed though their weather tools took under half a second: Gemini took 5.5 to
+     7.2 s a call, two answers then failed their 4 s answer scope check (ScopeCheckUnavailable), and one got a
+     Gemini error on its third call (ModelFailedError, ref d4d9fda0). **Fix:** a plain weather answer, for a
+     question passed by rule as weather that used only weather tools and names no creative form, passes its
+     answer check by rule (`is_plain_weather`), so it makes no extra Gemini call; every other answer still gets
+     the Gemini check, now with 8 s instead of 4. DemoDay's part 1 diagram (step 7) and Act 6 say so.
+     **Check:** ruff and mypy on the changed modules; at your request no tests were run.

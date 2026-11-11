@@ -10,7 +10,8 @@
     prompt starts at step 1 and leaves at the first path it takes. A hit returns the cached answer without calling
     Gemini or the weather tools: prompt 2 by exact match, prompts 3 and 5 by similarity. A miss, prompts 1 and 4,
     goes to the LangGraph agent, where Gemini calls the weather tools on Open-Meteo, whose replies Vercel's Runtime
-    Cache keeps. Gemini then checks the whole answer stays on task; its words appear only when that check passes,
+    Cache keeps. The whole answer is then checked: one that used only weather tools for a weather question passes
+    by rule, any other gets a Gemini check; its words appear only when that check passes,
     while the tool chips show as they run. Then its evidence is checked and, if every check passes, it is saved in
     Qdrant, reusable for two minutes at most, or less if its weather data or the day runs out. A failed check is
     named in Activity. Every step is logged to Axiom for the Activity page and traced in LangSmith for the trace
@@ -139,8 +140,8 @@
       <text x="304" y="670">LangGraph agent and Gemini</text>
       <text x="304" y="688">weather tools: geocode,</text>
       <text x="304" y="706">current weather, forecast</text>
-      <text x="304" y="808">Gemini checks it stays on task;</text>
-      <text x="304" y="825">words appear only if it passes</text>
+      <text x="304" y="808">weather tools only: passes by rule;</text>
+      <text x="304" y="825">else a Gemini check, then words</text>
       <text x="304" y="910">one place, your units,</text>
       <text x="304" y="927">full forecast, fresh data</text>
       <text x="304" y="1012">less if data or the day expires</text>

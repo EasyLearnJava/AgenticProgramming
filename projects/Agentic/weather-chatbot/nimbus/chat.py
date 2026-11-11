@@ -88,6 +88,7 @@ from nimbus.scope_guard import (
     SCOPE_UNAVAILABLE,
     ScopeDecision,
     ScopeGuard,
+    is_plain_weather,
 )
 from nimbus.scope_tracing import scope_trace
 from nimbus.semantic_cache.evidence import cached_cards
@@ -304,6 +305,7 @@ async def stream_turn(
     *,
     scope_guard: ScopeGuard,
     scope_deadline: float | None = None,
+    input_scope: ScopeDecision | None = None,
     restrict_links: bool = False,
     memory_note: str = "",
     cache_turn: CacheTurn | None = None,
@@ -381,7 +383,12 @@ async def stream_turn(
         if stats.lane_error is not None:
             raise stats.lane_error
         with scope_trace(request_trace, "output") as check:
-            decision = await scope_guard.assess_output(question, "".join(pieces), deadline=scope_deadline)
+            plain_weather = input_scope is not None and is_plain_weather(
+                question, input_scope, [chip.name for chip in chips.values()]
+            )
+            decision = await scope_guard.assess_output(
+                question, "".join(pieces), deadline=scope_deadline, plain_weather=plain_weather
+            )
             check.decided(decision)
         approved = decision.status == "allowed"
         if not approved:
@@ -894,6 +901,7 @@ async def answer_question(
         settings.gemini_model,
         scope_guard=scope_guard,
         scope_deadline=deadline,
+        input_scope=scope,
         memory_note=memory_note,
         cache_turn=cache_turn,
         request_trace=request_trace,
