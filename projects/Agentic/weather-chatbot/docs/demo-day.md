@@ -511,3 +511,47 @@ synthetic case with no visitor words in it, and promotes it with `tools/harness_
 
 **The point to land:** "Every answer path has a test that runs without keys on each push, a live check before
 release, and a way back from a visitor's report to a permanent case."
+
+## Tools and technologies
+
+What Nimbus is built with, and what each part does.
+
+| Area | Tool or service | What it does in Nimbus |
+|---|---|---|
+| **App** | Python 3.13 | The language the whole app is written in |
+| | FastAPI | The web server: chat API, pages, health check, demo routes |
+| | Jinja2 | Builds the HTML pages and each chat message on the server |
+| | htmx (with its streaming add-on) | Sends your question and shows the answer as it streams, with no front-end framework |
+| | markdown-it-py | Turns Gemini's Markdown into safe HTML; only links to real sources stay clickable |
+| | Pydantic | Checks settings, tool inputs and every provider reply before use |
+| **AI** | Gemini (`gemini-3.5-flash-lite`) | Picks tools, writes answers, runs the scope checks, and is the judge in the answer evals |
+| | LangChain | Connects Python to Gemini and defines the tools Gemini can call |
+| | LangGraph | The agent loop: model, tools, model again; at most 5 model calls and 6 tools per round |
+| | MCP (Model Context Protocol) | The standard way to call outside tools: our weather server, Kiwi, Trivago, Apify, Nuitée |
+| **Weather** | Open-Meteo | Geocoding, current weather, forecast, air quality (free, no key) |
+| | Apify (REST and MCP) | Runs the two weather routes that need sign-in, used when testing those connections |
+| | NWS (weather.gov) | Official severe-weather warnings for trip conditions |
+| **Park guidance (RAG)** | Qdrant Cloud | Stores the 40 approved NPS passages and runs both searches; a separate collection holds the weather answer cache |
+| | BM25 (in Qdrant) | Keyword ranking of park passages |
+| | MiniLM (hosted by Qdrant) | Turns text into vectors, for meaning-based search and the similar-question cache |
+| | ColBERT (hosted by Qdrant) | Re-orders the top 12 passages before 4 go to Gemini |
+| | NPS API | Official park alerts and closures |
+| | tokenizers | Counts tokens when cutting NPS pages into passages |
+| | numpy | Vector math for the Chunks & vectors map |
+| **Memory** | Mem0 | Opt-in saved preferences: home airport, units, currency |
+| **Travel** | Kiwi (MCP) | Flight search for trip plans |
+| | Trivago (MCP) | Hotel search for trip plans |
+| | Nuitée LiteAPI sandbox (MCP) | The two booking demos: sandbox flights and hotels, simulated payment |
+| **Hosting and caching** | Vercel | Hosts the app; every push to `main` deploys to production |
+| | Vercel Runtime Cache | Keeps Open-Meteo replies (forecasts up to 30 min, geocoding 30 days) |
+| | Vercel CDN | Caches static files and the health and Observability pages |
+| **Observability** | structlog + Axiom | Structured log lines, stored in Axiom; the Activity page reads them |
+| | LangSmith | Detailed traces behind **View LangSmith trace** |
+| | Sentry | Error reporting |
+| **HTTP** | httpx2 | Every outgoing HTTP call, with time limits |
+| | tenacity | Retries for flaky upstream calls |
+| **Build and quality** | uv | Locks every dependency to an exact version; Vercel installs from that lock file |
+| | GitHub Actions | CI on every push: lint, types, tests, offline replay, preview smoke check |
+| | ruff, mypy | Lint and type checks |
+| | pytest, Playwright + axe | Unit tests, plus browser and accessibility tests |
+| | Our own harness and evals | Replay scenarios, live checks, the release gate, mutation testing, the answer judge |
