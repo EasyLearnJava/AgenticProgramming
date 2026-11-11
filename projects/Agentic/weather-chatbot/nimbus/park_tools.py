@@ -23,6 +23,8 @@ from nimbus.utils import checked_source_url, to_ms
 
 PARK_TOOL_SECONDS = 6.0
 STATUS_WORD = re.compile(r"[a-z_]{1,32}")
+# Integrity hashes stay in Nimbus: Gemini once cited them in answers as "[e2cd5f0b...]" (issue 195).
+MODEL_HIDDEN_PASSAGE_FIELDS = frozenset({"content_hash", "record_hash"})
 PARK_GUIDANCE_UNAVAILABLE = "The park guidance is unavailable right now. I can still check the weather."
 _PARK_NAME = "(?:" + "|".join(re.escape(item[0]) for item in PARKS.values()) + ")(?: National Park)?"
 _ALTERNATIVES = re.compile(
@@ -256,6 +258,13 @@ async def _run_knowledge(name: str, run: Callable[[], Awaitable[dict[str, Any]]]
     record = KnowledgeCallRecord(ms, summary, version, sources, str(output.get("retrieval_mode", "registry")))
     # The trace ID links the Playground to its trace; the model needs none, and could repeat it in an answer.
     content = {key: value for key, value in output.items() if key != "trace_id"}
+    if isinstance(content.get("passages"), list):
+        content["passages"] = [
+            {key: value for key, value in passage.items() if key not in MODEL_HIDDEN_PASSAGE_FIELDS}
+            if isinstance(passage, dict)
+            else passage
+            for passage in content["passages"]
+        ]
     return json.dumps(content, ensure_ascii=False), record
 
 

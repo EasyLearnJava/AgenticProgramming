@@ -1148,3 +1148,10 @@ package's code**, **deploying**, or **testing a real API**.
      to three more hotels, naming the hotel actually prebooked. **Check:** run locally against the sandbox for
      Nov 13 to 15, two adults: flight search, verify, prebook and book (pending, FH-26B-CR99GWNV) and hotel
      search, prebook and book (confirmed, M-RK4HoEC) all succeeded. Ruff and mypy pass; no tests were run.
+
+195. **A park answer cited passage hashes.** *You, 10 November.* The Narrows spring answer ended its sentences
+     with "[e2cd5f0b...]": 64-character hex strings. **Why:** search_park_guidance sent Gemini every passage
+     field, including the integrity hashes `content_hash` and `record_hash`, and Gemini used them as citation
+     labels. **Fix:** the tool output Gemini reads leaves out both hashes; Nimbus still verifies them, and the
+     source card is built before they're removed. **Check:** ruff and mypy; no replay recording holds these
+     fields. At your request no tests were run.
