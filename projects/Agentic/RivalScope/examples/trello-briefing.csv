@@ -1,0 +1,13 @@
+﻿target,competitor,field,status,finding,source_url,source_type,published_date,research_date,mode
+Trello,Asana,Pricing,Supported,"Starter is listed at $10.99 per user per month, billed annually.",https://asana.com/pricing,Company source,,2026-11-10,demo
+Trello,Asana,Core features,Supported,"Personal offers list, board and calendar views. Starter adds Timeline and Gantt views.",https://asana.com/pricing,Company source,,2026-11-10,demo
+Trello,Asana,Market positioning,Supported,Asana markets Starter to small teams and professionals who track projects and deadlines.,https://asana.com/pricing,Company source,,2026-11-10,demo
+Trello,Asana,Recent news,Supported,Asana announced its Q3 product release with AI capabilities built into team workflows.,https://asana.com/inside-asana/asana-q3-2026-release-ai-teammates,Company source,2026-10-22,2026-11-10,demo
+Trello,ClickUp,Pricing,Supported,The pricing page lists the Free Forever plan at $0.,https://clickup.com/pricing,Company source,,2026-11-10,demo
+Trello,ClickUp,Core features,Supported,"Free Forever includes Kanban boards, collaborative documents, calendar view and sprint management.",https://clickup.com/pricing,Company source,,2026-11-10,demo
+Trello,ClickUp,Market positioning,Supported,"ClickUp presents tasks, documents and other collaboration tools as one workspace.",https://clickup.com/,Company source,,2026-11-10,demo
+Trello,ClickUp,Recent news,Supported,ClickUp 4.09 added automated creation of lists from templates and personal time off in workload views.,https://feedback.clickup.com/changelog/release-notes-409,Company source,2026-10-17,2026-11-10,demo
+Trello,monday.com,Pricing,Supported,The displayed 10-seat annual Basic configuration lists $9 per seat per month.,https://monday.com/pricing,Company source,,2026-11-10,demo
+Trello,monday.com,Core features,Supported,Boards support configurable column types. Standard adds workflow automations.,https://monday.com/pricing,Company source,,2026-11-10,demo
+Trello,monday.com,Market positioning,Supported,monday work management targets teams that coordinate projects and processes across functions.,https://monday.com/w/use-cases/ai-project-management-software,Company source,,2026-11-10,demo
+Trello,monday.com,Recent news,Supported,monday.com announced its third-quarter 2026 results.,https://monday.com/newsroom/announcements/q3-2026-results,Company source,2026-11-09,2026-11-10,demo
