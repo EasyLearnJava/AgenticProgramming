@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Step by Step</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+  /* Layout: a quiet index rail on the left, one reading column on the right.
+     Setup comes first, then the RAG pipeline, then the five step files. */
+  :root {
+    --paper: #f4f6fa;
+    --surface: #ffffff;
+    --ink: #172033;
+    --ink-soft: #4b5670;
+    --line: #dde3ec;
+    --accent: #2753c9;
+    --accent-soft: #e8eefc;
+    --stamp: #a8540b;
+    --stamp-soft: #fdf0e1;
+    --ok: #1f7a4d;
+    --code-bg: #eef2f8;
+    --term-bg: #18202f;
+    --term-ink: #e3e8f2;
+    --term-soft: #93a0b8;
+    --shadow: 0 1px 2px rgba(23, 32, 51, .06), 0 8px 24px rgba(23, 32, 51, .06);
+
+    --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0f1420;
+      --surface: #161d2c;
+      --ink: #e6eaf2;
+      --ink-soft: #a3aec2;
+      --line: #273047;
+      --accent: #8ca8ff;
+      --accent-soft: #1c2747;
+      --stamp: #f0b060;
+      --stamp-soft: #33261a;
+      --ok: #6fd3a0;
+      --code-bg: #121927;
+      --term-bg: #0a0e17;
+      --term-ink: #e3e8f2;
+      --term-soft: #8794ad;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0f1420;
+    --surface: #161d2c;
+    --ink: #e6eaf2;
+    --ink-soft: #a3aec2;
+    --line: #273047;
+    --accent: #8ca8ff;
+    --accent-soft: #1c2747;
+    --stamp: #f0b060;
+    --stamp-soft: #33261a;
+    --ok: #6fd3a0;
+    --code-bg: #121927;
+    --term-bg: #0a0e17;
+    --term-ink: #e3e8f2;
+    --term-soft: #8794ad;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.65 var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  .layout {
+    max-width: 1120px; margin: 0 auto;
+    padding-block: 48px 80px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 56px;
+  }
+
+  /* Index rail */
+  nav { position: sticky; top: 32px; align-self: start; display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 64px); overflow-y: auto; }
+  .nav-label { font: 600 0.72rem/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px 12px; }
+  .nav-group { font: 600 0.72rem/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); margin: 18px 0 6px 12px; }
+  nav a {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 7px 12px; border-radius: 8px;
+    color: var(--ink); text-decoration: none; font-size: 0.94rem;
+    transition: background .15s, color .15s;
+  }
+  nav a .n { font: 500 0.78rem/1 var(--font-mono); color: var(--ink-soft); min-width: 1.4em; }
+  nav a:hover { background: var(--accent-soft); color: var(--accent); }
+  nav a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  nav a[aria-current="true"] .n { color: var(--accent); }
+
+  main { min-width: 0; display: flex; flex-direction: column; gap: 64px; }
+  section { scroll-margin-top: 24px; min-width: 0; }
+
+  /* Type scale: 0.8 / 0.94 / 1 / 1.25 / 1.6 / 2.6 rem */
+  .eyebrow { font: 600 0.8rem/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+  h1 { font-size: 2.6rem; line-height: 1.1; font-weight: 700; }
+  h2 { font-size: 1.6rem; line-height: 1.2; font-weight: 600; }
+  h3 { font-size: 1.1rem; font-weight: 600; }
+  .stack h3 { margin-top: 12px; }
+  p { margin: 0; max-width: 65ch; }
+  .lead { font-size: 1.1rem; color: var(--ink-soft); margin-top: 14px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .section-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .file {
+    align-self: flex-start; font: 500 0.82rem/1 var(--font-mono);
+    color: var(--accent); background: var(--accent-soft);
+    padding: 6px 10px; border-radius: 6px;
+  }
+  code { font: 0.88em var(--font-mono); background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+
+  /* Setup hero */
+  .facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .facts span {
+    font-size: 0.88rem; padding: 6px 12px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  }
+  .facts span b { color: var(--ok); font-weight: 600; margin-right: 4px; }
+  .checklist { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .checklist a {
+    display: flex; flex-direction: column; gap: 6px; height: 100%;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; text-decoration: none; color: var(--ink);
+    transition: border-color .15s, transform .15s;
+  }
+  .checklist a:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .checklist .num { font: 600 0.75rem/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  .checklist strong { font: 600 1.05rem/1.25 var(--font-display); }
+  .checklist span.desc { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; }
+
+  /* Terminal blocks */
+  .term { border-radius: 12px; overflow: hidden; background: var(--term-bg); border: 1px solid var(--line); }
+  .term-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 6px 8px 6px 14px; font: 500 0.75rem/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase;
+    color: var(--term-soft); border-bottom: 1px solid rgba(255, 255, 255, .08);
+  }
+  .term-bar > span:first-child { margin-right: auto; }
+  .copy-btn {
+    font: 500 0.78rem/1 var(--font-body); letter-spacing: .02em;
+    color: var(--term-ink); background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .16); border-radius: 6px;
+    padding: 6px 12px; cursor: pointer; transition: background .15s, color .15s;
+  }
+  .copy-btn:hover { background: rgba(255, 255, 255, .16); }
+  .copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .copy-btn.done { color: #7ee2ad; border-color: rgba(126, 226, 173, .5); }
+  .term pre { margin: 0; border: 0; border-radius: 0; background: transparent; color: var(--term-ink); }
+  .term .p { color: var(--term-soft); user-select: none; }
+  .term .o { color: var(--term-soft); }
+  .term .ok { color: #7ee2ad; }
+  .verify { display: flex; flex-direction: column; gap: 10px; }
+  .verify-label { font: 600 0.78rem/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ok); }
+  .or { font-size: 0.9rem; color: var(--ink-soft); }
+  .note { font-size: 0.92rem; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; max-width: none; }
+  .note b { color: var(--ink); }
+
+  /* RAG pipeline */
+  .pipeline { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .stage { position: relative; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+  .stage .dot {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--surface); border: 2px solid var(--accent); color: var(--accent);
+    font: 600 0.95rem/1 var(--font-display); position: relative; z-index: 1;
+  }
+  .stage:not(:first-child)::before {
+    content: ""; position: absolute; top: 24px; right: calc(100% - 20px); width: calc(100% - 8px);
+    height: 2px; background: var(--line);
+  }
+  .stage strong { font: 600 1.05rem/1.2 var(--font-display); }
+  .stage span.desc { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; }
+  .stage.llm .dot { background: var(--accent); color: var(--surface); }
+
+  .trace {
+    margin-top: 32px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow); padding: 22px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .trace-title { font: 600 0.8rem/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+  .trace-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: baseline; }
+  .trace-row .k { font: 500 0.8rem/1.4 var(--font-mono); color: var(--ink-soft); }
+  .trace-row .v { min-width: 0; }
+  .found { background: var(--stamp-soft); color: var(--ink); border-left: 3px solid var(--stamp); padding: 8px 12px; border-radius: 0 8px 8px 0; }
+  .answer { font-weight: 600; }
+
+  /* Path through the files */
+  .path { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .path a {
+    display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 16px; row-gap: 4px; height: 100%;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; text-decoration: none; color: var(--ink);
+    transition: border-color .15s, transform .15s;
+  }
+  .path a:hover { border-color: var(--accent); transform: translateY(-2px); }
+  @media (prefers-reduced-motion: reduce) { .path a:hover, .checklist a:hover { transform: none; } }
+  .path .step { min-width: 56px; font: 600 0.75rem/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  .path strong { min-width: 190px; font: 600 1.05rem/1.25 var(--font-display); }
+  .path span.desc { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; }
+
+  /* Lists, code and tables */
+  ul.clean { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; max-width: 65ch; }
+  ul.clean li { padding-left: 20px; position: relative; }
+  ul.clean li::before { content: ""; position: absolute; left: 4px; top: 0.68em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .pros-cons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .pc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .pc b { display: block; font: 600 0.78rem/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
+  .pc.good b { color: var(--accent); }
+  .pc.bad b { color: var(--stamp); }
+  pre {
+    margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; font: 0.86rem/1.6 var(--font-mono);
+  }
+  pre code { background: none; padding: 0; font-size: inherit; color: inherit; }
+  pre .c { color: var(--ink-soft); }
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font: 600 0.75rem/1.2 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--code-bg); }
+  td.stage-name { font-family: var(--font-display); font-weight: 600; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.group td { font: 600 0.75rem/1.2 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); }
+  .muted { color: var(--ink-soft); }
+  .next { font-size: 0.92rem; color: var(--ink-soft); }
+  .next a { font-weight: 600; text-decoration: none; }
+  .next a:hover { text-decoration: underline; }
+
+  ol.clean-num { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; max-width: 65ch; }
+  ol.clean-num li::marker { color: var(--accent); font-weight: 600; }
+
+  /* Roadmap */
+  .phase { display: flex; flex-direction: column; gap: 10px; }
+  .phase-name { font: 600 0.78rem/1.2 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-top: 12px; }
+  .rm { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .rm-item {
+    display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+  }
+  .rm-num {
+    width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); font: 600 0.9rem/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+  .rm-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .rm-body h3 { margin: 4px 0 0; font-size: 1.05rem; }
+  .rm-body p { font-size: 0.94rem; }
+  .rm-body .done { color: var(--ink-soft); }
+  .rm-body .done b { color: var(--ok); font-weight: 600; margin-right: 4px; }
+
+  @media (max-width: 1000px) {
+    .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 24px; }
+    .stage::before { display: none; }
+    .checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-block: 28px 64px; }
+    nav { position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; max-height: none; }
+    .nav-label, .nav-group { display: none; }
+    nav a { background: var(--surface); border: 1px solid var(--line); padding: 6px 10px; }
+    h1 { font-size: 2rem; }
+    .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pros-cons { grid-template-columns: minmax(0, 1fr); }
+    .trace-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  }
+  @media (max-width: 420px) {
+    .path, .checklist { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav aria-label="Index">
+  <p class="nav-label">Index</p>
+  <a href="#start"><span class="n">&#9656;</span>Before you start</a>
+  <p class="nav-group">Setup</p>
+  <a href="#ollama"><span class="n">1</span>Install Ollama</a>
+  <a href="#models"><span class="n">2</span>Download the models</a>
+  <a href="#python"><span class="n">3</span>Install uv</a>
+  <a href="#project"><span class="n">4</span>Create the project</a>
+  <a href="#components"><span class="n">5</span>What we use</a>
+  <p class="nav-group">Learn</p>
+  <a href="#rag"><span class="n">&#9656;</span>What is RAG</a>
+  <a href="#path"><span class="n">&#9656;</span>The twelve steps</a>
+  <p class="nav-group">Steps</p>
+  <a href="#step1"><span class="n">01</span>Ask the LLM</a>
+  <a href="#step2"><span class="n">02</span>Add a prompt</a>
+  <a href="#step3"><span class="n">03</span>Hard-coded context</a>
+  <a href="#step4"><span class="n">04</span>Full context</a>
+  <a href="#step5"><span class="n">05</span>Chunk the documents</a>
+  <a href="#step6"><span class="n">06</span>Add metadata</a>
+  <a href="#step7"><span class="n">07</span>Embed the chunks</a>
+  <a href="#step8"><span class="n">08</span>Search by meaning</a>
+  <a href="#step9"><span class="n">09</span>Search and answer</a>
+  <a href="#step10"><span class="n">10</span>Answer with OpenAI</a>
+  <a href="#step11"><span class="n">11</span>Vector store</a>
+  <a href="#step12"><span class="n">12</span>Evaluation</a>
+  <p class="nav-group">Production</p>
+  <a href="#errors"><span class="n">!</span>Error handling</a>
+  <p class="nav-group">Reference</p>
+  <a href="#run"><span class="n">&gt;_</span>Run the steps</a>
+  <p class="nav-group">Next</p>
+  <a href="#roadmap"><span class="n">&rarr;</span>Roadmap</a>
+</nav>
+
+<main>
+
+<!-- ============ SETUP ============ -->
+
+<section id="start">
+  <p class="eyebrow">RAG Step by Step</p>
+  <h1>Build a question answering app on your own laptop</h1>
+  <p class="lead">Everything here runs on your machine. Ollama runs the AI models locally, and a few small Python files ask them questions about three short documents: a library handbook, a pool guide and a recycling guide. Set up once, then work through the steps.</p>
+  <div class="facts">
+    <span><b>&#10003;</b>No cloud account</span>
+    <span><b>&#10003;</b>No API key (except step 10)</span>
+    <span><b>&#10003;</b>No cost per question</span>
+    <span><b>&#10003;</b>Works offline after setup</span>
+  </div>
+  <ol class="checklist">
+    <li><a href="#ollama"><span class="num">Setup 1</span><strong>Install Ollama</strong><span class="desc">The app that runs models on your laptop.</span></a></li>
+    <li><a href="#models"><span class="num">Setup 2</span><strong>Download the models</strong><span class="desc">One to answer, one to embed. About 2.3 GB.</span></a></li>
+    <li><a href="#python"><span class="num">Setup 3</span><strong>Install uv</strong><span class="desc">The tool that installs Python and the packages.</span></a></li>
+    <li><a href="#project"><span class="num">Setup 4</span><strong>Create the project</strong><span class="desc">Make the folder, set it up with uv, add the documents.</span></a></li>
+  </ol>
+</section>
+
+<section id="ollama">
+  <div class="section-head">
+    <p class="eyebrow">Setup 1</p>
+    <h2>Install Ollama on Windows</h2>
+  </div>
+  <div class="stack">
+    <p>Go to <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>, choose <strong>Windows</strong> and run the installer (<code>OllamaSetup.exe</code>). When it finishes, Ollama runs in the background (look for the llama icon in the system tray) and serves models at <code>http://localhost:11434</code>.</p>
+    <p class="or">Or install it from a Command Prompt:</p>
+    <div class="term"><div class="term-bar"><span>Command Prompt</span></div>
+<pre><code><span class="p">&gt; </span>winget install Ollama.Ollama</code></pre></div>
+    <div class="verify">
+      <span class="verify-label">&#10003; Verify</span>
+      <p>Open a <strong>new</strong> Command Prompt so it picks up the new program, then run:</p>
+      <div class="term"><div class="term-bar"><span>Command Prompt</span><span>expected output</span></div>
+<pre><code><span class="p">&gt; </span>ollama --version
+<span class="o">ollama version is 0.17.1</span>
+
+<span class="p">&gt; </span>curl http://localhost:11434
+<span class="ok">Ollama is running</span></code></pre></div>
+      <p class="note">Your version number may be newer. If <code>curl</code> can't connect, start <b>Ollama</b> from the Start menu and try again.</p>
+    </div>
+  </div>
+</section>
+
+<section id="models">
+  <div class="section-head">
+    <p class="eyebrow">Setup 2</p>
+    <h2>Download the models</h2>
+  </div>
+  <div class="stack">
+    <p>This demo uses two models. Both are free and run on a normal laptop.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Model</th><th>Job</th><th>Size</th><th>Used in</th></tr></thead>
+      <tbody>
+        <tr><td><code>llama3.2</code></td><td>Chat model. Reads the prompt and writes the answer.</td><td class="num">2.0 GB</td><td>Steps 1 to 4, 9, 11 and 12</td></tr>
+        <tr><td><code>nomic-embed-text</code></td><td>Embedding model. Turns text into a list of 768 numbers that capture its meaning.</td><td class="num">274 MB</td><td>Steps 7 to 12</td></tr>
+      </tbody>
+    </table></div>
+    <div class="term"><div class="term-bar"><span>Command Prompt</span></div>
+<pre><code><span class="p">&gt; </span>ollama pull llama3.2
+<span class="p">&gt; </span>ollama pull nomic-embed-text</code></pre></div>
+    <div class="verify">
+      <span class="verify-label">&#10003; Verify</span>
+      <p>Both models should be listed, and the chat model should reply:</p>
+      <div class="term"><div class="term-bar"><span>Command Prompt</span><span>expected output</span></div>
+<pre><code><span class="p">&gt; </span>ollama list
+<span class="o">NAME                       ID              SIZE      MODIFIED</span>
+<span class="o">llama3.2:latest            a80c4f17acd5    2.0 GB    ...</span>
+<span class="o">nomic-embed-text:latest    0a109f422b47    274 MB    ...</span>
+
+<span class="p">&gt; </span>ollama run llama3.2 "Say hello in five words"
+<span class="ok">Hello, nice to meet you!</span></code></pre></div>
+      <p class="note">The reply wording will differ each time. Models are stored in <code>C:\Users\&lt;you&gt;\.ollama\models</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="python">
+  <div class="section-head">
+    <p class="eyebrow">Setup 3</p>
+    <h2>Install uv</h2>
+  </div>
+  <div class="stack">
+    <p><strong>uv</strong> is a tool that creates Python projects, installs the right Python version and installs the packages a project needs. You don't need to install Python yourself.</p>
+    <div class="term"><div class="term-bar"><span>Command Prompt</span></div>
+<pre><code><span class="p">&gt; </span>winget install --id=astral-sh.uv -e</code></pre></div>
+    <p class="or">Or, in PowerShell:</p>
+    <div class="term"><div class="term-bar"><span>PowerShell</span></div>
+<pre><code><span class="p">PS&gt; </span>powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"</code></pre></div>
+    <div class="verify">
+      <span class="verify-label">&#10003; Verify</span>
+      <p>Open a <strong>new</strong> Command Prompt, then run:</p>
+      <div class="term"><div class="term-bar"><span>Command Prompt</span><span>expected output</span></div>
+<pre><code><span class="p">&gt; </span>uv --version
+<span class="o">uv 0.9.18 ...</span></code></pre></div>
+    </div>
+  </div>
+</section>
+
+<section id="project">
+  <div class="section-head">
+    <p class="eyebrow">Setup 4</p>
+    <h2>Create the project</h2>
+  </div>
+  <div class="stack">
+    <p class="note"><b>Already have the rag-step-by-step folder</b> with <code>pyproject.toml</code> and <code>uv.lock</code> in it? Skip to the end of this section: go into the folder and run <code>uv sync</code>. It installs the exact same package versions.</p>
+
+    <h3>a. Make an empty folder</h3>
+    <div class="term"><div class="term-bar"><span>Command Prompt</span></div>
+<pre><code><span class="p">&gt; </span>cd %USERPROFILE%\Documents
+<span class="p">&gt; </span>mkdir rag-step-by-step
+<span class="p">&gt; </span>cd rag-step-by-step</code></pre></div>
+
+    <h3>b. Turn it into a Python project</h3>
+    <div class="term"><div class="term-bar"><span>Command Prompt</span><span>expected output</span></div>
+<pre><code><span class="p">&gt; </span>uv init --python 3.13
+<span class="ok">Initialized project `rag-step-by-step`</span></code></pre></div>
+    <p><strong>Why <code>uv init</code>?</strong> An empty folder is just a folder. <code>uv init</code> creates <code>pyproject.toml</code>, the file that says which Python version and which packages this project needs. Every later uv command (<code>uv add</code>, <code>uv sync</code>, <code>uv run</code>) reads that file, so it has to exist first. <code>--python 3.13</code> makes sure everyone uses the same Python version.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>uv init creates</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>pyproject.toml</code></td><td>The project's settings: name, Python version, packages.</td></tr>
+        <tr><td><code>.python-version</code></td><td>The Python version to use (3.13).</td></tr>
+        <tr><td><code>README.md</code></td><td>An empty readme.</td></tr>
+        <tr><td><code>main.py</code></td><td>A "Hello" example. You can delete it; the step files replace it.</td></tr>
+        <tr><td><code>.gitignore</code>, <code>.git</code></td><td>A new git repository, unless the folder is already inside one.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>c. Add the packages</h3>
+    <div class="term"><div class="term-bar"><span>Command Prompt</span></div>
+<pre><code><span class="p">&gt; </span>uv add ollama langchain-ollama numpy</code></pre></div>
+    <p>This writes the three packages into <code>pyproject.toml</code>, records the exact versions in <code>uv.lock</code>, downloads Python 3.13 if needed and installs everything into a <code>.venv</code> folder.</p>
+
+    <h3>d. Add the documents</h3>
+    <p>Make a <code>docs</code> folder and put the three documents the app answers questions from in it. Each one covers a single topic.</p>
+    <div class="term"><div class="term-bar"><span>Command Prompt</span></div>
+<pre><code><span class="p">&gt; </span>mkdir docs</code></pre></div>
+    <p>The main files in your folder now. There's no Python code of your own yet: you'll build it one file at a time in the steps below.</p>
+<pre><code>rag-step-by-step/
+├── docs/
+│   ├── handbook.md          <span class="c">the library handbook</span>
+│   ├── recycling.md         <span class="c">the recycling and waste guide</span>
+│   └── swimming_pool.md     <span class="c">the community pool guide</span>
+├── main.py                  <span class="c">made by uv init; you can delete it</span>
+├── pyproject.toml           <span class="c">made by uv init, filled by uv add</span>
+├── uv.lock                  <span class="c">made by uv add</span>
+└── .venv/                   <span class="c">made by uv add, holds Python and the packages</span></code></pre>
+
+    <div class="verify">
+      <span class="verify-label">&#10003; Verify</span>
+      <p>From inside the folder, this one line checks Python, the packages, Ollama and the embedding model together. It should print <code>768</code>:</p>
+      <div class="term"><div class="term-bar"><span>Command Prompt</span><span>expected output</span></div>
+<pre><code><span class="p">&gt; </span>uv run python -c "import ollama; print(len(ollama.embed(model='nomic-embed-text', input='hello').embeddings[0]))"
+<span class="ok">768</span></code></pre></div>
+    </div>
+  </div>
+</section>
+
+<section id="components">
+  <div class="section-head">
+    <p class="eyebrow">Setup 5</p>
+    <h2>What we use</h2>
+  </div>
+  <div class="stack">
+    <p>Everything the step files rely on, and where each piece is used.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Component</th><th>What it does here</th><th>Used in</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="3">Programs</td></tr>
+        <tr><td><strong>Ollama</strong></td><td>Runs both models on your laptop and answers requests on port 11434.</td><td>All steps</td></tr>
+        <tr><td><strong>uv</strong></td><td>Installs Python 3.13 and the packages, and runs the files.</td><td>Setup, running</td></tr>
+        <tr class="group"><td colspan="3">Models</td></tr>
+        <tr><td><code>llama3.2</code></td><td>Writes the answers.</td><td>Steps 1 to 4, 9, 11 and 12</td></tr>
+        <tr><td><code>nomic-embed-text</code></td><td>Turns text into vectors so we can compare meaning.</td><td>Steps 7 to 12</td></tr>
+        <tr class="group"><td colspan="3">Python packages (installed by uv add or uv sync)</td></tr>
+        <tr><td><code>ollama</code></td><td>Ollama's own Python client. <code>langchain-ollama</code> uses it underneath.</td><td>Through <code>langchain-ollama</code></td></tr>
+        <tr><td><code>langchain-ollama</code></td><td>LangChain's wrappers for Ollama models. Brings <code>langchain-core</code> with it, whose <code>Document</code> steps 6 to 12 use, and whose <code>InMemoryVectorStore</code> steps 11 and 12 use.</td><td>Steps 1 to 4, 7 to 12</td></tr>
+        <tr><td><code>langchain-openai</code></td><td>LangChain's wrapper for OpenAI chat models. Needs an OpenAI API key.</td><td>Step 10</td></tr>
+        <tr><td><code>numpy</code></td><td>The vector math that finds the closest chunks.</td><td>Steps 7 to 10</td></tr>
+        <tr class="group"><td colspan="3">Built into Python (nothing to install)</td></tr>
+        <tr><td><code>pathlib</code>, <code>json</code>, <code>datetime</code></td><td>Reading the docs folder, saving results, timestamping result files.</td><td>Every step that reads the docs; step 12 for results</td></tr>
+      </tbody>
+    </table></div>
+    <p class="next">Setup done. Next: <a href="#rag">What is RAG &rarr;</a></p>
+  </div>
+</section>
+
+<!-- ============ LEARN ============ -->
+
+<section id="rag">
+  <div class="section-head">
+    <p class="eyebrow">Learn</p>
+    <h2>What is RAG?</h2>
+  </div>
+  <p>RAG (retrieval augmented generation) lets a model answer from your own documents. You load the documents, split them into chunks, embed them, retrieve the chunks that match the question, give those to the LLM, and get the answer.</p>
+
+  <ol class="pipeline">
+    <li class="stage"><span class="dot">1</span><strong>Load</strong><span class="desc">Read the documents.</span></li>
+    <li class="stage"><span class="dot">2</span><strong>Chunk</strong><span class="desc">Split them into small pieces.</span></li>
+    <li class="stage"><span class="dot">3</span><strong>Embed</strong><span class="desc">Turn each piece into numbers that capture its meaning.</span></li>
+    <li class="stage"><span class="dot">4</span><strong>Retrieve</strong><span class="desc">Find the pieces closest in meaning to the question.</span></li>
+    <li class="stage llm"><span class="dot">5</span><strong>LLM</strong><span class="desc">Send the question and those pieces to the model.</span></li>
+    <li class="stage"><span class="dot">6</span><strong>Answer</strong><span class="desc">The model answers from those pieces.</span></li>
+  </ol>
+
+  <div class="trace" aria-label="One question through the pipeline">
+    <span class="trace-title">One question from the library handbook</span>
+    <div class="trace-row"><span class="k">question</span><span class="v">Can I drink water in a reading room?</span></div>
+    <div class="trace-row"><span class="k">retrieved</span><span class="v found">Food and drinks are not allowed in the reading rooms, except for water in closed bottles.</span></div>
+    <div class="trace-row"><span class="k">answer</span><span class="v answer">Yes, if the water is in a closed bottle.</span></div>
+  </div>
+</section>
+
+<section id="path">
+  <div class="section-head">
+    <p class="eyebrow">Build on it</p>
+    <h2>The twelve steps</h2>
+    <p>Build and run one file at a time, in number order. Each file adds one idea to the last.</p>
+  </div>
+  <ol class="path">
+    <li><a href="#step1"><span class="step">Step 1</span><strong>Ask the LLM</strong><span class="desc">Send a question, get a response.</span></a></li>
+    <li><a href="#step2"><span class="step">Step 2</span><strong>Add a prompt</strong><span class="desc">Tell the model how to answer.</span></a></li>
+    <li><a href="#step3"><span class="step">Step 3</span><strong>Hard-coded context</strong><span class="desc">Give the model facts to answer from.</span></a></li>
+    <li><a href="#step4"><span class="step">Step 4</span><strong>Full context</strong><span class="desc">Read every document from files. No RAG yet.</span></a></li>
+    <li><a href="#step5"><span class="step">Step 5</span><strong>Chunk the documents</strong><span class="desc">Cut the documents into small pieces.</span></a></li>
+    <li><a href="#step6"><span class="step">Step 6</span><strong>Add metadata</strong><span class="desc">Label each chunk with where it came from.</span></a></li>
+    <li><a href="#step7"><span class="step">Step 7</span><strong>Embed the chunks</strong><span class="desc">Turn each chunk into a vector of numbers.</span></a></li>
+    <li><a href="#step8"><span class="step">Step 8</span><strong>Search by meaning</strong><span class="desc">Find the closest chunk to a question. No LLM.</span></a></li>
+    <li><a href="#step9"><span class="step">Step 9</span><strong>Search and answer</strong><span class="desc">Send the closest chunk to the LLM.</span></a></li>
+    <li><a href="#step10"><span class="step">Step 10</span><strong>Answer with OpenAI</strong><span class="desc">Step 9 with an OpenAI model writing the answer.</span></a></li>
+    <li><a href="#step11"><span class="step">Step 11</span><strong>Vector store</strong><span class="desc">Store, filter and save the vectors.</span></a></li>
+    <li><a href="#step12"><span class="step">Step 12</span><strong>Evaluation</strong><span class="desc">Check the answers against expected ones.</span></a></li>
+  </ol>
+</section>
+
+<!-- ============ STEPS ============ -->
+
+<section id="step1">
+  <div class="section-head">
+    <p class="eyebrow">Step 1</p>
+    <h2>Ask the LLM</h2>
+    <span class="file">01_ask_llm.py</span>
+  </div>
+  <div class="stack">
+    <p>The starting point: send a question to the model through LangChain and print what it sends back. No documents yet.</p>
+<pre><code>from langchain_ollama import OllamaLLM
+
+llm = OllamaLLM(model=CHAT_MODEL, base_url=OLLAMA)
+
+<span class="c"># Defined once, outside the question loop</span>
+def ask_generate(prompt):
+    return llm.invoke(prompt)  <span class="c"># returns the answer text directly</span>
+
+<span class="c"># Inside the loop, for each question</span>
+answer = ask_generate(question)</code></pre>
+    <p>Ask it anything. It answers from what it learned in training.</p>
+    <div class="term"><div class="term-bar"><span>Run step 1</span></div>
+<pre><code><span class="p">&gt; </span>uv run 01_ask_llm.py</code></pre></div>
+    <p class="next">Next: <a href="#step2">Step 2, Add a prompt &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step2">
+  <div class="section-head">
+    <p class="eyebrow">Step 2</p>
+    <h2>Add a prompt</h2>
+    <span class="file">02_add_prompt.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 1 sent the question on its own. This step puts it inside a <strong>prompt</strong>: instructions that tell the model how to answer, with the question at the end.</p>
+<pre><code><span class="c"># Written once at the top, under the settings</span>
+instructions = """Answer the question in two sentences or fewer, in plain language.
+If you are not sure of the answer, say "I don't know"."""
+
+<span class="c"># Defined once, outside the question loop</span>
+def ask_generate(prompt):
+    return llm.invoke(prompt)
+
+def build_prompt(question):
+    return f"""{instructions}
+
+Question: {question}"""
+
+<span class="c"># Inside the loop, for each question</span>
+prompt = build_prompt(question)
+answer = ask_generate(prompt)</code></pre>
+    <p>The prompt and the model call each live in their own function, outside the loop, so anything else in the program can reuse them. The later steps use the same idea for every stage, such as <code>search()</code> and <code>build_prompt()</code>.</p>
+    <p>Ask the same question as in step 1 and compare. The answer should now be short and plain. The program prints the full prompt first, so you can see exactly what the model receives.</p>
+    <div class="term"><div class="term-bar"><span>Run step 2</span></div>
+<pre><code><span class="p">&gt; </span>uv run 02_add_prompt.py</code></pre></div>
+    <p class="next">Next: <a href="#step3">Step 3, Hard-coded context &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step3">
+  <div class="section-head">
+    <p class="eyebrow">Step 3</p>
+    <h2>Hard-coded context</h2>
+    <span class="file">03_hardcoded_context.py</span>
+  </div>
+  <div class="stack">
+    <p>The model has never seen our library handbook, so on its own it can only guess about it. This step gives it some facts to answer from: two paragraphs of the handbook, typed straight into the code as <code>context</code>.</p>
+<pre><code>context = """The library is open from 9am to 8pm Monday through Thursday ...
+
+Food and drinks are not allowed in the reading rooms, except for water in closed bottles. ..."""</code></pre>
+    <p>What's new compared with step 2: the <code>instructions</code> change to two rules about the context, and <code>build_prompt()</code> adds the context between the instructions and the question.</p>
+<pre><code><span class="c"># Written once at the top, under the settings</span>
+instructions = """Answer the question using ONLY the context below.
+If the answer isn't in the context, say "I don't know"."""
+
+<span class="c"># Defined once, outside the question loop.</span>
+<span class="c"># The parts are joined with a blank line between them.</span>
+def build_prompt(context, question):
+    return "\n\n".join([instructions, f"Context:\n{context}", f"Question: {question}"])
+
+<span class="c"># Inside the loop, for each question</span>
+prompt = build_prompt(context, question)
+answer = ask_generate(prompt)</code></pre>
+    <p>The rules keep the model to the context. Without them it would mix in what it learned in training, or make an answer up.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Try asking</th><th>Expected answer</th></tr></thead>
+      <tbody>
+        <tr><td>Can I drink water in a reading room?</td><td>Yes, if the water is in a closed bottle.</td></tr>
+        <tr><td>Is the library open on Sunday?</td><td>No, it is closed on Sundays.</td></tr>
+        <tr><td>Can a 15-year-old borrow a laptop?</td><td>I don't know. Laptops aren't in this context.</td></tr>
+      </tbody>
+    </table></div>
+    <p>The last question shows the "I don't know" rule working. The model only has two paragraphs, so the honest answer is that it doesn't know.</p>
+    <div class="term"><div class="term-bar"><span>Run step 3</span></div>
+<pre><code><span class="p">&gt; </span>uv run 03_hardcoded_context.py</code></pre></div>
+    <p class="next">Next: <a href="#step4">Step 4, Full context &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step4">
+  <div class="section-head">
+    <p class="eyebrow">Step 4</p>
+    <h2>Full context</h2>
+    <span class="file">04_full_context.py</span>
+  </div>
+  <div class="stack">
+    <p>Typing the context into the code doesn't scale. This step reads it from files instead: every Markdown file in <code>docs</code>, joined into one <code>context</code>. <code>build_prompt()</code> and the question loop are the same as step 3. No RAG yet.</p>
+<pre><code><span class="c"># Read the entire contents of every Markdown file</span>
+documents = []
+for file in Path("docs").glob("*.md"):
+    text = file.read_text(encoding="utf-8")
+    if text.strip():
+        documents.append(text)
+
+<span class="c"># Combine all document contents into one context</span>
+context = "\n\n".join(documents)</code></pre>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Try asking</th><th>Expected answer</th></tr></thead>
+      <tbody>
+        <tr><td>Can I drink water in a reading room?</td><td>Yes, if the water is in a closed bottle.</td></tr>
+        <tr><td>Can a 15-year-old borrow a laptop?</td><td>No. Laptop borrowers must be members aged 18 or older.</td></tr>
+        <tr><td>When is the pool closed for cleaning?</td><td>Every Wednesday from 1pm to 3pm.</td></tr>
+        <tr><td>Is it open on Sundays?</td><td>It depends which place you mean: the library is closed on Sundays, and the pool is open from 8am to 6pm.</td></tr>
+      </tbody>
+    </table></div>
+    <p>The laptop question got "I don't know" in step 3. Now all three documents are in the context, so the model can answer it. The Sunday question shows a new problem: with several documents, a vague question can match more than one of them. Before each answer the program prints the full prompt, documents included, so you can see everything that was sent.</p>
+    <div class="pros-cons">
+      <div class="pc good"><b>Good</b>The simplest version. Nothing can be missed. Works well while the documents are small, like our three short guides.</div>
+      <div class="pc bad"><b>Problem</b>The prompt grows with every document, so it gets slower, costs more and answers get worse as the useful sentence gets buried. Every model can also read only so much text at once (its context window); past that, text gets cut off.</div>
+    </div>
+    <p>The notes at the bottom of the file list what people try next:</p>
+    <ul class="clean">
+      <li><strong>Keyword search:</strong> needs the exact words, so "change credentials" misses "change password".</li>
+      <li><strong>Vectors in a regular database:</strong> matches meaning, but compares every row without an index.</li>
+      <li><strong>Vector database and RAG:</strong> finds the closest chunks fast and sends only those.</li>
+    </ul>
+    <div class="term"><div class="term-bar"><span>Run step 4</span></div>
+<pre><code><span class="p">&gt; </span>uv run 04_full_context.py</code></pre></div>
+    <p class="next">Next: <a href="#step5">Step 5, Chunk the documents &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step5">
+  <div class="section-head">
+    <p class="eyebrow">Step 5</p>
+    <h2>Chunk the documents</h2>
+    <span class="file">05_chunk_documents.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 4 sends every document with every question. To send only the useful parts, first cut the documents into small pieces, called <strong>chunks</strong>. This step splits each document wherever there is a blank line, so each chunk is one section with its heading.</p>
+<pre><code><span class="c"># Split each document into chunks wherever there is a blank line</span>
+chunks = []
+
+for document in documents:
+    for paragraph in document.split("\n\n"):
+        if paragraph.strip():
+            chunks.append(paragraph.strip())</code></pre>
+    <p>It prints every chunk and how many there are, then exits. There are no questions and no model in this step.</p>
+    <p>This works because each section in our documents is one short paragraph. Smarter splitting comes later, in roadmap item 4.</p>
+    <div class="term"><div class="term-bar"><span>Run step 5</span></div>
+<pre><code><span class="p">&gt; </span>uv run 05_chunk_documents.py</code></pre></div>
+    <p class="next">Next: <a href="#step6">Step 6, Add metadata &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step6">
+  <div class="section-head">
+    <p class="eyebrow">Step 6</p>
+    <h2>Add metadata</h2>
+    <span class="file">06_add_metadata.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 5's chunks are bare text: once a chunk is picked, nothing says where it came from. This step gives every chunk <strong>labels</strong>, called metadata, using LangChain's <code>Document</code>: the text goes in <code>page_content</code>, the labels in <code>metadata</code>.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Label</th><th>Example</th><th>Where it comes from</th><th>Used later for</th></tr></thead>
+      <tbody>
+        <tr><td><code>source</code></td><td>swimming_pool.md</td><td>The file name</td><td>Showing where an answer came from, updating a file's chunks</td></tr>
+        <tr><td><code>title</code></td><td>Mapleford Community Pool Guide</td><td>The document's <code>#</code> heading</td><td>A readable source name; telling the library from the pool</td></tr>
+        <tr><td><code>section</code></td><td>Opening hours</td><td>The chunk's <code>##</code> heading</td><td>Readable citations, such as "Pool Guide, Opening hours"</td></tr>
+        <tr><td><code>chunk_id</code></td><td>swimming_pool.md#1</td><td>File name plus position in the file</td><td>Pointing at exactly one chunk in citations and logs</td></tr>
+        <tr><td><code>owner</code></td><td>Pool team</td><td>A small table in the settings</td><td>Knowing who to ask when a document is wrong</td></tr>
+        <tr><td><code>access</code></td><td>everyone</td><td>The settings: open to everyone for now</td><td>Showing each user only the documents they may see</td></tr>
+      </tbody>
+    </table></div>
+<pre><code><span class="c"># Document comes from LangChain: the text (page_content) with its labels (metadata)</span>
+chunks.append(Document(
+    page_content=paragraph,
+    metadata={
+        "source": source,
+        "title": title,
+        "section": section,
+        "chunk_id": f"{source}#{position}",
+        "owner": DOCUMENT_OWNERS.get(source, "unknown"),
+        "access": ACCESS,
+    },
+))</code></pre>
+    <p>The heading stays in the text too, because the text is what gets searched and read. The labels are for the app. A paragraph without its own heading keeps the last heading as its <code>section</code>, so it never loses its context.</p>
+    <div class="term"><div class="term-bar"><span>Run step 6</span></div>
+<pre><code><span class="p">&gt; </span>uv run 06_add_metadata.py</code></pre></div>
+    <p class="next">Next: <a href="#step7">Step 7, Embed the chunks &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step7">
+  <div class="section-head">
+    <p class="eyebrow">Step 7</p>
+    <h2>Embed the chunks</h2>
+    <span class="file">07_embed_chunks.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 6 plus one stage: <strong>Embed</strong>. The embedding model reads each chunk and returns a <strong>vector</strong>, a list of 768 numbers that captures what the chunk means. Chunks with similar meaning get similar numbers.</p>
+<pre><code>embedding_model = OllamaEmbeddings(model=EMBED_MODEL, base_url=OLLAMA)
+
+<span class="c"># One call turns every chunk's text into a vector</span>
+vectors = embedding_model.embed_documents([chunk.page_content for chunk in chunks])</code></pre>
+    <p>It prints each chunk's text, then the length of its vector and its first 8 numbers. One number means nothing on its own. Only comparing whole vectors tells you how close two meanings are, which the next steps do.</p>
+    <div class="term"><div class="term-bar"><span>Run step 7</span></div>
+<pre><code><span class="p">&gt; </span>uv run 07_embed_chunks.py</code></pre></div>
+    <p class="next">Next: <a href="#step8">Step 8, Search by meaning &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step8">
+  <div class="section-head">
+    <p class="eyebrow">Step 8</p>
+    <h2>Search by meaning</h2>
+    <span class="file">08_search_by_meaning.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 7 plus a question. The question becomes a vector with the same model, every chunk gets a cosine similarity score against it, and the closest chunk is printed. No LLM yet.</p>
+<pre><code>question_vector = embed_question(question)
+results = search(question_vector, chunks, chunk_vectors)
+print_results(results)</code></pre>
+    <p>"When should I change my password?" shares no word with the handbook's "update credentials", yet the Public computers chunk comes first with a score of 0.55.</p>
+    <div class="term"><div class="term-bar"><span>Run step 8</span></div>
+<pre><code><span class="p">&gt; </span>uv run 08_search_by_meaning.py</code></pre></div>
+    <p class="next">Next: <a href="#step9">Step 9, Search and answer &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step9">
+  <div class="section-head">
+    <p class="eyebrow">Step 9</p>
+    <h2>Search and answer</h2>
+    <span class="file">09_search_and_answer.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 8 plus the LLM. Search finds the closest chunk, and step 4's prompt sends it with the question to the model, which writes the answer. <code>TOP_K = 1</code> sends only the closest chunk.</p>
+<pre><code>found = search(question_vector, chunks, chunk_vectors)   <span class="c"># closest TOP_K chunks</span>
+prompt = build_prompt(found, question)
+answer = ask_generate(prompt)</code></pre>
+    <p>"How much does a single swim cost for a 12-year-old?" now gets "$3"; with all documents in step 4 it was wrong. One chunk is not always enough: "How much is a monthly pool pass, and when is the pool open on weekends?" needs two chunks, so <code>TOP_K = 1</code> answers half of it at best.</p>
+    <div class="term"><div class="term-bar"><span>Run step 9</span></div>
+<pre><code><span class="p">&gt; </span>uv run 09_search_and_answer.py</code></pre></div>
+    <p class="next">Next: <a href="#step10">Step 10, Search and answer with OpenAI &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step10">
+  <div class="section-head">
+    <p class="eyebrow">Step 10</p>
+    <h2>Search and answer with OpenAI</h2>
+    <span class="file">10_search_and_answer_openai.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 9 with one change: an OpenAI model writes the answer instead of llama3.2. Search still runs on your laptop; only the prompt goes to OpenAI. This is the one step that needs an API key and costs money per question.</p>
+<pre><code>llm = ChatOpenAI(model=CHAT_MODEL)
+
+def ask_generate(prompt):
+    return llm.invoke(prompt).content</code></pre>
+    <p>Paste your key into <code>OPENAI_API_KEY = ""</code> in the file's settings first. Remove it again before you commit, push or share the file.</p>
+    <div class="term"><div class="term-bar"><span>Run step 10</span></div>
+<pre><code><span class="p">&gt; </span>uv run 10_search_and_answer_openai.py</code></pre></div>
+    <p class="next">Next: <a href="#step11">Step 11, Vector store &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step11">
+  <div class="section-head">
+    <p class="eyebrow">Step 11</p>
+    <h2>Vector store</h2>
+    <span class="file">11_vector_store.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 9 with LangChain's <code>InMemoryVectorStore</code>. The store keeps each chunk's vector, text, labels and ID, does the cosine search, filters on labels, and saves everything to <code>vector_store.json</code>.</p>
+<pre><code>vector_store.add_documents(chunks, ids=[chunk.metadata["chunk_id"] for chunk in chunks])
+vector_store.dump("vector_store.json")
+
+found = vector_store.similarity_search_with_score(
+    question, k=TOP_K,
+    filter=lambda chunk: chunk.metadata["access"] == ALLOWED_ACCESS)</code></pre>
+    <p>The answers are the same as step 9. What changes: the next run loads the saved vectors instead of embedding again, and the filter keeps chunks a user may not see out of the search. Delete <code>vector_store.json</code> after editing the docs.</p>
+    <div class="term"><div class="term-bar"><span>Run step 11</span></div>
+<pre><code><span class="p">&gt; </span>uv run 11_vector_store.py</code></pre></div>
+    <p class="next">Next: <a href="#step12">Step 12, Evaluation &rarr;</a></p>
+  </div>
+</section>
+
+<section id="step12">
+  <div class="section-head">
+    <p class="eyebrow">Step 12</p>
+    <h2>Evaluation</h2>
+    <span class="file">12_rag_evaluation.py</span>
+  </div>
+  <div class="stack">
+    <p>Step 11 plus <code>evaluate()</code>, which:</p>
+    <ul class="clean">
+      <li>asks the 10 test questions from the README,</li>
+      <li>checks each answer for its key fact and prints PASS or FAIL next to the expected answer,</li>
+      <li>prints the score and saves everything to <code>results/</code> as a JSON file.</li>
+    </ul>
+    <p>Measured here: <code>TOP_K = 1</code> passed 4 of 10 and <code>TOP_K = 3</code> passed 9 of 10. One of those passes was wrong, because the check looks at words, not meaning, so read the answers too.</p>
+    <p><strong>When to run it:</strong> once now as a baseline, then again after each change to chunking, models, settings, prompt or docs. Compare the two files.</p>
+    <div class="term"><div class="term-bar"><span>Run step 12</span></div>
+<pre><code><span class="p">&gt; </span>uv run 12_rag_evaluation.py</code></pre></div>
+  </div>
+</section>
+
+<!-- ============ PRODUCTION ============ -->
+
+<section id="errors">
+  <div class="section-head">
+    <p class="eyebrow">Production</p>
+    <h2>Error handling</h2>
+  </div>
+  <div class="stack">
+    <p>The step files leave out error handling to stay short. Any failure prints a traceback and ends the program, so one failed call loses the whole session. This section lists what can go wrong and what a production app does about it.</p>
+
+    <h3>Step 1: what can go wrong</h3>
+    <span class="file">01_ask_llm.py</span>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Situation</th><th>Error raised</th><th>What happens now</th><th>What to do</th><th>Retry?</th></tr></thead>
+      <tbody>
+        <tr><td>Ollama isn't running</td><td><code>httpx.ConnectError</code></td><td>Traceback, program ends</td><td>At startup, say "Start Ollama" and stop. During a session, show a message and keep the loop going.</td><td><strong>Yes</strong>, mid-session: Ollama may be restarting. A few tries, then give up.</td></tr>
+        <tr><td>Model not pulled, or wrong name</td><td><code>ollama.ResponseError</code>, status 404</td><td>Traceback, program ends</td><td>Check at startup with <code>validate_model_on_init=True</code>. Tell the user to run <code>ollama pull llama3.2</code>.</td><td><strong>No</strong>: it fails the same way every time.</td></tr>
+        <tr><td>Ollama fails while answering, for example the model can't load</td><td><code>ollama.ResponseError</code>, status 500 or above</td><td>Traceback, program ends</td><td>Log the details, show a short message, keep the loop going.</td><td><strong>Yes, once or twice</strong>: server problems can clear. Stop if it keeps failing.</td></tr>
+        <tr><td>The model is slow or hangs</td><td>None by default. With a timeout set: <code>httpx.ReadTimeout</code></td><td>Waits forever</td><td>Set a timeout: <code>OllamaLLM(..., client_kwargs={"timeout": 120})</code>. The first call is slower because the model loads into memory.</td><td><strong>Yes, once</strong>: a cold start may have caused it.</td></tr>
+        <tr><td>User presses Ctrl+C</td><td><code>KeyboardInterrupt</code></td><td>Traceback, program ends</td><td>Catch it around the loop, print "Goodbye" and exit.</td><td><strong>No</strong>: the user wants to stop.</td></tr>
+        <tr><td>Input ends (Ctrl+Z then Enter on Windows)</td><td><code>EOFError</code> from <code>input()</code></td><td>Traceback, program ends</td><td>Same as Ctrl+C.</td><td><strong>No</strong></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>What production apps do</h3>
+    <ol class="clean-num">
+      <li><strong>Check at startup.</strong> Confirm Ollama is reachable and the model exists before taking questions, so setup problems show once, clearly.</li>
+      <li><strong>Catch specific errors around the model call.</strong> Show a clear message, log the details, and keep the loop running.</li>
+      <li><strong>Don't catch everything.</strong> A bare <code>except Exception: pass</code> hides real bugs. Catch the errors you expect and let unexpected ones surface.</li>
+      <li><strong>Retry only what might succeed.</strong> Use the rules below.</li>
+      <li><strong>Set a timeout.</strong> A hung request should end with a message, not freeze the app.</li>
+      <li><strong>Exit cleanly.</strong> Ctrl+C and end of input should end the program without a traceback.</li>
+      <li><strong>In a web app,</strong> also return a proper HTTP error to the browser and log a request ID, so you can find the failure later.</li>
+    </ol>
+
+    <h3>Retry or not?</h3>
+    <div class="pros-cons">
+      <div class="pc good"><b>Retry when both are true</b>The failure is <strong>temporary</strong>: connection refused or dropped, a timeout, status 500 or above, or 429 "too many requests" on hosted APIs. <br><br>Repeating is <strong>safe</strong>: asking a question changes nothing, so sending it twice does no harm.</div>
+      <div class="pc bad"><b>Don't retry when</b>The request itself is the problem: status 400 to 499, such as 404 model not found, 400 bad request, 401 or 403 not allowed. The same request fails the same way.<br><br>Or the call has side effects, such as booking a room or sending an email, unless the service is built to ignore repeats.</div>
+    </div>
+    <p><strong>How to retry:</strong> two or three attempts at most, waiting longer each time (1 second, then 2), then give up with a clear message. In apps with many users, add a small random extra wait so they don't all retry at the same moment.</p>
+    <p>An example for step 1. It was tested here: with Ollama stopped it tried three times and then gave up, and a missing model raised its 404 at once without retrying.</p>
+<pre><code>import time
+from httpx import ConnectError, ReadTimeout
+from ollama import ResponseError
+
+<span class="c"># Check the model exists at startup, and give each call 120 seconds</span>
+llm = OllamaLLM(model=CHAT_MODEL, base_url=OLLAMA,
+                validate_model_on_init=True, client_kwargs={"timeout": 120})
+
+def ask_generate(prompt, attempts=3):
+    for attempt in range(1, attempts + 1):
+        try:
+            return llm.invoke(prompt)
+        except (ConnectError, ReadTimeout) as error:
+            failure = error                    <span class="c"># temporary: worth another try</span>
+        except ResponseError as error:
+            if error.status_code &lt; 500:
+                raise                          <span class="c"># 400 to 499: fails the same way again</span>
+            failure = error                    <span class="c"># 500 and above: may clear</span>
+        if attempt &lt; attempts:
+            time.sleep(2 ** (attempt - 1))     <span class="c"># wait 1 s, then 2 s</span>
+    raise failure
+
+<span class="c"># In the question loop</span>
+try:
+    answer = ask_generate(question)
+except (ConnectError, ReadTimeout):
+    print("Can't reach Ollama right now. Check it's running, then ask again.")
+    continue
+except ResponseError as error:
+    print(f"Ollama returned an error: {error}")
+    continue</code></pre>
+    <p>Wrap the whole <code>while True:</code> loop in <code>try: ... except (KeyboardInterrupt, EOFError): print("Goodbye")</code> to exit cleanly.</p>
+    <p class="next">Next: <a href="#errors-step2">what step 2 adds &rarr;</a></p>
+
+    <h3 id="errors-step2">Step 2: what it adds</h3>
+    <span class="file">02_add_prompt.py</span>
+    <p>Step 2 raises no new errors. Everything in the step 1 table still applies. What it adds are two <strong>silent</strong> failures: nothing is raised, but the answer is wrong.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Situation</th><th>What happens</th><th>What to do</th><th>Retry?</th></tr></thead>
+      <tbody>
+        <tr><td>A very long question pushes the prompt past the context window</td><td>No error. Ollama keeps the first few tokens, drops the rest of the beginning and only logs a warning in its server log. In step 2 the instructions are at the beginning, so they are lost first and the model ignores them. Tested here: a 6,043-token prompt was cut to 4,096 and the instruction at the top was not followed.</td><td>Limit the question's length before sending it and tell the user when it's too long. Keep the instructions short, or raise the context window.</td><td><strong>No</strong>: the same input is cut the same way every time.</td></tr>
+        <tr><td>The model doesn't follow an instruction, for example it answers in five sentences or guesses instead of saying "I don't know"</td><td>No error. The wrong format reaches the user.</td><td>Check the answer in code where you can, for example count the sentences. Improve the instruction and measure it with step 12.</td><td><strong>Once</strong>, and only if randomness is on (temperature above 0). With temperature 0 and a fixed seed, a retry usually returns the same answer, so fix the prompt instead.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ REFERENCE ============ -->
+
+<section id="run">
+  <div class="section-head">
+    <p class="eyebrow">Reference</p>
+    <h2>Run the steps</h2>
+  </div>
+  <div class="stack">
+    <p>With Ollama running, from the <code>rag-step-by-step</code> folder:</p>
+    <div class="term"><div class="term-bar"><span>Step 1</span></div>
+<pre><code><span class="p">&gt; </span>uv run 01_ask_llm.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 2</span></div>
+<pre><code><span class="p">&gt; </span>uv run 02_add_prompt.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 3</span></div>
+<pre><code><span class="p">&gt; </span>uv run 03_hardcoded_context.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 4</span></div>
+<pre><code><span class="p">&gt; </span>uv run 04_full_context.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 5</span></div>
+<pre><code><span class="p">&gt; </span>uv run 05_chunk_documents.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 6</span></div>
+<pre><code><span class="p">&gt; </span>uv run 06_add_metadata.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 7</span></div>
+<pre><code><span class="p">&gt; </span>uv run 07_embed_chunks.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 8</span></div>
+<pre><code><span class="p">&gt; </span>uv run 08_search_by_meaning.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 9</span></div>
+<pre><code><span class="p">&gt; </span>uv run 09_search_and_answer.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 10</span></div>
+<pre><code><span class="p">&gt; </span>uv run 10_search_and_answer_openai.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 11</span></div>
+<pre><code><span class="p">&gt; </span>uv run 11_vector_store.py</code></pre></div>
+    <div class="term"><div class="term-bar"><span>Step 12</span></div>
+<pre><code><span class="p">&gt; </span>uv run 12_rag_evaluation.py</code></pre></div>
+    <p>Steps 1 to 4 and 8 to 11 ask for questions; type <code>exit</code> to stop. Steps 5 and 6 print the chunks, step 7 prints each chunk with its vector, and step 12 runs the test questions on its own. Step 10 needs your key pasted into its settings first.</p>
+  </div>
+</section>
+
+<!-- ============ NEXT ============ -->
+
+<section id="roadmap">
+  <div class="section-head">
+    <p class="eyebrow">Next</p>
+    <h2>Roadmap</h2>
+    <p>The twelve steps give you a working RAG app. These improvements take it toward a production app, one at a time.</p>
+  </div>
+  <div class="stack">
+    <div class="pros-cons">
+      <div class="pc good"><b>One change at a time</b>Run <code>12_rag_evaluation.py</code> before and after each improvement, and compare the two result files.</div>
+      <div class="pc good"><b>Add the proof</b>Each improvement adds the questions that show it working to the evaluation set. Step 12's word check can pass a wrong answer, so read the answers too, or add a second LLM that judges each answer against the expected one.</div>
+    </div>
+    <div class="phase">
+      <p class="phase-name">See what it's doing</p>
+      <ul class="rm">
+        <li class="rm-item"><span class="rm-num">1</span><div class="rm-body">
+          <h3>Sources with every answer</h3>
+          <p>Steps 8 to 11 already print each found chunk's score, chunk ID and section. What's left: put each chunk's title and section into the prompt, and show them under the answer, such as "Source: Mapleford Community Pool Guide &gt; Entry fees".</p>
+          <p class="done"><b>Done when</b>every answer shows which guide and section it came from.</p>
+        </div></li>
+      </ul>
+    </div>
+    <div class="phase">
+      <p class="phase-name">Trustworthy answers</p>
+      <ul class="rm">
+        <li class="rm-item"><span class="rm-num">2</span><div class="rm-body">
+          <h3>Controlled answer generation</h3>
+          <p>Lower the temperature, fix the seed and set the context window size yourself. On this laptop Ollama gave <code>llama3.2</code> a 4,096-token window, though the model supports 131,072. Then, as a separate change, move the rules into a system message and improve them.</p>
+          <p class="done"><b>Done when</b>a question with a rule and an exception, such as water in a reading room, gets the same correct answer across repeated runs, while missing facts still get "I don't know".</p>
+        </div></li>
+        <li class="rm-item"><span class="rm-num">3</span><div class="rm-body">
+          <h3>Answers with citations</h3>
+          <p>Label each retrieved passage, like [1] and [2], and ask the model to cite the labels it used. Check in code that every cited label was actually sent.</p>
+          <p class="done"><b>Done when</b>citations point to retrieved passages that support the answer.</p>
+        </div></li>
+      </ul>
+    </div>
+    <div class="phase">
+      <p class="phase-name">Find better context</p>
+      <ul class="rm">
+        <li class="rm-item"><span class="rm-num">4</span><div class="rm-body">
+          <h3>Better Markdown chunking</h3>
+          <p>Group text by headings, and split sections that are too long.</p>
+          <p class="done"><b>Done when</b>headings, rules and their exceptions stay together in useful chunks. In our documents every section is one paragraph, so the gain shows on longer documents.</p>
+        </div></li>
+        <li class="rm-item"><span class="rm-num">5</span><div class="rm-body">
+          <h3>Keyword search</h3>
+          <p>Build a keyword retriever over the same chunks. It's the baseline for improvements 6 and 9.</p>
+          <p class="done"><b>Done when</b>exact-word questions such as "laptop" or "batteries" find the right chunk, and you can see where it fails, such as "change my password" when the text says "update credentials".</p>
+        </div></li>
+        <li class="rm-item"><span class="rm-num">6</span><div class="rm-body">
+          <h3>Better context selection</h3>
+          <p>Step 12 already compared <code>TOP_K = 1</code> and <code>3</code>: 4 and 9 of 10 passed. Next, try 5, drop chunks scoring far below the best one, and keep the prompt inside the context window. Compare full context, keyword and vector search on the same questions.</p>
+          <p class="done"><b>Done when</b>the selected context holds the evidence with fewer irrelevant passages, and a question with no good match gets "I don't know" without calling the model.</p>
+        </div></li>
+      </ul>
+    </div>
+    <div class="phase">
+      <p class="phase-name">Make it easier to grow</p>
+      <ul class="rm">
+        <li class="rm-item"><span class="rm-num">7</span><div class="rm-body">
+          <h3>A real vector database</h3>
+          <p>Step 11's <code>InMemoryVectorStore</code> still compares the question with every chunk and saves to one JSON file. Move to a database such as Qdrant or Chroma, saved to a local folder, with an HNSW index that checks only part of the chunks. Set its distance to cosine.</p>
+          <p class="done"><b>Done when</b>step 12 gives the same score as with step 11, and the store survives restarts without the JSON file.</p>
+        </div></li>
+        <li class="rm-item"><span class="rm-num">8</span><div class="rm-body">
+          <h3>Document updates</h3>
+          <p>Step 11 saves the vectors, but it doesn't notice when a document changes: today you delete <code>vector_store.json</code> by hand. Detect changed, added and deleted files, and replace only their chunks by <code>chunk_id</code>.</p>
+          <p class="done"><b>Done when</b>editing one document re-embeds only that document's chunks, and searches reflect the change.</p>
+        </div></li>
+      </ul>
+    </div>
+    <div class="phase">
+      <p class="phase-name">Advanced retrieval</p>
+      <ul class="rm">
+        <li class="rm-item"><span class="rm-num">9</span><div class="rm-body">
+          <h3>Hybrid retrieval</h3>
+          <p>Combine the keyword retriever from improvement 5 with the vector retriever.</p>
+          <p class="done"><b>Done when</b>exact terms and differently worded questions both find the evidence they need.</p>
+        </div></li>
+        <li class="rm-item"><span class="rm-num">10</span><div class="rm-body">
+          <h3>Reranking</h3>
+          <p>Retrieve a larger set of candidates, then score which passages best answer the question.</p>
+          <p class="done"><b>Done when</b>relevant evidence that used to rank too low moves into the final context.</p>
+        </div></li>
+      </ul>
+    </div>
+    <div class="phase">
+      <p class="phase-name">Conversation</p>
+      <ul class="rm">
+        <li class="rm-item"><span class="rm-num">11</span><div class="rm-body">
+          <h3>Follow-up questions and today's date</h3>
+          <p>Use earlier turns to rewrite a follow-up into a standalone question before retrieval, and give the model today's date and time.</p>
+          <p class="done"><b>Done when</b>"What about Sundays?" retrieves the opening hours for the subject being discussed, and "Is the library open now?" is answered from today's date.</p>
+        </div></li>
+      </ul>
+    </div>
+    <div class="phase">
+      <p class="phase-name">Production readiness</p>
+      <ul class="rm">
+        <li class="rm-item"><span class="rm-num">12</span><div class="rm-body">
+          <h3>Error handling</h3>
+          <p>Check Ollama and the model at startup, catch specific errors around every model call, retry only temporary failures, set a timeout, limit question length and exit cleanly. See <a href="#errors">Error handling</a>.</p>
+          <p class="done"><b>Done when</b>stopping Ollama in the middle of a session gives a clear message, the session carries on once Ollama is back, and a missing model is reported at startup.</p>
+        </div></li>
+        <li class="rm-item"><span class="rm-num">13</span><div class="rm-body">
+          <h3>Guardrails and monitoring</h3>
+          <p>Tell the model that documents are reference material, never instructions. Step 11 already filters chunks on step 6's <code>access</code> label; next, give each user their own allowed labels when users may see different documents. Log each question, the retrieved chunks, the prompt version, the answer, the time taken and the tokens used.</p>
+          <p class="done"><b>Done when</b>a document that says "ignore your rules" doesn't change the answers, and any answer can be traced back through the logs.</p>
+        </div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+  // Highlight the index link for the section being read
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll("nav a"));
+    if (!("IntersectionObserver" in window)) return;
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        links.forEach(function (link) {
+          link.setAttribute("aria-current", link.getAttribute("href") === "#" + entry.target.id ? "true" : "false");
+        });
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    document.querySelectorAll("main section").forEach(function (section) { observer.observe(section); });
+  })();
+
+  // Add a Copy button to every command box. It copies the commands only,
+  // without the "> " prompts or the expected output.
+  (function () {
+    function selectCode(code) {
+      var range = document.createRange();
+      range.selectNodeContents(code);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    function copyText(text, done) {
+      function fallback() {
+        var area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (error) { ok = false; }
+        document.body.removeChild(area);
+        done(ok);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+      } else {
+        fallback();
+      }
+    }
+
+    document.querySelectorAll(".term").forEach(function (term) {
+      var code = term.querySelector("pre code");
+      var bar = term.querySelector(".term-bar");
+      if (!code || !bar) return;
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "copy-btn";
+      button.textContent = "Copy";
+      button.setAttribute("aria-label", "Copy the commands in this box");
+
+      button.addEventListener("click", function () {
+        var clone = code.cloneNode(true);
+        clone.querySelectorAll(".p, .o, .ok").forEach(function (element) { element.remove(); });
+        var commands = clone.textContent.split("\n")
+          .map(function (line) { return line.trim(); })
+          .filter(Boolean)
+          .join("\n");
+
+        copyText(commands, function (ok) {
+          if (!ok) selectCode(code);
+          button.textContent = ok ? "Copied" : "Press Ctrl+C";
+          button.classList.toggle("done", ok);
+          setTimeout(function () {
+            button.textContent = "Copy";
+            button.classList.remove("done");
+          }, 1800);
+        });
+      });
+
+      bar.appendChild(button);
+    });
+  })();
+</script>
+</body>
+</html>
