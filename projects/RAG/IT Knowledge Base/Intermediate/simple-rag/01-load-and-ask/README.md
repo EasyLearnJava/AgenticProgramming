@@ -32,23 +32,23 @@ again only when the data changes.
 
 | Question | Should come from |
 | --- | --- |
-| My VPN keeps timing out when I work from home. What should I do? | VPN Connection Timeout |
-| Which ports does the VPN need open? | VPN Connection Timeout (UDP 500 and 4500) |
-| Microsoft Authenticator won't finish setting up MFA on my phone. | MFA Setup Failure (check the phone's time first) |
-| My new laptop is really slow and apps freeze. | Laptop Performance Degradation |
-| I get Access Denied in Salesforce since my role changed. | SaaS Access Permission Denied (allow 30 minutes) |
-| The WiFi in Building C keeps dropping. | WiFi Connectivity Issues Office (SSID CorpWiFi-5G) |
-| Password reset fails with error 0x80070005. | Password Reset Failed |
-| What are the password rules? | Password Reset Failed (12 characters, upper, lower, number, special) |
-| I can't find the HP-Floor3-Color printer after my laptop was reimaged. | Printer Not Found (IP 10.50.3.25) |
-| What is the email attachment size limit? | Email Attachment Size Limit (25 MB external, 50 MB internal) |
-| Our production database times out at peak hours. | Database Connection Timeout |
-| I hear nothing in Teams meetings. | Microsoft Teams Audio Issues |
+| My VPN keeps timing out when I work from home. What should I do? | VPN Timeout |
+| Which ports does the VPN need open? | VPN Timeout (UDP 500 and 4500) |
+| Microsoft Authenticator won't finish setting up MFA on my phone. | MFA Setup (set the phone's time to automatic) |
+| My laptop is really slow. | Slow Laptop |
+| I get Access Denied in Salesforce since my role changed. | Salesforce Access Denied (wait 30 minutes) |
+| Which WiFi network should I use? | Office WiFi (CorpWiFi-5G) |
+| Password reset fails with error 0x80070005. | Password Reset |
+| What are the password rules? | Password Reset (12 characters, upper, lower, number, special) |
+| How do I add the HP-Floor3-Color printer? | Printer Not Found (IP 10.50.3.25) |
+| What is the email attachment size limit? | Email Attachment Limit (25 MB outside, 50 MB inside) |
+| Our production database times out at peak hours. | Database Timeout |
+| I hear nothing in Teams meetings. | Teams Audio |
 | How do I reset my Mac's keyboard? | Nothing: it should say it doesn't know |
 
 ## Good to know
 
 - To change the data, edit `data/it_kb.md` (each `##` heading starts an article) and run `ingest.py` again.
-- `ingest.py` embeds 20 chunks; Gemini's free tier allows 100 embedded texts a minute and 1000 a day.
+- Each article is shorter than 500 characters, so each one is a single chunk: `ingest.py` embeds 10 chunks; Gemini's free tier allows 100 embedded texts a minute and 1000 a day.
 - Only one program can open `qdrant_data/` at a time.
 - `.env` and `qdrant_data/` are in the repo's `.gitignore`.
