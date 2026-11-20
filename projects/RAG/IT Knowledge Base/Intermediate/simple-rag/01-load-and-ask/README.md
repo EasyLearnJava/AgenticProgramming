@@ -2,7 +2,7 @@
 
 The simplest RAG app: one file loads the data, one file answers questions.
 
-- `ingest.py` reads `data/sample_it_kb.csv` (10 IT help desk articles), cuts them into chunks, embeds each chunk with
+- `ingest.py` reads `data/it_kb.md` (10 IT help desk articles, one per `##` heading), cuts them into chunks, embeds each chunk with
   Gemini (`gemini-embedding-001`) and saves the vectors in a local Qdrant folder, `qdrant_data/`.
 - `ask.py` embeds your question, finds the 3 closest chunks and has Gemini (`gemini-3.5-flash-lite`) answer from
   them only, then lists the articles it used.
@@ -48,6 +48,7 @@ again only when the data changes.
 
 ## Good to know
 
-- `ingest.py` embeds 29 chunks; Gemini's free tier allows 100 embedded texts a minute and 1000 a day.
+- To change the data, edit `data/it_kb.md` (each `##` heading starts an article) and run `ingest.py` again.
+- `ingest.py` embeds 20 chunks; Gemini's free tier allows 100 embedded texts a minute and 1000 a day.
 - Only one program can open `qdrant_data/` at a time.
 - `.env` and `qdrant_data/` are in the repo's `.gitignore`.
