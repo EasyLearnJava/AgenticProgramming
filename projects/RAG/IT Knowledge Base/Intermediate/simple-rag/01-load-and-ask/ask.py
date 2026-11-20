@@ -49,3 +49,5 @@ if len(sys.argv) > 1:
 else:
     while question := input("Question (empty line quits): ").strip():
         ask(question)
+
+store.client.close()   # close Qdrant before Python exits, or it complains while shutting down
