@@ -12,11 +12,15 @@ The simplest RAG app: one file loads the data, one file answers questions.
 From this folder, in a command prompt:
 
 ```
-python -m venv .venv
-.venv\Scripts\activate
+python -m venv %USERPROFILE%\venvs\simple-rag
+%USERPROFILE%\venvs\simple-rag\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
 ```
+
+The venv sits in a short folder outside the repo on purpose. This project's folder is deep, and with Windows long
+paths off, a `.venv` here fails to install numpy: `WinError 206: The filename or extension is too long`. In
+PowerShell, activate it with `& "$env:USERPROFILE\venvs\simple-rag\Scripts\Activate.ps1"`.
 
 Put your Gemini API key after `GOOGLE_API_KEY=` in `.env`, then:
 
