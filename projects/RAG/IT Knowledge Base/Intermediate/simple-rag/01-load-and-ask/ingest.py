@@ -4,6 +4,7 @@ Load the IT knowledge base into a vector store: read, chunk, embed, save.
 Usage:
     python ingest.py
 """
+import shutil
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -28,8 +29,13 @@ splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 chunks = splitter.split_documents(articles)
 print(f"Cut them into {len(chunks)} chunks")
 
-# 3. Embed and save: Gemini turns each chunk into a vector, Qdrant saves them in qdrant_data/
+# 3. Start fresh: delete the old vectors. (Qdrant's own force_recreate doesn't on Windows: it can't delete the
+#    open file, ignores the error, and each run adds 10 more vectors to the old ones.)
+if STORE_DIR.exists():
+    shutil.rmtree(STORE_DIR)
+
+# 4. Embed and save: Gemini turns each chunk into a vector, Qdrant saves them in qdrant_data/
 embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
-QdrantVectorStore.from_documents(chunks, embeddings, path=str(STORE_DIR), collection_name=COLLECTION,
-                                 force_recreate=True)   # start fresh on every run
-print(f"Saved {len(chunks)} vectors in {STORE_DIR.name}/. Now run: python ask.py")
+store = QdrantVectorStore.from_documents(chunks, embeddings, path=str(STORE_DIR), collection_name=COLLECTION)
+print(f"Saved {store.client.count(COLLECTION).count} vectors in {STORE_DIR.name}/. Now run: python ask.py")
+store.client.close()
