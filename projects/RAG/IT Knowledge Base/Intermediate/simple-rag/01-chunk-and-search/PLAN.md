@@ -210,7 +210,8 @@ tags, and whether it can be answered.
 
 ### Coverage (checked 2026-11-22)
 
-Questions aimed at each step. Every step has at least 3; "all" means the 37 text questions.
+Questions aimed at each step that the step can actually use. Every step has at least 3; "all" means the 37 text
+questions.
 
 | Step | Questions | Step | Questions | Step | Questions |
 |---|---|---|---|---|---|
@@ -219,10 +220,11 @@ Questions aimed at each step. Every step has at least 3; "all" means the 37 text
 | 05 recursive | 7 | 12 contextual | 3 | 22 decomposition | 3 |
 | 06 token | 4 | 13 proposition | 3 | 23 routing | 3 |
 | 07 sentence | 3 | 14 scorecard | all (37) | 24 corrective | 5 |
-| 08 structure | 3 | 15 hybrid | 6 | 25 self-rag | 3 |
+| 08 structure | 3 | 15 hybrid | 4 (Q32 has no answer, Q38 is an image) | 25 self-rag | 3 |
 | 09 document-type | 9 | 16 reranking | 7 | 26 adaptive | all (37) |
 | 17 metadata | 3 | 18 compression | 7 | 27 agentic | 3 |
 | 19 rewriting | 3 | 28 graph | 3 | 29 multimodal | 6 |
+| 30 final | all (37) | | | | |
 
 Also checked against step 01's knowledge base: every D1 fact the questions rely on appears exactly once; the
 chunks holding the answers to Q05 and Q06 do not name their subject ("A replacement token arrives in 2 working
